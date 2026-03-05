@@ -9,12 +9,14 @@ import ProcessingScreen from "./components/ProcessingScreen";
 import ReviewLayout from "./components/ReviewLayout";
 import ExportDone from "./components/ExportDone";
 import DxfViewer from "./components/dxf/DxfViewer";
+import EquipmentLayout from "./components/equipment/EquipmentLayout";
 
-type MapTab = "review" | "dxf";
+type MapTab = "review" | "dxf" | "equipment";
 
 export default function Home() {
   const [step,     setStep]     = useState<Step>(1);
   const [dxfPath,  setDxfPath]  = useState<string>("");
+  const [layers,   setLayers]   = useState<string[]>([]);
   const [results,  setResults]  = useState<DigitResult[]>([]);
   const [segments, setSegments] = useState<Segment[]>([]);
   const [mapTab,   setMapTab]   = useState<MapTab>("review");
@@ -22,8 +24,9 @@ export default function Home() {
   const pipeline = usePipeline();
 
   const handleStartProcessing = useCallback(
-      async (opts: { dxfPath: string; layer: string }) => {
+      async (opts: { dxfPath: string; layer: string; allLayers: string[] }) => {
         setDxfPath(opts.dxfPath);
+        setLayers(opts.allLayers);
         setStep(2);
         await pipeline.run(opts);
       },
@@ -45,10 +48,17 @@ export default function Home() {
     pipeline.reset();
     setStep(1);
     setDxfPath("");
+    setLayers([]);
     setResults([]);
     setSegments([]);
     setMapTab("review");
   }, [pipeline]);
+
+  const TABS = [
+    { key: "review",    label: "OCR Review",  icon: "🔍" },
+    { key: "dxf",       label: "DXF Viewer",  icon: "🗺️" },
+    { key: "equipment", label: "Equipment",   icon: "⬡"  },
+  ] as const;
 
   return (
       <div className="flex flex-col h-screen overflow-hidden">
@@ -70,10 +80,7 @@ export default function Home() {
             <div className="flex-1 flex flex-col overflow-hidden">
               {/* Tab bar */}
               <div className="flex items-center gap-1 px-4 pt-2 bg-surface border-b border-border flex-shrink-0">
-                {([
-                  { key: "review", label: "OCR Review", icon: "🔍" },
-                  { key: "dxf",    label: "DXF Viewer", icon: "🗺️" },
-                ] as { key: MapTab; label: string; icon: string }[]).map(({ key, label, icon }) => (
+                {TABS.map(({ key, label, icon }) => (
                     <button
                         key={key}
                         onClick={() => setMapTab(key)}
@@ -88,7 +95,7 @@ export default function Home() {
                 ))}
               </div>
 
-              {/* Tab content */}
+              {/* Tab content — all mounted, hidden when inactive to preserve canvas state */}
               <div className="flex-1 flex overflow-hidden">
                 <div className={`flex-1 flex overflow-hidden ${mapTab === "review" ? "" : "hidden"}`}>
                   <ReviewLayout
@@ -101,6 +108,13 @@ export default function Home() {
                 </div>
                 <div className={`flex-1 flex overflow-hidden ${mapTab === "dxf" ? "" : "hidden"}`}>
                   <DxfViewer dxfPath={dxfPath} />
+                </div>
+                <div className={`flex-1 flex overflow-hidden ${mapTab === "equipment" ? "" : "hidden"}`}>
+                  <EquipmentLayout
+                      dxfPath={dxfPath}
+                      layers={layers}
+                      segments={segments}
+                  />
                 </div>
               </div>
             </div>

@@ -2,16 +2,20 @@
 
 import { useState, useRef, useCallback } from "react";
 
-interface Props {
-    onStartProcessing: (opts: { dxfPath: string; layer: string }) => void;
-}
-
 type UploadState = "idle" | "uploading" | "loaded" | "error";
 
 interface UploadProgress {
     phase: "uploading" | "converting" | "reading_layers" | "checking_model" | "done";
     label: string;
     pct: number;
+}
+
+interface Props {
+    onStartProcessing: (opts: {
+        dxfPath: string;
+        layer: string;
+        allLayers: string[];
+    }) => void;
 }
 
 const PHASES: Record<UploadProgress["phase"], { label: string; pct: number }> = {
@@ -269,7 +273,7 @@ export default function LoadScreen({ onStartProcessing }: Props) {
                         {/* Run button */}
                         <button
                             disabled={!canRun}
-                            onClick={() => onStartProcessing({ dxfPath, layer: selectedLayer })}
+                            onClick={() => onStartProcessing({ dxfPath, layer: selectedLayer, allLayers: layers })}
                             className="w-full py-3.5 bg-accent text-white rounded-xl font-semibold text-sm
                                 flex items-center justify-center gap-2 hover:bg-blue-700 transition-colors
                                 disabled:opacity-35 disabled:cursor-not-allowed"

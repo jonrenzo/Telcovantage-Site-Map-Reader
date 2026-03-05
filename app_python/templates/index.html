@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DXF Processor Test</title>
+    <style>
+        body { font-family: sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; }
+        .form-group { margin-bottom: 1rem; }
+        label { display: block; font-weight: bold; margin-bottom: 0.5rem; }
+        input, select, button { padding: 0.5rem; font-size: 1rem; width: 100%; max-width: 400px; box-sizing: border-box;}
+        button { background-color: #007bff; color: white; border: none; cursor: pointer; margin-top: 1rem;}
+        button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+        .image-container { margin-top: 2rem; border-top: 2px solid #eee; padding-top: 1rem;}
+        img { max-width: 100%; height: auto; border: 1px solid #ccc; margin-top: 1rem;}
+        #loading, #layerLoading { display: none; color: #007bff; font-weight: bold; margin-top: 0.5rem; font-size: 0.9rem;}
+    </style>
+</head>
+<body>
+
+    <h1>Upload DXF for Processing</h1>
+    
+    <form id="uploadForm">
+        <div class="form-group">
+            <label for="dxfFile">1. Select DXF File:</label>
+            <input type="file" id="dxfFile" name="file" accept=".dxf" required>
+            <div id="layerLoading">Reading layers from file...</div>
+        </div>
+
+        <div class="form-group">
+            <label for="layerName">2. Target Layer:</label>
+            <select id="layerName" name="layer" required disabled>
+                <option value="" disabled selected>Select a file first...</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="processType">3. Process Type:</label>
+            <select id="processType" name="type">
+                <option value="digit">Digits / Candidates</option>
+                <option value="amplifier">Amplifiers</option>
+                <option value="node">Nodes</option>
+                <option value="extender">Extenders</option>
+                <option value="generic">Generic Shapes</option>
+            </select>
+        </div>
+
+        <button type="submit" id="submitBtn" disabled>Process DXF</button>
+    </form>
+
+    <div id="loading">Processing Map... This might take a moment depending on the file size.</div>
+
+    <div id="results" class="image-container" style="display: none;">
+        <h2>Results</h2>
+        <pre id="jsonOutput" style="background: #f4f4f4; padding: 1rem; overflow-x: auto;"></pre>
+        
+        <h3>Map View</h3>
+        <img id="mapImage" src="" alt="Processed Map Plot">
+
+        <h3 id="gridTitle" style="display: none;">Candidate Grid</h3>
+        <img id="gridImage" src="" alt="Candidate Grid Plot" style="display: none;">
+    </div>
+
+    <script>
+        // --- NEW: Automatically fetch layers when file is selected ---
+        document.getElementById('dxfFile').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            const layerSelect = document.getElementById('layerName');
+            const submitBtn = document.getElementById('submitBtn');
+            const layerLoading = document.getElementById('layerLoading');
+            
+            if (!file) {
+                layerSelect.innerHTML = '<option value="" disabled selected>Select a file first...</option>';
+                layerSelect.disabled = true;
+                submitBtn.disabled = true;
+                return;
+            }
+
+            // Disable UI while loading
+            layerSelect.disabled = true;
+            submitBtn.disabled = true;
+            layerLoading.style.display = 'block';
+            layerSelect.innerHTML = '<option value="" disabled selected>Loading layers...</option>';
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/api/get-layers', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Failed to fetch layers');
+
+                // Populate dropdown
+                layerSelect.innerHTML = '';
+                data.layers.forEach(layer => {
+                    const option = document.createElement('option');
+                    option.value = layer;
+                    option.textContent = layer;
+                    layerSelect.appendChild(option);
+                });
+
+                // Re-enable UI
+                layerSelect.disabled = false;
+                submitBtn.disabled = false;
+
+            } catch (error) {
+                alert('Error loading layers: ' + error.message);
+                layerSelect.innerHTML = '<option value="" disabled selected>Error loading layers</option>';
+            } finally {
+                layerLoading.style.display = 'none';
+            }
+        });
+
+        // --- EXISTING: Process the form submission ---
+        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const form = e.target;
+            const formData = new FormData(form);
+            
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('results').style.display = 'none';
+            document.getElementById('gridImage').style.display = 'none';
+            document.getElementById('gridTitle').style.display = 'none';
+            document.getElementById('submitBtn').disabled = true;
+
+            try {
+                const response = await fetch('/api/process-dxf', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'Something went wrong');
+                }
+
+                document.getElementById('jsonOutput').textContent = JSON.stringify(data.counts, null, 2);
+
+                if (data.image_map) {
+                    document.getElementById('mapImage').src = 'data:image/png;base64,' + data.image_map;
+                }
+                
+                if (data.image_grid) {
+                    document.getElementById('gridImage').src = 'data:image/png;base64,' + data.image_grid;
+                    document.getElementById('gridImage').style.display = 'block';
+                    document.getElementById('gridTitle').style.display = 'block';
+                }
+
+                document.getElementById('results').style.display = 'block';
+
+            } catch (error) {
+                alert('Error: ' + error.message);
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('submitBtn').disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>

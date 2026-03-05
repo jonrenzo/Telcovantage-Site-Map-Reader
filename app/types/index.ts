@@ -24,6 +24,21 @@ export interface DxfLayerData {
     segmentCount: number;
 }
 
+
+export type EquipmentType = "generic" | "amplifier" | "node" | "extender";
+
+export interface EquipmentShape {
+    shape_id: number;
+    kind: "circle" | "triangle" | "square" | "rectangle" | "hexagon";
+    bbox: [number, number, number, number];
+    cx: number;
+    cy: number;
+}
+
+export interface BoundaryPoint {
+    x: number;
+    y: number;
+}
 export type PipelineStatus = "idle" | "processing" | "done" | "error";
 
 export type FilterMode = "all" | "review" | "corrected";

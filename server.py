@@ -505,6 +505,133 @@ def run_pipeline(dxf_path, layer, model_path):
         state["status"] = "error"
         state["error"] = str(e)
 
+# ─────────────────────────────────────────────────────────────────────────────
+# SHAPE / EQUIPMENT DETECTION
+# ─────────────────────────────────────────────────────────────────────────────
+
+from app_python.services.shape_service import process_equipment_layer, extract_equipment_shapes
+from app_python.services.boundary_service import build_boundary_mask, apply_boundary_filter
+
+EQUIPMENT_STATE = {
+    "status": "idle",   # idle | processing | done | error
+    "error": None,
+    "shapes": [],
+    "boundary": None,
+    "layer": None,
+    "equipment_type": None,
+}
+
+SHAPE_CONFIG = {
+    "min_circle_r":       1e-5,
+    "min_poly_area":      1e-6,
+    "dedup_eps":          1e-4,
+    "min_rect_short_side": 0.05,
+    "max_rect_aspect":    50.0,
+}
+
+BOUNDARY_CONFIG = {
+    "snap_tol":      0.20,
+    "close_max_gap": 1.20,
+    "min_area":      1e-6,
+}
+
+
+def _run_shape_pipeline(dxf_path: str, layer: str, equipment_type: str,
+                        boundary_layer: str | None):
+    try:
+        EQUIPMENT_STATE.update({
+            "status": "processing", "error": None,
+            "shapes": [], "boundary": None,
+            "layer": layer, "equipment_type": equipment_type,
+        })
+
+        doc = ezdxf.readfile(dxf_path)
+
+        # Boundary (optional)
+        boundary = None
+        if boundary_layer:
+            boundary = build_boundary_mask(
+                doc,
+                boundary_layer=boundary_layer,
+                **BOUNDARY_CONFIG,
+            )
+
+        # Shapes
+        shapes = process_equipment_layer(doc, layer, equipment_type, SHAPE_CONFIG)
+        if boundary:
+            shapes = apply_boundary_filter(
+                shapes, boundary, lambda s: (s.cx, s.cy)
+            )
+
+        # Serialise shapes
+        serialised = [
+            {
+                "shape_id":  s.shape_id,
+                "kind":      s.kind,
+                "bbox":      list(s.bbox),
+                "cx":        s.cx,
+                "cy":        s.cy,
+            }
+            for s in shapes
+        ]
+
+        # Serialise boundary polygon
+        boundary_pts = None
+        if boundary:
+            boundary_pts = [{"x": p[0], "y": p[1]} for p in boundary.pts]
+
+        EQUIPMENT_STATE.update({
+            "status": "done",
+            "shapes": serialised,
+            "boundary": boundary_pts,
+        })
+
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        EQUIPMENT_STATE.update({"status": "error", "error": str(e)})
+
+
+@app.route("/api/detect_shapes", methods=["POST"])
+def api_detect_shapes():
+    data           = request.get_json()
+    dxf_path       = data.get("dxf_path", "")
+    layer          = data.get("layer", "")
+    equipment_type = data.get("equipment_type", "generic")
+    boundary_layer = data.get("boundary_layer") or None
+
+    if not dxf_path or not layer:
+        return jsonify({"error": "dxf_path and layer are required"}), 400
+
+    t = threading.Thread(
+        target=_run_shape_pipeline,
+        args=(dxf_path, layer, equipment_type, boundary_layer),
+        daemon=True,
+    )
+    t.start()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/shape_status")
+def api_shape_status():
+    return jsonify({
+        "status": EQUIPMENT_STATE["status"],
+        "error":  EQUIPMENT_STATE["error"],
+        "count":  len(EQUIPMENT_STATE["shapes"]),
+    })
+
+
+@app.route("/api/shape_results")
+def api_shape_results():
+    segs = [{"x1": s.x1, "y1": s.y1, "x2": s.x2, "y2": s.y2}
+            for s in state["segments"]]
+    return jsonify({
+        "shapes":   EQUIPMENT_STATE["shapes"],
+        "boundary": EQUIPMENT_STATE["boundary"],
+        "segments": segs,
+        "layer":    EQUIPMENT_STATE["layer"],
+        "equipment_type": EQUIPMENT_STATE["equipment_type"],
+    })
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # EXPORT TO EXCEL
