@@ -8,12 +8,16 @@ import LoadScreen from "./components/LoadScreen";
 import ProcessingScreen from "./components/ProcessingScreen";
 import ReviewLayout from "./components/ReviewLayout";
 import ExportDone from "./components/ExportDone";
+import DxfViewer from "./components/dxf/DxfViewer";
+
+type MapTab = "review" | "dxf";
 
 export default function Home() {
-  const [step, setStep] = useState<Step>(1);
-  const [dxfPath, setDxfPath] = useState<string>("");
-  const [results, setResults] = useState<DigitResult[]>([]);
+  const [step,     setStep]     = useState<Step>(1);
+  const [dxfPath,  setDxfPath]  = useState<string>("");
+  const [results,  setResults]  = useState<DigitResult[]>([]);
   const [segments, setSegments] = useState<Segment[]>([]);
+  const [mapTab,   setMapTab]   = useState<MapTab>("review");
 
   const pipeline = usePipeline();
 
@@ -26,7 +30,6 @@ export default function Home() {
       [pipeline]
   );
 
-  // Transition from step 2 → 3 once pipeline is done
   if (step === 2 && pipeline.status === "done" && pipeline.results.length > 0) {
     setResults(pipeline.results);
     setSegments(pipeline.segments);
@@ -44,6 +47,7 @@ export default function Home() {
     setDxfPath("");
     setResults([]);
     setSegments([]);
+    setMapTab("review");
   }, [pipeline]);
 
   return (
@@ -63,13 +67,43 @@ export default function Home() {
         )}
 
         {step === 3 && (
-            <ReviewLayout
-                dxfPath={dxfPath}
-                results={results}
-                setResults={setResults}
-                segments={segments}
-                onExportDone={() => setStep(4)}
-            />
+            <div className="flex-1 flex flex-col overflow-hidden">
+              {/* Tab bar */}
+              <div className="flex items-center gap-1 px-4 pt-2 bg-surface border-b border-border flex-shrink-0">
+                {([
+                  { key: "review", label: "OCR Review", icon: "🔍" },
+                  { key: "dxf",    label: "DXF Viewer", icon: "🗺️" },
+                ] as { key: MapTab; label: string; icon: string }[]).map(({ key, label, icon }) => (
+                    <button
+                        key={key}
+                        onClick={() => setMapTab(key)}
+                        className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold rounded-t-lg border-b-2 transition-all
+                  ${mapTab === key
+                            ? "text-accent border-accent bg-accent-light"
+                            : "text-muted border-transparent hover:text-[#1e293b] hover:bg-surface-2"}`}
+                    >
+                      <span>{icon}</span>
+                      {label}
+                    </button>
+                ))}
+              </div>
+
+              {/* Tab content */}
+              <div className="flex-1 flex overflow-hidden">
+                <div className={`flex-1 flex overflow-hidden ${mapTab === "review" ? "" : "hidden"}`}>
+                  <ReviewLayout
+                      dxfPath={dxfPath}
+                      results={results}
+                      setResults={setResults}
+                      segments={segments}
+                      onExportDone={() => setStep(4)}
+                  />
+                </div>
+                <div className={`flex-1 flex overflow-hidden ${mapTab === "dxf" ? "" : "hidden"}`}>
+                  <DxfViewer dxfPath={dxfPath} />
+                </div>
+              </div>
+            </div>
         )}
 
         {step === 4 && <ExportDone onStartOver={handleStartOver} />}

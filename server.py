@@ -713,6 +713,25 @@ def api_download():
         download_name=Path(fpath).name
     )
 
+@app.route("/api/dxf_segments")
+def api_dxf_segments():
+    dxf_path = state.get("dxf_path")
+    if not dxf_path:
+        return jsonify({"error": "No DXF loaded"}), 400
+    try:
+        doc = ezdxf.readfile(dxf_path)
+        layers = list_layers(dxf_path)
+        all_segments = {}
+        for layer in layers:
+            segs = extract_stroke_segments(doc, layer)
+            all_segments[layer] = [
+                {"x1": s.x1, "y1": s.y1, "x2": s.x2, "y2": s.y2}
+                for s in segs
+            ]
+        return jsonify({"layers": layers, "segments": all_segments})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # ENTRY POINT
