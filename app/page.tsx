@@ -57,7 +57,7 @@ export default function Home() {
   const TABS = [
     { key: "review",    label: "OCR Review",  icon: "🔍" },
     { key: "dxf",       label: "DXF Viewer",  icon: "🗺️" },
-    { key: "equipment", label: "Equipment",   icon: "⬡"  },
+    { key: "equipment", label: "Equipment",   icon: "⚙️"  },
   ] as const;
 
   return (

@@ -20,7 +20,7 @@ import threading
 from collections import Counter, defaultdict
 from dataclasses import dataclass, asdict
 from pathlib import Path
-from typing import Dict, Iterable, List, Tuple
+from typing import Dict, Iterable, List, Tuple, Optional
 
 import cv2
 import ezdxf
@@ -443,193 +443,246 @@ def predict_image(model, idx2label, img_np):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# GLOBAL STATE
+# GLOBAL STATE  (OCR pipeline)
 # ─────────────────────────────────────────────────────────────────────────────
 
 state = {
-    "dxf_path": None,
+    "dxf_path":   None,
     "model_path": None,
-    "layer": None,
-    "segments": [],
+    "layer":      None,
+    "segments":   [],
     "candidates": [],
-    "results": [],
-    "status": "idle",
-    "progress": 0,
-    "total": 0,
-    "error": None,
+    "results":    [],
+    "status":     "idle",
+    "progress":   0,
+    "total":      0,
+    "error":      None,
 }
 
 
 def run_pipeline(dxf_path, layer, model_path):
     try:
-        state["status"] = "processing"
+        state["status"]   = "processing"
         state["progress"] = 0
-        state["error"] = None
+        state["error"]    = None
 
-        doc = ezdxf.readfile(dxf_path)
+        doc      = ezdxf.readfile(dxf_path)
         segments = extract_stroke_segments(doc, layer)
         state["segments"] = segments
 
-        clusters = cluster_segments(segments, tol=CONNECT_TOL)
-        infos = analyze_clusters(segments, clusters)
+        clusters   = cluster_segments(segments, tol=CONNECT_TOL)
+        infos      = analyze_clusters(segments, clusters)
         candidates = build_candidates_robust(segments, infos)
         state["candidates"] = candidates
-        state["total"] = len(candidates)
+        state["total"]      = len(candidates)
 
         model, idx2label = load_model(model_path)
 
         results = []
         for i, cand in enumerate(candidates):
-            crop = render_crop(segments, cand)
+            crop        = render_crop(segments, cand)
             value, conf = predict_image(model, idx2label, crop)
             cx = (cand.bbox[0]+cand.bbox[2])/2
             cy = (cand.bbox[1]+cand.bbox[3])/2
             results.append({
-                "digit_id": cand.digit_id,
-                "value": value,
+                "digit_id":        cand.digit_id,
+                "value":           value,
                 "corrected_value": None,
-                "confidence": conf,
-                "needs_review": conf < 0.95,
-                "bbox": list(cand.bbox),
-                "center_x": cx,
-                "center_y": cy,
-                "crop_b64": img_to_b64(crop),
+                "confidence":      conf,
+                "needs_review":    conf < 0.95,
+                "bbox":            list(cand.bbox),
+                "center_x":        cx,
+                "center_y":        cy,
+                "crop_b64":        img_to_b64(crop),
             })
             state["progress"] = i + 1
 
         state["results"] = results
-        state["status"] = "done"
+        state["status"]  = "done"
 
     except Exception as e:
         import traceback; traceback.print_exc()
         state["status"] = "error"
-        state["error"] = str(e)
+        state["error"]  = str(e)
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # SHAPE / EQUIPMENT DETECTION
 # ─────────────────────────────────────────────────────────────────────────────
 
-from app_python.services.shape_service import process_equipment_layer, extract_equipment_shapes
+from app_python.services.shape_service import extract_equipment_shapes
 from app_python.services.boundary_service import build_boundary_mask, apply_boundary_filter
 
-EQUIPMENT_STATE = {
-    "status": "idle",   # idle | processing | done | error
-    "error": None,
-    "shapes": [],
+SCAN_STATE = {
+    "status":   "idle",   # idle | processing | done | error
+    "error":    None,
+    "shapes":   [],
     "boundary": None,
-    "layer": None,
-    "equipment_type": None,
+    "progress": 0,
+    "total":    0,
 }
 
 SHAPE_CONFIG = {
-    "min_circle_r":       1e-5,
-    "min_poly_area":      1e-6,
-    "dedup_eps":          1e-4,
+    "min_circle_r":        1e-5,
+    "min_poly_area":       1e-6,
+    "dedup_eps":           1e-4,
     "min_rect_short_side": 0.05,
-    "max_rect_aspect":    50.0,
+    "max_rect_aspect":     50.0,
 }
 
 BOUNDARY_CONFIG = {
-    "snap_tol":      0.20,
-    "close_max_gap": 1.20,
+    "snap_tol":      0.60,
+    "close_max_gap": 2.50,
     "min_area":      1e-6,
 }
 
-
-def _run_shape_pipeline(dxf_path: str, layer: str, equipment_type: str,
-                        boundary_layer: str | None):
+def _run_full_scan(dxf_path: str, boundary_layer: Optional[str]):
     try:
-        EQUIPMENT_STATE.update({
+        SCAN_STATE.update({
             "status": "processing", "error": None,
             "shapes": [], "boundary": None,
-            "layer": layer, "equipment_type": equipment_type,
+            "progress": 0, "total": 0,
         })
 
-        doc = ezdxf.readfile(dxf_path)
+        doc    = ezdxf.readfile(dxf_path)
+        layers = list_layers(dxf_path)
+
+        # Map shape kinds to the layer name keywords where they live
+        KIND_LAYER_MAP = {
+            "circle":    ["splitter", "tapoff", "tap-off", "tap_off"],
+            "hexagon":   ["tapoff", "tap-off", "tap_off"],
+            "rectangle": ["node", "amplifier", "amp"],
+            "square":    ["tapoff", "tap-off", "tap_off"],
+            "triangle":  ["extender", "extend"],
+        }
+
+        # Build a set of (layer, kinds_to_keep) pairs — only scan layers that
+        # match at least one keyword, and only keep the relevant shape kinds
+        layer_kind_targets: Dict[str, List[str]] = {}
+        for layer in layers:
+            if boundary_layer and layer == boundary_layer:
+                continue
+            l_lower = layer.lower()
+            kinds_for_layer = []
+            for kind, keywords in KIND_LAYER_MAP.items():
+                if any(kw in l_lower for kw in keywords):
+                    kinds_for_layer.append(kind)
+            if kinds_for_layer:
+                layer_kind_targets[layer] = kinds_for_layer
+
+        scan_layers = list(layer_kind_targets.keys())
+        SCAN_STATE["total"] = len(scan_layers)
+
+        print(f"[scan] Targeting {len(scan_layers)} relevant layers out of {len(layers)} total")
+        for l, kinds in layer_kind_targets.items():
+            print(f"  {l} → {kinds}")
+
+        all_shapes = []
+
+        for i, layer in enumerate(scan_layers):
+            allowed_kinds = set(layer_kind_targets[layer])
+            try:
+                shapes = extract_equipment_shapes(doc, layer, **SHAPE_CONFIG)
+                for s in shapes:
+                    if s.kind not in allowed_kinds:
+                        continue
+                    all_shapes.append({
+                        "shape_id": -1,
+                        "kind":     s.kind,
+                        "bbox":     list(s.bbox),
+                        "cx":       s.cx,
+                        "cy":       s.cy,
+                        "layer":    layer,
+                    })
+            except Exception as e:
+                print(f"[scan] Error on layer '{layer}': {e}")
+            SCAN_STATE["progress"] = i + 1
+
+        # Global dedup across layers (same kind + nearly same center)
+        DEDUP_EPS = 0.5
+        all_shapes.sort(key=lambda s: (s["kind"], s["cx"], s["cy"]))
+        deduped = []
+        for s in all_shapes:
+            if not deduped:
+                deduped.append(s)
+                continue
+            prev = deduped[-1]
+            if (s["kind"] == prev["kind"]
+                    and abs(s["cx"] - prev["cx"]) < DEDUP_EPS
+                    and abs(s["cy"] - prev["cy"]) < DEDUP_EPS):
+                continue
+            deduped.append(s)
+
+        # Sort top-to-bottom, left-to-right and assign IDs
+        deduped.sort(key=lambda s: (-s["cy"], s["cx"]))
+        for i, s in enumerate(deduped):
+            s["shape_id"] = i
 
         # Boundary (optional)
-        boundary = None
-        if boundary_layer:
-            boundary = build_boundary_mask(
-                doc,
-                boundary_layer=boundary_layer,
-                **BOUNDARY_CONFIG,
-            )
-
-        # Shapes
-        shapes = process_equipment_layer(doc, layer, equipment_type, SHAPE_CONFIG)
-        if boundary:
-            shapes = apply_boundary_filter(
-                shapes, boundary, lambda s: (s.cx, s.cy)
-            )
-
-        # Serialise shapes
-        serialised = [
-            {
-                "shape_id":  s.shape_id,
-                "kind":      s.kind,
-                "bbox":      list(s.bbox),
-                "cx":        s.cx,
-                "cy":        s.cy,
-            }
-            for s in shapes
-        ]
-
-        # Serialise boundary polygon
         boundary_pts = None
-        if boundary:
-            boundary_pts = [{"x": p[0], "y": p[1]} for p in boundary.pts]
+        if boundary_layer:
+            try:
+                boundary = build_boundary_mask(
+                    doc, boundary_layer=boundary_layer, **BOUNDARY_CONFIG
+                )
+                if boundary:
+                    boundary_pts = [{"x": p[0], "y": p[1]} for p in boundary.pts]
+                    print(f"[boundary] OK — {len(boundary.pts)} pts, area={boundary.area:.2f}")
+                else:
+                    print(f"[boundary] returned None for layer '{boundary_layer}'")
+            except Exception as e:
+                import traceback; traceback.print_exc()
+                print(f"[boundary] ERROR: {e}")
 
-        EQUIPMENT_STATE.update({
-            "status": "done",
-            "shapes": serialised,
+        SCAN_STATE.update({
+            "status":   "done",
+            "shapes":   deduped,
             "boundary": boundary_pts,
         })
+        print(f"[scan] Done — {len(deduped)} shapes across {len(scan_layers)} layers")
 
     except Exception as e:
         import traceback; traceback.print_exc()
-        EQUIPMENT_STATE.update({"status": "error", "error": str(e)})
+        SCAN_STATE.update({"status": "error", "error": str(e)})
 
 
-@app.route("/api/detect_shapes", methods=["POST"])
-def api_detect_shapes():
+@app.route("/api/scan_equipment", methods=["POST"])
+def api_scan_equipment():
     data           = request.get_json()
-    dxf_path       = data.get("dxf_path", "")
-    layer          = data.get("layer", "")
-    equipment_type = data.get("equipment_type", "generic")
+    dxf_path       = data.get("dxf_path", "") or state.get("dxf_path", "")
     boundary_layer = data.get("boundary_layer") or None
 
-    if not dxf_path or not layer:
-        return jsonify({"error": "dxf_path and layer are required"}), 400
+    if not dxf_path:
+        return jsonify({"error": "No DXF loaded"}), 400
 
     t = threading.Thread(
-        target=_run_shape_pipeline,
-        args=(dxf_path, layer, equipment_type, boundary_layer),
+        target=_run_full_scan,
+        args=(dxf_path, boundary_layer),
         daemon=True,
     )
     t.start()
     return jsonify({"ok": True})
 
 
-@app.route("/api/shape_status")
-def api_shape_status():
+@app.route("/api/scan_status")
+def api_scan_status():
     return jsonify({
-        "status": EQUIPMENT_STATE["status"],
-        "error":  EQUIPMENT_STATE["error"],
-        "count":  len(EQUIPMENT_STATE["shapes"]),
+        "status":   SCAN_STATE["status"],
+        "error":    SCAN_STATE["error"],
+        "progress": SCAN_STATE["progress"],
+        "total":    SCAN_STATE["total"],
+        "count":    len(SCAN_STATE["shapes"]),
     })
 
 
-@app.route("/api/shape_results")
-def api_shape_results():
+@app.route("/api/scan_results")
+def api_scan_results():
     segs = [{"x1": s.x1, "y1": s.y1, "x2": s.x2, "y2": s.y2}
             for s in state["segments"]]
     return jsonify({
-        "shapes":   EQUIPMENT_STATE["shapes"],
-        "boundary": EQUIPMENT_STATE["boundary"],
+        "shapes":   SCAN_STATE["shapes"],
+        "boundary": SCAN_STATE["boundary"],
         "segments": segs,
-        "layer":    EQUIPMENT_STATE["layer"],
-        "equipment_type": EQUIPMENT_STATE["equipment_type"],
     })
 
 
@@ -653,28 +706,28 @@ def export_excel(results, dxf_path):
     review_fill = PatternFill("solid", fgColor="FFF3CD")
     ok_fill     = PatternFill("solid", fgColor="D4EDDA")
     sum_fill    = PatternFill("solid", fgColor="E8EAF6")
-    thin = Side(style='thin', color="CCCCCC")
-    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+    thin        = Side(style='thin', color="CCCCCC")
+    border      = Border(left=thin, right=thin, top=thin, bottom=thin)
 
-    headers = ["Digit ID", "Predicted Value", "Corrected Value", "Final Value",
-               "Confidence %", "Needs Review", "Center X", "Center Y", "DXF File"]
+    headers    = ["Digit ID", "Predicted Value", "Corrected Value", "Final Value",
+                  "Confidence %", "Needs Review", "Center X", "Center Y", "DXF File"]
     col_widths = [10, 16, 16, 14, 14, 14, 12, 12, 30]
 
     for ci, (h, w) in enumerate(zip(headers, col_widths), 1):
         cell = ws.cell(row=1, column=ci, value=h)
-        cell.fill = header_fill
-        cell.font = header_font
+        cell.fill      = header_fill
+        cell.font      = header_font
         cell.alignment = Alignment(horizontal="center", vertical="center")
-        cell.border = border
+        cell.border    = border
         ws.column_dimensions[cell.column_letter].width = w
 
     ws.row_dimensions[1].height = 22
-    dxf_name = Path(dxf_path).name
+    dxf_name  = Path(dxf_path).name
     total_sum = 0
 
     for ri, r in enumerate(results, 2):
         final_val = r["corrected_value"] if r["corrected_value"] is not None else r["value"]
-        try: numeric = int(final_val); total_sum += numeric
+        try:    numeric = int(final_val); total_sum += numeric
         except: numeric = final_val
 
         row_data = [
@@ -684,32 +737,32 @@ def export_excel(results, dxf_path):
         ]
         fill = review_fill if r["needs_review"] else ok_fill
         for ci, val in enumerate(row_data, 1):
-            cell = ws.cell(row=ri, column=ci, value=val)
-            cell.fill = fill
+            cell           = ws.cell(row=ri, column=ci, value=val)
+            cell.fill      = fill
             cell.alignment = Alignment(horizontal="center")
-            cell.border = border
+            cell.border    = border
 
     sum_row = len(results) + 2
     ws.cell(row=sum_row, column=1, value="TOTAL").font = Font(bold=True)
-    sum_cell = ws.cell(row=sum_row, column=4, value=total_sum)
+    sum_cell      = ws.cell(row=sum_row, column=4, value=total_sum)
     sum_cell.font = Font(bold=True)
     for ci in range(1, len(headers)+1):
-        c = ws.cell(row=sum_row, column=ci)
-        c.fill = sum_fill
+        c        = ws.cell(row=sum_row, column=ci)
+        c.fill   = sum_fill
         c.border = border
 
-    # Sheet 2: Summary
+    # ── Sheet 2: Summary ─────────────────────────────────────────────────────
     ws2 = wb.create_sheet(title="Summary")
-    h1 = ws2.cell(row=1, column=1, value="Digit ID")
-    h2 = ws2.cell(row=1, column=2, value="Final Value")
+    h1  = ws2.cell(row=1, column=1, value="Digit ID")
+    h2  = ws2.cell(row=1, column=2, value="Final Value")
     for cell in (h1, h2):
-        cell.fill = header_fill
-        cell.font = header_font
+        cell.fill      = header_fill
+        cell.font      = header_font
         cell.alignment = Alignment(horizontal="center", vertical="center")
-        cell.border = border
+        cell.border    = border
     ws2.column_dimensions["A"].width = 12
     ws2.column_dimensions["B"].width = 16
-    ws2.row_dimensions[1].height = 22
+    ws2.row_dimensions[1].height     = 22
 
     sum2 = 0
     for ri, r in enumerate(results, 2):
@@ -720,14 +773,86 @@ def export_excel(results, dxf_path):
         c2 = ws2.cell(row=ri, column=2, value=final_val)
         for c in (c1, c2):
             c.alignment = Alignment(horizontal="center")
-            c.border = border
+            c.border    = border
 
     tr = len(results) + 2
-    for c in (ws2.cell(row=tr, column=1, value="TOTAL"), ws2.cell(row=tr, column=2, value=sum2)):
-        c.fill = sum_fill
-        c.font = Font(bold=True)
+    for c in (ws2.cell(row=tr, column=1, value="TOTAL"),
+              ws2.cell(row=tr, column=2, value=sum2)):
+        c.fill      = sum_fill
+        c.font      = Font(bold=True)
         c.alignment = Alignment(horizontal="center")
-        c.border = border
+        c.border    = border
+
+    # ── Sheet 3: Equipment ───────────────────────────────────────────────────
+    shapes = SCAN_STATE.get("shapes", [])
+    if shapes:
+        ws3 = wb.create_sheet(title="Equipment")
+
+        # Title
+        title_cell = ws3.cell(row=1, column=1, value="Equipment Summary")
+        title_cell.font = Font(bold=True, size=12, color="FFFFFF", name="Calibri")
+        title_cell.fill = header_fill
+        title_cell.alignment = Alignment(horizontal="center", vertical="center")
+        ws3.merge_cells("A1:B1")
+        ws3.row_dimensions[1].height = 22
+
+        # Kind counts
+        kind_counts: Dict[str, int] = {}
+        for sh in shapes:
+            kind_counts[sh["kind"]] = kind_counts.get(sh["kind"], 0) + 1
+
+        ws3.cell(row=2, column=1, value="Shape Kind").font   = header_font
+        ws3.cell(row=2, column=2, value="Count").font        = header_font
+        for ci in [1, 2]:
+            cell           = ws3.cell(row=2, column=ci)
+            cell.fill      = header_fill
+            cell.font      = header_font
+            cell.border    = border
+            cell.alignment = Alignment(horizontal="center")
+
+        for ri, (kind, count) in enumerate(sorted(kind_counts.items()), 3):
+            c1 = ws3.cell(row=ri, column=1, value=kind.capitalize())
+            c2 = ws3.cell(row=ri, column=2, value=count)
+            for c in (c1, c2):
+                c.border    = border
+                c.alignment = Alignment(horizontal="center")
+
+        total_row = len(kind_counts) + 3
+        tc = ws3.cell(row=total_row, column=1, value="TOTAL")
+        tc.font = Font(bold=True); tc.fill = sum_fill
+        tc.border = border; tc.alignment = Alignment(horizontal="center")
+        tv = ws3.cell(row=total_row, column=2, value=len(shapes))
+        tv.font = Font(bold=True); tv.fill = sum_fill
+        tv.border = border; tv.alignment = Alignment(horizontal="center")
+
+        ws3.column_dimensions["A"].width = 16
+        ws3.column_dimensions["B"].width = 10
+
+        # Full shape list
+        list_start  = total_row + 2
+        eq_headers  = ["Shape ID", "Kind", "Layer", "Center X", "Center Y"]
+        eq_widths   = [10, 14, 30, 12, 12]
+
+        for ci, (h, w) in enumerate(zip(eq_headers, eq_widths), 1):
+            cell           = ws3.cell(row=list_start, column=ci, value=h)
+            cell.fill      = header_fill
+            cell.font      = header_font
+            cell.border    = border
+            cell.alignment = Alignment(horizontal="center")
+            ws3.column_dimensions[cell.column_letter].width = w
+
+        for ri, sh in enumerate(shapes, list_start + 1):
+            row_data = [
+                sh["shape_id"] + 1,
+                sh["kind"].capitalize(),
+                sh["layer"],
+                round(sh["cx"], 4),
+                round(sh["cy"], 4),
+            ]
+            for ci, val in enumerate(row_data, 1):
+                cell           = ws3.cell(row=ri, column=ci, value=val)
+                cell.border    = border
+                cell.alignment = Alignment(horizontal="center")
 
     out_path = Path(dxf_path).stem + "_results.xlsx"
     wb.save(out_path)
@@ -743,23 +868,27 @@ def index():
     """Serve the built React app in production."""
     return send_from_directory(app.static_folder, "index.html")
 
+
 @app.route("/api/status")
 def api_status():
     return jsonify({
-        "status": state["status"],
+        "status":   state["status"],
         "progress": state["progress"],
-        "total": state["total"],
-        "error": state["error"],
+        "total":    state["total"],
+        "error":    state["error"],
     })
+
 
 @app.route("/api/results")
 def api_results():
     segs = [{"x1":s.x1,"y1":s.y1,"x2":s.x2,"y2":s.y2} for s in state["segments"]]
     return jsonify({"results": state["results"], "segments": segs})
 
+
 @app.route("/api/check_model")
 def api_check_model():
     return jsonify({"ok": Path("cad_digit_model.pt").exists()})
+
 
 @app.route("/api/upload", methods=["POST"])
 def api_upload():
@@ -791,9 +920,10 @@ def api_upload():
         import traceback; traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
+
 @app.route("/api/layers", methods=["POST"])
 def api_layers():
-    data = request.get_json()
+    data     = request.get_json()
     dxf_path = data.get("dxf_path", "")
     try:
         layers = list_layers(dxf_path)
@@ -801,12 +931,13 @@ def api_layers():
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
+
 @app.route("/api/run", methods=["POST"])
 def api_run():
-    data = request.get_json()
-    state["dxf_path"] = data["dxf_path"]
-    state["layer"] = data["layer"]
-    state["model_path"] = data["model_path"]
+    data                 = request.get_json()
+    state["dxf_path"]    = data["dxf_path"]
+    state["layer"]       = data["layer"]
+    state["model_path"]  = data["model_path"]
     t = threading.Thread(
         target=run_pipeline,
         args=(data["dxf_path"], data["layer"], data["model_path"]),
@@ -815,9 +946,10 @@ def api_run():
     t.start()
     return jsonify({"ok": True})
 
+
 @app.route("/api/export", methods=["POST"])
 def api_export():
-    data = request.get_json()
+    data        = request.get_json()
     corrections = data.get("corrections", {})
     for r in state["results"]:
         did = str(r["digit_id"])
@@ -827,6 +959,7 @@ def api_export():
     if err:
         return jsonify({"error": err}), 500
     return jsonify({"path": path})
+
 
 @app.route("/api/download")
 def api_download():
@@ -840,14 +973,15 @@ def api_download():
         download_name=Path(fpath).name
     )
 
+
 @app.route("/api/dxf_segments")
 def api_dxf_segments():
     dxf_path = state.get("dxf_path")
     if not dxf_path:
         return jsonify({"error": "No DXF loaded"}), 400
     try:
-        doc = ezdxf.readfile(dxf_path)
-        layers = list_layers(dxf_path)
+        doc        = ezdxf.readfile(dxf_path)
+        layers     = list_layers(dxf_path)
         all_segments = {}
         for layer in layers:
             segs = extract_stroke_segments(doc, layer)

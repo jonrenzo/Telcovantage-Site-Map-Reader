@@ -17,14 +17,9 @@ export interface DigitResult {
     crop_b64: string;
 }
 
-export interface DxfLayerData {
-    name: string;
-    visible: boolean;
-    color: string;
-    segmentCount: number;
-}
-
-
+export type PipelineStatus = "idle" | "processing" | "done" | "error";
+export type FilterMode = "all" | "review" | "corrected";
+export type Step = 1 | 2 | 3 | 4;
 export type EquipmentType = "generic" | "amplifier" | "node" | "extender";
 
 export interface EquipmentShape {
@@ -33,14 +28,17 @@ export interface EquipmentShape {
     bbox: [number, number, number, number];
     cx: number;
     cy: number;
+    layer: string;
 }
 
 export interface BoundaryPoint {
     x: number;
     y: number;
 }
-export type PipelineStatus = "idle" | "processing" | "done" | "error";
 
-export type FilterMode = "all" | "review" | "corrected";
-
-export type Step = 1 | 2 | 3 | 4;
+export interface DxfLayerData {
+    name: string;
+    visible: boolean;
+    color: string;
+    segmentCount: number;
+}
