@@ -94,23 +94,23 @@ QUIT
 # DXF PIPELINE
 # ─────────────────────────────────────────────────────────────────────────────
 
-CONNECT_TOL             = 0.20
-MIN_TOTAL_LENGTH        = 0.30
-EPS_THIN                = 0.05
+CONNECT_TOL             = 0.04
+MIN_TOTAL_LENGTH        = 0.15
+EPS_THIN                = 0.03
 LONG_DIM                = 3.0
 COMPLEX_MIN             = 0.15
-MIN_SEGS_FOR_DIGIT      = 3
+MIN_SEGS_FOR_DIGIT      = 2
 MAX_DOM_DIR             = 0.88
 MAX_ENDPOINTS_FOR_LINE  = 2
 ENDPOINT_TOL_SCALE      = 1.0
-W_FACTOR                = 4.0
-H_FACTOR                = 4.0
-LEN_FACTOR              = 6.0
-AREA_FACTOR             = 12.0
+W_FACTOR                = 6.0
+H_FACTOR                = 6.0
+LEN_FACTOR              = 10.0
+AREA_FACTOR             = 18.0
 MAX_ASPECT              = 8.0
-SALVAGE_DIST_FACTOR     = 0.40
-SALVAGE_LONG_SEG_FACTOR = 2.5
-SALVAGE_ANGLE_TOL_DEG   = 15.0
+SALVAGE_DIST_FACTOR     = 0.25
+SALVAGE_LONG_SEG_FACTOR = 1.8
+SALVAGE_ANGLE_TOL_DEG   = 20.0
 
 
 @dataclass
@@ -299,7 +299,7 @@ def _point_line_dist(p,c,d):
     v=p-c; proj=np.dot(v,d)*d; return float(np.linalg.norm(v-proj))
 
 def salvage_remove_dominant_line(segments, idxs, connect_tol, dist_factor, long_seg_factor, angle_tol_deg):
-    if len(idxs)<6: return [idxs]
+    if len(idxs)<4: return [idxs]
     pts=[]; seg_lens=[]
     for i in idxs:
         s=segments[i]; pts+=[[s.x1,s.y1],[s.x2,s.y2]]; seg_lens.append(s.length())
