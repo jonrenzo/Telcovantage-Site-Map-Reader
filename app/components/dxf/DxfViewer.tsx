@@ -613,6 +613,119 @@ export default function DxfViewer({ dxfPath }: Props) {
         redraw();
     };
 
+    const exportToPdf = useCallback(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+
+        const imageData = canvas.toDataURL("image/png");
+        const statuses  = cableStatusRef.current;
+        const spanCount = cableSpansRef.current.length;
+        const layerName = cableLayerRef.current ?? "—";
+
+        const recovered = Object.values(statuses).filter((s) => s === "Recovered").length;
+        const partial   = Object.values(statuses).filter((s) => s === "Unrecovered or Partial").length;
+        const missing   = Object.values(statuses).filter((s) => s === "Missing").length;
+        const tagged    = Object.keys(statuses).length;
+        const dateStr   = new Date().toLocaleString();
+
+        // Build legend rows for every tagged span
+        const spanRows = Object.entries(statuses)
+            .sort((a, b) => Number(a[0]) - Number(b[0]))
+            .map(([id, status]) => {
+                const span = cableSpansRef.current.find((s) => s.span_id === Number(id));
+                const colorMap: Record<string, string> = {
+                    "Recovered":             "#166534",
+                    "Unrecovered or Partial": "#92400e",
+                    "Missing":               "#991b1b",
+                };
+                const bgMap: Record<string, string> = {
+                    "Recovered":             "#dcfce7",
+                    "Unrecovered or Partial": "#fef9c3",
+                    "Missing":               "#fee2e2",
+                };
+                return `<tr>
+                    <td style="padding:4px 10px;border:1px solid #e2e8f0;font-family:monospace">${id}</td>
+                    <td style="padding:4px 10px;border:1px solid #e2e8f0;background:${bgMap[status] ?? '#f1f5f9'};color:${colorMap[status] ?? '#1e293b'};font-weight:600">${status}</td>
+                    <td style="padding:4px 10px;border:1px solid #e2e8f0;font-family:monospace">${span ? span.total_length.toFixed(2) : '—'}</td>
+                    <td style="padding:4px 10px;border:1px solid #e2e8f0;font-family:monospace">${span ? span.segment_count : '—'}</td>
+                </tr>`;
+            })
+            .join("");
+
+        const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Cable Recovery Report</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Inter, Arial, sans-serif; color: #1e293b; background: #fff; padding: 28px; }
+  h1  { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+  .subtitle { font-size: 11px; color: #64748b; margin-bottom: 20px; }
+  .summary { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+  .chip { padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 600; border: 1px solid; }
+  .chip-green  { background:#dcfce7; color:#166534; border-color:#86efac; }
+  .chip-yellow { background:#fef9c3; color:#92400e; border-color:#fde047; }
+  .chip-red    { background:#fee2e2; color:#991b1b; border-color:#fca5a5; }
+  .chip-slate  { background:#f1f5f9; color:#334155; border-color:#cbd5e1; }
+  img { width: 100%; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 24px; display: block; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { background: #f8fafc; padding: 6px 10px; border: 1px solid #e2e8f0; text-align: left; font-weight: 600; color: #475569; }
+  @page { size: landscape; margin: 16px; }
+  @media print { body { padding: 12px; } }
+</style>
+</head>
+<body>
+  <h1>Cable Recovery Status Report</h1>
+  <div class="subtitle">Generated: ${dateStr} &nbsp;|&nbsp; Layer: ${layerName} &nbsp;|&nbsp; Total spans: ${spanCount.toLocaleString()} &nbsp;|&nbsp; Tagged: ${tagged}</div>
+
+  <div class="summary">
+    <span class="chip chip-green">✓ Recovered: ${recovered}</span>
+    <span class="chip chip-yellow">⚠ Unrecovered / Partial: ${partial}</span>
+    <span class="chip chip-red">✕ Missing: ${missing}</span>
+    <span class="chip chip-slate">Total tagged: ${tagged}</span>
+  </div>
+
+  <img src="${imageData}" alt="DXF viewer snapshot" />
+
+  ${spanRows ? `<table>
+    <thead><tr>
+      <th>Span ID</th><th>Status</th><th>Length</th><th>Segments</th>
+    </tr></thead>
+    <tbody>${spanRows}</tbody>
+  </table>` : "<p style='color:#64748b;font-size:12px'>No spans have been tagged yet.</p>"}
+</body>
+</html>`;
+
+        const iframe = document.createElement("iframe");
+        iframe.style.cssText = "position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;border:none;";
+        document.body.appendChild(iframe);
+
+        const doc = iframe.contentDocument;
+        if (!doc) { document.body.removeChild(iframe); return; }
+        doc.open();
+        doc.write(html);
+        doc.close();
+
+        // Wait for the image to load then print
+        const img = doc.querySelector("img");
+        const doPrint = () => {
+            iframe.contentWindow?.focus();
+            iframe.contentWindow?.print();
+            // Remove iframe after the dialog closes (small delay)
+            setTimeout(() => {
+                if (document.body.contains(iframe)) document.body.removeChild(iframe);
+            }, 2000);
+        };
+        if (img) {
+            img.onload = doPrint;
+            // Fallback in case onload already fired
+            if (img.complete) doPrint();
+        } else {
+            doPrint();
+        }
+    }, []);
+
     const visibleCount = layers.filter((l) => l.visible).length;
     const cableVisible = isLayerVisible(cableLayerName);
     const selectedSpan = cableSpansRef.current.find((s) => s.span_id === selectedSpanId) ?? null;
@@ -670,6 +783,7 @@ export default function DxfViewer({ dxfPath }: Props) {
                     onZoomOut={() => { vpRef.current.scale /= 1.3; redraw(); }}
                     visibleCount={visibleCount}
                     totalCount={layers.length}
+                    onExportPdf={exportToPdf}
                 />
             )}
 

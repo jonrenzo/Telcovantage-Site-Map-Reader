@@ -6,15 +6,16 @@ export interface Segment {
 }
 
 export interface DigitResult {
-    digit_id: number;
-    value: string;
+    digit_id:        number;
+    value:           string;
     corrected_value: string | null;
-    confidence: number;
-    needs_review: boolean;
-    bbox: [number, number, number, number];
-    center_x: number;
-    center_y: number;
-    crop_b64: string;
+    confidence:      number;
+    needs_review:    boolean;
+    bbox:            [number, number, number, number];
+    center_x:        number;
+    center_y:        number;
+    crop_b64:        string | null;   // null for manually added entries
+    manual?:         boolean;         // true for manually placed digits
 }
 
 export type PipelineStatus = "idle" | "processing" | "done" | "error";

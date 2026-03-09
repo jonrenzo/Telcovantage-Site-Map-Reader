@@ -11,12 +11,14 @@ interface Props {
     onOpenReviewModal: () => void;
     onExport: () => void;
     fileName: string;
+    manualMode: boolean;
+    onToggleManual: () => void;
 }
 
 const FILTERS: { key: FilterMode; label: string }[] = [
-    { key: "all",       label: "All" },
-    { key: "review",    label: "Uncertain" },
-    { key: "corrected", label: "Fixed" },
+    { key: "all",       label: "All"        },
+    { key: "review",    label: "⚠ Uncertain" },
+    { key: "corrected", label: "✏ Fixed"     },
 ];
 
 function DigitRow({
@@ -35,15 +37,21 @@ function DigitRow({
             onClick={onClick}
             className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg cursor-pointer transition-all border-[1.5px]
         ${selected ? "bg-accent-light border-accent"
-                : result.corrected_value ? "border-[#bbf7d0] bg-ok-light"
-                    : result.needs_review ? "border-[#fde68a] bg-review-light"
-                        : "border-transparent hover:bg-surface-2"}`}
+                : result.manual ? "border-[#ddd6fe] bg-[#f5f3ff]"
+                    : result.corrected_value ? "border-[#bbf7d0] bg-ok-light"
+                        : result.needs_review ? "border-[#fde68a] bg-review-light"
+                            : "border-transparent hover:bg-surface-2"}`}
         >
       <span className="text-[10px] text-muted-2 min-w-[28px] font-mono">
         #{result.digit_id}
       </span>
             <span className="font-mono text-base font-semibold flex-1">{val}</span>
-            {result.corrected_value ? (
+
+            {result.manual ? (
+                <span className="text-[9px] bg-[#8b5cf6]/10 text-[#8b5cf6] px-1.5 py-0.5 rounded font-semibold">
+          MANUAL
+        </span>
+            ) : result.corrected_value ? (
                 <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 text-accent font-semibold whitespace-nowrap">
           ✏ Fixed
         </span>
@@ -63,6 +71,7 @@ function DigitRow({
 export default function ReviewSidebar({
                                           results, filterMode, setFilterMode, selectedId, setSelectedId,
                                           onOpenReviewModal, onExport, fileName,
+                                          manualMode, onToggleManual,
                                       }: Props) {
     const filtered = results.filter((r) => {
         if (filterMode === "review")    return r.needs_review;
@@ -83,19 +92,19 @@ export default function ReviewSidebar({
             {/* Header */}
             <div className="px-5 py-4 border-b border-border">
                 <h2 className="text-[0.95rem] font-bold">Drawing Results</h2>
-                <p className="text-muted mt-0.5 text-base">{fileName}</p>
+                <p className="text-xs text-muted mt-0.5">{fileName}</p>
             </div>
 
             {/* Stats */}
             <div className="grid grid-cols-3 gap-2 p-3.5 border-b border-border">
                 {[
-                    { val: total,        label: "Total",    color: "text-accent" },
-                    { val: toReview,     label: "To Check", color: "text-review" },
-                    { val: sum || "—",   label: "Sum",      color: "text-ok" },
+                    { val: total,        label: "Total",    color: "text-accent"  },
+                    { val: toReview,     label: "To Check", color: "text-review"  },
+                    { val: sum || "—",   label: "Sum",      color: "text-ok"      },
                 ].map(({ val, label, color }) => (
                     <div key={label} className="text-center py-2.5 px-1.5 rounded-lg bg-surface-2">
-                        <div className={`text-xl font-extrabold font-mono ${color}`}>{val}</div>
-                        <div className="text-[10px] text-muted uppercase tracking-wider mt-0.5 font-bold">
+                        <div className={`text-xl font-bold font-mono ${color}`}>{val}</div>
+                        <div className="text-[10px] text-muted uppercase tracking-wider mt-0.5">
                             {label}
                         </div>
                     </div>
@@ -111,15 +120,48 @@ export default function ReviewSidebar({
             bg-review-light text-review border-[#fde68a]
             hover:bg-[#fef3c7] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
-                    {toReview > 0 ? `Check ${toReview} Uncertain` : "✓ All confident"}
+                    {toReview > 0 ? `⚠ Check ${toReview} Uncertain` : "✓ All confident"}
                 </button>
                 <button
                     onClick={onExport}
                     className="flex-1 py-2 text-xs font-semibold rounded-lg border-[1.5px]
             bg-ok-light text-ok border-[#bbf7d0] hover:bg-[#dcfce7] transition-colors"
                 >
-                    Save to Excel
+                    ⬇ Save to Excel
                 </button>
+            </div>
+
+            {/* Add Manually button */}
+            <div className="px-5 py-3 border-b border-border">
+                <button
+                    onClick={onToggleManual}
+                    className={`w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-semibold border-[1.5px] transition-colors ${
+                        manualMode
+                            ? "bg-[#8b5cf6] text-white border-[#8b5cf6]"
+                            : "bg-[#f5f3ff] text-[#8b5cf6] border-[#ddd6fe] hover:bg-[#ede9fe]"
+                    }`}
+                >
+                    {manualMode ? (
+                        <>
+                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                <path d="M18 6L6 18M6 6l12 12" />
+                            </svg>
+                            Cancel — Click map to place
+                        </>
+                    ) : (
+                        <>
+                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                <path d="M12 5v14M5 12h14" />
+                            </svg>
+                            Add Manually
+                        </>
+                    )}
+                </button>
+                {manualMode && (
+                    <p className="text-[10px] text-muted-2 text-center mt-1.5">
+                        Click anywhere on the map, then type the value
+                    </p>
+                )}
             </div>
 
             {/* Filter tabs */}
@@ -148,6 +190,11 @@ export default function ReviewSidebar({
                         onClick={() => setSelectedId(r.digit_id === selectedId ? null : r.digit_id)}
                     />
                 ))}
+                {filtered.length === 0 && (
+                    <div className="flex items-center justify-center h-full text-xs text-muted-2 text-center px-4">
+                        No digits match this filter
+                    </div>
+                )}
             </div>
         </aside>
     );

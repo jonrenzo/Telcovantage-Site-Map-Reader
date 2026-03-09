@@ -16,6 +16,8 @@ interface Props {
     selectedId: number | null;
     onSelectDigit: (id: number | null) => void;
     theme: Theme;
+    manualMode: boolean;
+    onManualPlace: (cx: number, cy: number) => void;
 }
 
 interface Viewport {
@@ -26,6 +28,7 @@ interface Viewport {
 
 export default function MapCanvas({
                                       segments, results, filterMode, selectedId, onSelectDigit, theme,
+                                      manualMode, onManualPlace,
                                   }: Props) {
     const canvasRef  = useRef<HTMLCanvasElement>(null);
     const vpRef      = useRef<Viewport>({ x: 0, y: 0, scale: 1 });
@@ -36,10 +39,13 @@ export default function MapCanvas({
     const filterRef     = useRef(filterMode);
     const selectedIdRef = useRef(selectedId);
     const themeRef      = useRef(theme);
-    useEffect(() => { resultsRef.current    = results;    }, [results]);
-    useEffect(() => { filterRef.current     = filterMode; }, [filterMode]);
-    useEffect(() => { selectedIdRef.current = selectedId; }, [selectedId]);
-    useEffect(() => { themeRef.current      = theme;      }, [theme]);
+    const manualModeRef = useRef(manualMode);
+
+    useEffect(() => { resultsRef.current    = results;     }, [results]);
+    useEffect(() => { filterRef.current     = filterMode;  }, [filterMode]);
+    useEffect(() => { selectedIdRef.current = selectedId;  }, [selectedId]);
+    useEffect(() => { themeRef.current      = theme;       }, [theme]);
+    useEffect(() => { manualModeRef.current = manualMode;  }, [manualMode]);
 
     const redraw = useCallback(() => {
         const canvas = canvasRef.current;
@@ -75,9 +81,13 @@ export default function MapCanvas({
             const { center_x: cx, center_y: cy } = result;
             const isSel = result.digit_id === selId;
             const val   = result.corrected_value ?? result.value;
-            const color = result.corrected_value ? t.corrected
-                : result.needs_review    ? t.review
-                    : t.ok;
+            const color = result.manual
+                ? "#8b5cf6"
+                : result.corrected_value
+                    ? t.corrected
+                    : result.needs_review
+                        ? t.review
+                        : t.ok;
 
             ctx.beginPath();
             ctx.arc(cx, cy, r, 0, 2 * Math.PI);
@@ -96,9 +106,11 @@ export default function MapCanvas({
             ctx.font         = `600 ${9 / vp.scale}px Inter, sans-serif`;
             ctx.textAlign    = "center";
             ctx.textBaseline = "middle";
+
             ctx.fillText(val, 0, 0);
             ctx.restore();
         }
+
         ctx.restore();
     }, [segments]);
 
@@ -179,9 +191,14 @@ export default function MapCanvas({
             const dx = Math.abs(e.clientX - pan.start.x);
             const dy = Math.abs(e.clientY - pan.start.y);
             if (dx < 5 && dy < 5) {
-                const p   = s2w(e.nativeEvent.offsetX, e.nativeEvent.offsetY);
-                const hit = hitTest(p.x, p.y);
-                onSelectDigit(hit ? hit.digit_id : null);
+                const p = s2w(e.nativeEvent.offsetX, e.nativeEvent.offsetY);
+                if (manualModeRef.current) {
+                    // In manual mode, place a new digit instead of selecting
+                    onManualPlace(p.x, p.y);
+                } else {
+                    const hit = hitTest(p.x, p.y);
+                    onSelectDigit(hit ? hit.digit_id : null);
+                }
             }
         }
         panRef.current.active = false;
@@ -201,12 +218,20 @@ export default function MapCanvas({
         <>
             <canvas
                 ref={canvasRef}
-                className="absolute inset-0 cursor-grab active:cursor-grabbing"
+                className={`absolute inset-0 ${manualMode ? "cursor-crosshair" : "cursor-grab active:cursor-grabbing"}`}
                 onMouseDown={onMouseDown}
                 onMouseMove={onMouseMove}
                 onMouseUp={onMouseUp}
                 onWheel={onWheel}
             />
+
+            {/* Crosshair hint */}
+            {manualMode && (
+                <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 bg-[#8b5cf6] text-white text-xs font-semibold px-3 py-1.5 rounded-full shadow-lg pointer-events-none">
+                    Click on the map to place a digit
+                </div>
+            )}
+
             <div className="absolute bottom-4 right-4 flex flex-col gap-1.5">
                 {[
                     { label: "⊡", title: "Fit to screen", onClick: fitView },

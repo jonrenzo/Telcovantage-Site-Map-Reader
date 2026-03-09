@@ -26,10 +26,19 @@ export default function DetailPanel({ result, onClose, onSave }: Props) {
     };
 
     return (
-        <div className="absolute top-4 right-4 w-56 bg-surface border border-border rounded-2xl shadow-xl overflow-hidden z-20">
+        <div className="absolute top-4 right-4 w-60 bg-surface border border-border rounded-2xl shadow-xl overflow-hidden z-20">
             {/* Header */}
-            <div className="bg-accent px-3 py-2.5 flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-white">Reading #{result.digit_id}</h3>
+            <div className={`px-3.5 py-3 flex items-center justify-between ${result.manual ? "bg-[#8b5cf6]" : "bg-accent"}`}>
+                <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-semibold text-white">
+                        Reading #{result.digit_id}
+                    </h3>
+                    {result.manual && (
+                        <span className="text-[9px] bg-white/20 text-white px-1.5 py-0.5 rounded font-semibold">
+              MANUAL
+            </span>
+                    )}
+                </div>
                 <button
                     onClick={onClose}
                     className="w-5 h-5 rounded-full bg-white/20 text-white hover:bg-white/35 flex items-center justify-center text-xs transition-colors"
@@ -39,47 +48,53 @@ export default function DetailPanel({ result, onClose, onSave }: Props) {
             </div>
 
             {/* Body */}
-            <div className="p-3">
-                {/* Crop image */}
-                <img
-                    src={`data:image/png;base64,${result.crop_b64}`}
-                    alt="digit crop"
-                    className="w-full aspect-square bg-black rounded-lg object-contain mb-2.5"
-                    style={{ imageRendering: "pixelated" }}
-                />
+            <div className="p-3.5">
+                {/* Show crop image only for OCR results, not manual entries */}
+                {result.crop_b64 ? (
+                    <img
+                        src={`data:image/png;base64,${result.crop_b64}`}
+                        alt="digit crop"
+                        className="w-full aspect-square bg-black rounded-lg object-contain mb-3"
+                        style={{ imageRendering: "pixelated" }}
+                    />
+                ) : (
+                    <div className="w-full aspect-square bg-surface-2 rounded-lg flex items-center justify-center mb-3 border border-border">
+                        <div className="text-center">
+                            <div className="text-3xl mb-1">＋</div>
+                            <p className="text-[10px] text-muted">Manually added</p>
+                        </div>
+                    </div>
+                )}
 
-                {/* Prediction row */}
-                <div className="flex items-center justify-between mb-2">
-          <span className="font-mono text-2xl font-bold">
+                <div className="flex items-center justify-between mb-1">
+          <span className="font-mono text-[1.8rem] font-bold">
             {result.corrected_value ?? result.value}
           </span>
                     <span className="text-xs text-muted">
-            {Math.round(result.confidence * 100)}% confidence
+            {result.manual
+                ? "manual entry"
+                : `${Math.round(result.confidence * 100)}% confidence`}
           </span>
                 </div>
 
-                {/* Divider */}
-                <div className="border-t border-border mb-2.5" />
-
-                {/* Correction */}
-                <p className="text-[10px] font-semibold text-muted uppercase tracking-wider mb-1.5">
-                    Correct value if wrong:
+                <p className="text-[10px] font-semibold text-muted uppercase tracking-wider mt-2.5 mb-1.5">
+                    {result.manual ? "Edit value:" : "Correct value if wrong:"}
                 </p>
                 <div className="flex gap-1.5">
                     <input
                         ref={inputRef}
                         type="text"
-                        maxLength={3}
+                        maxLength={6}
                         placeholder="??"
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyDown={handleKeyDown}
-                        className="min-w-0 flex-1 bg-surface-2 border-[1.5px] border-border rounded-lg px-2 py-1.5
-              font-mono text-sm text-center outline-none focus:border-accent transition-colors"
+                        className="flex-1 bg-surface-2 border-[1.5px] border-border rounded-lg px-2.5 py-2
+              font-mono text-base text-center outline-none focus:border-accent transition-colors min-w-0"
                     />
                     <button
                         onClick={handleSave}
-                        className="px-2.5 py-1.5 bg-ok text-white rounded-lg text-xs font-semibold hover:bg-green-700 transition-colors flex-shrink-0"
+                        className="px-3 py-2 bg-ok text-white rounded-lg text-xs font-semibold hover:bg-green-700 transition-colors flex-shrink-0"
                     >
                         Save
                     </button>
