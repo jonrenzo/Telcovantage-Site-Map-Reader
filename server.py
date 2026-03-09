@@ -112,6 +112,11 @@ SALVAGE_DIST_FACTOR     = 0.25
 SALVAGE_LONG_SEG_FACTOR = 1.8
 SALVAGE_ANGLE_TOL_DEG   = 20.0
 
+# Cable interaction grouping tolerance.
+# Use a slightly larger tolerance than OCR clustering so cosmetic line breaks
+# can still join into one clickable cable span.
+CABLE_CONNECT_TOL       = 0.10
+
 
 @dataclass
 class Seg:
@@ -384,6 +389,83 @@ def render_crop(segments, cand, out_size=96, pad_frac=0.06, thickness=2):
 def img_to_b64(img_np):
     _, buf = cv2.imencode('.png', img_np)
     return base64.b64encode(buf).decode()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CABLE SPAN HELPERS
+# ─────────────────────────────────────────────────────────────────────────────
+
+def find_cable_layer_name(layers: List[str]) -> Optional[str]:
+    """
+    Prefer exact 'cable' match (case-insensitive), then fallback to the first
+    layer containing 'cable'.
+    """
+    if not layers:
+        return None
+
+    lower_map = {layer.lower(): layer for layer in layers}
+    if "cable" in lower_map:
+        return lower_map["cable"]
+
+    for layer in layers:
+        if "cable" in layer.lower():
+            return layer
+    return None
+
+
+def build_cable_spans(doc, cable_layer: str, connect_tol: float = CABLE_CONNECT_TOL):
+    """
+    Group cable layer segments into clickable spans.
+    Each span is a connected cluster of cable segments using endpoint proximity.
+    """
+    segments = extract_stroke_segments(doc, cable_layer)
+    if not segments:
+        return []
+
+    clusters = cluster_segments(segments, tol=connect_tol)
+    spans = []
+
+    for span_id, idxs in enumerate(clusters):
+        if not idxs:
+            continue
+        total_len = sum(segments[i].length() for i in idxs)
+        if total_len <= 1e-8:
+            continue
+
+        bbox = _bbox_from_segments(segments, idxs)
+        minx, miny, maxx, maxy = bbox
+        cx = (minx + maxx) / 2.0
+        cy = (miny + maxy) / 2.0
+
+        span_segments = []
+        for i in idxs:
+            s = segments[i]
+            if s.length() <= 1e-8:
+                continue
+            span_segments.append({
+                "x1": s.x1, "y1": s.y1,
+                "x2": s.x2, "y2": s.y2,
+            })
+
+        if not span_segments:
+            continue
+
+        spans.append({
+            "span_id": span_id,
+            "layer": cable_layer,
+            "bbox": [minx, miny, maxx, maxy],
+            "cx": cx,
+            "cy": cy,
+            "segment_count": len(span_segments),
+            "total_length": total_len,
+            "segments": span_segments,
+        })
+
+    spans.sort(key=lambda s: (-s["cy"], s["cx"]))
+    for i, s in enumerate(spans):
+        s["span_id"] = i
+
+    return spans
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -991,6 +1073,36 @@ def api_dxf_segments():
             ]
         return jsonify({"layers": layers, "segments": all_segments})
     except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/api/cable_spans")
+def api_cable_spans():
+    dxf_path = state.get("dxf_path")
+    if not dxf_path:
+        return jsonify({"error": "No DXF loaded"}), 400
+
+    try:
+        doc = ezdxf.readfile(dxf_path)
+        layers = list_layers(dxf_path)
+        cable_layer = find_cable_layer_name(layers)
+
+        if not cable_layer:
+            return jsonify({
+                "cable_layer": None,
+                "spans": [],
+                "message": "No cable layer found",
+            })
+
+        spans = build_cable_spans(doc, cable_layer, connect_tol=CABLE_CONNECT_TOL)
+
+        return jsonify({
+            "cable_layer": cable_layer,
+            "count": len(spans),
+            "spans": spans,
+        })
+    except Exception as e:
+        import traceback; traceback.print_exc()
         return jsonify({"error": str(e)}), 400
 
 
