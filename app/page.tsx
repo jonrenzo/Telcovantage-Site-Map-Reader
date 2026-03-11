@@ -10,8 +10,9 @@ import ReviewLayout from "./components/ReviewLayout";
 import ExportDone from "./components/ExportDone";
 import DxfViewer from "./components/dxf/DxfViewer";
 import EquipmentLayout from "./components/equipment/EquipmentLayout";
+import PoleLayout from "./components/poles/Polelayout";
 
-type MapTab = "review" | "dxf" | "equipment";
+type MapTab = "review" | "dxf" | "equipment" | "pole";
 
 export default function Home() {
   const [step,     setStep]     = useState<Step>(1);
@@ -58,6 +59,7 @@ export default function Home() {
     { key: "review",    label: "OCR Review",  icon: "🔍" },
     { key: "dxf",       label: "DXF Viewer",  icon: "🗺️" },
     { key: "equipment", label: "Equipment",   icon: "⚙️"  },
+    { key: "pole",      label: "Pole IDs",    icon: "🔵"  },
   ] as const;
 
   return (
@@ -114,6 +116,13 @@ export default function Home() {
                       dxfPath={dxfPath}
                       layers={layers}
                       segments={segments}
+                  />
+                </div>
+                <div className={`flex-1 flex overflow-hidden ${mapTab === "pole" ? "" : "hidden"}`}>
+                  <PoleLayout
+                      dxfPath={dxfPath}
+                      allLayers={layers}
+                      layerSegments={{ all: segments }}
                   />
                 </div>
               </div>
