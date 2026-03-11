@@ -67,21 +67,21 @@ function renderPoleCrop(tag: PoleTag, allSegments: Segment[]): string {
     ctx.setLineDash([]);
 
     // Amber dot at pole center
-    const center = toPixel(tag.cx, tag.cy);
-    ctx.beginPath();
-    ctx.arc(center.px, center.py, 5, 0, 2 * Math.PI);
-    ctx.fillStyle   = "#f59e0b";
-    ctx.fill();
-    ctx.strokeStyle = "#fff";
-    ctx.lineWidth   = 1.5;
-    ctx.stroke();
+    // const center = toPixel(tag.cx, tag.cy);
+    // ctx.beginPath();
+    // ctx.arc(center.px, center.py, 5, 0, 2 * Math.PI);
+    // ctx.fillStyle   = "#f59e0b";
+    // ctx.fill();
+    // ctx.strokeStyle = "#fff";
+    // ctx.lineWidth   = 1.5;
+    // ctx.stroke();
 
     // Pole name label above the dot
     ctx.fillStyle    = "#fbbf24";
     ctx.font         = "bold 11px Inter, sans-serif";
     ctx.textAlign    = "center";
     ctx.textBaseline = "bottom";
-    ctx.fillText(tag.name || `POLE_${tag.pole_id}`, center.px, Math.max(center.py - 9, 13));
+    //ctx.fillText(tag.name || `POLE_${tag.pole_id}`, center.px, Math.max(center.py - 9, 13));
 
     return offscreen.toDataURL("image/png");
 }
