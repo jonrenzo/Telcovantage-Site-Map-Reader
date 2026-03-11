@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import type { PoleTag } from "../types";
+import type { PoleTag } from "../../types";
 
 interface Props {
     dxfPath: string;
