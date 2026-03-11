@@ -1,15 +1,16 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import type { DigitResult } from "../types";
+import type { DigitResult } from "@/types";
 
 interface Props {
     result: DigitResult;
     onClose: () => void;
     onSave: (value: string) => void;
+    onDelete: (digitId: number) => void;
 }
 
-export default function DetailPanel({ result, onClose, onSave }: Props) {
+export default function DetailPanel({ result, onClose, onSave, onDelete }: Props) {
     const [input, setInput] = useState(result.corrected_value ?? "");
     const inputRef = useRef<HTMLInputElement>(null);
 
@@ -102,6 +103,15 @@ export default function DetailPanel({ result, onClose, onSave }: Props) {
                 <p className="text-[10px] text-muted-2 mt-2 text-center">
                     Press Enter to save · Esc to close
                 </p>
+
+                {result.manual && (
+                    <button
+                        onClick={() => onDelete(result.digit_id)}
+                        className="mt-3 w-full px-3 py-2 rounded-lg text-xs font-semibold text-[#dc2626] border border-[#fecaca] hover:bg-[#fef2f2] transition-colors"
+                    >
+                        🗑 Remove this entry
+                    </button>
+                )}
             </div>
         </div>
     );

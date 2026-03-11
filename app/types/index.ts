@@ -16,6 +16,7 @@ export interface DigitResult {
     center_y:        number;
     crop_b64:        string | null;   // null for manually added entries
     manual?:         boolean;         // true for manually placed digits
+    pole_id?:        string | null;   // assigned when pole backend is connected
 }
 
 export type PipelineStatus = "idle" | "processing" | "done" | "error";
@@ -42,4 +43,14 @@ export interface DxfLayerData {
     visible: boolean;
     color: string;
     segmentCount: number;
+}
+
+export interface PoleTag {
+    pole_id:  number;
+    name:     string;
+    cx:       number;
+    cy:       number;
+    bbox:     [number, number, number, number];
+    layer:    string;
+    crop_b64: string | null;
 }

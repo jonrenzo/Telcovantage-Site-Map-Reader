@@ -9,6 +9,8 @@ interface Theme {
     corrected: string;
 }
 
+export type LabelMode = "strand" | "pole";
+
 interface Props {
     segments: Segment[];
     results: DigitResult[];
@@ -18,6 +20,7 @@ interface Props {
     theme: Theme;
     manualMode: boolean;
     onManualPlace: (cx: number, cy: number) => void;
+    labelMode: LabelMode;
 }
 
 interface Viewport {
@@ -28,7 +31,7 @@ interface Viewport {
 
 export default function MapCanvas({
                                       segments, results, filterMode, selectedId, onSelectDigit, theme,
-                                      manualMode, onManualPlace,
+                                      manualMode, onManualPlace, labelMode,
                                   }: Props) {
     const canvasRef  = useRef<HTMLCanvasElement>(null);
     const vpRef      = useRef<Viewport>({ x: 0, y: 0, scale: 1 });
@@ -40,12 +43,14 @@ export default function MapCanvas({
     const selectedIdRef = useRef(selectedId);
     const themeRef      = useRef(theme);
     const manualModeRef = useRef(manualMode);
+    const labelModeRef  = useRef(labelMode);
 
     useEffect(() => { resultsRef.current    = results;     }, [results]);
     useEffect(() => { filterRef.current     = filterMode;  }, [filterMode]);
     useEffect(() => { selectedIdRef.current = selectedId;  }, [selectedId]);
     useEffect(() => { themeRef.current      = theme;       }, [theme]);
     useEffect(() => { manualModeRef.current = manualMode;  }, [manualMode]);
+    useEffect(() => { labelModeRef.current  = labelMode;   }, [labelMode]);
 
     const redraw = useCallback(() => {
         const canvas = canvasRef.current;
@@ -57,6 +62,7 @@ export default function MapCanvas({
         const filter = filterRef.current;
         const selId  = selectedIdRef.current;
         const t      = themeRef.current;
+        const mode   = labelModeRef.current;
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         if (!segments.length) return;
@@ -80,19 +86,30 @@ export default function MapCanvas({
 
             const { center_x: cx, center_y: cy } = result;
             const isSel = result.digit_id === selId;
-            const val   = result.corrected_value ?? result.value;
-            const color = result.manual
-                ? "#8b5cf6"
-                : result.corrected_value
-                    ? t.corrected
-                    : result.needs_review
-                        ? t.review
-                        : t.ok;
+
+            // Label: strand value OR pole id placeholder
+            const strandVal = result.corrected_value ?? result.value;
+            const poleVal   = result.pole_id != null ? String(result.pole_id) : `#${result.digit_id}`;
+            const label     = mode === "pole" ? poleVal : strandVal;
+
+            // Strand mode uses OCR confidence colors; pole mode uses amber
+            const baseColor = mode === "pole"
+                ? "#f59e0b"
+                : result.manual
+                    ? "#8b5cf6"
+                    : result.corrected_value
+                        ? t.corrected
+                        : result.needs_review
+                            ? t.review
+                            : t.ok;
+
+            const selColor = mode === "pole" ? "#d97706" : baseColor;
 
             ctx.beginPath();
             ctx.arc(cx, cy, r, 0, 2 * Math.PI);
-            ctx.fillStyle = isSel ? color : color + "cc";
+            ctx.fillStyle = isSel ? selColor : baseColor + "cc";
             ctx.fill();
+
             if (isSel) {
                 ctx.strokeStyle = "#fff";
                 ctx.lineWidth   = 2 / vp.scale;
@@ -106,8 +123,7 @@ export default function MapCanvas({
             ctx.font         = `600 ${9 / vp.scale}px Inter, sans-serif`;
             ctx.textAlign    = "center";
             ctx.textBaseline = "middle";
-
-            ctx.fillText(val, 0, 0);
+            ctx.fillText(label, 0, 0);
             ctx.restore();
         }
 
@@ -153,7 +169,7 @@ export default function MapCanvas({
         return () => ro.disconnect();
     }, [redraw]);
 
-    useEffect(() => { redraw(); }, [redraw, results, filterMode, selectedId, theme]);
+    useEffect(() => { redraw(); }, [redraw, results, filterMode, selectedId, theme, labelMode]);
 
     function s2w(sx: number, sy: number) {
         const vp = vpRef.current;
@@ -193,7 +209,6 @@ export default function MapCanvas({
             if (dx < 5 && dy < 5) {
                 const p = s2w(e.nativeEvent.offsetX, e.nativeEvent.offsetY);
                 if (manualModeRef.current) {
-                    // In manual mode, place a new digit instead of selecting
                     onManualPlace(p.x, p.y);
                 } else {
                     const hit = hitTest(p.x, p.y);
@@ -225,7 +240,6 @@ export default function MapCanvas({
                 onWheel={onWheel}
             />
 
-            {/* Crosshair hint */}
             {manualMode && (
                 <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 bg-[#8b5cf6] text-white text-xs font-semibold px-3 py-1.5 rounded-full shadow-lg pointer-events-none">
                     Click on the map to place a digit

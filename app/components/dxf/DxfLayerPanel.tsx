@@ -47,7 +47,7 @@ const GROUPS: LayerGroup[] = [
     {
         key: "tapoffs",
         label: "Tapoffs / Splitters",
-        icon: "⬡",
+        icon: "🔀",
         color: "#16a34a",
         bgColor: "#f0fdf4",
         match: (n) => {
@@ -62,7 +62,7 @@ const GROUPS: LayerGroup[] = [
 const OTHER_GROUP: LayerGroup = {
     key: "other",
     label: "Other Layers",
-    icon: "◻",
+    icon: "♾️",
     color: "#64748b",
     bgColor: "#f8fafc",
     match: () => true,

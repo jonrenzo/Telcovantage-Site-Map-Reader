@@ -767,6 +767,105 @@ def api_scan_results():
         "segments": segs,
     })
 
+import poleid as _poleid
+
+POLE_STATE: Dict = {
+    "status":  "idle",   # idle | processing | done | error
+    "error":   None,
+    "tags":    [],       # list of serialised PoleTag dicts
+    "layer":   None,     # the layer name that was scanned
+}
+
+POLE_CONFIG = _poleid.PoleIdConfig(
+    include_text=True,
+    include_mtext=True,
+    filter_text_by_regex=True,
+    include_stroke=True,
+    use_circle_markers=False,
+    require_circle_match=False,
+    max_dist_factor=4.0,
+    default_text_height=0.25,
+    stroke_connect_tol=0.20,
+    stroke_min_total_length=0.30,
+    stroke_min_segments=4,
+    stroke_min_bbox_w=0.05,
+    stroke_min_bbox_h=0.05,
+    stroke_max_aspect=20.0,
+    stroke_max_dom_dir=0.97,
+    stroke_max_endpoints=24,
+    stroke_placeholder_prefix="POLE",
+)
+
+
+def _run_pole_scan(dxf_path: str, layer_name: str) -> None:
+    """Background thread: scan one layer for pole labels via poleid.py."""
+    try:
+        POLE_STATE.update({
+            "status": "processing",
+            "error":  None,
+            "tags":   [],
+            "layer":  layer_name,
+        })
+
+        doc = ezdxf.readfile(dxf_path)
+        matches = _poleid.find_pole_labels(doc, layer_name, config=POLE_CONFIG)
+
+        tags = []
+        for pole_id, (lab, _circ) in enumerate(matches):
+            # bbox may be None for stroke labels — fall back to point bbox
+            bbox = list(lab.bbox) if lab.bbox else [lab.x, lab.y, lab.x, lab.y]
+            tags.append({
+                "pole_id":  pole_id,
+                "name":     _poleid.clean_label(lab.text),
+                "cx":       round(lab.x, 4),
+                "cy":       round(lab.y, 4),
+                "bbox":     [round(v, 4) for v in bbox],
+                "layer":    layer_name,
+                "source":   getattr(lab, "source", "unknown"),
+                "crop_b64": None,   # reserved for future use
+            })
+
+        POLE_STATE.update({
+            "status": "done",
+            "tags":   tags,
+        })
+        print(f"[pole_scan] Done — {len(tags)} pole labels on layer '{layer_name}'")
+
+    except Exception as exc:
+        import traceback
+        traceback.print_exc()
+        POLE_STATE.update({"status": "error", "error": str(exc)})
+
+
+@app.route("/api/pole_tags")
+def api_pole_tags():
+    return jsonify({
+        "status": POLE_STATE["status"],
+        "error":  POLE_STATE["error"],
+        "layer":  POLE_STATE["layer"],
+        "count":  len(POLE_STATE["tags"]),
+        "tags":   POLE_STATE["tags"],
+    })
+
+
+@app.route("/api/pole_tags/scan", methods=["POST"])
+def api_pole_tags_scan():
+    data       = request.get_json()
+    dxf_path   = data.get("dxf_path", "") or state.get("dxf_path", "")
+    layer_name = data.get("layer", "")
+
+    if not dxf_path:
+        return jsonify({"error": "No DXF loaded"}), 400
+    if not layer_name:
+        return jsonify({"error": "layer is required"}), 400
+
+    t = threading.Thread(
+        target=_run_pole_scan,
+        args=(dxf_path, layer_name),
+        daemon=True,
+    )
+    t.start()
+    return jsonify({"ok": True})
 
 # ─────────────────────────────────────────────────────────────────────────────
 # EXPORT TO EXCEL

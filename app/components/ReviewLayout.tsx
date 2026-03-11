@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import type { DigitResult, Segment, FilterMode } from "../types";
 import ReviewSidebar from "./ReviewSidebar";
 import MapCanvas from "./MapCanvas";
+import type { LabelMode } from "./MapCanvas";
 import DetailPanel from "./DetailPanel";
 import ReviewModal from "./ReviewModal";
 
@@ -32,6 +33,7 @@ export default function ReviewLayout({
     const [reviewOpen,    setReviewOpen]    = useState(false);
     const [sidebarOpen,   setSidebarOpen]   = useState(true);
     const [theme,         setTheme]         = useState<ColorTheme>("default");
+    const [labelMode,     setLabelMode]     = useState<LabelMode>("strand");
 
     // Manual placement state
     const [manualMode,    setManualMode]    = useState(false);
@@ -46,6 +48,11 @@ export default function ReviewLayout({
                     : r
             )
         );
+    }, [setResults]);
+
+    const handleDelete = useCallback((digitId: number) => {
+        setResults((prev) => prev.filter((r) => r.digit_id !== digitId));
+        setSelectedId(null);
     }, [setResults]);
 
     const handleExport = useCallback(async () => {
@@ -70,9 +77,8 @@ export default function ReviewLayout({
     const confirmManual = useCallback(() => {
         if (!manualPending || !manualValue.trim()) return;
 
-        // Render a small crop of the DXF segments around the click point
         const CROP_SIZE = 96;
-        const PADDING   = .05; // DXF units around the click to capture
+        const PADDING   = 0.05;
         const offscreen = document.createElement("canvas");
         offscreen.width  = CROP_SIZE;
         offscreen.height = CROP_SIZE;
@@ -92,7 +98,6 @@ export default function ReviewLayout({
 
             const toPixel = (x: number, y: number) => ({
                 px: ((x - minX) / rangeX) * CROP_SIZE,
-                // flip Y — DXF Y increases upward, canvas downward
                 py: ((maxY - y) / rangeY) * CROP_SIZE,
             });
 
@@ -111,7 +116,6 @@ export default function ReviewLayout({
             }
             ctx.stroke();
 
-            // Small crosshair at the exact click point
             const center = toPixel(cx, cy);
             ctx.strokeStyle = "#8b5cf6";
             ctx.lineWidth   = 1;
@@ -192,6 +196,7 @@ export default function ReviewLayout({
                     theme={THEMES[theme]}
                     manualMode={manualMode}
                     onManualPlace={handleManualPlace}
+                    labelMode={labelMode}
                 />
 
                 {selectedResult && !manualMode && (
@@ -199,6 +204,7 @@ export default function ReviewLayout({
                         result={selectedResult}
                         onClose={() => setSelectedId(null)}
                         onSave={(val) => handleCorrection(selectedResult.digit_id, val || null)}
+                        onDelete={handleDelete}
                     />
                 )}
 
@@ -207,7 +213,7 @@ export default function ReviewLayout({
                     <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/10 backdrop-blur-[1px]">
                         <div className="bg-white rounded-xl shadow-2xl border border-border p-5 w-72">
                             <div className="flex items-center justify-between mb-1">
-                                <p className="text-sm font-semibold text-text">Add Digit Manually</p>
+                                <p className="text-sm font-semibold">Add Digit Manually</p>
                                 <button
                                     onClick={cancelManual}
                                     className="w-5 h-5 rounded-full bg-surface-2 flex items-center justify-center text-muted text-xs hover:bg-border transition-colors"
@@ -231,17 +237,12 @@ export default function ReviewLayout({
                                 className="w-full border border-border rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-accent/30 font-mono"
                             />
                             <div className="flex gap-2">
-                                <button
-                                    onClick={cancelManual}
-                                    className="flex-1 px-3 py-2 rounded-lg text-sm border border-border text-muted hover:bg-surface-2 transition-colors"
-                                >
+                                <button onClick={cancelManual}
+                                        className="flex-1 px-3 py-2 rounded-lg text-sm border border-border text-muted hover:bg-surface-2 transition-colors">
                                     Cancel
                                 </button>
-                                <button
-                                    onClick={confirmManual}
-                                    disabled={!manualValue.trim()}
-                                    className="flex-1 px-3 py-2 rounded-lg text-sm bg-[#8b5cf6] text-white font-medium hover:bg-[#7c3aed] disabled:opacity-40 transition-colors"
-                                >
+                                <button onClick={confirmManual} disabled={!manualValue.trim()}
+                                        className="flex-1 px-3 py-2 rounded-lg text-sm bg-[#8b5cf6] text-white font-medium hover:bg-[#7c3aed] disabled:opacity-40 transition-colors">
                                     Confirm
                                 </button>
                             </div>
@@ -257,7 +258,7 @@ export default function ReviewLayout({
                     onClick={() => setSidebarOpen((o) => !o)}
                     title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
                     className="absolute top-4 left-4 z-10 w-8 h-8 bg-surface border border-border rounded-lg
-            flex items-center justify-center shadow-sm hover:bg-surface-2 transition-colors"
+                        flex items-center justify-center shadow-sm hover:bg-surface-2 transition-colors"
                 >
                     <svg
                         className={`w-4 h-4 text-muted transition-transform duration-300 ${sidebarOpen ? "" : "rotate-180"}`}
@@ -267,34 +268,99 @@ export default function ReviewLayout({
                     </svg>
                 </button>
 
-                {/* ── Theme picker ── */}
-                <div className="absolute top-4 left-16 z-10 flex items-center gap-1 bg-surface border border-border rounded-lg px-2 py-1.5 shadow-sm">
-                    {(Object.entries(THEMES) as [ColorTheme, typeof THEMES[ColorTheme]][]).map(([key, val]) => (
+                {/* ── Upper-left toolbar ── */}
+                <div className="absolute top-4 left-16 z-10 flex items-center gap-2 flex-wrap">
+
+                    {/* Label mode toggle */}
+                    <div className="flex items-center bg-surface border border-border rounded-lg shadow-sm overflow-hidden h-8">
                         <button
-                            key={key}
-                            title={val.label}
-                            onClick={() => setTheme(key)}
-                            className={`w-5 h-5 rounded-full border-2 transition-all hover:scale-110
-                ${theme === key ? "border-[#1e293b] scale-110" : "border-transparent"}`}
-                            style={{ background: val.ok }}
-                        />
-                    ))}
-                    <span className="text-[10px] text-muted ml-1 font-medium">{THEMES[theme].label}</span>
+                            onClick={() => setLabelMode("strand")}
+                            title="Show strand values"
+                            className={`flex items-center gap-1.5 px-3 h-full text-[11px] font-semibold transition-colors
+                                ${labelMode === "strand"
+                                ? "bg-accent text-white"
+                                : "text-muted hover:bg-surface-2"}`}
+                        >
+                            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                            </svg>
+                            Strand
+                        </button>
+
+                        <div className="w-px h-4 bg-border" />
+
+                        <button
+                            onClick={() => setLabelMode("pole")}
+                            title="Show pole IDs"
+                            className={`flex items-center gap-1.5 px-3 h-full text-[11px] font-semibold transition-colors
+                                ${labelMode === "pole"
+                                ? "bg-[#f59e0b] text-white"
+                                : "text-muted hover:bg-surface-2"}`}
+                        >
+                            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                <circle cx="12" cy="12" r="9" />
+                                <circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none" />
+                            </svg>
+                            Pole ID
+                        </button>
+                    </div>
+
+                    {/* Pole mode notice */}
+                    {labelMode === "pole" && (
+                        <div className="flex items-center gap-1.5 bg-[#fef3c7] border border-[#fde68a] text-[#92400e]
+                            rounded-lg px-2.5 h-8 text-[10px] font-semibold shadow-sm whitespace-nowrap">
+                            <svg className="w-3 h-3 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <circle cx="12" cy="12" r="10" />
+                                <line x1="12" y1="8" x2="12" y2="12" />
+                                <line x1="12" y1="16" x2="12.01" y2="16" />
+                            </svg>
+                            Showing index — pole backend coming soon
+                        </div>
+                    )}
+
+                    {/* Theme picker */}
+                    <div className="flex items-center gap-1 bg-surface border border-border rounded-lg px-2 h-8 shadow-sm">
+                        {(Object.entries(THEMES) as [ColorTheme, typeof THEMES[ColorTheme]][]).map(([key, val]) => (
+                            <button
+                                key={key}
+                                title={val.label}
+                                onClick={() => setTheme(key)}
+                                className={`w-5 h-5 rounded-full border-2 transition-all hover:scale-110
+                                    ${theme === key ? "border-[#1e293b] scale-110" : "border-transparent"}`}
+                                style={{ background: val.ok }}
+                            />
+                        ))}
+                        <span className="text-[10px] text-muted ml-1 font-medium">{THEMES[theme].label}</span>
+                    </div>
                 </div>
 
                 {/* ── Legend ── */}
                 <div className="absolute bottom-4 left-4 bg-white/90 border border-border rounded-xl px-3.5 py-2.5 flex flex-col gap-2 shadow-sm backdrop-blur-sm">
-                    {[
-                        { color: THEMES[theme].ok,       label: "Read correctly"     },
-                        { color: THEMES[theme].review,    label: "Needs checking"     },
-                        { color: THEMES[theme].corrected, label: "Manually corrected" },
-                        { color: "#8b5cf6",               label: "Added manually"     },
-                    ].map(({ color, label }) => (
-                        <div key={label} className="flex items-center gap-2 text-xs">
-                            <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: color }} />
-                            {label}
-                        </div>
-                    ))}
+                    {labelMode === "strand" ? (
+                        <>
+                            {[
+                                { color: THEMES[theme].ok,       label: "Read correctly"     },
+                                { color: THEMES[theme].review,    label: "Needs checking"     },
+                                { color: THEMES[theme].corrected, label: "Manually corrected" },
+                                { color: "#8b5cf6",               label: "Added manually"     },
+                            ].map(({ color, label }) => (
+                                <div key={label} className="flex items-center gap-2 text-xs">
+                                    <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: color }} />
+                                    {label}
+                                </div>
+                            ))}
+                        </>
+                    ) : (
+                        <>
+                            <div className="flex items-center gap-2 text-xs">
+                                <div className="w-3 h-3 rounded-full flex-shrink-0 bg-[#f59e0b]" />
+                                Pole ID (index placeholder)
+                            </div>
+                            <p className="text-[10px] text-muted-2 leading-relaxed max-w-[150px]">
+                                Real pole names will appear once the pole backend is connected.
+                            </p>
+                        </>
+                    )}
                 </div>
             </div>
 
