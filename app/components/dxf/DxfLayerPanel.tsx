@@ -30,16 +30,19 @@ const GROUPS: LayerGroup[] = [
         match: (n) => {
             const l = n.toLowerCase();
             return l.includes("ampli") || l.includes("extender") || l.includes("extend") ||
-                l.includes("node") || l.includes("pole") || l.includes("cable");
+                l.includes("node") || l.includes("pole") || l.includes("power");
         },
     },
     {
         key: "tsc",
-        label: "TSC",
+        label: "Cable Strand",
         icon: "📡",
         color: "#7c3aed",
         bgColor: "#f5f3ff",
-        match: (n) => n.toLowerCase().includes("tsc"),
+        match: (n) => {
+            const l = n.toLowerCase();
+            return l.includes("strand") || l.includes("cable")
+        }
     },
     {
         key: "tapoffs",
@@ -330,7 +333,7 @@ export default function DxfLayerPanel({ layers, onToggle, onShowAll, onHideAll }
                             onShowGroup={() => handleShowGroup(group.key)}
                             onHideGroup={() => handleHideGroup(group.key)}
                             // Equipment and TSC open by default, others collapsed
-                            defaultOpen={group.key === "equipment" || group.key === "tsc"}
+                            defaultOpen={group.key === "tsc"}
                         />
                     ))
                 )}
