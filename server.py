@@ -167,7 +167,7 @@ def list_layers(dxf_path):
     return sorted(layer.dxf.name for layer in doc.layers)
 
 
-def extract_stroke_segments(doc, layer_name):
+def extract_stroke_segments(doc, layer_name, include_circles=True):
     segments = []
     ARC_STEPS, SPLINE_STEPS, CIRCLE_STEPS = 24, 30, 36  # Add steps for circle approximation
 
@@ -199,11 +199,14 @@ def extract_stroke_segments(doc, layer_name):
                 angles = np.linspace(a0, a1, ARC_STEPS)
                 pts = [(float(c.x)+r*math.cos(a), float(c.y)+r*math.sin(a)) for a in angles]
                 segments.extend(_segmentize(pts, False))
-            elif t == "CIRCLE":  # <-- NEW: handle circles
+            elif t == "CIRCLE":
+                if not include_circles:
+                    continue
+
                 c, r = e.dxf.center, float(e.dxf.radius)
                 angles = np.linspace(0, 2 * math.pi, CIRCLE_STEPS, endpoint=False)
                 pts = [(float(c.x) + r * math.cos(a), float(c.y) + r * math.sin(a)) for a in angles]
-                segments.extend(_segmentize(pts, True))  # closed polygon approximation
+                segments.extend(_segmentize(pts, True))
             elif t == "SPLINE":
                 try:
                     from ezdxf.math import BSpline
@@ -556,7 +559,7 @@ def run_pipeline(dxf_path, layer, model_path):
         state["error"]    = None
 
         doc      = ezdxf.readfile(dxf_path)
-        segments = extract_stroke_segments(doc, layer)
+        segments = extract_stroke_segments(doc, layer, include_circles=False)
         state["segments"] = segments
 
         clusters   = cluster_segments(segments, tol=CONNECT_TOL)
@@ -1294,19 +1297,27 @@ def api_download():
 @app.route("/api/dxf_segments")
 def api_dxf_segments():
     dxf_path = state.get("dxf_path")
+    hide_circles = request.args.get("hide_circles") == "1"
     if not dxf_path:
         return jsonify({"error": "No DXF loaded"}), 400
     try:
-        doc        = ezdxf.readfile(dxf_path)
-        layers     = list_layers(dxf_path)
+        doc = ezdxf.readfile(dxf_path)
+        layers = list_layers(dxf_path)
         all_segments = {}
         for layer in layers:
-            segs = extract_stroke_segments(doc, layer)
+            segs = extract_stroke_segments(
+                doc,
+                layer,
+                include_circles=not hide_circles
+            )
             all_segments[layer] = [
                 {"x1": s.x1, "y1": s.y1, "x2": s.x2, "y2": s.y2}
                 for s in segs
             ]
-        return jsonify({"layers": layers, "segments": all_segments})
+        return jsonify({
+            "layers": layers,
+            "segments": all_segments
+        })
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 

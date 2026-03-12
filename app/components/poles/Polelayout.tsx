@@ -88,6 +88,8 @@ export default function PoleLayout({ dxfPath, allLayers, layerSegments }: Props)
     const boundsRef    = useRef<{ minx: number; miny: number; maxx: number; maxy: number } | null>(null);
     const hasFittedRef = useRef(false);
 
+    const HIDE_CIRCLES = true;
+
     const tagsRef       = useRef(tags);
     const selectedIdRef = useRef(selectedId);
     const showOnMapRef  = useRef(showOnMap);
@@ -105,7 +107,7 @@ export default function PoleLayout({ dxfPath, allLayers, layerSegments }: Props)
     // ── Fetch all layer segments from backend ─────────────────────────────────
     useEffect(() => {
         if (!dxfPath) return;
-        fetch("/api/dxf_segments")
+        fetch("/api/dxf_segments?hide_circles=1")
             .then((r) => r.json())
             .then((data) => {
                 if (data.segments) setAllLayerSegs(data.segments);
