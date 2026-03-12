@@ -768,6 +768,7 @@ def api_scan_results():
     })
 
 import poleid as _poleid
+from app_python.services.pole_ocr import ocr_pole
 
 POLE_STATE: Dict = {
     "status":  "idle",   # idle | processing | done | error
@@ -798,7 +799,9 @@ POLE_CONFIG = _poleid.PoleIdConfig(
 
 
 def _run_pole_scan(dxf_path: str, layer_name: str) -> None:
-    """Background thread: scan one layer for pole labels via poleid.py."""
+    """Background thread: scan one layer for pole labels via poleid.py,
+    then run Tesseract OCR on every STR (stroked-polyline) label whose
+    name is still a placeholder (starts with stroke_placeholder_prefix)."""
     try:
         POLE_STATE.update({
             "status": "processing",
@@ -807,34 +810,91 @@ def _run_pole_scan(dxf_path: str, layer_name: str) -> None:
             "layer":  layer_name,
         })
 
-        doc = ezdxf.readfile(dxf_path)
+        doc     = ezdxf.readfile(dxf_path)
         matches = _poleid.find_pole_labels(doc, layer_name, config=POLE_CONFIG)
+
+        # Grab all segments on this layer once — used for OCR crop rendering
+        all_layer_segs = extract_stroke_segments(doc, layer_name)
+
+        placeholder_prefix = (POLE_CONFIG.stroke_placeholder_prefix or "POLE").upper()
 
         tags = []
         for pole_id, (lab, _circ) in enumerate(matches):
             # bbox may be None for stroke labels — fall back to point bbox
-            bbox = list(lab.bbox) if lab.bbox else [lab.x, lab.y, lab.x, lab.y]
+            bbox         = list(lab.bbox) if lab.bbox else [lab.x, lab.y, lab.x, lab.y]
+            source       = getattr(lab, "source", "unknown")
+            print(f"[DEBUG] pole_{pole_id} source={repr(source)} text={repr(lab.text)} attrs={[a for a in dir(lab) if not a.startswith('_')]}")
+            if pole_id >= 2: pass  # remove after debug
+            display_name = _poleid.clean_label(lab.text)
+            crop_b64     = None
+            ocr_conf     = None
+            needs_review = False
+
+            # ── OCR path: only for stroked-polyline labels with placeholder names ──
+            is_placeholder = display_name.upper().startswith(placeholder_prefix)
+            if source == "stroke" and is_placeholder:
+                try:
+                    # poleid StrokeLabel carries a .segments attribute (list of Seg)
+                    # Fall back to the full layer segment list if not present.
+                    label_segs = getattr(lab, "segments", None) or all_layer_segs
+
+                    result = ocr_pole(label_segs, tuple(bbox))
+
+                    # Store the rendered crop regardless of confidence
+                    if result.crop_png:
+                        crop_b64 = base64.b64encode(result.crop_png).decode("ascii")
+
+                    ocr_conf = result.confidence
+
+                    if result.accepted and result.text:
+                        display_name = result.text
+                        needs_review = False
+                        print(
+                            f"[pole_ocr] POLE_{pole_id:03d} → '{result.text}' "
+                            f"(conf={result.confidence:.2f})"
+                        )
+                    else:
+                        # Keep placeholder, flag for manual review
+                        needs_review = True
+                        print(
+                            f"[pole_ocr] POLE_{pole_id:03d} low-conf "
+                            f"(conf={result.confidence:.2f}, text='{result.text}')"
+                        )
+
+                except Exception as ocr_err:
+                    # OCR failure must never crash the whole scan
+                    needs_review = True
+                    print(f"[pole_ocr] POLE_{pole_id:03d} error: {ocr_err}")
+
             tags.append({
-                "pole_id":  pole_id,
-                "name":     _poleid.clean_label(lab.text),
-                "cx":       round(lab.x, 4),
-                "cy":       round(lab.y, 4),
-                "bbox":     [round(v, 4) for v in bbox],
-                "layer":    layer_name,
-                "source":   getattr(lab, "source", "unknown"),
-                "crop_b64": None,   # reserved for future use
+                "pole_id":     pole_id,
+                "name":        display_name,
+                "cx":          round(lab.x, 4),
+                "cy":          round(lab.y, 4),
+                "bbox":        [round(v, 4) for v in bbox],
+                "layer":       layer_name,
+                "source":      source,
+                "crop_b64":    crop_b64,
+                "ocr_conf":    ocr_conf,
+                "needs_review": needs_review,
             })
 
         POLE_STATE.update({
             "status": "done",
             "tags":   tags,
         })
-        print(f"[pole_scan] Done — {len(tags)} pole labels on layer '{layer_name}'")
+        n_ocr = sum(1 for t in tags if t["ocr_conf"] is not None)
+        n_ok  = sum(1 for t in tags if t["ocr_conf"] is not None and not t["needs_review"])
+        print(
+            f"[pole_scan] Done — {len(tags)} poles on '{layer_name}' | "
+            f"OCR attempted: {n_ocr}, accepted: {n_ok}"
+        )
 
     except Exception as exc:
         import traceback
         traceback.print_exc()
         POLE_STATE.update({"status": "error", "error": str(exc)})
+
 
 
 @app.route("/api/pole_tags")

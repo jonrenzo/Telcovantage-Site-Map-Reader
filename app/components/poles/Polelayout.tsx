@@ -408,25 +408,37 @@ export default function PoleLayout({ dxfPath, allLayers, layerSegments }: Props)
                         </div>
 
                         {/* DXF crop preview */}
+                        {/* DXF crop preview — prefer the server-rendered OCR crop for STR poles */}
                         <div className="bg-[#1e293b] relative">
-                            {cropDataUrl ? (
-                                <img
-                                    src={cropDataUrl}
-                                    alt="pole area"
-                                    className="w-full block"
-                                    style={{ imageRendering: "auto" }}
-                                />
-                            ) : (
-                                <div className="w-full h-40 flex items-center justify-center">
-                                    <svg className="w-5 h-5 text-slate-500 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
-                                    </svg>
-                                </div>
-                            )}
-                            <div className="absolute bottom-2 left-2 bg-[#f59e0b]/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded font-mono">
-                                {selectedTag.name || `POLE_${selectedTag.pole_id}`}
-                            </div>
-                        </div>
+                               {(() => {
+                           // For STR poles that were OCR-processed, use the server crop (shows the
+                           // actual rendered strokes Tesseract saw).  Otherwise fall back to the
+                           // client-side canvas render.
+                           const imgSrc = selectedTag.crop_b64
+                               ? `data:image/png;base64,${selectedTag.crop_b64}`
+                               : cropDataUrl ?? undefined;
+
+                           return imgSrc ? (
+                               <img
+                                   src={imgSrc}
+                                   alt="pole area"
+                                   className="w-full block"
+                                   style={{ imageRendering: "auto" }}
+                               />
+                           ) : (
+                               <div className="w-full h-40 flex items-center justify-center">
+                                   <svg className="w-5 h-5 text-slate-500 animate-spin" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" strokeWidth="2">
+                                       <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83
+                                                M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+                                   </svg>
+                               </div>
+                           );
+                       })()}
+                       <div className="absolute bottom-2 left-2 bg-[#f59e0b]/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded font-mono">
+                           {selectedTag.name || `POLE_${selectedTag.pole_id}`}
+                       </div>
+                   </div>
 
                         {/* Info rows */}
                         <div className="p-4 flex flex-col gap-3">

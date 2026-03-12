@@ -268,71 +268,7 @@ export default function ReviewLayout({
                     </svg>
                 </button>
 
-                {/* ── Upper-left toolbar ── */}
-                <div className="absolute top-4 left-16 z-10 flex items-center gap-2 flex-wrap">
 
-                    {/* Label mode toggle */}
-                    <div className="flex items-center bg-surface border border-border rounded-lg shadow-sm overflow-hidden h-8">
-                        <button
-                            onClick={() => setLabelMode("strand")}
-                            title="Show strand values"
-                            className={`flex items-center gap-1.5 px-3 h-full text-[11px] font-semibold transition-colors
-                                ${labelMode === "strand"
-                                ? "bg-accent text-white"
-                                : "text-muted hover:bg-surface-2"}`}
-                        >
-                            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-                            </svg>
-                            Strand
-                        </button>
-
-                        <div className="w-px h-4 bg-border" />
-
-                        <button
-                            onClick={() => setLabelMode("pole")}
-                            title="Show pole IDs"
-                            className={`flex items-center gap-1.5 px-3 h-full text-[11px] font-semibold transition-colors
-                                ${labelMode === "pole"
-                                ? "bg-[#f59e0b] text-white"
-                                : "text-muted hover:bg-surface-2"}`}
-                        >
-                            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                <circle cx="12" cy="12" r="9" />
-                                <circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none" />
-                            </svg>
-                            Pole ID
-                        </button>
-                    </div>
-
-                    {/* Pole mode notice */}
-                    {labelMode === "pole" && (
-                        <div className="flex items-center gap-1.5 bg-[#fef3c7] border border-[#fde68a] text-[#92400e]
-                            rounded-lg px-2.5 h-8 text-[10px] font-semibold shadow-sm whitespace-nowrap">
-                            <svg className="w-3 h-3 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <circle cx="12" cy="12" r="10" />
-                                <line x1="12" y1="8" x2="12" y2="12" />
-                                <line x1="12" y1="16" x2="12.01" y2="16" />
-                            </svg>
-                            Showing index — pole backend coming soon
-                        </div>
-                    )}
-
-                    {/* Theme picker */}
-                    <div className="flex items-center gap-1 bg-surface border border-border rounded-lg px-2 h-8 shadow-sm">
-                        {(Object.entries(THEMES) as [ColorTheme, typeof THEMES[ColorTheme]][]).map(([key, val]) => (
-                            <button
-                                key={key}
-                                title={val.label}
-                                onClick={() => setTheme(key)}
-                                className={`w-5 h-5 rounded-full border-2 transition-all hover:scale-110
-                                    ${theme === key ? "border-[#1e293b] scale-110" : "border-transparent"}`}
-                                style={{ background: val.ok }}
-                            />
-                        ))}
-                        <span className="text-[10px] text-muted ml-1 font-medium">{THEMES[theme].label}</span>
-                    </div>
-                </div>
 
                 {/* ── Legend ── */}
                 <div className="absolute bottom-4 left-4 bg-white/90 border border-border rounded-xl px-3.5 py-2.5 flex flex-col gap-2 shadow-sm backdrop-blur-sm">
@@ -345,20 +281,13 @@ export default function ReviewLayout({
                                 { color: "#8b5cf6",               label: "Added manually"     },
                             ].map(({ color, label }) => (
                                 <div key={label} className="flex items-center gap-2 text-xs">
-                                    <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: color }} />
+                                    <div className="w-3 h-3 rounded-full shrink-0" style={{ background: color }} />
                                     {label}
                                 </div>
                             ))}
                         </>
                     ) : (
                         <>
-                            <div className="flex items-center gap-2 text-xs">
-                                <div className="w-3 h-3 rounded-full flex-shrink-0 bg-[#f59e0b]" />
-                                Pole ID (index placeholder)
-                            </div>
-                            <p className="text-[10px] text-muted-2 leading-relaxed max-w-[150px]">
-                                Real pole names will appear once the pole backend is connected.
-                            </p>
                         </>
                     )}
                 </div>
