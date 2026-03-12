@@ -167,7 +167,7 @@ def list_layers(dxf_path):
 
 def extract_stroke_segments(doc, layer_name):
     segments = []
-    ARC_STEPS, SPLINE_STEPS = 24, 30
+    ARC_STEPS, SPLINE_STEPS, CIRCLE_STEPS = 24, 30, 36  # Add steps for circle approximation
 
     def iter_spaces():
         yield doc.modelspace()
@@ -197,6 +197,11 @@ def extract_stroke_segments(doc, layer_name):
                 angles = np.linspace(a0, a1, ARC_STEPS)
                 pts = [(float(c.x)+r*math.cos(a), float(c.y)+r*math.sin(a)) for a in angles]
                 segments.extend(_segmentize(pts, False))
+            elif t == "CIRCLE":  # <-- NEW: handle circles
+                c, r = e.dxf.center, float(e.dxf.radius)
+                angles = np.linspace(0, 2 * math.pi, CIRCLE_STEPS, endpoint=False)
+                pts = [(float(c.x) + r * math.cos(a), float(c.y) + r * math.sin(a)) for a in angles]
+                segments.extend(_segmentize(pts, True))  # closed polygon approximation
             elif t == "SPLINE":
                 try:
                     from ezdxf.math import BSpline
