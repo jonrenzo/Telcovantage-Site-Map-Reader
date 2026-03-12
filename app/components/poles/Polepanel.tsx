@@ -15,6 +15,8 @@ interface Props {
     onSelectTag: (id: number | null) => void;
     showOnMap: boolean;
     onToggleShowOnMap: () => void;
+    scanProgress: number;
+    scanTotal: number;
 }
 
 type SortMode = "name" | "position";
@@ -31,6 +33,7 @@ function confBadge(conf: number | null): { label: string; cls: string } | null {
 export default function PolePanel({
                                       dxfPath, layers, tags, status, error, scannedLayer,
                                       onScan, selectedId, onSelectTag, showOnMap, onToggleShowOnMap,
+                                      scanProgress, scanTotal,
                                   }: Props) {
     const [selectedLayer, setSelectedLayer] = useState<string>("");
     const [search,        setSearch]        = useState("");
@@ -128,6 +131,25 @@ export default function PolePanel({
                     <p className="mt-2 text-[10px] text-[#dc2626] bg-[#fef2f2] border border-[#fecaca] rounded-lg px-2 py-1.5">
                         {error}
                     </p>
+                )}
+
+                {/* Progress bar — shown while scanning */}
+                {status === "processing" && scanTotal > 0 && (
+                    <div className="mt-2">
+                        <div className="flex justify-between text-[10px] text-muted mb-1">
+                            <span>Reading pole IDs… <span className="font-mono text-[#f59e0b]">{scanProgress}/{scanTotal}</span></span>
+                            <span className="font-mono">{Math.round((scanProgress / scanTotal) * 100)}%</span>
+                        </div>
+                        <div className="h-1.5 bg-surface-2 rounded-full overflow-hidden">
+                            <div
+                                className="h-full bg-[#f59e0b] rounded-full transition-all duration-300"
+                                style={{ width: `${Math.round((scanProgress / scanTotal) * 100)}%` }}
+                            />
+                        </div>
+                    </div>
+                )}
+                {status === "processing" && scanTotal === 0 && (
+                    <p className="mt-2 text-[10px] text-muted animate-pulse">Detecting poles…</p>
                 )}
                 {status === "done" && scannedLayer && (
                     <div className="mt-2 flex flex-col gap-0.5">

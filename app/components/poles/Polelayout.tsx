@@ -91,7 +91,9 @@ export default function PoleLayout({ dxfPath, allLayers, layerSegments }: Props)
     const [tags,         setTags]         = useState<PoleTag[]>([]);
     const [scanStatus,   setScanStatus]   = useState<"idle"|"processing"|"done"|"error">("idle");
     const [scanError,    setScanError]    = useState<string | null>(null);
-    const [scannedLayer, setScannedLayer] = useState<string | null>(null);
+    const [scannedLayer,  setScannedLayer]  = useState<string | null>(null);
+    const [scanProgress,  setScanProgress]  = useState(0);
+    const [scanTotal,     setScanTotal]      = useState(0);
 
     // ── All-layer segments fetched from backend ────────────────────────────
     const [allLayerSegs, setAllLayerSegs] = useState<LayerSegs>({});
@@ -156,17 +158,29 @@ export default function PoleLayout({ dxfPath, allLayers, layerSegments }: Props)
             try {
                 const res  = await fetch("/api/pole_tags");
                 const data = await res.json();
-                setScanStatus(data.status);
+
+                // Update progress counters
+                setScanProgress(data.progress ?? 0);
+                setScanTotal(data.total ?? 0);
+
+                // Stream tags into the map as they arrive — don't wait for "done"
+                if (data.tags?.length) {
+                    setTags(data.tags);
+                    setScannedLayer(data.layer);
+                }
+
                 if (data.status === "done") {
+                    setScanStatus("done");
                     setTags(data.tags ?? []);
                     setScannedLayer(data.layer);
                     clearInterval(timer);
                 } else if (data.status === "error") {
+                    setScanStatus("error");
                     setScanError(data.error ?? "Unknown error");
                     clearInterval(timer);
                 }
-            } catch { /* network blip */ }
-        }, 800);
+            } catch { /* network blip — keep polling */ }
+        }, 500);  // poll every 500ms for responsive updates
         return () => clearInterval(timer);
     }, [scanStatus]);
 
@@ -372,6 +386,8 @@ export default function PoleLayout({ dxfPath, allLayers, layerSegments }: Props)
                 onSelectTag={setSelectedId}
                 showOnMap={showOnMap}
                 onToggleShowOnMap={() => setShowOnMap((v) => !v)}
+                scanProgress={scanProgress}
+                scanTotal={scanTotal}
             />
 
             {/* ── Canvas area ── */}

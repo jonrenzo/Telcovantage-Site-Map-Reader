@@ -33,6 +33,8 @@ from flask_cors import CORS
 from PIL import Image
 from torchvision import transforms
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
 app = Flask(__name__, static_folder="frontend/dist", static_url_path="")
 CORS(app)  # Allow React dev server to call API during development
 
@@ -776,10 +778,12 @@ import poleid as _poleid
 from app_python.services.pole_ocr import ocr_pole
 
 POLE_STATE: Dict = {
-    "status":  "idle",   # idle | processing | done | error
-    "error":   None,
-    "tags":    [],       # list of serialised PoleTag dicts
-    "layer":   None,     # the layer name that was scanned
+    "status":   "idle",   # idle | processing | done | error
+    "error":    None,
+    "tags":     [],
+    "layer":    None,
+    "progress": 0,        # ← NEW: poles processed so far
+    "total":    0,        # ← NEW: total poles to process
 }
 
 POLE_CONFIG = _poleid.PoleIdConfig(
@@ -803,93 +807,159 @@ POLE_CONFIG = _poleid.PoleIdConfig(
 )
 
 
+OCR_WORKERS = 4   # parallel moondream calls — tune up if your CPU has more cores
+
 def _run_pole_scan(dxf_path: str, layer_name: str) -> None:
-    """Background thread: scan one layer for pole labels via poleid.py,
-    then run Tesseract OCR on every STR (stroked-polyline) label whose
-    name is still a placeholder (starts with stroke_placeholder_prefix)."""
+    """
+    Background thread: scan one layer for pole labels, then run OCR
+    on all STR placeholder labels in parallel using a thread pool.
+
+    Results are written to POLE_STATE["tags"] incrementally so the
+    frontend can display poles as they finish (progressive rendering).
+    """
     try:
         POLE_STATE.update({
-            "status": "processing",
-            "error":  None,
-            "tags":   [],
-            "layer":  layer_name,
+            "status":   "processing",
+            "error":    None,
+            "tags":     [],
+            "layer":    layer_name,
+            "progress": 0,
+            "total":    0,
         })
 
         doc     = ezdxf.readfile(dxf_path)
         matches = _poleid.find_pole_labels(doc, layer_name, config=POLE_CONFIG)
 
-        # Grab all segments on this layer once — used for OCR crop rendering
-        all_layer_segs = extract_stroke_segments(doc, layer_name)
-
+        all_layer_segs     = extract_stroke_segments(doc, layer_name)
         placeholder_prefix = (POLE_CONFIG.stroke_placeholder_prefix or "POLE").upper()
 
-        tags = []
+        # ── Build work list ───────────────────────────────────────────────────
+        # Separate poles that need OCR from those that already have a real name.
+        # Non-OCR poles are added to tags immediately; OCR poles are queued.
+
+        tags      = []          # final ordered result list
+        tags_lock = threading.Lock()
+
+        ocr_queue  = []   # list of (pole_id, lab, bbox) needing OCR
+        non_ocr    = []   # list of ready tag dicts (text / mtext labels)
+
         for pole_id, (lab, _circ) in enumerate(matches):
-            # bbox may be None for stroke labels — fall back to point bbox
             bbox         = list(lab.bbox) if lab.bbox else [lab.x, lab.y, lab.x, lab.y]
             source       = getattr(lab, "source", "unknown")
-            print(f"[DEBUG] pole_{pole_id} source={repr(source)} text={repr(lab.text)} attrs={[a for a in dir(lab) if not a.startswith('_')]}")
-            if pole_id >= 2: pass  # remove after debug
+            display_name = _poleid.clean_label(lab.text)
+            is_placeholder = display_name.upper().startswith(placeholder_prefix)
+
+            if source == "stroke" and is_placeholder:
+                ocr_queue.append((pole_id, lab, bbox, source))
+            else:
+                non_ocr.append({
+                    "pole_id":      pole_id,
+                    "name":         display_name,
+                    "cx":           round(lab.x, 4),
+                    "cy":           round(lab.y, 4),
+                    "bbox":         [round(v, 4) for v in bbox],
+                    "layer":        layer_name,
+                    "source":       source,
+                    "crop_b64":     None,
+                    "ocr_conf":     None,
+                    "needs_review": False,
+                })
+
+        # Add non-OCR poles to state immediately so map shows them right away
+        with tags_lock:
+            tags.extend(non_ocr)
+            POLE_STATE["tags"]  = list(tags)
+            POLE_STATE["total"] = len(matches)
+            POLE_STATE["progress"] = len(non_ocr)
+
+        # ── OCR worker function ───────────────────────────────────────────────
+
+        def _ocr_one(args):
+            pole_id, lab, bbox, source = args
             display_name = _poleid.clean_label(lab.text)
             crop_b64     = None
             ocr_conf     = None
             needs_review = False
 
-            # ── OCR path: only for stroked-polyline labels with placeholder names ──
-            is_placeholder = display_name.upper().startswith(placeholder_prefix)
-            if source == "stroke" and is_placeholder:
-                try:
-                    # poleid StrokeLabel carries a .segments attribute (list of Seg)
-                    # Fall back to the full layer segment list if not present.
-                    label_segs = getattr(lab, "segments", None) or all_layer_segs
+            try:
+                label_segs = getattr(lab, "segments", None) or all_layer_segs
+                result     = ocr_pole(label_segs, tuple(bbox))
 
-                    result = ocr_pole(label_segs, tuple(bbox))
+                if result.crop_png:
+                    crop_b64 = base64.b64encode(result.crop_png).decode("ascii")
+                ocr_conf = result.confidence
 
-                    # Store the rendered crop regardless of confidence
-                    if result.crop_png:
-                        crop_b64 = base64.b64encode(result.crop_png).decode("ascii")
-
-                    ocr_conf = result.confidence
-
-                    if result.accepted and result.text:
-                        display_name = result.text
-                        needs_review = False
-                        print(
-                            f"[pole_ocr] POLE_{pole_id:03d} → '{result.text}' "
-                            f"(conf={result.confidence:.2f})"
-                        )
-                    else:
-                        # Keep placeholder, flag for manual review
-                        needs_review = True
-                        print(
-                            f"[pole_ocr] POLE_{pole_id:03d} low-conf "
-                            f"(conf={result.confidence:.2f}, text='{result.text}')"
-                        )
-
-                except Exception as ocr_err:
-                    # OCR failure must never crash the whole scan
+                if result.accepted and result.text:
+                    display_name = result.text
+                    needs_review = False
+                else:
                     needs_review = True
-                    print(f"[pole_ocr] POLE_{pole_id:03d} error: {ocr_err}")
 
-            tags.append({
-                "pole_id":     pole_id,
-                "name":        display_name,
-                "cx":          round(lab.x, 4),
-                "cy":          round(lab.y, 4),
-                "bbox":        [round(v, 4) for v in bbox],
-                "layer":       layer_name,
-                "source":      source,
-                "crop_b64":    crop_b64,
-                "ocr_conf":    ocr_conf,
+            except Exception as ocr_err:
+                needs_review = True
+                print(f"[pole_ocr] POLE_{pole_id:03d} error: {ocr_err}")
+
+            return {
+                "pole_id":      pole_id,
+                "name":         display_name,
+                "cx":           round(lab.x, 4),
+                "cy":           round(lab.y, 4),
+                "bbox":         [round(v, 4) for v in bbox],
+                "layer":        layer_name,
+                "source":       source,
+                "crop_b64":     crop_b64,
+                "ocr_conf":     ocr_conf,
                 "needs_review": needs_review,
-            })
+            }
 
-        POLE_STATE.update({
-            "status": "done",
-            "tags":   tags,
-        })
+        # ── Run OCR in parallel ───────────────────────────────────────────────
+
+        if ocr_queue:
+            with ThreadPoolExecutor(max_workers=OCR_WORKERS) as pool:
+                futures = {pool.submit(_ocr_one, args): args for args in ocr_queue}
+
+                for future in as_completed(futures):
+                    try:
+                        tag = future.result()
+                    except Exception as e:
+                        args    = futures[future]
+                        pole_id = args[0]
+                        lab     = args[1]
+                        bbox    = args[2]
+                        source  = args[3]
+                        tag = {
+                            "pole_id":      pole_id,
+                            "name":         _poleid.clean_label(lab.text),
+                            "cx":           round(lab.x, 4),
+                            "cy":           round(lab.y, 4),
+                            "bbox":         [round(v, 4) for v in bbox],
+                            "layer":        layer_name,
+                            "source":       source,
+                            "crop_b64":     None,
+                            "ocr_conf":     None,
+                            "needs_review": True,
+                        }
+                        print(f"[pole_scan] future error: {e}")
+
+                    # Append result and update state progressively
+                    with tags_lock:
+                        tags.append(tag)
+                        # Sort by pole_id so map order is stable
+                        tags.sort(key=lambda t: t["pole_id"])
+                        POLE_STATE["tags"]     = list(tags)
+                        POLE_STATE["progress"] = len(tags)
+
+        # ── Final sort and done ───────────────────────────────────────────────
+
+        tags.sort(key=lambda t: t["pole_id"])
         n_ocr = sum(1 for t in tags if t["ocr_conf"] is not None)
         n_ok  = sum(1 for t in tags if t["ocr_conf"] is not None and not t["needs_review"])
+
+        POLE_STATE.update({
+            "status":   "done",
+            "tags":     tags,
+            "progress": len(tags),
+        })
         print(
             f"[pole_scan] Done — {len(tags)} poles on '{layer_name}' | "
             f"OCR attempted: {n_ocr}, accepted: {n_ok}"
@@ -901,15 +971,16 @@ def _run_pole_scan(dxf_path: str, layer_name: str) -> None:
         POLE_STATE.update({"status": "error", "error": str(exc)})
 
 
-
 @app.route("/api/pole_tags")
 def api_pole_tags():
     return jsonify({
-        "status": POLE_STATE["status"],
-        "error":  POLE_STATE["error"],
-        "layer":  POLE_STATE["layer"],
-        "count":  len(POLE_STATE["tags"]),
-        "tags":   POLE_STATE["tags"],
+        "status":   POLE_STATE["status"],
+        "error":    POLE_STATE["error"],
+        "layer":    POLE_STATE["layer"],
+        "count":    len(POLE_STATE["tags"]),
+        "progress": POLE_STATE.get("progress", 0),
+        "total":    POLE_STATE.get("total", 0),
+        "tags":     POLE_STATE["tags"],
     })
 
 
