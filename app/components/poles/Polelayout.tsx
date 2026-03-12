@@ -11,99 +11,77 @@ interface Viewport { x: number; y: number; scale: number; }
 interface Props {
     dxfPath: string;
     allLayers: string[];
-    layerSegments: LayerSegs; // kept for API compat, used as fallback
+    layerSegments: LayerSegs;
 }
 
-const CROP_SIZE = 220;
-const CROP_PAD  = 0.5; // fraction of bbox half-size to pad around the pole
-
-/** Render DXF segments around a pole into a data URL using an offscreen canvas */
-function renderPoleCrop(tag: PoleTag, allSegments: Segment[]): string {
-    const [bx0, by0, bx1, by1] = tag.bbox;
-    const bw   = Math.max(bx1 - bx0, 0.01);
-    const bh   = Math.max(by1 - by0, 0.01);
-    const half = Math.max(bw, bh) * (0.5 + CROP_PAD);
-    const minX = tag.cx - half, maxX = tag.cx + half;
-    const minY = tag.cy - half, maxY = tag.cy + half;
-    const rangeX = maxX - minX;
-    const rangeY = maxY - minY;
-
-    const toPixel = (x: number, y: number) => ({
-        px: ((x - minX) / rangeX) * CROP_SIZE,
-        py: ((maxY - y) / rangeY) * CROP_SIZE,
-    });
-
-    const offscreen = document.createElement("canvas");
-    offscreen.width  = CROP_SIZE;
-    offscreen.height = CROP_SIZE;
-    const ctx = offscreen.getContext("2d")!;
-
-    ctx.fillStyle = "#1e293b";
-    ctx.fillRect(0, 0, CROP_SIZE, CROP_SIZE);
-
-    // All DXF segments in crop window — grey
-    ctx.strokeStyle = "#94a3b8";
-    ctx.lineWidth   = 1.2;
-    ctx.beginPath();
-    for (const s of allSegments) {
-        if (
-            Math.max(s.x1, s.x2) < minX || Math.min(s.x1, s.x2) > maxX ||
-            Math.max(s.y1, s.y2) < minY || Math.min(s.y1, s.y2) > maxY
-        ) continue;
-        const p1 = toPixel(s.x1, s.y1);
-        const p2 = toPixel(s.x2, s.y2);
-        ctx.moveTo(p1.px, p1.py);
-        ctx.lineTo(p2.px, p2.py);
-    }
-    ctx.stroke();
-
-    // Amber dashed bbox around the detected label
-    const tl = toPixel(bx0, by1);
-    const br = toPixel(bx1, by0);
-    ctx.strokeStyle = "#f59e0b";
-    ctx.lineWidth   = 1.5;
-    ctx.setLineDash([4, 3]);
-    ctx.strokeRect(tl.px, tl.py, br.px - tl.px, br.py - tl.py);
-    ctx.setLineDash([]);
-
-    // Amber dot at pole center
-    // const center = toPixel(tag.cx, tag.cy);
-    // ctx.beginPath();
-    // ctx.arc(center.px, center.py, 5, 0, 2 * Math.PI);
-    // ctx.fillStyle   = "#f59e0b";
-    // ctx.fill();
-    // ctx.strokeStyle = "#fff";
-    // ctx.lineWidth   = 1.5;
-    // ctx.stroke();
-
-    // Pole name label above the dot
-    ctx.fillStyle    = "#fbbf24";
-    ctx.font         = "bold 11px Inter, sans-serif";
-    ctx.textAlign    = "center";
-    ctx.textBaseline = "bottom";
-    //ctx.fillText(tag.name || `POLE_${tag.pole_id}`, center.px, Math.max(center.py - 9, 13));
-
-    return offscreen.toDataURL("image/png");
+function sourceLabel(tag: PoleTag): { text: string; color: string } {
+    if (tag.source === "text")  return { text: "Text entity",      color: "bg-[#dbeafe] text-[#1d4ed8]" };
+    if (tag.source === "mtext") return { text: "MText entity",     color: "bg-[#dbeafe] text-[#1d4ed8]" };
+    return                             { text: "Stroked polyline", color: "bg-[#f3e8ff] text-[#6b21a8]" };
 }
 
 export default function PoleLayout({ dxfPath, allLayers, layerSegments }: Props) {
-    // ── Pole scan state ────────────────────────────────────────────────────
+    // ── Pole scan state ───────────────────────────────────────────────────────
     const [tags,         setTags]         = useState<PoleTag[]>([]);
     const [scanStatus,   setScanStatus]   = useState<"idle"|"processing"|"done"|"error">("idle");
     const [scanError,    setScanError]    = useState<string | null>(null);
-    const [scannedLayer,  setScannedLayer]  = useState<string | null>(null);
-    const [scanProgress,  setScanProgress]  = useState(0);
-    const [scanTotal,     setScanTotal]      = useState(0);
+    const [scannedLayer, setScannedLayer] = useState<string | null>(null);
+    const [scanProgress, setScanProgress] = useState(0);
+    const [scanTotal,    setScanTotal]    = useState(0);
 
-    // ── All-layer segments fetched from backend ────────────────────────────
+    // ── All-layer segments fetched from backend ───────────────────────────────
     const [allLayerSegs, setAllLayerSegs] = useState<LayerSegs>({});
 
-    // ── UI state ──────────────────────────────────────────────────────────
-    const [selectedId,  setSelectedId]  = useState<number | null>(null);
-    const [showOnMap,   setShowOnMap]   = useState(true);
-    const [cropDataUrl, setCropDataUrl] = useState<string | null>(null);
+    // ── UI state ──────────────────────────────────────────────────────────────
+    const [selectedId,   setSelectedId]   = useState<number | null>(null);
+    const [showOnMap,    setShowOnMap]    = useState(true);
+    // per-pole preview rotation (degrees, multiples of 90) — reset on new selection
+    const [rotations,    setRotations]    = useState<Record<number, number>>({});
 
-    // ── Canvas ────────────────────────────────────────────────────────────
+    const cropRotation = selectedId !== null ? (rotations[selectedId] ?? 0) : 0;
+
+    function rotateCrop() {
+        if (selectedId === null) return;
+        setRotations((prev) => ({
+            ...prev,
+            [selectedId]: ((prev[selectedId] ?? 0) + 90) % 360,
+        }));
+    }
+
+    // Bake current rotation into crop_b64 using an offscreen canvas
+    function saveRotation() {
+        if (selectedId === null || cropRotation === 0) return;
+        const tag = tags.find((t) => t.pole_id === selectedId);
+        if (!tag?.crop_b64) return;
+
+        const img = new Image();
+        img.onload = () => {
+            const rad     = (cropRotation * Math.PI) / 180;
+            const swapped = cropRotation % 180 !== 0;
+            const w       = swapped ? img.height : img.width;
+            const h       = swapped ? img.width  : img.height;
+
+            const canvas  = document.createElement("canvas");
+            canvas.width  = w;
+            canvas.height = h;
+            const ctx     = canvas.getContext("2d")!;
+            ctx.translate(w / 2, h / 2);
+            ctx.rotate(rad);
+            ctx.drawImage(img, -img.width / 2, -img.height / 2);
+
+            const newB64 = canvas.toDataURL("image/png").split(",")[1];
+            setTags((prev) =>
+                prev.map((t) =>
+                    t.pole_id === selectedId ? { ...t, crop_b64: newB64 } : t
+                )
+            );
+            // Clear the preview rotation for this pole since it's now baked in
+            setRotations((prev) => { const n = { ...prev }; delete n[selectedId]; return n; });
+        };
+        img.src = `data:image/png;base64,${tag.crop_b64}`;
+    }
+
+    // ── Canvas ────────────────────────────────────────────────────────────────
     const canvasRef    = useRef<HTMLCanvasElement>(null);
     const vpRef        = useRef<Viewport>({ x: 0, y: 0, scale: 1 });
     const panRef       = useRef({ active: false, start: { x: 0, y: 0 }, vpStart: { x: 0, y: 0, scale: 1 } });
@@ -124,13 +102,7 @@ export default function PoleLayout({ dxfPath, allLayers, layerSegments }: Props)
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [allLayerSegs, JSON.stringify(Object.keys(layerSegments))]);
 
-    // Segments for crop — always use all-layer data once available
-    const cropSegments = useMemo(
-        () => Object.values(allLayerSegs).flat(),
-        [allLayerSegs]
-    );
-
-    // ── Fetch all layer segments from backend ─────────────────────────────
+    // ── Fetch all layer segments from backend ─────────────────────────────────
     useEffect(() => {
         if (!dxfPath) return;
         fetch("/api/dxf_segments")
@@ -141,17 +113,7 @@ export default function PoleLayout({ dxfPath, allLayers, layerSegments }: Props)
             .catch(() => { /* silently fall back to prop segments */ });
     }, [dxfPath]);
 
-    // ── Generate crop when selected pole changes ───────────────────────────
-    useEffect(() => {
-        if (selectedId === null) { setCropDataUrl(null); return; }
-        const tag = tagsRef.current.find((t) => t.pole_id === selectedId);
-        if (!tag) { setCropDataUrl(null); return; }
-        const segs = cropSegments.length ? cropSegments : canvasSegments;
-        setTimeout(() => setCropDataUrl(renderPoleCrop(tag, segs)), 0);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedId, cropSegments]);
-
-    // ── Poll while scanning ────────────────────────────────────────────────
+    // ── Poll while scanning ───────────────────────────────────────────────────
     useEffect(() => {
         if (scanStatus !== "processing") return;
         const timer = setInterval(async () => {
@@ -159,15 +121,12 @@ export default function PoleLayout({ dxfPath, allLayers, layerSegments }: Props)
                 const res  = await fetch("/api/pole_tags");
                 const data = await res.json();
 
-                // Update progress counters
-                setScanProgress(data.progress ?? 0);
-                setScanTotal(data.total ?? 0);
+                // Update progress counters during scan
+                if (data.progress !== undefined) setScanProgress(data.progress);
+                if (data.total    !== undefined) setScanTotal(data.total);
 
-                // Stream tags into the map as they arrive — don't wait for "done"
-                if (data.tags?.length) {
-                    setTags(data.tags);
-                    setScannedLayer(data.layer);
-                }
+                // Stream tags into map as they arrive — don't wait for "done"
+                if (data.tags?.length) setTags(data.tags);
 
                 if (data.status === "done") {
                     setScanStatus("done");
@@ -179,17 +138,19 @@ export default function PoleLayout({ dxfPath, allLayers, layerSegments }: Props)
                     setScanError(data.error ?? "Unknown error");
                     clearInterval(timer);
                 }
-            } catch { /* network blip — keep polling */ }
-        }, 500);  // poll every 500ms for responsive updates
+            } catch { /* network blip */ }
+        }, 500);
         return () => clearInterval(timer);
     }, [scanStatus]);
 
-    // ── Trigger scan ──────────────────────────────────────────────────────
+    // ── Trigger scan ──────────────────────────────────────────────────────────
     const handleScan = useCallback(async (layer: string) => {
         setScanStatus("processing");
         setScanError(null);
         setTags([]);
         setSelectedId(null);
+        setScanProgress(0);
+        setScanTotal(0);
         try {
             await fetch("/api/pole_tags/scan", {
                 method:  "POST",
@@ -202,7 +163,18 @@ export default function PoleLayout({ dxfPath, allLayers, layerSegments }: Props)
         }
     }, [dxfPath]);
 
-    // ── Canvas redraw ─────────────────────────────────────────────────────
+    // ── Rename handler (client-side only, no server round-trip) ──────────────
+    const handleRenamePole = useCallback((poleId: number, newName: string) => {
+        setTags((prev) =>
+            prev.map((t) =>
+                t.pole_id === poleId
+                    ? { ...t, name: newName, needs_review: false }
+                    : t
+            )
+        );
+    }, []);
+
+    // ── Canvas redraw ─────────────────────────────────────────────────────────
     const redraw = useCallback(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
@@ -247,10 +219,10 @@ export default function PoleLayout({ dxfPath, allLayers, layerSegments }: Props)
                     ctx.save();
                     ctx.translate(tag.cx, tag.cy + r * 1.6);
                     ctx.scale(1, -1);
-                    ctx.fillStyle    = isSel ? "#1c1917" : "#78716c";
-                    ctx.font         = `600 ${8 / vp.scale}px Inter, sans-serif`;
+                    ctx.fillStyle    = isSel ? "#d97706" : "#f59e0b";
+                    ctx.font         = `bold ${Math.min(.2, Math.max(8, 10 / vp.scale))}px monospace`;
                     ctx.textAlign    = "center";
-                    ctx.textBaseline = "middle";
+                    ctx.textBaseline = "top";
                     ctx.fillText(tag.name || `POLE_${tag.pole_id}`, 0, 0);
                     ctx.restore();
                 }
@@ -260,120 +232,125 @@ export default function PoleLayout({ dxfPath, allLayers, layerSegments }: Props)
         ctx.restore();
     }, [canvasSegments]);
 
-    // ── Fit view ──────────────────────────────────────────────────────────
+    // ── Fit view to segments ──────────────────────────────────────────────────
     const fitView = useCallback(() => {
         const canvas = canvasRef.current;
-        if (!canvas || !boundsRef.current) return;
-        const { minx, miny, maxx, maxy } = boundsRef.current;
-        const W = canvas.width, H = canvas.height;
-        const dw = maxx - minx, dh = maxy - miny;
-        if (dw < 1e-9 || dh < 1e-9) return;
-        const vp = vpRef.current;
-        vp.scale = Math.min(W / dw, H / dh) * 0.88;
-        vp.x     = W / 2 - ((minx + maxx) / 2) * vp.scale;
-        vp.y     = H / 2 + ((miny + maxy) / 2) * vp.scale;
-        redraw();
-    }, [redraw]);
+        if (!canvas || !canvasSegments.length) return;
 
-    useEffect(() => {
-        if (!canvasSegments.length) return;
         let minx = Infinity, miny = Infinity, maxx = -Infinity, maxy = -Infinity;
         for (const s of canvasSegments) {
-            minx = Math.min(minx, s.x1, s.x2); miny = Math.min(miny, s.y1, s.y2);
-            maxx = Math.max(maxx, s.x1, s.x2); maxy = Math.max(maxy, s.y1, s.y2);
+            minx = Math.min(minx, s.x1, s.x2);
+            miny = Math.min(miny, s.y1, s.y2);
+            maxx = Math.max(maxx, s.x1, s.x2);
+            maxy = Math.max(maxy, s.y1, s.y2);
         }
         boundsRef.current = { minx, miny, maxx, maxy };
-        if (!hasFittedRef.current) {
-            hasFittedRef.current = true;
-            setTimeout(fitView, 50);
-        }
-    }, [canvasSegments, fitView]);
 
+        const W = canvas.width, H = canvas.height;
+        const dw = maxx - minx, dh = maxy - miny;
+        const scale = Math.min(W / dw, H / dh) * 0.88;
+        const cx = (minx + maxx) / 2, cy = (miny + maxy) / 2;
+        vpRef.current = { x: W / 2 - cx * scale, y: H / 2 + cy * scale, scale };
+        redraw();
+    }, [canvasSegments, redraw]);
+
+    // ── Resize observer ───────────────────────────────────────────────────────
     useEffect(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
         const ro = new ResizeObserver(() => {
-            canvas.width  = canvas.parentElement?.clientWidth  ?? 0;
-            canvas.height = canvas.parentElement?.clientHeight ?? 0;
-            redraw();
+            canvas.width  = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            if (!hasFittedRef.current && canvasSegments.length) {
+                fitView();
+                hasFittedRef.current = true;
+            } else {
+                redraw();
+            }
         });
-        ro.observe(canvas.parentElement!);
-        canvas.width  = canvas.parentElement?.clientWidth  ?? 0;
-        canvas.height = canvas.parentElement?.clientHeight ?? 0;
+        ro.observe(canvas);
         return () => ro.disconnect();
-    }, [redraw]);
+    }, [fitView, redraw]);
 
-    useEffect(() => { redraw(); }, [redraw, tags, selectedId, showOnMap, canvasSegments]);
-
-    // Pan to selected pole — scale never changes
+    // ── Auto-fit when segments first load ─────────────────────────────────────
     useEffect(() => {
-        if (selectedId === null) return;
-        const tag = tagsRef.current.find((t) => t.pole_id === selectedId);
-        if (!tag) return;
+        if (canvasSegments.length && !hasFittedRef.current) {
+            fitView();
+            hasFittedRef.current = true;
+        } else {
+            redraw();
+        }
+    }, [canvasSegments, fitView, redraw]);
+
+    // ── Redraw when tags / selection / visibility change ──────────────────────
+    useEffect(() => { redraw(); }, [tags, selectedId, showOnMap, redraw]);
+
+    // ── Pan & zoom ────────────────────────────────────────────────────────────
+    const handleWheel = useCallback((e: React.WheelEvent<HTMLCanvasElement>) => {
+        e.preventDefault();
         const canvas = canvasRef.current;
         if (!canvas) return;
-        const vp = vpRef.current;
-        vp.x = canvas.width  / 2 - tag.cx * vp.scale;
-        vp.y = canvas.height / 2 + tag.cy * vp.scale;
+        const rect  = canvas.getBoundingClientRect();
+        const mx    = e.clientX - rect.left;
+        const my    = e.clientY - rect.top;
+        const vp    = vpRef.current;
+        const delta = e.deltaY > 0 ? 0.85 : 1 / 0.85;
+        const nx    = mx - (mx - vp.x) * delta;
+        const ny    = my - (my - vp.y) * delta;
+        vpRef.current = { x: nx, y: ny, scale: vp.scale * delta };
         redraw();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedId]);
+    }, [redraw]);
 
-    // ── Canvas interaction ────────────────────────────────────────────────
-    function s2w(sx: number, sy: number) {
-        const vp = vpRef.current;
-        return { x: (sx - vp.x) / vp.scale, y: -(sy - vp.y) / vp.scale };
-    }
+    const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+        panRef.current = {
+            active:  true,
+            start:   { x: e.clientX, y: e.clientY },
+            vpStart: { ...vpRef.current },
+        };
+    }, []);
 
-    function hitTest(wx: number, wy: number): PoleTag | null {
-        const tol = 14 / vpRef.current.scale;
-        for (const t of tagsRef.current) {
-            if (Math.abs(wx - t.cx) < tol && Math.abs(wy - t.cy) < tol) return t;
-        }
-        return null;
-    }
-
-    const onMouseDown = (e: React.MouseEvent) => {
-        panRef.current = { active: true, start: { x: e.clientX, y: e.clientY }, vpStart: { ...vpRef.current } };
-    };
-    const onMouseMove = (e: React.MouseEvent) => {
+    const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
         if (!panRef.current.active) return;
-        vpRef.current.x = panRef.current.vpStart.x + (e.clientX - panRef.current.start.x);
-        vpRef.current.y = panRef.current.vpStart.y + (e.clientY - panRef.current.start.y);
+        const dx = e.clientX - panRef.current.start.x;
+        const dy = e.clientY - panRef.current.start.y;
+        vpRef.current = {
+            ...panRef.current.vpStart,
+            x: panRef.current.vpStart.x + dx,
+            y: panRef.current.vpStart.y + dy,
+        };
         redraw();
-    };
-    const onMouseUp = (e: React.MouseEvent) => {
-        if (panRef.current.active) {
-            const dx = Math.abs(e.clientX - panRef.current.start.x);
-            const dy = Math.abs(e.clientY - panRef.current.start.y);
-            if (dx < 5 && dy < 5) {
-                const p   = s2w(e.nativeEvent.offsetX, e.nativeEvent.offsetY);
-                const hit = hitTest(p.x, p.y);
-                setSelectedId(hit ? (hit.pole_id === selectedId ? null : hit.pole_id) : null);
-            }
-        }
+    }, [redraw]);
+
+    const handleMouseUp = useCallback(() => {
         panRef.current.active = false;
-    };
-    const onWheel = (e: React.WheelEvent) => {
-        e.preventDefault();
-        const f  = e.deltaY < 0 ? 1.12 : 1 / 1.12;
-        const vp = vpRef.current;
-        vp.x     = e.nativeEvent.offsetX - f * (e.nativeEvent.offsetX - vp.x);
-        vp.y     = e.nativeEvent.offsetY - f * (e.nativeEvent.offsetY - vp.y);
-        vp.scale *= f;
-        redraw();
-    };
+    }, []);
+
+    const handleCanvasClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+        if (Math.abs(e.clientX - panRef.current.start.x) > 4 ||
+            Math.abs(e.clientY - panRef.current.start.y) > 4) return;
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const rect = canvas.getBoundingClientRect();
+        const vp   = vpRef.current;
+        const wx   = (e.clientX - rect.left - vp.x) / vp.scale;
+        const wy   = -(e.clientY - rect.top  - vp.y) / vp.scale;
+        const r    = Math.max(1.0, 12 / vp.scale);
+
+        let closest: PoleTag | null = null;
+        let bestD = Infinity;
+        for (const tag of tagsRef.current) {
+            const d = Math.hypot(tag.cx - wx, tag.cy - wy);
+            if (d < r && d < bestD) { bestD = d; closest = tag; }
+        }
+        setSelectedId(closest ? closest.pole_id : null);
+    }, []);
 
     const selectedTag = tags.find((t) => t.pole_id === selectedId) ?? null;
-    const sourceLabel = (tag: PoleTag) => {
-        const src = (tag as any).source;
-        if (src === "text")  return { text: "TEXT entity",     color: "bg-[#dbeafe] text-[#1d4ed8]" };
-        if (src === "mtext") return { text: "MTEXT entity",    color: "bg-[#dbeafe] text-[#1d4ed8]" };
-        return                      { text: "Stroked polyline", color: "bg-[#f3e8ff] text-[#6b21a8]" };
-    };
 
+    // ── Render ────────────────────────────────────────────────────────────────
     return (
         <div className="flex-1 flex overflow-hidden">
+            {/* Left panel */}
             <PolePanel
                 dxfPath={dxfPath}
                 layers={allLayers}
@@ -388,73 +365,145 @@ export default function PoleLayout({ dxfPath, allLayers, layerSegments }: Props)
                 onToggleShowOnMap={() => setShowOnMap((v) => !v)}
                 scanProgress={scanProgress}
                 scanTotal={scanTotal}
+                onRenamePole={handleRenamePole}
             />
 
-            {/* ── Canvas area ── */}
-            <div className="flex-1 relative overflow-hidden bg-[#e8edf5]">
+            {/* Map canvas */}
+            <div className="flex-1 relative bg-[#f8fafc] overflow-hidden">
                 <canvas
                     ref={canvasRef}
-                    className="absolute inset-0 cursor-grab active:cursor-grabbing"
-                    onMouseDown={onMouseDown}
-                    onMouseMove={onMouseMove}
-                    onMouseUp={onMouseUp}
-                    onWheel={onWheel}
+                    className="w-full h-full cursor-grab active:cursor-grabbing"
+                    onWheel={handleWheel}
+                    onMouseDown={handleMouseDown}
+                    onMouseMove={handleMouseMove}
+                    onMouseUp={handleMouseUp}
+                    onMouseLeave={handleMouseUp}
+                    onClick={handleCanvasClick}
                 />
 
-                {/* ── Pole detail panel ── */}
+                {/* Fit button */}
+                <button
+                    onClick={fitView}
+                    title="Fit to view"
+                    className="absolute bottom-4 right-4 w-8 h-8 bg-white border border-border rounded-lg shadow-sm
+                        flex items-center justify-center text-muted hover:text-text hover:shadow-md transition-all"
+                >
+                    <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+                    </svg>
+                </button>
+
+                {/* Legend */}
+                <div className="absolute bottom-4 left-4 bg-white/90 border border-border rounded-lg px-3 py-2 shadow-sm text-[10px] text-muted space-y-1">
+                    <div className="flex items-center gap-1.5">
+                        <div className="w-3 h-3 rounded-full bg-[#f59e0b]" />
+                        <span>Pole label</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                        <span className="font-mono text-[#1d4ed8] font-semibold">TXT</span>
+                        <span>Text entity</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                        <span className="font-mono text-[#6b21a8] font-semibold">STR</span>
+                        <span>Stroked polylines</span>
+                    </div>
+                </div>
+
+                {/* Selected pole detail panel */}
                 {selectedTag && (
-                    <div className="absolute top-4 right-4 w-64 bg-surface border border-border rounded-2xl shadow-xl overflow-hidden z-20">
-                        {/* Header */}
-                        <div className="px-4 py-3 flex items-center justify-between bg-[#f59e0b]">
-                            <div className="flex items-center gap-2">
-                                <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <circle cx="12" cy="12" r="9" />
-                                    <circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none" />
-                                </svg>
-                                <h3 className="text-sm font-bold text-white font-mono tracking-wide">
-                                    {selectedTag.name || `POLE_${selectedTag.pole_id}`}
-                                </h3>
-                            </div>
+                    <div className="absolute top-4 right-4 w-72 bg-white border border-border rounded-xl shadow-lg overflow-hidden">
+                        {/* Header — name is directly editable */}
+                        <div className="bg-[#f59e0b] px-3 py-3 flex items-center gap-2">
+                            <svg className="w-4 h-4 text-white flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <circle cx="12" cy="12" r="9" />
+                                <circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none" />
+                            </svg>
+                            <input
+                                key={selectedTag.pole_id}
+                                type="text"
+                                defaultValue={selectedTag.name || `POLE_${selectedTag.pole_id}`}
+                                id={`detail-name-${selectedTag.pole_id}`}
+                                className="flex-1 min-w-0 bg-white/20 text-white placeholder-white/60 font-mono text-sm font-bold
+                                    rounded px-2 py-0.5 focus:outline-none focus:bg-white/30
+                                    border border-transparent focus:border-white/50"
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                        const v = (e.target as HTMLInputElement).value.trim().toUpperCase();
+                                        if (v) handleRenamePole(selectedTag.pole_id, v);
+                                        (e.target as HTMLInputElement).blur();
+                                    }
+                                    if (e.key === "Escape") {
+                                        (e.target as HTMLInputElement).value = selectedTag.name || `POLE_${selectedTag.pole_id}`;
+                                        (e.target as HTMLInputElement).blur();
+                                    }
+                                }}
+                                onBlur={(e) => {
+                                    const v = e.target.value.trim().toUpperCase();
+                                    if (v && v !== selectedTag.name) handleRenamePole(selectedTag.pole_id, v);
+                                }}
+                            />
                             <button
                                 onClick={() => setSelectedId(null)}
-                                className="w-6 h-6 rounded-full bg-white/20 text-white hover:bg-white/35 flex items-center justify-center text-xs transition-colors"
-                            >
-                                ✕
-                            </button>
+                                className="w-6 h-6 rounded-full bg-white/20 text-white hover:bg-white/35 flex-shrink-0
+                                    flex items-center justify-center text-xs transition-colors"
+                            >✕</button>
                         </div>
 
-                        {/* DXF crop preview */}
-                        {/* DXF crop preview — prefer the server-rendered OCR crop for STR poles */}
-                        <div className="bg-[#1e293b] relative">
-                               {(() => {
-                           // For STR poles that were OCR-processed, use the server crop (shows the
-                           // actual rendered strokes Tesseract saw).  Otherwise fall back to the
-                           // client-side canvas render.
-                           const imgSrc = selectedTag.crop_b64
-                               ? `data:image/png;base64,${selectedTag.crop_b64}`
-                               : cropDataUrl ?? undefined;
+                        {/* Pole name preview with manual rotation */}
+                        <div className="bg-white border-b border-border relative flex items-center justify-center p-3 min-h-[120px]">
+                            {selectedTag.crop_b64 ? (
+                                <img
+                                    src={`data:image/png;base64,${selectedTag.crop_b64}`}
+                                    alt="pole name"
+                                    className="object-contain transition-transform duration-200"
+                                    style={{
+                                        imageRendering: "auto",
+                                        maxHeight: "160px",
+                                        maxWidth: "100%",
+                                        transform: `rotate(${cropRotation}deg)`,
+                                        ...(cropRotation % 180 !== 0 ? { maxHeight: "220px", maxWidth: "160px" } : {}),
+                                    }}
+                                />
+                            ) : (
+                                <p className="text-[10px] text-muted italic">
+                                    {selectedTag.source === "stroke"
+                                        ? "No OCR crop available"
+                                        : selectedTag.name || `POLE_${selectedTag.pole_id}`}
+                                </p>
+                            )}
 
-                           return imgSrc ? (
-                               <img
-                                   src={imgSrc}
-                                   alt="pole area"
-                                   className="w-full block"
-                                   style={{ imageRendering: "auto" }}
-                               />
-                           ) : (
-                               <div className="w-full h-40 flex items-center justify-center">
-                                   <svg className="w-5 h-5 text-slate-500 animate-spin" viewBox="0 0 24 24"
-                                        fill="none" stroke="currentColor" strokeWidth="2">
-                                       <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83
-                                                M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
-                                   </svg>
-                               </div>
-                           );
-                       })()}
-                       <div className="absolute bottom-2 left-2 bg-[#f59e0b]/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded font-mono">
-                           {selectedTag.name || `POLE_${selectedTag.pole_id}`}
-                       </div>
-                   </div>
+                            {selectedTag.crop_b64 && (
+                                <div className="absolute bottom-1.5 right-1.5 flex gap-1">
+                                    {/* Rotate 90° */}
+                                    <button
+                                        onClick={rotateCrop}
+                                        title="Rotate 90°"
+                                        className="w-6 h-6 rounded-full bg-[#f59e0b]/90 hover:bg-[#d97706]
+                                            text-white flex items-center justify-center shadow transition-colors"
+                                    >
+                                        <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                            <path d="M21 2v6h-6"/>
+                                            <path d="M21 8A9 9 0 1 0 19 19"/>
+                                        </svg>
+                                    </button>
+                                    {/* Save rotation — only shown when rotation is non-zero */}
+                                    {cropRotation !== 0 && (
+                                        <button
+                                            onClick={saveRotation}
+                                            title="Save rotation"
+                                            className="h-6 px-1.5 rounded-full bg-[#16a34a] hover:bg-[#15803d]
+                                                text-white text-[9px] font-bold flex items-center shadow transition-colors"
+                                        >
+                                            Save
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+
+                            <div className="absolute bottom-1.5 left-2 bg-[#f59e0b] text-white text-[9px] font-bold px-1.5 py-0.5 rounded font-mono">
+                                {selectedTag.name || `POLE_${selectedTag.pole_id}`}
+                            </div>
+                        </div>
 
                         {/* Info rows */}
                         <div className="p-4 flex flex-col gap-3">
@@ -494,39 +543,31 @@ export default function PoleLayout({ dxfPath, allLayers, layerSegments }: Props)
                                 <span className="text-[10px] text-muted uppercase tracking-wider font-semibold">Index</span>
                                 <span className="font-mono text-xs text-muted">#{selectedTag.pole_id}</span>
                             </div>
+
+                            {/* OCR confidence — only for STR poles */}
+                            {selectedTag.ocr_conf !== null && selectedTag.ocr_conf !== undefined && (
+                                <>
+                                    <div className="h-px bg-border" />
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[10px] text-muted uppercase tracking-wider font-semibold">OCR Confidence</span>
+                                        <span className={`text-[10px] px-2 py-0.5 rounded font-semibold
+                                            ${selectedTag.ocr_conf >= 0.80 ? "bg-[#dcfce7] text-[#15803d]"
+                                            : selectedTag.ocr_conf >= 0.60 ? "bg-[#fef9c3] text-[#92400e]"
+                                                : "bg-[#fee2e2] text-[#b91c1c]"}`}>
+                                            {Math.round(selectedTag.ocr_conf * 100)}%
+                                        </span>
+                                    </div>
+                                    {selectedTag.needs_review && (
+                                        <p className="text-[10px] text-[#b91c1c] flex items-center gap-1">
+                                            <span>⚠</span> Name needs review
+                                        </p>
+                                    )}
+                                </>
+                            )}
+
                         </div>
                     </div>
                 )}
-
-                {/* ── Zoom controls ── */}
-                <div className="absolute bottom-4 right-4 flex flex-col gap-1.5">
-                    {[
-                        { label: "⊡", title: "Fit to screen", onClick: fitView },
-                        { label: "+", title: "Zoom in",        onClick: () => { vpRef.current.scale *= 1.3; redraw(); } },
-                        { label: "−", title: "Zoom out",       onClick: () => { vpRef.current.scale /= 1.3; redraw(); } },
-                    ].map(({ label, title, onClick }) => (
-                        <button key={label} title={title} onClick={onClick}
-                                className="w-8 h-8 bg-surface border border-border rounded-lg flex items-center justify-center text-sm hover:bg-surface-2 shadow-sm transition-colors">
-                            {label}
-                        </button>
-                    ))}
-                </div>
-
-                {/* ── Legend ── */}
-                <div className="absolute bottom-4 left-4 bg-white/90 border border-border rounded-xl px-3.5 py-2.5 shadow-sm backdrop-blur-sm">
-                    <div className="flex items-center gap-2 text-xs mb-1">
-                        <div className="w-3 h-3 rounded-full bg-[#f59e0b]" />
-                        Pole label
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-muted">
-                        <span className="text-[9px] bg-[#dbeafe] text-[#1d4ed8] px-1 rounded font-semibold">TXT</span>
-                        Text entity
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-muted mt-0.5">
-                        <span className="text-[9px] bg-[#f3e8ff] text-[#6b21a8] px-1 rounded font-semibold">STR</span>
-                        Stroked polylines
-                    </div>
-                </div>
             </div>
         </div>
     );
