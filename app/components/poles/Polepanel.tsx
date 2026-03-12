@@ -53,7 +53,7 @@ export default function PolePanel({
     return (
         <div className="w-72 border-r border-border bg-surface flex flex-col h-full">
             {/* Header */}
-            <div className="px-4 py-3 border-b border-border flex-shrink-0">
+            <div className="px-4 py-3 border-b border-border shrink-0">
                 <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
                         <div className="w-7 h-7 rounded-lg bg-[#f59e0b]/15 flex items-center justify-center">
