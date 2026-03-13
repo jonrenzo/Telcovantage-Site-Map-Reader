@@ -115,7 +115,7 @@ SALVAGE_ANGLE_TOL_DEG   = 20.0
 # Cable interaction grouping tolerance.
 # Use a slightly larger tolerance than OCR clustering so cosmetic line breaks
 # can still join into one clickable cable span.
-CABLE_CONNECT_TOL       = 0.10
+CABLE_CONNECT_TOL       = 0.05
 
 
 @dataclass
@@ -472,6 +472,69 @@ def build_cable_spans(doc, cable_layer: str, connect_tol: float = CABLE_CONNECT_
 
     return spans
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Cable span meter value mapping (OCR → span)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def assign_meter_values_to_spans(spans, ocr_results, max_dist=None):
+    """
+    Map OCR digit results to cable spans by proximity.
+    
+    Parameters:
+        spans : list of dicts from build_cable_spans()
+        ocr_results : list of dicts with 'center_x', 'center_y', 'value', 'corrected_value'
+        max_dist : optional max distance (world units) for association.
+                   If None, automatically compute based on DXF scale.
+    
+    Returns:
+        spans : list of dicts with new key 'meter_value' added
+    """
+    if not spans:
+        print("[meter_assign] No spans to process")
+        return spans
+    if not ocr_results:
+        print("[meter_assign] No OCR results found")
+        for s in spans:
+            s["meter_value"] = None
+        return spans
+
+    # Auto-tune max_dist if not provided
+    if max_dist is None:
+        # Approximate from span bbox sizes: 10% of avg span width/height
+        avg_size = sum(max(s["bbox"][2]-s["bbox"][0], s["bbox"][3]-s["bbox"][1]) for s in spans) / len(spans)
+        max_dist = avg_size * 0.5
+        print(f"[meter_assign] Auto max_dist={max_dist:.4f}")
+
+    for span in spans:
+        cx, cy = span["cx"], span["cy"]
+        nearest_digit = None
+        nearest_dist = float("inf")
+
+        for r in ocr_results:
+            dx = cx - r.get("center_x", 0)
+            dy = cy - r.get("center_y", 0)
+            dist = (dx**2 + dy**2)**0.5
+
+            if dist < nearest_dist and dist <= max_dist:
+                nearest_dist = dist
+                nearest_digit = r
+
+        if nearest_digit:
+            # Prefer corrected_value, fallback to OCR value
+            value = nearest_digit.get("corrected_value") or nearest_digit.get("value")
+            try:
+                span["meter_value"] = float(value)
+            except Exception:
+                span["meter_value"] = None
+                print(f"[meter_assign] Non-numeric value for span {span['span_id']}: {value}")
+        else:
+            span["meter_value"] = None
+            print(f"[meter_assign] No OCR digit near span {span['span_id']} (max_dist={max_dist})")
+
+        # Debug output
+        print(f"[meter_assign] span_id={span['span_id']} cx={cx:.3f} cy={cy:.3f} meter_value={span['meter_value']}")
+
+    return spans
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CNN MODEL
@@ -1195,13 +1258,18 @@ def api_run():
 
 @app.route("/api/export", methods=["POST"])
 def api_export():
-    data        = request.get_json()
+    data = request.get_json()
     corrections = data.get("corrections", {})
+    partials = data.get("partials", {})  # <-- new
+
+    # Apply OCR corrections
     for r in state["results"]:
         did = str(r["digit_id"])
         if did in corrections and corrections[did] is not None:
             r["corrected_value"] = corrections[did]
-    path, err = export_excel(state["results"], state["dxf_path"])
+
+    # Pass partials to Excel export
+    path, err = export_excel(state["results"], state["dxf_path"], partials=partials)
     if err:
         return jsonify({"error": err}), 500
     return jsonify({"path": path})
@@ -1259,6 +1327,12 @@ def api_cable_spans():
             })
 
         spans = build_cable_spans(doc, cable_layer, connect_tol=CABLE_CONNECT_TOL)
+
+        # Fetch digit OCR results (from current scan)
+        ocr_results = state.get("results", [])
+
+        # Assign meter values
+        spans = assign_meter_values_to_spans(spans, state.get("results", []))
 
         return jsonify({
             "cable_layer": cable_layer,
