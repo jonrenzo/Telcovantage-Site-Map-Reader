@@ -97,7 +97,7 @@ export default function LoadScreen({ onStartProcessing }: Props) {
             }
             setLayers(ldata.layers);
             const suggested = ldata.layers.find((l: string) =>
-                l.toLowerCase().includes("strand")
+                l.toLowerCase().includes("strand") || l.toLowerCase().includes("sttext")
             ) ?? "";
             setSuggestedLayer(suggested);
             setSelectedLayer(suggested || ldata.layers[0] || "");

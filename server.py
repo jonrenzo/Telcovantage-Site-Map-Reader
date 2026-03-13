@@ -96,7 +96,7 @@ QUIT
 # DXF PIPELINE
 # ─────────────────────────────────────────────────────────────────────────────
 
-CONNECT_TOL             = 0.04
+CONNECT_TOL             = 0.2
 MIN_TOTAL_LENGTH        = 0.15
 EPS_THIN                = 0.03
 LONG_DIM                = 3.0
@@ -166,7 +166,7 @@ def list_layers(dxf_path):
     doc = ezdxf.readfile(dxf_path)
     return sorted(layer.dxf.name for layer in doc.layers)
 
-
+POLE_LAYER_FILTER = ["pole"]
 def extract_stroke_segments(doc, layer_name, include_circles=True):
     segments = []
     ARC_STEPS, SPLINE_STEPS, CIRCLE_STEPS = 24, 30, 36  # Add steps for circle approximation
@@ -200,9 +200,8 @@ def extract_stroke_segments(doc, layer_name, include_circles=True):
                 pts = [(float(c.x)+r*math.cos(a), float(c.y)+r*math.sin(a)) for a in angles]
                 segments.extend(_segmentize(pts, False))
             elif t == "CIRCLE":
-                if not include_circles:
+                if any(x in layer_name.lower() for x in POLE_LAYER_FILTER):
                     continue
-
                 c, r = e.dxf.center, float(e.dxf.radius)
                 angles = np.linspace(0, 2 * math.pi, CIRCLE_STEPS, endpoint=False)
                 pts = [(float(c.x) + r * math.cos(a), float(c.y) + r * math.sin(a)) for a in angles]
@@ -974,6 +973,40 @@ def _run_pole_scan(dxf_path: str, layer_name: str) -> None:
         POLE_STATE.update({"status": "error", "error": str(exc)})
 
 
+@app.route("/api/dxf_segments_no_circles")
+def api_dxf_segments_no_circles():
+    dxf_path = state.get("dxf_path")
+
+    if not dxf_path:
+        return jsonify({"error": "No DXF loaded"}), 400
+
+    try:
+        doc = ezdxf.readfile(dxf_path)
+        layers = list_layers(dxf_path)
+
+        all_segments = {}
+
+        for layer in layers:
+            segs = extract_stroke_segments(
+                doc,
+                layer,
+                include_circles=False
+            )
+
+            all_segments[layer] = [
+                {"x1": s.x1, "y1": s.y1, "x2": s.x2, "y2": s.y2}
+                for s in segs
+            ]
+
+        return jsonify({
+            "layers": layers,
+            "segments": all_segments
+        })
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
 @app.route("/api/pole_tags")
 def api_pole_tags():
     return jsonify({
@@ -1292,7 +1325,6 @@ def api_download():
         as_attachment=True,
         download_name=Path(fpath).name
     )
-
 
 @app.route("/api/dxf_segments")
 def api_dxf_segments():
