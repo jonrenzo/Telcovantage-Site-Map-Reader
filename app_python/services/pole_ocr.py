@@ -14,7 +14,8 @@ from __future__ import annotations
 
 import math
 import os
-from typing import Tuple, Optional, List
+from abc import ABC, abstractmethod
+from typing import Tuple, Optional
 
 import cv2
 import numpy as np
@@ -27,20 +28,24 @@ except ImportError:
     _TESS_OK = False
     print("[pole_ocr] WARNING: pytesseract not installed — OCR will be skipped")
 
+try:
+    from PIL import Image
+    from transformers import TrOCRProcessor, VisionEncoderDecoderModel
+    import torch
+    _TROCR_OK = True
+except ImportError:
+    _TROCR_OK = False
+    print("[pole_ocr] WARNING: TrOCR dependencies not installed — TrOCR OCR will be skipped")
+
 # ── constants ────────────────────────────────────────────────────────────────
 
 OCR_IMG_SIZE   = 800
 STROKE_PX      = 6
 CONF_THRESHOLD = 0.55
 
-TESS_WHITELIST = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-."
-TESS_MODES = [
-    f"--psm 8 --oem 1 -c tessedit_char_whitelist={TESS_WHITELIST}",
-    f"--psm 7 --oem 1 -c tessedit_char_whitelist={TESS_WHITELIST}",
-    f"--psm 6 --oem 1 -c tessedit_char_whitelist={TESS_WHITELIST}",
-]
-
 DEBUG_DIR: Optional[str] = None  # e.g. r"C:\Users\Vero\Downloads\pole_crops"
+POLE_OCR_ENGINE = os.getenv("POLE_OCR_ENGINE", "tesseract").strip().lower()
+TROCR_MODEL_NAME = os.getenv("POLE_TROCR_MODEL", "microsoft/trocr-base-printed")
 
 
 # ── result ────────────────────────────────────────────────────────────────────
@@ -140,47 +145,131 @@ def _primary_deg(bbox: Tuple[float, float, float, float]) -> float:
     return 0.0
 
 
-# ── Tesseract OCR ─────────────────────────────────────────────────────────────
+# ── OCR backends ──────────────────────────────────────────────────────────────
+
 
 def _preprocess(img: np.ndarray) -> np.ndarray:
     """Upscale + sharpen for better Tesseract accuracy."""
-    img    = cv2.resize(img, (img.shape[1] * 2, img.shape[0] * 2),
-                        interpolation=cv2.INTER_CUBIC)
-    clahe  = cv2.createCLAHE(clipLimit=4.0, tileGridSize=(4, 4))
-    img    = clahe.apply(img)
+    img = cv2.resize(img, (img.shape[1] * 2, img.shape[0] * 2),
+                     interpolation=cv2.INTER_CUBIC)
+    clahe = cv2.createCLAHE(clipLimit=4.0, tileGridSize=(4, 4))
+    img = clahe.apply(img)
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
-    img    = cv2.dilate(img, kernel, iterations=1)
+    img = cv2.dilate(img, kernel, iterations=1)
     return cv2.copyMakeBorder(img, 24, 24, 24, 24, cv2.BORDER_CONSTANT, value=0)
 
 
-def _run_tess(img: np.ndarray, config: str) -> Tuple[str, float]:
-    if not _TESS_OK:
-        return "", 0.0
-    try:
-        data  = pytesseract.image_to_data(img, config=config,
-                                          output_type=TessOutput.DICT)
-        pairs = [(w.strip(), int(c))
-                 for w, c in zip(data["text"], data["conf"])
-                 if w.strip() and int(c) >= 0]
-        if not pairs:
+class OcrBackend(ABC):
+    @abstractmethod
+    def read_text(self, image: np.ndarray) -> Tuple[str, float]:
+        """Return (uppercase_text, confidence_in_0_1)."""
+
+
+class TesseractBackend(OcrBackend):
+    TESS_WHITELIST = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-."
+    TESS_MODES = [
+        f"--psm 8 --oem 1 -c tessedit_char_whitelist={TESS_WHITELIST}",
+        f"--psm 7 --oem 1 -c tessedit_char_whitelist={TESS_WHITELIST}",
+        f"--psm 6 --oem 1 -c tessedit_char_whitelist={TESS_WHITELIST}",
+    ]
+
+    @staticmethod
+    def _run_tess(img: np.ndarray, config: str) -> Tuple[str, float]:
+        if not _TESS_OK:
             return "", 0.0
-        text = "".join(w for w, _ in pairs).upper().strip()
-        conf = sum(c for _, c in pairs) / len(pairs) / 100.0
-        return text, conf
-    except Exception:
-        return "", 0.0
+        try:
+            data = pytesseract.image_to_data(img, config=config,
+                                             output_type=TessOutput.DICT)
+            pairs = [(w.strip(), int(c))
+                     for w, c in zip(data["text"], data["conf"])
+                     if w.strip() and int(c) >= 0]
+            if not pairs:
+                return "", 0.0
+            text = "".join(w for w, _ in pairs).upper().strip()
+            conf = sum(c for _, c in pairs) / len(pairs) / 100.0
+            return text, conf
+        except Exception:
+            return "", 0.0
+
+    def read_text(self, image: np.ndarray) -> Tuple[str, float]:
+        proc = _preprocess(image)
+        best_t, best_c = "", 0.0
+        for cfg in self.TESS_MODES:
+            t, c = self._run_tess(proc, cfg)
+            if c > best_c:
+                best_t, best_c = t, c
+        return best_t, best_c
 
 
-def _tess_read(raw: np.ndarray, deg: float) -> Tuple[str, float]:
-    """Read text from raw image at the given total rotation."""
-    inverted = cv2.bitwise_not(_rot(raw, deg))
-    proc     = _preprocess(inverted)
-    best_t, best_c = "", 0.0
-    for cfg in TESS_MODES:
-        t, c = _run_tess(proc, cfg)
-        if c > best_c:
-            best_t, best_c = t, c
-    return best_t, best_c
+class TrOCRBackend(OcrBackend):
+    _processor = None
+    _model = None
+    _device = None
+
+    @classmethod
+    def _ensure_model(cls) -> bool:
+        if not _TROCR_OK:
+            return False
+        if cls._model is not None and cls._processor is not None:
+            return True
+        try:
+            cls._processor = TrOCRProcessor.from_pretrained(TROCR_MODEL_NAME)
+            cls._model = VisionEncoderDecoderModel.from_pretrained(TROCR_MODEL_NAME)
+            cls._device = "cuda" if torch.cuda.is_available() else "cpu"
+            cls._model.to(cls._device)
+            cls._model.eval()
+            return True
+        except Exception as exc:
+            print(f"[pole_ocr] WARNING: failed to initialize TrOCR ({exc})")
+            cls._processor = None
+            cls._model = None
+            cls._device = None
+            return False
+
+    def read_text(self, image: np.ndarray) -> Tuple[str, float]:
+        if not self._ensure_model():
+            return "", 0.0
+        try:
+            rgb = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
+            pil_image = Image.fromarray(rgb)
+            pixel_values = self._processor(images=pil_image, return_tensors="pt").pixel_values
+            pixel_values = pixel_values.to(self._device)
+            with torch.no_grad():
+                generated = self._model.generate(
+                    pixel_values,
+                    return_dict_in_generate=True,
+                    output_scores=True,
+                )
+            decoded = self._processor.batch_decode(
+                generated.sequences,
+                skip_special_tokens=True,
+            )
+            text = (decoded[0] if decoded else "").upper().strip()
+            conf = 0.0
+            if getattr(generated, "scores", None):
+                token_probs = []
+                for score_tensor, token_id in zip(generated.scores, generated.sequences[0][1:]):
+                    probs = torch.softmax(score_tensor[0], dim=-1)
+                    token_probs.append(float(probs[token_id].item()))
+                if token_probs:
+                    conf = float(sum(token_probs) / len(token_probs))
+            return text, conf
+        except Exception as exc:
+            print(f"[pole_ocr] WARNING: TrOCR inference failed ({exc})")
+            return "", 0.0
+
+
+_TESSERACT_BACKEND = TesseractBackend()
+_TROCR_BACKEND = TrOCRBackend()
+
+
+def _select_backend() -> Tuple[str, OcrBackend]:
+    engine = POLE_OCR_ENGINE
+    if engine == "trocr":
+        return "trocr", _TROCR_BACKEND
+    if engine != "tesseract":
+        print(f"[pole_ocr] WARNING: unknown POLE_OCR_ENGINE '{engine}', falling back to tesseract")
+    return "tesseract", _TESSERACT_BACKEND
 
 
 # ── debug ────────────────────────────────────────────────────────────────────
@@ -209,7 +298,7 @@ def ocr_pole(
     conf_threshold: float = CONF_THRESHOLD,
 ) -> PoleOcrResult:
     """
-    OCR one stroked-polyline pole label using Tesseract.
+    OCR one stroked-polyline pole label using the selected OCR backend.
 
     segments  - full layer segment list (filtered to bbox internally)
     bbox      - (minx, miny, maxx, maxy) in DXF coordinates
@@ -230,11 +319,13 @@ def ocr_pole(
     # 3. Build display PNG (black strokes on white — same as OCR Review tab)
     crop_png = _to_png(raw, base_deg)
 
-    # 4. Read with Tesseract
-    text, conf = _tess_read(raw, base_deg)
+    # 4. Read with selected OCR backend
+    backend_name, backend = _select_backend()
+    ocr_input = cv2.bitwise_not(_rot(raw, base_deg))
+    text, conf = backend.read_text(ocr_input)
 
     _debug_save(pole_id, crop_png, text, conf)
-    print(f"[pole_ocr] #{pole_id:03d} [tesseract] → '{text}' conf={conf:.2f}")
+    print(f"[pole_ocr] #{pole_id:03d} [{backend_name}] → '{text}' conf={conf:.2f}")
 
     accepted = bool(text) and conf >= conf_threshold
 
