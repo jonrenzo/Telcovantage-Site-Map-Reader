@@ -28,15 +28,18 @@ from __future__ import annotations
 
 import math
 import re
+import threading as _threading
 from dataclasses import dataclass, field
 from typing import List, Optional, Tuple
 
 import numpy as np
 
 # ── lazy singletons ───────────────────────────────────────────────────────────
+
 _processor = None
 _model = None
 _device = None
+_load_lock = _threading.Lock()
 
 # ── constants ─────────────────────────────────────────────────────────────────
 MODEL_ID = "microsoft/trocr-base-printed"
@@ -80,24 +83,37 @@ class OcrResult:
 # ── model loader (singleton) ──────────────────────────────────────────────────
 
 
+# AFTER
 def _load_model() -> None:
     global _processor, _model, _device
 
     if _model is not None:
         return
 
-    import torch
-    from transformers import TrOCRProcessor, VisionEncoderDecoderModel
+    with _load_lock:
+        if _model is not None:
+            return
 
-    _device = "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"[pole_ocr] Loading TrOCR ({MODEL_ID}) on {_device} ...")
+        import torch
+        from transformers import TrOCRProcessor, VisionEncoderDecoderModel
 
-    _processor = TrOCRProcessor.from_pretrained(MODEL_ID)
-    _model = VisionEncoderDecoderModel.from_pretrained(MODEL_ID)
-    _model.to(_device)
-    _model.eval()
+        _device = "cuda" if torch.cuda.is_available() else "cpu"
+        print(f"[pole_ocr] Loading TrOCR ({MODEL_ID}) on {_device} ...")
 
-    print("[pole_ocr] TrOCR ready.")
+        _processor = TrOCRProcessor.from_pretrained(MODEL_ID)
+
+        # from_pretrained with map_location loads directly onto the device
+        # without ever creating meta tensors — avoids the accelerate race.
+        _model = VisionEncoderDecoderModel.from_pretrained(
+            MODEL_ID,
+            low_cpu_mem_usage=False,
+            ignore_mismatched_sizes=True,
+        )
+        # Move to device ONLY after weights are fully materialised
+        _model = _model.to(_device)
+        _model.eval()
+
+        print("[pole_ocr] TrOCR ready.")
 
 
 # ── rasterisation helpers ─────────────────────────────────────────────────────

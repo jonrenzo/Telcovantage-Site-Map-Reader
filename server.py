@@ -1773,5 +1773,21 @@ def main():
     app.run(host="localhost", port=args.port, debug=False, threaded=True)
 
 
+# ── Pre-warm TrOCR at startup (before any worker threads spawn) ───────────────
+def _prewarm_trocr():
+    """Load TrOCR into the singleton once at startup, single-threaded."""
+    try:
+        from app_python.services.pole_ocr import _load_model
+
+        print("[startup] Pre-warming TrOCR model...")
+        _load_model()
+        print("[startup] TrOCR pre-warm complete.")
+    except Exception as e:
+        print(f"[startup] TrOCR pre-warm failed (will retry on first scan): {e}")
+
+
+_prewarm_trocr()
+
+
 if __name__ == "__main__":
     main()
