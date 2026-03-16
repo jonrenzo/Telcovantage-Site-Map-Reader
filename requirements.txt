@@ -1,25 +1,60 @@
-blinker==1.9.0
-click==8.3.1
-colorama==0.4.6
-et_xmlfile==2.0.0
-ezdxf==1.4.3
-filelock==3.25.0
+# ── Web framework ─────────────────────────────────────────────────────────────
 Flask==3.1.3
 flask-cors==6.0.2
-fonttools==4.61.1
-fsspec==2026.2.0
+Werkzeug==3.1.6
 itsdangerous==2.2.0
 Jinja2==3.1.6
 MarkupSafe==3.0.3
-mpmath==1.3.0
-networkx==3.6.1
+blinker==1.9.0
+click==8.3.1
+colorama==0.4.6
+
+# ── DXF parsing ───────────────────────────────────────────────────────────────
+ezdxf==1.4.3
+fonttools==4.61.1  # required by ezdxf for font rendering
+
+# ── Numerical / scientific ────────────────────────────────────────────────────
 numpy==2.4.2
+scipy                          # used by ezdxf BSpline math internally
+
+# ── Image processing ──────────────────────────────────────────────────────────
 opencv-python==4.13.0.92
-openpyxl==3.1.5
 pillow==12.1.1
-pyparsing==3.3.2
-sympy==1.14.0
+
+# ── Deep learning (CNN + TrOCR) ───────────────────────────────────────────────
 torch==2.10.0
 torchvision==0.25.0
+
+# ── HuggingFace TrOCR (pole_ocr.py + strand_ocr.py) ─────────────────────────
+transformers>=4.38.0            # TrOCRProcessor, VisionEncoderDecoderModel
+sentencepiece>=0.1.99           # tokenizer backend required by TrOCR decoder
+accelerate>=0.27.0              # from_pretrained internals; pin to avoid meta-tensor bug
+safetensors>=0.4.0              # faster/safer model weight loading
+
+# ── Excel export ─────────────────────────────────────────────────────────────
+openpyxl==3.1.5
+et_xmlfile==2.0.0               # openpyxl dependency
+
+# ── Visualisation (app_python/visualization/plotters.py) ─────────────────────
+matplotlib
+
+# ── Misc stdlib supplements ───────────────────────────────────────────────────
 typing_extensions==4.15.0
-Werkzeug==3.1.6
+filelock==3.25.0                # used by HuggingFace cache locking
+fsspec==2026.2.0                # used by HuggingFace hub downloads
+packaging                       # used by transformers version checks
+requests                        # used by HuggingFace hub for model downloads
+tqdm                            # progress bars during model download
+PyYAML                          # used by transformers config loading
+regex                           # faster regex used by tokenizers
+tokenizers>=0.15.0              # fast tokenizer backend for TrOCR
+
+# ── Optional: symbolic math (pulled in by ezdxf) ─────────────────────────────
+sympy==1.14.0
+mpmath==1.3.0
+
+# ── Graph / network (pulled in by ezdxf) ─────────────────────────────────────
+networkx==3.6.1
+
+# ── Parsing utilities ─────────────────────────────────────────────────────────
+pyparsing==3.3.2
