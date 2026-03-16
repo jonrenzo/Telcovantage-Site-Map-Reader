@@ -30,10 +30,9 @@ interface Props {
   ocrResults: any[];
 }
 
+// Simplified to only store recovered; unrecovered is dynamically calculated
 interface PartialDetail {
-  recovered: number;
-  unrecovered: number;
-  missing: number;
+  recovered?: number;
 }
 
 type CableRecoveryStatus = "Recovered" | "Unrecovered or Partial" | "Missing";
@@ -64,7 +63,6 @@ interface Viewport {
   scale: number;
 }
 
-// HELPER: Calculates the bounding box, center point, and total length of a given set of segments
 function computeSpanMetrics(segments: RawSegment[]) {
   let minx = Infinity,
     miny = Infinity,
@@ -213,13 +211,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
   const [partialDetails, setPartialDetails] = useState<
     Record<number, PartialDetail>
   >({});
-  const [modalOpen, setModalOpen] = useState(false);
-  const [modalSpanId, setModalSpanId] = useState<number | null>(null);
-  const [modalValues, setModalValues] = useState<PartialDetail>({
-    recovered: 0,
-    unrecovered: 0,
-    missing: 0,
-  });
 
   // Pairing State
   const pairingModeRef = useRef(false);
@@ -253,35 +244,49 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
     let totalUnrecovered = 0;
     let totalMissing = 0;
     let totalLength = 0;
+    let totalStrandLength = 0;
 
     for (const span of cableSpansRef.current) {
       const runs = span.cable_runs || 1;
       const strandLength = span.meterValue ?? span.total_length ?? 0;
       const actualLength = strandLength * runs;
 
+      totalStrandLength += strandLength;
       totalLength += actualLength;
 
       const status = cableStatuses[span.span_id];
 
-      if (status === "Recovered") totalRecovered += actualLength;
-      else if (status === "Missing") totalMissing += actualLength;
-      else if (status === "Unrecovered or Partial") {
-        const detail = partialDetails[span.span_id] ?? {
-          recovered: 0,
-          unrecovered: 0,
-          missing: 0,
-        };
-        totalRecovered += detail.recovered * runs;
-        totalUnrecovered += detail.unrecovered * runs;
-        totalMissing += detail.missing * runs;
+      if (status === "Recovered") {
+        totalRecovered += actualLength;
+      } else if (status === "Missing") {
+        totalMissing += actualLength;
+      } else if (status === "Unrecovered or Partial") {
+        const detail = partialDetails[span.span_id] ?? { recovered: 0 };
+        // Safe clamp and auto-calculate unrecovered
+        const safeRecovered = Math.min(detail.recovered ?? 0, strandLength);
+        const calcUnrecovered = strandLength - safeRecovered;
+
+        totalRecovered += safeRecovered * runs;
+        totalUnrecovered += calcUnrecovered * runs;
       }
     }
 
-    return { totalRecovered, totalUnrecovered, totalMissing, totalLength };
+    return {
+      totalRecovered,
+      totalUnrecovered,
+      totalMissing,
+      totalLength,
+      totalStrandLength,
+    };
   };
 
-  const { totalRecovered, totalUnrecovered, totalMissing, totalLength } =
-    computeCableLengthSummary();
+  const {
+    totalRecovered,
+    totalUnrecovered,
+    totalMissing,
+    totalLength,
+    totalStrandLength,
+  } = computeCableLengthSummary();
 
   const isLayerVisible = useCallback((name: string | null) => {
     if (!name) return false;
@@ -297,79 +302,265 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
     };
   }, []);
 
-  const worldToScreen = useCallback((wx: number, wy: number) => {
-    const vp = vpRef.current;
-    return {
-      x: wx * vp.scale + vp.x,
-      y: -wy * vp.scale + vp.y,
-    };
-  }, []);
+  const renderScene = useCallback(
+    (
+      ctx: CanvasRenderingContext2D,
+      vp: Viewport,
+      width: number,
+      height: number,
+      opts: { showChips: boolean; showHover: boolean },
+    ) => {
+      ctx.clearRect(0, 0, width, height);
+
+      const worldToScreenLocal = (wx: number, wy: number) => ({
+        x: wx * vp.scale + vp.x,
+        y: -wy * vp.scale + vp.y,
+      });
+
+      ctx.save();
+      ctx.translate(vp.x, vp.y);
+      ctx.scale(vp.scale, -vp.scale);
+
+      // 1. Draw base DXF layers
+      for (const layer of layersRef.current) {
+        if (!layer.visible) continue;
+        const segs = segmentsRef.current[layer.name] ?? [];
+        if (!segs.length) continue;
+
+        ctx.strokeStyle = layer.color;
+        ctx.lineWidth = 0.8 / vp.scale;
+        ctx.beginPath();
+        for (const s of segs) {
+          ctx.moveTo(s.x1, s.y1);
+          ctx.lineTo(s.x2, s.y2);
+        }
+        ctx.stroke();
+      }
+
+      // 2. Draw active cable spans highlights
+      const cableLayer = cableLayerRef.current;
+      if (cableLayer && isLayerVisible(cableLayer)) {
+        const spans = cableSpansRef.current;
+        const spanMap = new Map(spans.map((s) => [s.span_id, s]));
+        const statusEntries = Object.entries(cableStatusRef.current);
+
+        const drawSpanPath = (span: CableSpan) => {
+          ctx.beginPath();
+          for (const seg of span.segments) {
+            ctx.moveTo(seg.x1, seg.y1);
+            ctx.lineTo(seg.x2, seg.y2);
+          }
+        };
+
+        // Render statuses
+        for (const [idStr, status] of statusEntries) {
+          const spanId = Number(idStr);
+          const span = spanMap.get(spanId);
+          if (!span) continue;
+
+          const style = getStatusStyle(status);
+          const runs = span.cable_runs || 1;
+          const markerWidth = (9.5 + (runs - 1) * 12) / vp.scale;
+
+          ctx.save();
+          ctx.lineCap = "round";
+          ctx.lineJoin = "round";
+          ctx.strokeStyle = style.marker;
+          ctx.lineWidth = markerWidth;
+          drawSpanPath(span);
+          ctx.stroke();
+          ctx.restore();
+
+          ctx.save();
+          ctx.lineCap = "round";
+          ctx.lineJoin = "round";
+          ctx.strokeStyle = style.stroke;
+          ctx.lineWidth = 1.8 / vp.scale;
+          drawSpanPath(span);
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // Selected Span Emphasis
+        if (opts.showHover && selectedSpanRef.current !== null) {
+          const span = spanMap.get(selectedSpanRef.current);
+          if (span) {
+            const selectedStatus =
+              cableStatusRef.current[selectedSpanRef.current];
+            const style = selectedStatus
+              ? getStatusStyle(selectedStatus)
+              : {
+                  marker: "rgba(59, 130, 246, 0.18)",
+                  stroke: "rgba(37, 99, 235, 0.95)",
+                };
+
+            const runs = span.cable_runs || 1;
+            const markerWidth = (12 + (runs - 1) * 12) / vp.scale;
+
+            ctx.save();
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
+            ctx.strokeStyle = style.marker;
+            ctx.lineWidth = markerWidth;
+            drawSpanPath(span);
+            ctx.stroke();
+            ctx.restore();
+
+            ctx.save();
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
+            ctx.strokeStyle = style.stroke;
+            ctx.lineWidth = 2.8 / vp.scale;
+            drawSpanPath(span);
+            ctx.stroke();
+            ctx.restore();
+          }
+        }
+
+        // Pairing mode highlights
+        if (opts.showHover && pairingModeRef.current) {
+          for (const pid of pairedSpanIdsRef.current) {
+            const span = spanMap.get(pid);
+            if (span) {
+              ctx.save();
+              ctx.lineCap = "round";
+              ctx.lineJoin = "round";
+              ctx.strokeStyle = "rgba(168, 85, 247, 0.6)";
+              ctx.lineWidth = 10 / vp.scale;
+              drawSpanPath(span);
+              ctx.stroke();
+
+              ctx.strokeStyle = "rgba(147, 51, 234, 0.95)";
+              ctx.lineWidth = 2.4 / vp.scale;
+              drawSpanPath(span);
+              ctx.stroke();
+              ctx.restore();
+            }
+          }
+        }
+
+        // Hover Effect
+        if (
+          opts.showHover &&
+          hoveredSpanRef.current !== null &&
+          hoveredSpanRef.current !== selectedSpanRef.current &&
+          !pairedSpanIdsRef.current.includes(hoveredSpanRef.current)
+        ) {
+          const span = spanMap.get(hoveredSpanRef.current);
+          if (span) {
+            ctx.save();
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
+            ctx.strokeStyle = "rgba(245, 158, 11, 0.95)";
+            const runs = span.cable_runs || 1;
+            ctx.lineWidth = (2.4 + (runs - 1) * 4) / vp.scale;
+            drawSpanPath(span);
+            ctx.stroke();
+            ctx.restore();
+          }
+        }
+      }
+
+      ctx.restore();
+
+      // 3. Draw Chips (Screen space)
+      if (opts.showChips && cableLayer && isLayerVisible(cableLayer)) {
+        const spans = cableSpansRef.current;
+        for (const span of spans) {
+          const status = cableStatusRef.current[span.span_id];
+          if (!status) continue;
+
+          const style = getStatusStyle(status);
+          const anchor = worldToScreenLocal(span.cx, span.cy);
+
+          let text = status;
+
+          const paddingX = 8;
+          const paddingY = 5;
+          const fontSize = 11;
+
+          ctx.save();
+          ctx.font = `600 ${fontSize}px Inter, Arial, sans-serif`;
+          const textWidth = ctx.measureText(text).width;
+          const chipW = textWidth + paddingX * 2;
+          const chipH = fontSize + paddingY * 2;
+
+          let chipX = anchor.x - chipW / 2;
+          let chipY = anchor.y - chipH - 8;
+
+          chipX = Math.max(8, Math.min(chipX, width - chipW - 8));
+          chipY = Math.max(8, Math.min(chipY, height - chipH - 8));
+
+          ctx.fillStyle = style.chipFill;
+          ctx.strokeStyle = style.chipBorder;
+          ctx.lineWidth = 1;
+
+          drawRoundedRect(ctx, chipX, chipY, chipW, chipH, 8);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = style.chipText;
+          ctx.textBaseline = "middle";
+          ctx.fillText(text, chipX + paddingX, chipY + chipH / 2);
+          ctx.restore();
+        }
+      }
+    },
+    [isLayerVisible],
+  );
+
+  const redraw = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    renderScene(ctx, vpRef.current, canvas.width, canvas.height, {
+      showChips: showChipsRef.current,
+      showHover: true,
+    });
+  }, [renderScene]);
 
   const setCableStatus = useCallback(
     (spanId: number, status: CableRecoveryStatus) => {
+      // 1. Immediately update ref to guarantee instantaneous redraw
+      cableStatusRef.current = {
+        ...cableStatusRef.current,
+        [spanId]: status,
+      };
+
+      // 2. Sync React State
+      setCableStatuses(cableStatusRef.current);
+
+      // 3. Initialize partial details immediately if it's partial
       if (status === "Unrecovered or Partial") {
-        const existing = partialDetails[spanId] ?? {
-          recovered: 0,
-          unrecovered: 0,
-          missing: 0,
-        };
-        setModalValues(existing);
-        setModalSpanId(spanId);
-        setModalOpen(true);
-      } else {
-        setCableStatuses((prev) => {
-          const next = { ...prev, [spanId]: status };
-          cableStatusRef.current = next;
-          return next;
+        setPartialDetails((prev) => {
+          if (prev[spanId]) return prev;
+          return { ...prev, [spanId]: { recovered: 0 } };
         });
       }
+
+      // 4. Force imperative redraw
+      redraw();
     },
-    [partialDetails],
+    [redraw],
   );
 
-  const clearCableStatus = useCallback((spanId: number) => {
-    setCableStatuses((prev) => {
-      const next = { ...prev };
+  const clearCableStatus = useCallback(
+    (spanId: number) => {
+      // 1. Immediately update ref
+      const next = { ...cableStatusRef.current };
       delete next[spanId];
       cableStatusRef.current = next;
-      return next;
-    });
-  }, []);
 
-  const savePartialCounts = () => {
-    if (modalSpanId === null) return;
+      // 2. Sync React state
+      setCableStatuses(next);
 
-    setPartialDetails((prev) => ({
-      ...prev,
-      [modalSpanId]: modalValues,
-    }));
-
-    setCableStatuses((prev) => {
-      const next = {
-        ...prev,
-        [modalSpanId]: "Unrecovered or Partial" as CableRecoveryStatus,
-      };
-      cableStatusRef.current = next;
-      return next;
-    });
-
-    cableSpansRef.current = cableSpansRef.current.map((span) => {
-      if (span.span_id === modalSpanId) {
-        return {
-          ...span,
-          meterValue:
-            modalValues.recovered +
-            modalValues.unrecovered +
-            modalValues.missing,
-        };
-      }
-      return span;
-    });
-    setCableSpans([...cableSpansRef.current]);
-
-    setModalOpen(false);
-    setModalSpanId(null);
-  };
+      // 3. Force imperative redraw
+      redraw();
+    },
+    [redraw],
+  );
 
   const findNearestCableSpan = useCallback(
     (worldX: number, worldY: number): number | null => {
@@ -417,198 +608,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
     },
     [isLayerVisible],
   );
-
-  const redraw = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    const vp = vpRef.current;
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    ctx.save();
-    ctx.translate(vp.x, vp.y);
-    ctx.scale(vp.scale, -vp.scale);
-
-    for (const layer of layersRef.current) {
-      if (!layer.visible) continue;
-      const segs = segmentsRef.current[layer.name] ?? [];
-      if (!segs.length) continue;
-
-      ctx.strokeStyle = layer.color;
-      ctx.lineWidth = 0.8 / vp.scale;
-      ctx.beginPath();
-      for (const s of segs) {
-        ctx.moveTo(s.x1, s.y1);
-        ctx.lineTo(s.x2, s.y2);
-      }
-      ctx.stroke();
-    }
-
-    const cableLayer = cableLayerRef.current;
-    if (cableLayer && isLayerVisible(cableLayer)) {
-      const spans = cableSpansRef.current;
-      const spanMap = new Map(spans.map((s) => [s.span_id, s]));
-      const statusEntries = Object.entries(cableStatusRef.current);
-
-      const drawSpanPath = (span: CableSpan) => {
-        ctx.beginPath();
-        for (const seg of span.segments) {
-          ctx.moveTo(seg.x1, seg.y1);
-          ctx.lineTo(seg.x2, seg.y2);
-        }
-      };
-
-      for (const [idStr, status] of statusEntries) {
-        const spanId = Number(idStr);
-        const span = spanMap.get(spanId);
-        if (!span) continue;
-
-        const style = getStatusStyle(status);
-        const runs = span.cable_runs || 1;
-        const markerWidth = (9.5 + (runs - 1) * 12) / vp.scale;
-
-        ctx.save();
-        ctx.lineCap = "round";
-        ctx.lineJoin = "round";
-        ctx.strokeStyle = style.marker;
-        ctx.lineWidth = markerWidth;
-        drawSpanPath(span);
-        ctx.stroke();
-        ctx.restore();
-
-        ctx.save();
-        ctx.lineCap = "round";
-        ctx.lineJoin = "round";
-        ctx.strokeStyle = style.stroke;
-        ctx.lineWidth = 1.8 / vp.scale;
-        drawSpanPath(span);
-        ctx.stroke();
-        ctx.restore();
-      }
-
-      if (selectedSpanRef.current !== null) {
-        const span = spanMap.get(selectedSpanRef.current);
-        if (span) {
-          const selectedStatus =
-            cableStatusRef.current[selectedSpanRef.current];
-          const style = selectedStatus
-            ? getStatusStyle(selectedStatus)
-            : {
-                marker: "rgba(59, 130, 246, 0.18)",
-                stroke: "rgba(37, 99, 235, 0.95)",
-              };
-
-          const runs = span.cable_runs || 1;
-          const markerWidth = (12 + (runs - 1) * 12) / vp.scale;
-
-          ctx.save();
-          ctx.lineCap = "round";
-          ctx.lineJoin = "round";
-          ctx.strokeStyle = style.marker;
-          ctx.lineWidth = markerWidth;
-          drawSpanPath(span);
-          ctx.stroke();
-          ctx.restore();
-
-          ctx.save();
-          ctx.lineCap = "round";
-          ctx.lineJoin = "round";
-          ctx.strokeStyle = style.stroke;
-          ctx.lineWidth = 2.8 / vp.scale;
-          drawSpanPath(span);
-          ctx.stroke();
-          ctx.restore();
-        }
-      }
-
-      if (pairingModeRef.current) {
-        for (const pid of pairedSpanIdsRef.current) {
-          const span = spanMap.get(pid);
-          if (span) {
-            ctx.save();
-            ctx.lineCap = "round";
-            ctx.lineJoin = "round";
-            ctx.strokeStyle = "rgba(168, 85, 247, 0.6)";
-            ctx.lineWidth = 10 / vp.scale;
-            drawSpanPath(span);
-            ctx.stroke();
-
-            ctx.strokeStyle = "rgba(147, 51, 234, 0.95)";
-            ctx.lineWidth = 2.4 / vp.scale;
-            drawSpanPath(span);
-            ctx.stroke();
-            ctx.restore();
-          }
-        }
-      }
-
-      if (
-        hoveredSpanRef.current !== null &&
-        hoveredSpanRef.current !== selectedSpanRef.current &&
-        !pairedSpanIdsRef.current.includes(hoveredSpanRef.current)
-      ) {
-        const span = spanMap.get(hoveredSpanRef.current);
-        if (span) {
-          ctx.save();
-          ctx.lineCap = "round";
-          ctx.lineJoin = "round";
-          ctx.strokeStyle = "rgba(245, 158, 11, 0.95)";
-          const runs = span.cable_runs || 1;
-          ctx.lineWidth = (2.4 + (runs - 1) * 4) / vp.scale;
-          drawSpanPath(span);
-          ctx.stroke();
-          ctx.restore();
-        }
-      }
-    }
-
-    ctx.restore();
-
-    // Conditionally render chip labels based on the ref
-    if (showChipsRef.current && cableLayer && isLayerVisible(cableLayer)) {
-      const spans = cableSpansRef.current;
-      for (const span of spans) {
-        const status = cableStatusRef.current[span.span_id];
-        if (!status) continue;
-
-        const style = getStatusStyle(status);
-        const anchor = worldToScreen(span.cx, span.cy);
-
-        let text = status;
-
-        const paddingX = 8;
-        const paddingY = 5;
-        const fontSize = 11;
-
-        ctx.save();
-        ctx.font = `600 ${fontSize}px Inter, Arial, sans-serif`;
-        const textWidth = ctx.measureText(text).width;
-        const chipW = textWidth + paddingX * 2;
-        const chipH = fontSize + paddingY * 2;
-
-        let chipX = anchor.x - chipW / 2;
-        let chipY = anchor.y - chipH - 8;
-
-        chipX = Math.max(8, Math.min(chipX, canvas.width - chipW - 8));
-        chipY = Math.max(8, Math.min(chipY, canvas.height - chipH - 8));
-
-        ctx.fillStyle = style.chipFill;
-        ctx.strokeStyle = style.chipBorder;
-        ctx.lineWidth = 1;
-
-        drawRoundedRect(ctx, chipX, chipY, chipW, chipH, 8);
-        ctx.fill();
-        ctx.stroke();
-
-        ctx.fillStyle = style.chipText;
-        ctx.textBaseline = "middle";
-        ctx.fillText(text, chipX + paddingX, chipY + chipH / 2);
-        ctx.restore();
-      }
-    }
-  }, [isLayerVisible, worldToScreen]);
 
   const splitCableSpan = useCallback(
     (spanId: number, cursorWorld?: { x: number; y: number }) => {
@@ -990,6 +989,7 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
     cableSpansRef.current = cableSpansRef.current.map((span) => {
       const status = cableStatusRef.current[span.span_id];
 
+      // Partial lengths rely entirely on strandLength, so OCR changes SHOULD affect it normally.
       if (
         status === "Unrecovered or Partial" &&
         span.meterValue !== undefined &&
@@ -1342,10 +1342,36 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
   };
 
   const exportToPdf = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!boundsRef.current) return;
 
-    const imageData = canvas.toDataURL("image/png");
+    const { minx, miny, maxx, maxy } = boundsRef.current;
+    const dw = maxx - minx;
+    const dh = maxy - miny;
+
+    if (dw <= 0 || dh <= 0) return;
+
+    // Create a high-resolution offscreen canvas (4500px wide for crisp A3)
+    const W = 4500;
+    const H = (dh / dw) * W;
+
+    const offCanvas = document.createElement("canvas");
+    offCanvas.width = W;
+    offCanvas.height = H;
+    const ctx = offCanvas.getContext("2d");
+
+    if (!ctx) return;
+
+    const exportVp = { x: 0, y: 0, scale: 1 };
+    exportVp.scale = Math.min(W / dw, H / dh) * 0.96; // 4% margin
+    exportVp.x = W / 2 - ((minx + maxx) / 2) * exportVp.scale;
+    exportVp.y = H / 2 + ((miny + maxy) / 2) * exportVp.scale;
+
+    // Render the scene directly to the offscreen canvas!
+    // IMPORTANT: Turn OFF chips and Hover effects
+    renderScene(ctx, exportVp, W, H, { showChips: false, showHover: false });
+
+    const imageData = offCanvas.toDataURL("image/png");
+
     const statuses = cableStatusRef.current;
     const spanCount = cableSpansRef.current.length;
     const layerName = cableLayerRef.current ?? "—";
@@ -1354,25 +1380,31 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
     let totalRecovered = 0;
     let totalUnrecovered = 0;
     let totalMissing = 0;
+    let pdfTotalStrandLength = 0;
+    let pdfTotalLength = 0;
 
     Object.entries(statuses).forEach(([id, status]) => {
       const spanId = +id;
       const span = cableSpansRef.current.find((s) => s.span_id === spanId);
-      const runs = span?.cable_runs || 1;
+      if (!span) return;
+
+      const runs = span.cable_runs || 1;
+      const strandLen = span.meterValue ?? span.total_length ?? 0;
+
+      pdfTotalStrandLength += strandLen;
+      pdfTotalLength += strandLen * runs;
 
       if (status === "Recovered") {
-        totalRecovered += (span?.meterValue ?? span?.total_length ?? 0) * runs;
+        totalRecovered += strandLen * runs;
       } else if (status === "Missing") {
-        totalMissing += (span?.meterValue ?? span?.total_length ?? 0) * runs;
+        totalMissing += strandLen * runs;
       } else if (status === "Unrecovered or Partial") {
-        const detail = partialDetails[spanId] ?? {
-          recovered: 0,
-          unrecovered: 0,
-          missing: 0,
-        };
-        totalRecovered += detail.recovered * runs;
-        totalUnrecovered += detail.unrecovered * runs;
-        totalMissing += detail.missing * runs;
+        const detail = partialDetails[spanId] ?? { recovered: 0 };
+        const safeRecovered = Math.min(detail.recovered ?? 0, strandLen);
+        const calcUnrecovered = strandLen - safeRecovered;
+
+        totalRecovered += safeRecovered * runs;
+        totalUnrecovered += calcUnrecovered * runs;
       }
     });
 
@@ -1399,21 +1431,19 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
 
         let lengthText = strandLen.toFixed(2);
         if (status === "Unrecovered or Partial" && span) {
-          const detail = partialDetails[span.span_id] ?? {
-            recovered: 0,
-            unrecovered: 0,
-            missing: 0,
-          };
-          lengthText += ` (R:${detail.recovered} / U:${detail.unrecovered} / M:${detail.missing})`;
+          const detail = partialDetails[span.span_id] ?? { recovered: 0 };
+          const safeRecovered = Math.min(detail.recovered ?? 0, strandLen);
+          const calcUnrecovered = strandLen - safeRecovered;
+          lengthText += ` (R:${safeRecovered.toFixed(2)} / U:${calcUnrecovered.toFixed(2)})`;
         }
 
         return `<tr>
-                <td style="padding:4px 10px;border:1px solid #e2e8f0;font-family:monospace">${id}</td>
-                <td style="padding:4px 10px;border:1px solid #e2e8f0;background:${bgMap[status] ?? "#f1f5f9"};color:${colorMap[status] ?? "#1e293b"};font-weight:600">${status}</td>
-                <td style="padding:4px 10px;border:1px solid #e2e8f0;font-family:monospace">${lengthText}</td>
-                <td style="padding:4px 10px;border:1px solid #e2e8f0;font-family:monospace">${runs}</td>
-                <td style="padding:4px 10px;border:1px solid #e2e8f0;font-family:monospace">${actualLen.toFixed(2)}</td>
-                <td style="padding:4px 10px;border:1px solid #e2e8f0;font-family:monospace">${span ? span.segment_count : "—"}</td>
+                <td style="padding:6px 12px;border:1px solid #e2e8f0;font-family:monospace">${id}</td>
+                <td style="padding:6px 12px;border:1px solid #e2e8f0;background:${bgMap[status] ?? "#f1f5f9"};color:${colorMap[status] ?? "#1e293b"};font-weight:600">${status}</td>
+                <td style="padding:6px 12px;border:1px solid #e2e8f0;font-family:monospace">${lengthText}</td>
+                <td style="padding:6px 12px;border:1px solid #e2e8f0;font-family:monospace">${runs}</td>
+                <td style="padding:6px 12px;border:1px solid #e2e8f0;font-family:monospace">${actualLen.toFixed(2)}</td>
+                <td style="padding:6px 12px;border:1px solid #e2e8f0;font-family:monospace">${span ? span.segment_count : "—"}</td>
             </tr>`;
       })
       .join("");
@@ -1425,45 +1455,82 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
 <title>Cable Recovery Report</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: Inter, Arial, sans-serif; color: #1e293b; background: #fff; padding: 28px; }
-  h1  { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
-  .subtitle { font-size: 11px; color: #64748b; margin-bottom: 20px; }
+  body { font-family: Inter, Arial, sans-serif; color: #1e293b; background: #fff; }
+
+  /* Force A3 landscape via print CSS */
+  @page { size: A3 landscape; margin: 15mm; }
+
+  /* Utility class to force a page break for the table */
+  .page-break { break-before: page; page-break-before: always; }
+
+  .header-section { margin-bottom: 20px; }
+  h1  { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
+  .subtitle { font-size: 14px; color: #64748b; margin-bottom: 20px; }
   .summary { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
-  .chip { padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 600; border: 1px solid; }
+  .chip { padding: 8px 16px; border-radius: 8px; font-size: 14px; font-weight: 600; border: 1px solid; }
   .chip-green  { background:#dcfce7; color:#166534; border-color:#86efac; }
   .chip-yellow { background:#fef9c3; color:#92400e; border-color:#fde047; }
   .chip-red    { background:#fee2e2; color:#991b1b; border-color:#fca5a5; }
   .chip-slate  { background:#f1f5f9; color:#334155; border-color:#cbd5e1; }
-  img { width: 100%; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 24px; display: block; }
-  table { width: 100%; border-collapse: collapse; font-size: 12px; }
-  th { background: #f8fafc; padding: 6px 10px; border: 1px solid #e2e8f0; text-align: left; font-weight: 600; color: #475569; }
-  @page { size: landscape; margin: 16px; }
-  @media print { body { padding: 12px; } }
+
+  .legend-box { display: flex; align-items: center; gap: 20px; background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 14px; }
+  .legend-item { display: flex; align-items: center; gap: 8px; color: #334155; font-weight: 500; }
+  .legend-line { width: 32px; height: 6px; border-radius: 3px; display: inline-block; }
+
+  /* Keep the image inside the first page height so it doesn't spill over */
+  .image-container { width: 100%; height: 70vh; display: flex; justify-content: center; align-items: center; overflow: hidden; }
+  img { max-width: 100%; max-height: 100%; object-fit: contain; border: 1px solid #e2e8f0; border-radius: 8px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { background: #f8fafc; padding: 10px 12px; border: 1px solid #e2e8f0; text-align: left; font-weight: 600; color: #475569; }
+
+  h2 { font-size: 20px; margin-bottom: 16px; }
 </style>
 </head>
 <body>
-  <h1>Cable Recovery Status Report</h1>
-  <div class="subtitle">Generated: ${dateStr} &nbsp;|&nbsp; Layer: ${layerName} &nbsp;|&nbsp; Total spans: ${spanCount.toLocaleString()} &nbsp;|&nbsp; Tagged: ${Object.keys(statuses).length}</div>
+  <div class="header-section">
+    <h1>Cable Recovery Status Report</h1>
+    <div class="subtitle">Generated: ${dateStr} &nbsp;|&nbsp; Layer: ${layerName} &nbsp;|&nbsp; Total spans: ${spanCount.toLocaleString()} &nbsp;|&nbsp; Tagged: ${Object.keys(statuses).length}</div>
 
-  <div class="summary">
-    <span class="chip chip-green">✓ Recovered: ${totalRecovered.toFixed(2)} m</span>
-    <span class="chip chip-yellow">⚠ Unrecovered / Partial: ${totalUnrecovered.toFixed(2)} m</span>
-    <span class="chip chip-red">✕ Missing: ${totalMissing.toFixed(2)} m</span>
-    <span class="chip chip-slate">Total: ${totalLength.toFixed(2)} m</span>
+    <div class="summary">
+      <span class="chip chip-green">✓ Recovered: ${totalRecovered.toFixed(2)} m</span>
+      <span class="chip chip-yellow">⚠ Unrecovered / Partial: ${totalUnrecovered.toFixed(2)} m</span>
+      <span class="chip chip-red">✕ Missing: ${totalMissing.toFixed(2)} m</span>
+      <span class="chip chip-slate">Total Strand: ${pdfTotalStrandLength.toFixed(2)} m</span>
+      <span class="chip chip-slate">Total Actual: ${pdfTotalLength.toFixed(2)} m</span>
+    </div>
+
+    <div class="legend-box">
+      <strong style="color: #0f172a;">Drawing Legend:</strong>
+      <div class="legend-item">
+        <span class="legend-line" style="background: rgba(22, 163, 74, 0.95); box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.22);"></span> Recovered
+      </div>
+      <div class="legend-item">
+        <span class="legend-line" style="background: rgba(217, 119, 6, 0.95); box-shadow: 0 0 0 4px rgba(250, 204, 21, 0.24);"></span> Unrecovered / Partial
+      </div>
+      <div class="legend-item">
+        <span class="legend-line" style="background: rgba(220, 38, 38, 0.95); box-shadow: 0 0 0 4px rgba(248, 113, 113, 0.22);"></span> Missing
+      </div>
+    </div>
   </div>
 
-  <img src="${imageData}" alt="DXF viewer snapshot" />
+  <div class="image-container">
+    <img src="${imageData}" alt="DXF Full Extent Export" />
+  </div>
 
-  ${
-    spanRows
-      ? `<table>
-    <thead><tr>
-      <th>Span ID</th><th>Status</th><th>Strand Length</th><th>Runs</th><th>Actual Length</th><th>Segments</th>
-    </tr></thead>
-    <tbody>${spanRows}</tbody>
-  </table>`
-      : "<p style='color:#64748b;font-size:12px'>No spans have been tagged yet.</p>"
-  }
+  <div class="page-break">
+    <h2>Span Data Details</h2>
+    ${
+      spanRows
+        ? `<table>
+      <thead><tr>
+        <th>Span ID</th><th>Status</th><th>Strand Length</th><th>Runs</th><th>Actual Length</th><th>Segments</th>
+      </tr></thead>
+      <tbody>${spanRows}</tbody>
+    </table>`
+        : "<p style='color:#64748b;font-size:14px'>No spans have been tagged yet.</p>"
+    }
+  </div>
 </body>
 </html>`;
 
@@ -1495,7 +1562,7 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
     } else {
       doPrint();
     }
-  }, [cableStatuses, partialDetails]);
+  }, [cableStatuses, partialDetails, renderScene]);
 
   const visibleCount = layers.filter((l) => l.visible).length;
   const selectedSpan =
@@ -1587,6 +1654,9 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
               Missing: {totalMissing.toFixed(2)} m
             </div>
             <div className="text-[#64748b]">
+              Total Strand length: {totalStrandLength.toFixed(2)} m
+            </div>
+            <div className="text-[#64748b]">
               Total Cables: {totalLength.toFixed(2)} m
             </div>
 
@@ -1640,134 +1710,68 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
               </div>
 
               {selectedStatus === "Unrecovered or Partial" && (
-                <div className="mt-2 bg-slate-50 p-2 rounded border border-slate-200 flex justify-between gap-1">
-                  <div className="flex flex-col">
-                    <label className="text-[9px] font-semibold text-slate-500 uppercase">
-                      Recovered
+                <div className="mt-1 text-[11px]">
+                  R:{" "}
+                  {Math.min(
+                    partialDetails[selectedSpan.span_id]?.recovered ?? 0,
+                    selectedSpan.meterValue ?? selectedSpan.total_length,
+                  ).toFixed(2)}{" "}
+                  / U:{" "}
+                  {Math.max(
+                    0,
+                    (selectedSpan.meterValue ?? selectedSpan.total_length) -
+                      (partialDetails[selectedSpan.span_id]?.recovered ?? 0),
+                  ).toFixed(2)}
+                </div>
+              )}
+
+              {selectedStatus === "Unrecovered or Partial" && (
+                <div className="mt-2 bg-slate-50 p-2.5 rounded border border-slate-200 flex flex-col gap-2">
+                  <div className="flex justify-between items-center">
+                    <label className="text-[10px] font-semibold text-slate-500 uppercase">
+                      Recovered (m) <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="number"
                       min={0}
-                      className="w-[70px] border px-1.5 py-1 rounded text-[11px]"
+                      step="0.01"
+                      className="w-[80px] border px-1.5 py-1 rounded text-[11px] outline-none focus:border-purple-400"
+                      placeholder="0.00"
                       value={
-                        partialDetails[selectedSpan.span_id]?.recovered === 0
+                        partialDetails[selectedSpan.span_id]?.recovered ===
+                        undefined
                           ? ""
-                          : (partialDetails[selectedSpan.span_id]?.recovered ??
-                            "")
+                          : partialDetails[selectedSpan.span_id]?.recovered
                       }
                       onChange={(e) => {
-                        const val = parseInt(e.target.value) || 0;
-                        setPartialDetails((prev) => {
-                          const existing = prev[selectedSpan.span_id] || {
-                            recovered: 0,
-                            unrecovered: 0,
-                            missing: 0,
-                          };
-                          const updated = { ...existing, recovered: val };
+                        const strandLen =
+                          selectedSpan.meterValue ?? selectedSpan.total_length;
+                        let val = parseFloat(e.target.value);
 
-                          cableSpansRef.current = cableSpansRef.current.map(
-                            (span) =>
-                              span.span_id === selectedSpan.span_id
-                                ? {
-                                    ...span,
-                                    meterValue:
-                                      updated.recovered +
-                                      updated.unrecovered +
-                                      updated.missing,
-                                  }
-                                : span,
-                          );
-                          setCableSpans([...cableSpansRef.current]);
-                          return { ...prev, [selectedSpan.span_id]: updated };
-                        });
+                        if (isNaN(val)) val = 0;
+                        if (val > strandLen) val = strandLen;
+                        if (val < 0) val = 0;
+
+                        setPartialDetails((prev) => ({
+                          ...prev,
+                          [selectedSpan.span_id]: { recovered: val },
+                        }));
                       }}
                     />
                   </div>
 
-                  <div className="flex flex-col">
-                    <label className="text-[9px] font-semibold text-slate-500 uppercase">
-                      Unrecovered
+                  <div className="flex justify-between items-center">
+                    <label className="text-[10px] font-semibold text-slate-500 uppercase">
+                      Unrecovered (m)
                     </label>
-                    <input
-                      type="number"
-                      min={0}
-                      className="w-[70px] border px-1.5 py-1 rounded text-[11px]"
-                      value={
-                        partialDetails[selectedSpan.span_id]?.unrecovered === 0
-                          ? ""
-                          : (partialDetails[selectedSpan.span_id]
-                              ?.unrecovered ?? "")
-                      }
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value) || 0;
-                        setPartialDetails((prev) => {
-                          const existing = prev[selectedSpan.span_id] || {
-                            recovered: 0,
-                            unrecovered: 0,
-                            missing: 0,
-                          };
-                          const updated = { ...existing, unrecovered: val };
-
-                          cableSpansRef.current = cableSpansRef.current.map(
-                            (span) =>
-                              span.span_id === selectedSpan.span_id
-                                ? {
-                                    ...span,
-                                    meterValue:
-                                      updated.recovered +
-                                      updated.unrecovered +
-                                      updated.missing,
-                                  }
-                                : span,
-                          );
-                          setCableSpans([...cableSpansRef.current]);
-                          return { ...prev, [selectedSpan.span_id]: updated };
-                        });
-                      }}
-                    />
-                  </div>
-
-                  <div className="flex flex-col">
-                    <label className="text-[9px] font-semibold text-slate-500 uppercase">
-                      Missing
-                    </label>
-                    <input
-                      type="number"
-                      min={0}
-                      className="w-[70px] border px-1.5 py-1 rounded text-[11px]"
-                      value={
-                        partialDetails[selectedSpan.span_id]?.missing === 0
-                          ? ""
-                          : (partialDetails[selectedSpan.span_id]?.missing ??
-                            "")
-                      }
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value) || 0;
-                        setPartialDetails((prev) => {
-                          const existing = prev[selectedSpan.span_id] || {
-                            recovered: 0,
-                            unrecovered: 0,
-                            missing: 0,
-                          };
-                          const updated = { ...existing, missing: val };
-
-                          cableSpansRef.current = cableSpansRef.current.map(
-                            (span) =>
-                              span.span_id === selectedSpan.span_id
-                                ? {
-                                    ...span,
-                                    meterValue:
-                                      updated.recovered +
-                                      updated.unrecovered +
-                                      updated.missing,
-                                  }
-                                : span,
-                          );
-                          setCableSpans([...cableSpansRef.current]);
-                          return { ...prev, [selectedSpan.span_id]: updated };
-                        });
-                      }}
-                    />
+                    <span className="text-[11px] font-mono font-medium text-slate-700 bg-slate-200/50 px-2 py-1 rounded">
+                      {Math.max(
+                        0,
+                        (selectedSpan.meterValue ?? selectedSpan.total_length) -
+                          (partialDetails[selectedSpan.span_id]?.recovered ??
+                            0),
+                      ).toFixed(2)}
+                    </span>
                   </div>
                 </div>
               )}
@@ -1852,124 +1856,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
                 onClick={handleConfirmPairing}
               >
                 Confirm
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Partial Recovery Detail Modal */}
-      {modalOpen && modalSpanId !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-[300px]">
-            <h3 className="font-semibold mb-3 text-sm">
-              Partial Recovery Details
-            </h3>
-            <div className="flex gap-2 mb-3">
-              <div className="flex flex-col">
-                <label className="text-[10px]">Recovered</label>
-                <input
-                  type="number"
-                  min={0}
-                  className="border px-2 py-1 rounded w-20"
-                  value={
-                    modalValues.recovered === 0 ? "" : modalValues.recovered
-                  }
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value) || 0;
-                    setModalValues((v) => {
-                      const next = { ...v, recovered: val };
-                      cableSpansRef.current = cableSpansRef.current.map(
-                        (span) =>
-                          span.span_id === modalSpanId
-                            ? {
-                                ...span,
-                                meterValue:
-                                  next.recovered +
-                                  next.unrecovered +
-                                  next.missing,
-                              }
-                            : span,
-                      );
-                      setCableSpans([...cableSpansRef.current]);
-                      return next;
-                    });
-                  }}
-                />
-              </div>
-              <div className="flex flex-col">
-                <label className="text-[10px]">Unrecovered</label>
-                <input
-                  type="number"
-                  min={0}
-                  className="border px-2 py-1 rounded w-20"
-                  value={
-                    modalValues.unrecovered === 0 ? "" : modalValues.unrecovered
-                  }
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value) || 0;
-                    setModalValues((v) => {
-                      const next = { ...v, unrecovered: val };
-                      cableSpansRef.current = cableSpansRef.current.map(
-                        (span) =>
-                          span.span_id === modalSpanId
-                            ? {
-                                ...span,
-                                meterValue:
-                                  next.recovered +
-                                  next.unrecovered +
-                                  next.missing,
-                              }
-                            : span,
-                      );
-                      setCableSpans([...cableSpansRef.current]);
-                      return next;
-                    });
-                  }}
-                />
-              </div>
-              <div className="flex flex-col">
-                <label className="text-[10px]">Missing</label>
-                <input
-                  type="number"
-                  min={0}
-                  className="border px-2 py-1 rounded w-20"
-                  value={modalValues.missing === 0 ? "" : modalValues.missing}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value) || 0;
-                    setModalValues((v) => {
-                      const next = { ...v, missing: val };
-                      cableSpansRef.current = cableSpansRef.current.map(
-                        (span) =>
-                          span.span_id === modalSpanId
-                            ? {
-                                ...span,
-                                meterValue:
-                                  next.recovered +
-                                  next.unrecovered +
-                                  next.missing,
-                              }
-                            : span,
-                      );
-                      setCableSpans([...cableSpansRef.current]);
-                      return next;
-                    });
-                  }}
-                />
-              </div>
-            </div>
-            <div className="flex justify-end gap-2">
-              <button
-                className="px-3 py-1 bg-gray-200 rounded text-sm"
-                onClick={() => setModalOpen(false)}
-              >
-                Cancel
-              </button>
-              <button
-                className="px-3 py-1 bg-yellow-500 text-white rounded text-sm"
-                onClick={savePartialCounts}
-              >
-                Save
               </button>
             </div>
           </div>
