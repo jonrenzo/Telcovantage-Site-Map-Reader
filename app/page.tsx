@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import type { DigitResult, Segment, Step } from "./types";
 import { usePipeline } from "./hooks/usePipeline";
 import Header from "./components/Header";
@@ -34,16 +34,20 @@ export default function Home() {
     [pipeline],
   );
 
-  if (step === 2 && pipeline.status === "done" && pipeline.results.length > 0) {
-    setResults(pipeline.results);
-    setSegments(pipeline.segments);
-    setStep(3);
-  }
-
-  if (step === 2 && pipeline.status === "error") {
-    pipeline.reset();
-    setStep(1);
-  }
+  useEffect(() => {
+    if (
+      step === 2 &&
+      pipeline.status === "done" &&
+      pipeline.results.length > 0
+    ) {
+      setResults(pipeline.results);
+      setSegments(pipeline.segments);
+      setStep(3);
+    } else if (step === 2 && pipeline.status === "error") {
+      pipeline.reset();
+      setStep(1);
+    }
+  }, [step, pipeline.status, pipeline.results, pipeline.segments, pipeline]);
 
   const handleStartOver = useCallback(() => {
     pipeline.reset();

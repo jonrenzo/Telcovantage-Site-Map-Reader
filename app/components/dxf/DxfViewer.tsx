@@ -20,13 +20,14 @@ interface CableSpan {
   cy: number;
   segment_count: number;
   total_length: number;
-  meterValue?: number | null; // NEW
+  meterValue?: number | null;
+  cable_runs: number;
   segments: RawSegment[];
 }
 
 interface Props {
   dxfPath: string;
-  ocrResults: any[]; // Assuming you import DigitResult, otherwise use any[] for now
+  ocrResults: any[];
 }
 
 interface PartialDetail {
@@ -61,6 +62,34 @@ interface Viewport {
   x: number;
   y: number;
   scale: number;
+}
+
+// HELPER: Calculates the bounding box, center point, and total length of a given set of segments
+function computeSpanMetrics(segments: RawSegment[]) {
+  let minx = Infinity,
+    miny = Infinity,
+    maxx = -Infinity,
+    maxy = -Infinity;
+  let sumX = 0,
+    sumY = 0,
+    count = 0;
+  let length = 0;
+  for (const s of segments) {
+    minx = Math.min(minx, s.x1, s.x2);
+    miny = Math.min(miny, s.y1, s.y2);
+    maxx = Math.max(maxx, s.x1, s.x2);
+    maxy = Math.max(maxy, s.y1, s.y2);
+    sumX += s.x1 + s.x2;
+    sumY += s.y1 + s.y2;
+    count += 2;
+    length += Math.hypot(s.x2 - s.x1, s.y2 - s.y1);
+  }
+  return {
+    bbox: [minx, miny, maxx, maxy] as [number, number, number, number],
+    cx: count > 0 ? sumX / count : 0,
+    cy: count > 0 ? sumY / count : 0,
+    total_length: length,
+  };
 }
 
 function pointToSegmentDistance(
@@ -192,10 +221,25 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
     missing: 0,
   });
 
+  // Pairing State
+  const pairingModeRef = useRef(false);
+  const pairedSpanIdsRef = useRef<number[]>([]);
+  const [pairingMode, setPairingMode] = useState(false);
+  const [mainPairingSpanId, setMainPairingSpanId] = useState<number | null>(
+    null,
+  );
+  const [pairedSpanIds, setPairedSpanIds] = useState<number[]>([]);
+  const [confirmPairingOpen, setConfirmPairingOpen] = useState(false);
+
+  // Chips Toggle State
+  const [showChips, setShowChips] = useState(true);
+  const showChipsRef = useRef(true);
+
   const [cableSpans, setCableSpans] = useState<CableSpan[]>([]);
   const [layers, setLayers] = useState<DxfLayerData[]>([]);
   const [layerPanelOpen, setLayerPanelOpen] = useState(true);
   const [loading, setLoading] = useState(true);
+  const [cableDataVersion, setCableDataVersion] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [hoveredSpanId, setHoveredSpanId] = useState<number | null>(null);
   const [selectedSpanId, setSelectedSpanId] = useState<number | null>(null);
@@ -211,22 +255,25 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
     let totalLength = 0;
 
     for (const span of cableSpansRef.current) {
-      const length = span.meterValue ?? span.total_length ?? 0;
-      totalLength += length;
+      const runs = span.cable_runs || 1;
+      const strandLength = span.meterValue ?? span.total_length ?? 0;
+      const actualLength = strandLength * runs;
+
+      totalLength += actualLength;
 
       const status = cableStatuses[span.span_id];
 
-      if (status === "Recovered") totalRecovered += length;
-      else if (status === "Missing") totalMissing += length;
+      if (status === "Recovered") totalRecovered += actualLength;
+      else if (status === "Missing") totalMissing += actualLength;
       else if (status === "Unrecovered or Partial") {
         const detail = partialDetails[span.span_id] ?? {
           recovered: 0,
           unrecovered: 0,
           missing: 0,
         };
-        totalRecovered += detail.recovered;
-        totalUnrecovered += detail.unrecovered;
-        totalMissing += detail.missing;
+        totalRecovered += detail.recovered * runs;
+        totalUnrecovered += detail.unrecovered * runs;
+        totalMissing += detail.missing * runs;
       }
     }
 
@@ -280,25 +327,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
     [partialDetails],
   );
 
-  const handlePartialInputChange = (
-    _spanId: number,
-    _field: keyof PartialDetail,
-    _value: number,
-  ) => {
-    if (modalSpanId === null) return;
-    setPartialDetails((prev) => ({ ...prev, [modalSpanId]: modalValues }));
-    setCableStatuses((prev) => {
-      const next = {
-        ...prev,
-        [modalSpanId]: "Unrecovered or Partial" as CableRecoveryStatus,
-      };
-      cableStatusRef.current = next;
-      return next;
-    });
-    setModalOpen(false);
-    setModalSpanId(null);
-  };
-
   const clearCableStatus = useCallback((spanId: number) => {
     setCableStatuses((prev) => {
       const next = { ...prev };
@@ -311,13 +339,11 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
   const savePartialCounts = () => {
     if (modalSpanId === null) return;
 
-    // Update partial details
     setPartialDetails((prev) => ({
       ...prev,
       [modalSpanId]: modalValues,
     }));
 
-    // Update cable status
     setCableStatuses((prev) => {
       const next = {
         ...prev,
@@ -327,7 +353,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
       return next;
     });
 
-    // ✅ Update meterValue in cableSpansRef
     cableSpansRef.current = cableSpansRef.current.map((span) => {
       if (span.span_id === modalSpanId) {
         return {
@@ -406,7 +431,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
     ctx.translate(vp.x, vp.y);
     ctx.scale(vp.scale, -vp.scale);
 
-    // Draw all visible layers normally
     for (const layer of layersRef.current) {
       if (!layer.visible) continue;
       const segs = segmentsRef.current[layer.name] ?? [];
@@ -422,7 +446,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
       ctx.stroke();
     }
 
-    // Overlay cable highlights if cable layer is visible
     const cableLayer = cableLayerRef.current;
     if (cableLayer && isLayerVisible(cableLayer)) {
       const spans = cableSpansRef.current;
@@ -437,19 +460,20 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
         }
       };
 
-      // 1) Draw persistent marker highlight for labeled spans
       for (const [idStr, status] of statusEntries) {
         const spanId = Number(idStr);
         const span = spanMap.get(spanId);
         if (!span) continue;
 
         const style = getStatusStyle(status);
+        const runs = span.cable_runs || 1;
+        const markerWidth = (9.5 + (runs - 1) * 12) / vp.scale;
 
         ctx.save();
         ctx.lineCap = "round";
         ctx.lineJoin = "round";
         ctx.strokeStyle = style.marker;
-        ctx.lineWidth = 9.5 / vp.scale;
+        ctx.lineWidth = markerWidth;
         drawSpanPath(span);
         ctx.stroke();
         ctx.restore();
@@ -464,7 +488,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
         ctx.restore();
       }
 
-      // 2) Selected span emphasis
       if (selectedSpanRef.current !== null) {
         const span = spanMap.get(selectedSpanRef.current);
         if (span) {
@@ -477,11 +500,14 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
                 stroke: "rgba(37, 99, 235, 0.95)",
               };
 
+          const runs = span.cable_runs || 1;
+          const markerWidth = (12 + (runs - 1) * 12) / vp.scale;
+
           ctx.save();
           ctx.lineCap = "round";
           ctx.lineJoin = "round";
           ctx.strokeStyle = style.marker;
-          ctx.lineWidth = 12 / vp.scale;
+          ctx.lineWidth = markerWidth;
           drawSpanPath(span);
           ctx.stroke();
           ctx.restore();
@@ -497,10 +523,31 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
         }
       }
 
-      // 3) Hover outline on top
+      if (pairingModeRef.current) {
+        for (const pid of pairedSpanIdsRef.current) {
+          const span = spanMap.get(pid);
+          if (span) {
+            ctx.save();
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
+            ctx.strokeStyle = "rgba(168, 85, 247, 0.6)";
+            ctx.lineWidth = 10 / vp.scale;
+            drawSpanPath(span);
+            ctx.stroke();
+
+            ctx.strokeStyle = "rgba(147, 51, 234, 0.95)";
+            ctx.lineWidth = 2.4 / vp.scale;
+            drawSpanPath(span);
+            ctx.stroke();
+            ctx.restore();
+          }
+        }
+      }
+
       if (
         hoveredSpanRef.current !== null &&
-        hoveredSpanRef.current !== selectedSpanRef.current
+        hoveredSpanRef.current !== selectedSpanRef.current &&
+        !pairedSpanIdsRef.current.includes(hoveredSpanRef.current)
       ) {
         const span = spanMap.get(hoveredSpanRef.current);
         if (span) {
@@ -508,7 +555,8 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
           ctx.lineCap = "round";
           ctx.lineJoin = "round";
           ctx.strokeStyle = "rgba(245, 158, 11, 0.95)";
-          ctx.lineWidth = 2.4 / vp.scale;
+          const runs = span.cable_runs || 1;
+          ctx.lineWidth = (2.4 + (runs - 1) * 4) / vp.scale;
           drawSpanPath(span);
           ctx.stroke();
           ctx.restore();
@@ -518,25 +566,17 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
 
     ctx.restore();
 
-    // Draw label chips in screen space so text stays readable
-    // Draw label chips in screen space so text stays readable
-    if (cableLayer && isLayerVisible(cableLayer)) {
+    // Conditionally render chip labels based on the ref
+    if (showChipsRef.current && cableLayer && isLayerVisible(cableLayer)) {
       const spans = cableSpansRef.current;
       for (const span of spans) {
         const status = cableStatusRef.current[span.span_id];
         if (!status) continue;
 
         const style = getStatusStyle(status);
-
-        // Use center of span for chip position instead of bbox
         const anchor = worldToScreen(span.cx, span.cy);
 
-        // If partial, show breakdown
         let text = status;
-        // if (status === "Unrecovered or Partial") {
-        //     const detail = partialDetails[span.span_id] ?? { recovered: 0, unrecovered: 0, missing: 0 };
-        //     text += ` (R:${detail.recovered} / U:${detail.unrecovered} / M:${detail.missing})`;
-        // }
 
         const paddingX = 8;
         const paddingY = 5;
@@ -548,8 +588,8 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
         const chipW = textWidth + paddingX * 2;
         const chipH = fontSize + paddingY * 2;
 
-        let chipX = anchor.x - chipW / 2; // center horizontally
-        let chipY = anchor.y - chipH - 8; // above the span
+        let chipX = anchor.x - chipW / 2;
+        let chipY = anchor.y - chipH - 8;
 
         chipX = Math.max(8, Math.min(chipX, canvas.width - chipW - 8));
         chipY = Math.max(8, Math.min(chipY, canvas.height - chipH - 8));
@@ -570,8 +610,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
     }
   }, [isLayerVisible, worldToScreen]);
 
-  /* Cable span splitting and undo/redo implementation */
-
   const splitCableSpan = useCallback(
     (spanId: number, cursorWorld?: { x: number; y: number }) => {
       const spans = cableSpansRef.current;
@@ -582,7 +620,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
       const segs = span.segments;
       if (segs.length < 2) return;
 
-      // Determine split index
       let splitIndex = Math.floor(segs.length / 2);
       if (cursorWorld) {
         let minDist = Infinity;
@@ -609,18 +646,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
       const newId1 = Math.max(...spans.map((s) => s.span_id)) + 1;
       const newId2 = newId1 + 1;
 
-      const computeCenter = (segments: RawSegment[]) => {
-        let sumX = 0,
-          sumY = 0,
-          count = 0;
-        for (const s of segments) {
-          sumX += s.x1 + s.x2;
-          sumY += s.y1 + s.y2;
-          count += 2;
-        }
-        return { x: sumX / count, y: sumY / count };
-      };
-
       const getNearestMeterValue = (cx: number, cy: number) => {
         let nearest: { x: number; y: number; value: number } | null = null;
         let minDist = Infinity;
@@ -634,35 +659,27 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
         return nearest ? nearest.value : null;
       };
 
-      const center1 = computeCenter(firstHalf);
-      const center2 = computeCenter(secondHalf);
+      const m1 = computeSpanMetrics(firstHalf);
+      const m2 = computeSpanMetrics(secondHalf);
 
       const newSpan1: CableSpan = {
         ...span,
         span_id: newId1,
         segments: firstHalf,
-        cx: center1.x,
-        cy: center1.y,
-        meterValue: getNearestMeterValue(center1.x, center1.y),
-        total_length: firstHalf.reduce(
-          (acc, s) => acc + Math.hypot(s.x2 - s.x1, s.y2 - s.y1),
-          0,
-        ),
         segment_count: firstHalf.length,
+        cable_runs: span.cable_runs,
+        ...m1,
+        meterValue: getNearestMeterValue(m1.cx, m1.cy),
       };
 
       const newSpan2: CableSpan = {
         ...span,
         span_id: newId2,
         segments: secondHalf,
-        cx: center2.x,
-        cy: center2.y,
-        meterValue: getNearestMeterValue(center2.x, center2.y),
-        total_length: secondHalf.reduce(
-          (acc, s) => acc + Math.hypot(s.x2 - s.x1, s.y2 - s.y1),
-          0,
-        ),
         segment_count: secondHalf.length,
+        cable_runs: span.cable_runs,
+        ...m2,
+        meterValue: getNearestMeterValue(m2.cx, m2.cy),
       };
 
       const newSpans = [
@@ -672,14 +689,11 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
         ...spans.slice(spanIndex + 1),
       ];
 
-      // Save undo history
       splitHistoryRef.current.push({ prev: spans.map((s) => ({ ...s })) });
 
-      // Update spans and ref
       cableSpansRef.current = newSpans;
       setCableSpans(newSpans);
 
-      // Update status for new spans (inherit previous span status)
       const prevStatus = cableStatusRef.current[spanId];
       if (prevStatus) {
         setCableStatuses((prev) => {
@@ -688,7 +702,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
           return next;
         });
 
-        // If previous partial, copy partial details
         if (prevStatus === "Unrecovered or Partial" && partialDetails[spanId]) {
           setPartialDetails((prev) => ({
             ...prev,
@@ -698,7 +711,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
         }
       }
 
-      // Update selected span to first new span
       selectedSpanRef.current = newId1;
       setSelectedSpanId(newId1);
       hoveredSpanRef.current = null;
@@ -709,288 +721,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
     [redraw, partialDetails],
   );
 
-  // NEW: Automatically cut long spans (> 1.5) with True Geometric Splitting
-  const autoCutLongSpans = useCallback(() => {
-    const LONG_SPAN_THRESHOLD = 1.5;
-    let currentSpans = [...cableSpansRef.current];
-    let nextId = Math.max(...currentSpans.map((s) => s.span_id), 0) + 1;
-    let cutCount = 0;
-
-    const vpScale = Math.max(vpRef.current.scale, 1e-9);
-    const searchTol = Math.max(150 / vpScale, 3.0);
-    let closestFoundDist = Infinity;
-
-    // GEOMETRIC SCISSORS: Mathematically find the exact projection point on a line
-    const projectOnSegment = (
-      px: number,
-      py: number,
-      x1: number,
-      y1: number,
-      x2: number,
-      y2: number,
-    ) => {
-      const dx = x2 - x1,
-        dy = y2 - y1;
-      const len2 = dx * dx + dy * dy;
-      if (len2 === 0) return { x: x1, y: y1, t: 0 };
-      let t = ((px - x1) * dx + (py - y1) * dy) / len2;
-      t = Math.max(0, Math.min(1, t)); // Bound to the segment ends
-      return { x: x1 + t * dx, y: y1 + t * dy, t };
-    };
-
-    const computeCenter = (segments: RawSegment[]) => {
-      let sumX = 0,
-        sumY = 0,
-        count = 0;
-      for (const s of segments) {
-        sumX += s.x1 + s.x2;
-        sumY += s.y1 + s.y2;
-        count += 2;
-      }
-      return { x: sumX / count, y: sumY / count };
-    };
-
-    const getNearestMeterValue = (cx: number, cy: number) => {
-      let nearest: { x: number; y: number; value: number } | null = null;
-      let minDist = Infinity;
-      for (const v of ocrMeterValuesRef.current) {
-        const dist = Math.hypot(cx - v.x, cy - v.y);
-        if (dist < minDist) {
-          minDist = dist;
-          nearest = v;
-        }
-      }
-      return nearest ? nearest.value : null;
-    };
-
-    let processing = true;
-    while (processing) {
-      processing = false;
-
-      // FIX 1: Strictly use the physical DXF length, ignoring the OCR meterValue label!
-      const longSpans = currentSpans.filter(
-        (s) => s.total_length > LONG_SPAN_THRESHOLD,
-      );
-      const shortSpans = currentSpans.filter(
-        (s) => s.total_length <= LONG_SPAN_THRESHOLD,
-      );
-
-      if (longSpans.length === 0 || shortSpans.length === 0) break;
-
-      for (let i = 0; i < longSpans.length; i++) {
-        const targetSpan = longSpans[i];
-        let foundMatch = false;
-
-        for (const template of shortSpans) {
-          if (template.segments.length === 0) continue;
-
-          const ptA = {
-            x: template.segments[0].x1,
-            y: template.segments[0].y1,
-          };
-          const ptB = {
-            x: template.segments[template.segments.length - 1].x2,
-            y: template.segments[template.segments.length - 1].y2,
-          };
-
-          let idxA = -1,
-            minDistA = Infinity,
-            projA = { x: 0, y: 0, t: 0 };
-          let idxB = -1,
-            minDistB = Infinity,
-            projB = { x: 0, y: 0, t: 0 };
-
-          for (let j = 0; j < targetSpan.segments.length; j++) {
-            const s = targetSpan.segments[j];
-
-            const pA = projectOnSegment(ptA.x, ptA.y, s.x1, s.y1, s.x2, s.y2);
-            const dA = Math.hypot(ptA.x - pA.x, ptA.y - pA.y);
-            if (dA < minDistA) {
-              minDistA = dA;
-              idxA = j;
-              projA = pA;
-            }
-
-            const pB = projectOnSegment(ptB.x, ptB.y, s.x1, s.y1, s.x2, s.y2);
-            const dB = Math.hypot(ptB.x - pB.x, ptB.y - pB.y);
-            if (dB < minDistB) {
-              minDistB = dB;
-              idxB = j;
-              projB = pB;
-            }
-          }
-
-          if (minDistA < closestFoundDist) closestFoundDist = minDistA;
-          if (minDistB < closestFoundDist) closestFoundDist = minDistB;
-
-          if (minDistA < searchTol && minDistB < searchTol) {
-            // FIX 2: Geometric Splitting! We inject exact x/y points to shatter the segments.
-            const swap = idxA > idxB || (idxA === idxB && projA.t > projB.t);
-            const firstIdx = swap ? idxB : idxA;
-            const secondIdx = swap ? idxA : idxB;
-            const firstProj = swap ? projB : projA;
-            const secondProj = swap ? projA : projB;
-
-            const newSegmentsPart1: RawSegment[] = [];
-            const newSegmentsPart2: RawSegment[] = [];
-            const newSegmentsPart3: RawSegment[] = [];
-
-            for (let j = 0; j < targetSpan.segments.length; j++) {
-              const s = targetSpan.segments[j];
-
-              if (j < firstIdx) {
-                newSegmentsPart1.push(s);
-              } else if (j === firstIdx && j === secondIdx) {
-                // Master cut: Shatter a single segment into 3 pieces
-                if (firstProj.t > 0.01)
-                  newSegmentsPart1.push({
-                    x1: s.x1,
-                    y1: s.y1,
-                    x2: firstProj.x,
-                    y2: firstProj.y,
-                  });
-                newSegmentsPart2.push({
-                  x1: firstProj.x,
-                  y1: firstProj.y,
-                  x2: secondProj.x,
-                  y2: secondProj.y,
-                });
-                if (secondProj.t < 0.99)
-                  newSegmentsPart3.push({
-                    x1: secondProj.x,
-                    y1: secondProj.y,
-                    x2: s.x2,
-                    y2: s.y2,
-                  });
-              } else if (j === firstIdx) {
-                if (firstProj.t > 0.01)
-                  newSegmentsPart1.push({
-                    x1: s.x1,
-                    y1: s.y1,
-                    x2: firstProj.x,
-                    y2: firstProj.y,
-                  });
-                newSegmentsPart2.push({
-                  x1: firstProj.x,
-                  y1: firstProj.y,
-                  x2: s.x2,
-                  y2: s.y2,
-                });
-              } else if (j > firstIdx && j < secondIdx) {
-                newSegmentsPart2.push(s);
-              } else if (j === secondIdx) {
-                newSegmentsPart2.push({
-                  x1: s.x1,
-                  y1: s.y1,
-                  x2: secondProj.x,
-                  y2: secondProj.y,
-                });
-                if (secondProj.t < 0.99)
-                  newSegmentsPart3.push({
-                    x1: secondProj.x,
-                    y1: secondProj.y,
-                    x2: s.x2,
-                    y2: s.y2,
-                  });
-              } else {
-                newSegmentsPart3.push(s);
-              }
-            }
-
-            if (
-              newSegmentsPart2.length > 0 &&
-              (newSegmentsPart1.length > 0 || newSegmentsPart3.length > 0)
-            ) {
-              foundMatch = true;
-              cutCount++;
-              processing = true;
-
-              const newSpansToInsert: CableSpan[] = [];
-
-              const makeSpan = (segs: RawSegment[]) => {
-                if (segs.length === 0) return null;
-                const c = computeCenter(segs);
-                return {
-                  ...targetSpan,
-                  span_id: nextId++,
-                  segments: segs,
-                  cx: c.x,
-                  cy: c.y,
-                  meterValue: getNearestMeterValue(c.x, c.y),
-                  total_length: segs.reduce(
-                    (acc, s) => acc + Math.hypot(s.x2 - s.x1, s.y2 - s.y1),
-                    0,
-                  ),
-                  segment_count: segs.length,
-                } as CableSpan;
-              };
-
-              const s1 = makeSpan(newSegmentsPart1);
-              const s2 = makeSpan(newSegmentsPart2);
-              const s3 = makeSpan(newSegmentsPart3);
-
-              if (s1) newSpansToInsert.push(s1);
-              if (s2) newSpansToInsert.push(s2);
-              if (s3) newSpansToInsert.push(s3);
-
-              // Reapply previous label logic
-              const prevStatus = cableStatusRef.current[targetSpan.span_id];
-              if (prevStatus) {
-                setCableStatuses((prev) => {
-                  const next = { ...prev };
-                  if (s1) next[s1.span_id] = prevStatus;
-                  if (s2) next[s2.span_id] = prevStatus;
-                  if (s3) next[s3.span_id] = prevStatus;
-                  cableStatusRef.current = next;
-                  return next;
-                });
-                if (
-                  prevStatus === "Unrecovered or Partial" &&
-                  partialDetails[targetSpan.span_id]
-                ) {
-                  setPartialDetails((prev) => {
-                    const pdNext = { ...prev };
-                    if (s1)
-                      pdNext[s1.span_id] = { ...prev[targetSpan.span_id] };
-                    if (s2)
-                      pdNext[s2.span_id] = { ...prev[targetSpan.span_id] };
-                    if (s3)
-                      pdNext[s3.span_id] = { ...prev[targetSpan.span_id] };
-                    return pdNext;
-                  });
-                }
-              }
-
-              const targetIndex = currentSpans.findIndex(
-                (s) => s.span_id === targetSpan.span_id,
-              );
-              currentSpans.splice(targetIndex, 1, ...newSpansToInsert);
-              break;
-            }
-          }
-        }
-        if (foundMatch) break;
-      }
-    }
-
-    if (cutCount > 0) {
-      splitHistoryRef.current.push({
-        prev: cableSpansRef.current.map((s) => ({ ...s })),
-      });
-      cableSpansRef.current = currentSpans;
-      setCableSpans(currentSpans);
-      redraw();
-      alert(
-        `✅ Success! Auto-matched and carved out ${cutCount} replica spans.`,
-      );
-    } else {
-      alert(
-        `ℹ️ 0 cuts made.\n\nThe closest gap between a short span and a long span was ${closestFoundDist === Infinity ? "Unknown" : closestFoundDist.toFixed(1)} units. (Tolerance allows up to ${searchTol.toFixed(1)} units).`,
-      );
-    }
-  }, [redraw, partialDetails]);
-
-  // NEW: Auto-cut adjacent parallel spans
   const cutAdjacentSpans = useCallback(() => {
     const targetId = selectedSpanRef.current;
     if (targetId === null) return;
@@ -999,29 +729,15 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
     const refSpan = currentSpans.find((s) => s.span_id === targetId);
     if (!refSpan || refSpan.segments.length < 2) return;
 
-    // 1. Get the two extreme points of our reference span
     const segs = refSpan.segments;
     const ptA = { x: segs[0].x1, y: segs[0].y1 };
     const ptB = { x: segs[segs.length - 1].x2, y: segs[segs.length - 1].y2 };
 
-    // 2. Set search tolerance (approx 50 screen pixels scaled to world space)
     const searchTol = 50 / Math.max(vpRef.current.scale, 1e-9);
 
     let newSpans = [...currentSpans];
     let nextId = Math.max(...currentSpans.map((s) => s.span_id)) + 1;
     let madeCuts = false;
-
-    const computeCenter = (segments: RawSegment[]) => {
-      let sumX = 0,
-        sumY = 0,
-        count = 0;
-      for (const s of segments) {
-        sumX += s.x1 + s.x2;
-        sumY += s.y1 + s.y2;
-        count += 2;
-      }
-      return { x: sumX / count, y: sumY / count };
-    };
 
     const getNearestMeterValue = (cx: number, cy: number) => {
       let nearest: { x: number; y: number; value: number } | null = null;
@@ -1039,13 +755,11 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
     const trySplitAtPoint = (targetPt: { x: number; y: number }) => {
       const resultSpans: CableSpan[] = [];
       for (const span of newSpans) {
-        // Skip the reference span itself
         if (span.span_id === refSpan.span_id) {
           resultSpans.push(span);
           continue;
         }
 
-        // Find the closest segment on the target cable
         let minDist = Infinity;
         let splitIdx = -1;
         for (let i = 0; i < span.segments.length; i++) {
@@ -1064,7 +778,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
           }
         }
 
-        // If within tolerance AND not already at the very tips of the cable
         if (
           minDist < searchTol &&
           splitIdx >= 1 &&
@@ -1075,40 +788,31 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
           const firstHalf = span.segments.slice(0, splitIdx + 1);
           const secondHalf = span.segments.slice(splitIdx + 1);
 
-          const c1 = computeCenter(firstHalf);
-          const c2 = computeCenter(secondHalf);
+          const m1 = computeSpanMetrics(firstHalf);
+          const m2 = computeSpanMetrics(secondHalf);
 
           const span1: CableSpan = {
             ...span,
             span_id: nextId++,
             segments: firstHalf,
-            cx: c1.x,
-            cy: c1.y,
-            meterValue: getNearestMeterValue(c1.x, c1.y),
-            total_length: firstHalf.reduce(
-              (acc, s) => acc + Math.hypot(s.x2 - s.x1, s.y2 - s.y1),
-              0,
-            ),
             segment_count: firstHalf.length,
+            cable_runs: span.cable_runs,
+            ...m1,
+            meterValue: getNearestMeterValue(m1.cx, m1.cy),
           };
 
           const span2: CableSpan = {
             ...span,
             span_id: nextId++,
             segments: secondHalf,
-            cx: c2.x,
-            cy: c2.y,
-            meterValue: getNearestMeterValue(c2.x, c2.y),
-            total_length: secondHalf.reduce(
-              (acc, s) => acc + Math.hypot(s.x2 - s.x1, s.y2 - s.y1),
-              0,
-            ),
             segment_count: secondHalf.length,
+            cable_runs: span.cable_runs,
+            ...m2,
+            meterValue: getNearestMeterValue(m2.cx, m2.cy),
           };
 
           resultSpans.push(span1, span2);
 
-          // Inherit previous label status if it had one
           const prevStatus = cableStatusRef.current[span.span_id];
           if (prevStatus) {
             setCableStatuses((prev) => {
@@ -1138,12 +842,10 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
       newSpans = resultSpans;
     };
 
-    // Fire the split test on both ends of the reference cable!
     trySplitAtPoint(ptA);
     trySplitAtPoint(ptB);
 
     if (madeCuts) {
-      // Push to Undo history, update state, and redraw!
       splitHistoryRef.current.push({
         prev: currentSpans.map((s) => ({ ...s })),
       });
@@ -1164,10 +866,9 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
     const hitId = findNearestCableSpan(x, y);
     if (hitId === null) return;
 
-    // 1. SMART RECONNECT LOGIC: Check if we are near the endpoints of the clicked span
     const targetSpan = cableSpansRef.current.find((s) => s.span_id === hitId);
     if (targetSpan && targetSpan.segments.length > 0) {
-      const searchTol = 30 / Math.max(vpRef.current.scale, 1e-9); // Snap radius for endpoints
+      const searchTol = 30 / Math.max(vpRef.current.scale, 1e-9);
       const firstSeg = targetSpan.segments[0];
       const lastSeg = targetSpan.segments[targetSpan.segments.length - 1];
 
@@ -1176,7 +877,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
       const nearEnd = Math.hypot(x - lastSeg.x2, y - lastSeg.y2) < searchTol;
 
       if (nearStart || nearEnd) {
-        // Find a neighboring span that also has an endpoint right here
         const neighbor = cableSpansRef.current.find((s) => {
           if (s.span_id === hitId || s.segments.length === 0) return false;
           const nFirst = s.segments[0];
@@ -1191,7 +891,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
         });
 
         if (neighbor) {
-          // We found a neighbor! Combine their segments (basic end-to-end append for now)
           splitHistoryRef.current.push({
             prev: cableSpansRef.current.map((s) => ({ ...s })),
           });
@@ -1200,21 +899,12 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
           const nextId =
             Math.max(...cableSpansRef.current.map((s) => s.span_id), 0) + 1;
 
-          let sumX = 0,
-            sumY = 0,
-            count = 0;
-          for (const s of newSegments) {
-            sumX += s.x1 + s.x2;
-            sumY += s.y1 + s.y2;
-            count += 2;
-          }
-          const cx = sumX / count;
-          const cy = sumY / count;
+          const m = computeSpanMetrics(newSegments);
 
           let nearestOcr = null;
           let minDist = Infinity;
           for (const v of ocrMeterValuesRef.current) {
-            const dist = Math.hypot(cx - v.x, cy - v.y);
+            const dist = Math.hypot(m.cx - v.x, m.cy - v.y);
             if (dist < minDist) {
               minDist = dist;
               nearestOcr = v.value;
@@ -1225,11 +915,10 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
             ...targetSpan,
             span_id: nextId,
             segments: newSegments,
-            cx,
-            cy,
-            meterValue: nearestOcr ?? undefined,
-            total_length: targetSpan.total_length + neighbor.total_length,
             segment_count: newSegments.length,
+            cable_runs: targetSpan.cable_runs,
+            ...m,
+            meterValue: nearestOcr ?? undefined,
           };
 
           const newSpans = cableSpansRef.current.filter(
@@ -1241,12 +930,11 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
           setCableSpans(newSpans);
           setSelectedSpanId(nextId);
           redraw();
-          return; // Exit early, we merged instead of cutting!
+          return;
         }
       }
     }
 
-    // 2. DEFAULT LOGIC: If we aren't merging, do a standard cut
     splitCableSpan(hitId, { x, y });
   };
 
@@ -1263,9 +951,7 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
     redraw();
   }, [redraw]);
 
-  const redoSplit = useCallback(() => {
-    // Optional: implement redo stack if needed
-  }, []);
+  const redoSplit = useCallback(() => {}, []);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -1277,29 +963,33 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
         e.preventDefault();
         redoSplit();
       }
+      if (pairingModeRef.current && e.key === "Enter") {
+        e.preventDefault();
+        if (pairedSpanIdsRef.current.length > 0) {
+          setConfirmPairingOpen(true);
+        } else {
+          cancelPairing();
+        }
+      }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [undoSplit, redoSplit]);
 
-  // NEW: Listen for live changes from the OCR Review tab AND initial load completion
   useEffect(() => {
-    if (loading || !cableSpansRef.current.length) return;
+    if (!cableSpansRef.current.length) return;
 
     const safeOcrResults = ocrResults || [];
 
-    // 1. Update our OCR reference map with the fresh data
     ocrMeterValuesRef.current = safeOcrResults.map((r) => ({
       x: r.center_x,
       y: r.center_y,
       value: parseFloat(r.corrected_value ?? r.value) || 0,
     }));
 
-    // 2. Re-map the cable spans to catch the new values
     cableSpansRef.current = cableSpansRef.current.map((span) => {
       const status = cableStatusRef.current[span.span_id];
 
-      // Preserve manual math if the user explicitly typed in a Partial Recovery breakdown
       if (
         status === "Unrecovered or Partial" &&
         span.meterValue !== undefined &&
@@ -1308,7 +998,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
         return span;
       }
 
-      // Find the nearest OCR label for ALL cables, regardless of length
       let nearest = null;
       let nearestDist = Infinity;
 
@@ -1331,12 +1020,83 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
       };
     });
 
-    // 3. Trigger a state update and redraw
     setCableSpans([...cableSpansRef.current]);
     redraw();
-  }, [ocrResults, loading, redraw]);
+  }, [ocrResults, cableDataVersion, redraw]);
 
-  /* End of split/undo/redo implementation */
+  const startPairing = () => {
+    if (selectedSpanId === null) return;
+    pairingModeRef.current = true;
+    setPairingMode(true);
+    setMainPairingSpanId(selectedSpanId);
+    pairedSpanIdsRef.current = [];
+    setPairedSpanIds([]);
+    redraw();
+  };
+
+  const promptFinishPairing = () => {
+    if (pairedSpanIdsRef.current.length === 0) {
+      cancelPairing();
+      return;
+    }
+    setConfirmPairingOpen(true);
+  };
+
+  const handleConfirmPairing = () => {
+    if (mainPairingSpanId === null) return;
+    const mainSpan = cableSpansRef.current.find(
+      (s) => s.span_id === mainPairingSpanId,
+    );
+    if (!mainSpan) return;
+
+    splitHistoryRef.current.push({
+      prev: cableSpansRef.current.map((s) => ({ ...s })),
+    });
+
+    const pIds = pairedSpanIdsRef.current;
+    const pairedSpansToMerge = cableSpansRef.current.filter((s) =>
+      pIds.includes(s.span_id),
+    );
+
+    const newSegments = [...mainSpan.segments];
+    pairedSpansToMerge.forEach((ps) => newSegments.push(...ps.segments));
+
+    // Calculate metrics for the newly combined bounding box
+    const m = computeSpanMetrics(newSegments);
+
+    const totalRunsToAdd = pairedSpansToMerge.reduce(
+      (sum, s) => sum + (s.cable_runs || 1),
+      0,
+    );
+
+    const mergedSpan: CableSpan = {
+      ...mainSpan,
+      segments: newSegments,
+      segment_count: newSegments.length,
+      cable_runs: (mainSpan.cable_runs || 1) + totalRunsToAdd,
+      ...m,
+    };
+
+    const newSpans = cableSpansRef.current.filter(
+      (s) => s.span_id !== mainSpan.span_id && !pIds.includes(s.span_id),
+    );
+    newSpans.push(mergedSpan);
+
+    cableSpansRef.current = newSpans;
+    setCableSpans(newSpans);
+
+    cancelPairing();
+  };
+
+  const cancelPairing = () => {
+    pairingModeRef.current = false;
+    setPairingMode(false);
+    setMainPairingSpanId(null);
+    pairedSpanIdsRef.current = [];
+    setPairedSpanIds([]);
+    setConfirmPairingOpen(false);
+    redraw();
+  };
 
   const fitView = useCallback(() => {
     const canvas = canvasRef.current;
@@ -1354,7 +1114,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
     redraw();
   }, [redraw]);
 
-  // Load all layer segments and cable spans from backend
   useEffect(() => {
     if (!dxfPath) return;
     setLoading(true);
@@ -1369,7 +1128,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
     cableStatusRef.current = {};
     setCableLayerName(null);
 
-    // ONLY fetch the DXF segments and cable spans now
     Promise.all([
       fetch("/api/dxf_segments").then((r) => r.json()),
       fetch("/api/cable_spans").then((r) => r.json()),
@@ -1388,7 +1146,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
 
         segmentsRef.current = segData.segments;
 
-        // compute bounds
         let minx = Infinity,
           miny = Infinity,
           maxx = -Infinity,
@@ -1414,13 +1171,15 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
         layersRef.current = layerData;
         setLayers(layerData);
 
-        cableSpansRef.current = cableData.spans ?? [];
-
-        // NOTE: We removed the initial OCR merging logic here because
-        // the new useEffect we just added handles syncing the OCR data!
+        cableSpansRef.current = (cableData.spans ?? []).map((s: any) => ({
+          ...s,
+          cable_runs: s.cable_runs || 1,
+        }));
 
         cableLayerRef.current = cableData.cable_layer ?? null;
         setCableLayerName(cableData.cable_layer ?? null);
+
+        setCableDataVersion((v) => v + 1);
 
         setLoading(false);
         setTimeout(fitView, 50);
@@ -1431,7 +1190,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
       });
   }, [dxfPath, fitView]);
 
-  // Resize observer
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -1462,6 +1220,7 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
             selectedSpanRef.current = null;
             setHoveredSpanId(null);
             setSelectedSpanId(null);
+            cancelPairing();
           }
         }
 
@@ -1489,6 +1248,7 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
       selectedSpanRef.current = null;
       setHoveredSpanId(null);
       setSelectedSpanId(null);
+      cancelPairing();
       redraw();
       return next;
     });
@@ -1543,9 +1303,23 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
     if (didMove) return;
 
     const hitId = hoveredSpanRef.current;
-    selectedSpanRef.current = hitId;
-    setSelectedSpanId(hitId);
-    redraw();
+
+    if (pairingModeRef.current) {
+      if (hitId !== null && hitId !== mainPairingSpanId) {
+        const current = pairedSpanIdsRef.current;
+        if (current.includes(hitId)) {
+          pairedSpanIdsRef.current = current.filter((id) => id !== hitId);
+        } else {
+          pairedSpanIdsRef.current = [...current, hitId];
+        }
+        setPairedSpanIds(pairedSpanIdsRef.current);
+        redraw();
+      }
+    } else {
+      selectedSpanRef.current = hitId;
+      setSelectedSpanId(hitId);
+      redraw();
+    }
   };
 
   const onMouseLeave = () => {
@@ -1577,28 +1351,31 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
     const layerName = cableLayerRef.current ?? "—";
     const dateStr = new Date().toLocaleString();
 
-    // Calculate totals considering manual input for partial spans
     let totalRecovered = 0;
     let totalUnrecovered = 0;
     let totalMissing = 0;
 
     Object.entries(statuses).forEach(([id, status]) => {
       const spanId = +id;
-      if (status === "Recovered") totalRecovered += 1;
-      else if (status === "Missing") totalMissing += 1;
-      else if (status === "Unrecovered or Partial") {
+      const span = cableSpansRef.current.find((s) => s.span_id === spanId);
+      const runs = span?.cable_runs || 1;
+
+      if (status === "Recovered") {
+        totalRecovered += (span?.meterValue ?? span?.total_length ?? 0) * runs;
+      } else if (status === "Missing") {
+        totalMissing += (span?.meterValue ?? span?.total_length ?? 0) * runs;
+      } else if (status === "Unrecovered or Partial") {
         const detail = partialDetails[spanId] ?? {
           recovered: 0,
           unrecovered: 0,
           missing: 0,
         };
-        totalRecovered += detail.recovered;
-        totalUnrecovered += detail.unrecovered;
-        totalMissing += detail.missing;
+        totalRecovered += detail.recovered * runs;
+        totalUnrecovered += detail.unrecovered * runs;
+        totalMissing += detail.missing * runs;
       }
     });
 
-    // Build legend rows for each tagged span
     const spanRows = Object.entries(statuses)
       .sort((a, b) => Number(a[0]) - Number(b[0]))
       .map(([id, status]) => {
@@ -1616,9 +1393,11 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
           Missing: "#fee2e2",
         };
 
-        // If partial, show breakdown
-        let lengthText =
-          span?.meterValue?.toFixed(2) ?? span?.total_length?.toFixed(2) ?? "—";
+        const strandLen = span?.meterValue ?? span?.total_length ?? 0;
+        const runs = span?.cable_runs || 1;
+        const actualLen = strandLen * runs;
+
+        let lengthText = strandLen.toFixed(2);
         if (status === "Unrecovered or Partial" && span) {
           const detail = partialDetails[span.span_id] ?? {
             recovered: 0,
@@ -1632,12 +1411,13 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
                 <td style="padding:4px 10px;border:1px solid #e2e8f0;font-family:monospace">${id}</td>
                 <td style="padding:4px 10px;border:1px solid #e2e8f0;background:${bgMap[status] ?? "#f1f5f9"};color:${colorMap[status] ?? "#1e293b"};font-weight:600">${status}</td>
                 <td style="padding:4px 10px;border:1px solid #e2e8f0;font-family:monospace">${lengthText}</td>
+                <td style="padding:4px 10px;border:1px solid #e2e8f0;font-family:monospace">${runs}</td>
+                <td style="padding:4px 10px;border:1px solid #e2e8f0;font-family:monospace">${actualLen.toFixed(2)}</td>
                 <td style="padding:4px 10px;border:1px solid #e2e8f0;font-family:monospace">${span ? span.segment_count : "—"}</td>
             </tr>`;
       })
       .join("");
 
-    // Build HTML for PDF
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1678,7 +1458,7 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
     spanRows
       ? `<table>
     <thead><tr>
-      <th>Span ID</th><th>Status</th><th>Length</th><th>Segments</th>
+      <th>Span ID</th><th>Status</th><th>Strand Length</th><th>Runs</th><th>Actual Length</th><th>Segments</th>
     </tr></thead>
     <tbody>${spanRows}</tbody>
   </table>`
@@ -1718,28 +1498,18 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
   }, [cableStatuses, partialDetails]);
 
   const visibleCount = layers.filter((l) => l.visible).length;
-  const cableVisible = isLayerVisible(cableLayerName);
   const selectedSpan =
     cableSpansRef.current.find((s) => s.span_id === selectedSpanId) ?? null;
-  const hoveredSpan =
-    cableSpansRef.current.find((s) => s.span_id === hoveredSpanId) ?? null;
   const selectedStatus =
     selectedSpanId !== null ? (cableStatuses[selectedSpanId] ?? null) : null;
 
-  const statusCounts = {
-    recovered: Object.values(cableStatuses).filter((s) => s === "Recovered")
-      .length,
-    partial: Object.values(cableStatuses).filter(
-      (s) => s === "Unrecovered or Partial",
-    ).length,
-    missing: Object.values(cableStatuses).filter((s) => s === "Missing").length,
-  };
-
   const canvasCursor = panRef.current.active
     ? "grabbing"
-    : hoveredSpanId !== null
-      ? "pointer"
-      : "grab";
+    : pairingModeRef.current
+      ? "crosshair"
+      : hoveredSpanId !== null
+        ? "pointer"
+        : "grab";
 
   return (
     <div className="flex-1 relative overflow-hidden bg-[#e8edf5]">
@@ -1800,7 +1570,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
 
       {!loading && !error && cableLayerName && (
         <div className="absolute top-4 right-4 z-10 flex flex-col gap-2 items-end">
-          {/* 1. Summary Box */}
           <div className="bg-surface/90 border border-border rounded-lg px-3 py-2 text-[11px] text-muted backdrop-blur-sm shadow-sm min-w-[250px]">
             <div className="font-semibold text-[#1e293b]">
               Cable interaction
@@ -1820,19 +1589,47 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
             <div className="text-[#64748b]">
               Total Cables: {totalLength.toFixed(2)} m
             </div>
+
+            <label className="flex items-center gap-1.5 mt-2 pt-2 border-t border-slate-200 cursor-pointer hover:text-slate-800 transition-colors">
+              <input
+                type="checkbox"
+                className="w-3 h-3 cursor-pointer"
+                checked={showChips}
+                onChange={(e) => {
+                  const isChecked = e.target.checked;
+                  setShowChips(isChecked);
+                  showChipsRef.current = isChecked;
+                  redraw();
+                }}
+              />
+              <span className="font-medium">Show Status Labels</span>
+            </label>
           </div>
 
-          {/* 2. Selected Span Box & Action Buttons */}
           {selectedSpan && (
             <div className="bg-white/95 border border-slate-200 rounded-lg px-3 py-3 text-[11px] text-slate-900 backdrop-blur-sm shadow-sm min-w-[280px]">
-              <div className="font-semibold text-[12px] mb-2">
-                Selected cable span
+              <div className="font-semibold text-[12px] mb-2 flex justify-between items-center">
+                <span>Selected cable span</span>
+                {pairingMode && (
+                  <span className="text-[10px] font-normal bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">
+                    Pairing Mode Active
+                  </span>
+                )}
               </div>
               <div>ID: {selectedSpan.span_id}</div>
               <div>
-                Length:{" "}
+                Strand length:{" "}
                 {selectedSpan.meterValue?.toFixed(2) ??
                   selectedSpan.total_length.toFixed(2)}{" "}
+                meters
+              </div>
+              <div>Cable runs: {selectedSpan.cable_runs}</div>
+              <div className="font-semibold text-slate-700 mt-1">
+                Actual Cable length:{" "}
+                {(
+                  (selectedSpan.meterValue ?? selectedSpan.total_length) *
+                  selectedSpan.cable_runs
+                ).toFixed(2)}{" "}
                 meters
               </div>
               <div className="mt-2">
@@ -1843,72 +1640,225 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
               </div>
 
               {selectedStatus === "Unrecovered or Partial" && (
-                <div className="mt-1 text-[11px]">
-                  R: {partialDetails[selectedSpan.span_id]?.recovered ?? 0} / U:{" "}
-                  {partialDetails[selectedSpan.span_id]?.unrecovered ?? 0} / M:{" "}
-                  {partialDetails[selectedSpan.span_id]?.missing ?? 0}
+                <div className="mt-2 bg-slate-50 p-2 rounded border border-slate-200 flex justify-between gap-1">
+                  <div className="flex flex-col">
+                    <label className="text-[9px] font-semibold text-slate-500 uppercase">
+                      Recovered
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      className="w-[70px] border px-1.5 py-1 rounded text-[11px]"
+                      value={
+                        partialDetails[selectedSpan.span_id]?.recovered === 0
+                          ? ""
+                          : (partialDetails[selectedSpan.span_id]?.recovered ??
+                            "")
+                      }
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value) || 0;
+                        setPartialDetails((prev) => {
+                          const existing = prev[selectedSpan.span_id] || {
+                            recovered: 0,
+                            unrecovered: 0,
+                            missing: 0,
+                          };
+                          const updated = { ...existing, recovered: val };
+
+                          cableSpansRef.current = cableSpansRef.current.map(
+                            (span) =>
+                              span.span_id === selectedSpan.span_id
+                                ? {
+                                    ...span,
+                                    meterValue:
+                                      updated.recovered +
+                                      updated.unrecovered +
+                                      updated.missing,
+                                  }
+                                : span,
+                          );
+                          setCableSpans([...cableSpansRef.current]);
+                          return { ...prev, [selectedSpan.span_id]: updated };
+                        });
+                      }}
+                    />
+                  </div>
+
+                  <div className="flex flex-col">
+                    <label className="text-[9px] font-semibold text-slate-500 uppercase">
+                      Unrecovered
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      className="w-[70px] border px-1.5 py-1 rounded text-[11px]"
+                      value={
+                        partialDetails[selectedSpan.span_id]?.unrecovered === 0
+                          ? ""
+                          : (partialDetails[selectedSpan.span_id]
+                              ?.unrecovered ?? "")
+                      }
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value) || 0;
+                        setPartialDetails((prev) => {
+                          const existing = prev[selectedSpan.span_id] || {
+                            recovered: 0,
+                            unrecovered: 0,
+                            missing: 0,
+                          };
+                          const updated = { ...existing, unrecovered: val };
+
+                          cableSpansRef.current = cableSpansRef.current.map(
+                            (span) =>
+                              span.span_id === selectedSpan.span_id
+                                ? {
+                                    ...span,
+                                    meterValue:
+                                      updated.recovered +
+                                      updated.unrecovered +
+                                      updated.missing,
+                                  }
+                                : span,
+                          );
+                          setCableSpans([...cableSpansRef.current]);
+                          return { ...prev, [selectedSpan.span_id]: updated };
+                        });
+                      }}
+                    />
+                  </div>
+
+                  <div className="flex flex-col">
+                    <label className="text-[9px] font-semibold text-slate-500 uppercase">
+                      Missing
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      className="w-[70px] border px-1.5 py-1 rounded text-[11px]"
+                      value={
+                        partialDetails[selectedSpan.span_id]?.missing === 0
+                          ? ""
+                          : (partialDetails[selectedSpan.span_id]?.missing ??
+                            "")
+                      }
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value) || 0;
+                        setPartialDetails((prev) => {
+                          const existing = prev[selectedSpan.span_id] || {
+                            recovered: 0,
+                            unrecovered: 0,
+                            missing: 0,
+                          };
+                          const updated = { ...existing, missing: val };
+
+                          cableSpansRef.current = cableSpansRef.current.map(
+                            (span) =>
+                              span.span_id === selectedSpan.span_id
+                                ? {
+                                    ...span,
+                                    meterValue:
+                                      updated.recovered +
+                                      updated.unrecovered +
+                                      updated.missing,
+                                  }
+                                : span,
+                          );
+                          setCableSpans([...cableSpansRef.current]);
+                          return { ...prev, [selectedSpan.span_id]: updated };
+                        });
+                      }}
+                    />
+                  </div>
                 </div>
               )}
 
-              {/* These buttons belong inside the selectedSpan block! */}
               <div className="mt-3 flex flex-wrap gap-2">
                 <button
-                  className="w-full mb-1 px-2.5 py-1.5 rounded-md border border-purple-200 bg-purple-50 text-purple-800 hover:bg-purple-100 transition font-medium flex justify-center items-center shadow-sm"
-                  onClick={cutAdjacentSpans}
-                  title="Automatically slice parallel cables to match this span's length"
+                  className={`w-full mb-1 px-2.5 py-1.5 rounded-md border transition font-medium flex justify-center items-center shadow-sm ${
+                    pairingMode
+                      ? "border-purple-300 bg-purple-500 text-white hover:bg-purple-600"
+                      : "border-purple-200 bg-purple-50 text-purple-800 hover:bg-purple-100"
+                  }`}
+                  onClick={pairingMode ? promptFinishPairing : startPairing}
                 >
-                  ✂️ Cut Adjacent Spans
+                  {pairingMode ? "Finish (Enter)" : "🔗 Select Cable runs"}
                 </button>
 
-                <button
-                  className="px-2.5 py-1 rounded-md border border-green-200 bg-green-50 text-green-800 hover:bg-green-100 transition"
-                  onClick={() =>
-                    setCableStatus(selectedSpan.span_id, "Recovered")
-                  }
-                >
-                  Recovered
-                </button>
+                {!pairingMode && (
+                  <>
+                    <button
+                      className="px-2.5 py-1 rounded-md border border-green-200 bg-green-50 text-green-800 hover:bg-green-100 transition"
+                      onClick={() =>
+                        setCableStatus(selectedSpan.span_id, "Recovered")
+                      }
+                    >
+                      Recovered
+                    </button>
 
-                <button
-                  className="px-2.5 py-1 rounded-md border border-yellow-200 bg-yellow-50 text-yellow-800 hover:bg-yellow-100 transition"
-                  onClick={() =>
-                    setCableStatus(
-                      selectedSpan.span_id,
-                      "Unrecovered or Partial",
-                    )
-                  }
-                >
-                  Unrecovered or Partial
-                </button>
+                    <button
+                      className="px-2.5 py-1 rounded-md border border-yellow-200 bg-yellow-50 text-yellow-800 hover:bg-yellow-100 transition"
+                      onClick={() =>
+                        setCableStatus(
+                          selectedSpan.span_id,
+                          "Unrecovered or Partial",
+                        )
+                      }
+                    >
+                      Unrecovered or Partial
+                    </button>
 
-                <button
-                  className="px-2.5 py-1 rounded-md border border-red-200 bg-red-50 text-red-800 hover:bg-red-100 transition"
-                  onClick={() =>
-                    setCableStatus(selectedSpan.span_id, "Missing")
-                  }
-                >
-                  Missing
-                </button>
+                    <button
+                      className="px-2.5 py-1 rounded-md border border-red-200 bg-red-50 text-red-800 hover:bg-red-100 transition"
+                      onClick={() =>
+                        setCableStatus(selectedSpan.span_id, "Missing")
+                      }
+                    >
+                      Missing
+                    </button>
 
-                <button
-                  className="px-2.5 py-1 rounded-md border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 transition"
-                  onClick={() => clearCableStatus(selectedSpan.span_id)}
-                >
-                  Clear
-                </button>
+                    <button
+                      className="px-2.5 py-1 rounded-md border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 transition"
+                      onClick={() => clearCableStatus(selectedSpan.span_id)}
+                    >
+                      Clear
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           )}
         </div>
       )}
 
-      <button
-        className="absolute bottom-4 left-4 bg-purple-600 hover:bg-purple-700 text-white shadow-lg border border-purple-800 rounded-lg px-4 py-2 text-sm font-semibold transition"
-        onClick={autoCutLongSpans}
-      >
-        ✨ Auto-Cut Long Spans
-      </button>
+      {/* Confirm Pairing Modal */}
+      {confirmPairingOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-[320px]">
+            <h3 className="font-semibold mb-3 text-sm">Confirm Pairing</h3>
+            <p className="text-xs text-slate-600 mb-4">
+              Are you sure you want to pair {pairedSpanIds.length} span(s) to
+              the main cable ID {mainPairingSpanId}? They will share the same ID
+              and length.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                className="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 rounded text-sm transition"
+                onClick={cancelPairing}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-3 py-1.5 bg-purple-500 hover:bg-purple-600 text-white rounded text-sm transition"
+                onClick={handleConfirmPairing}
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
+      {/* Partial Recovery Detail Modal */}
       {modalOpen && modalSpanId !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="bg-white rounded-lg shadow-lg p-6 w-[300px]">
@@ -1922,7 +1872,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
                   type="number"
                   min={0}
                   className="border px-2 py-1 rounded w-20"
-                  // FIX 2: Replaces 0 with an empty string so the user doesn't have to backspace
                   value={
                     modalValues.recovered === 0 ? "" : modalValues.recovered
                   }
@@ -1960,7 +1909,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
                   onChange={(e) => {
                     const val = parseInt(e.target.value) || 0;
                     setModalValues((v) => {
-                      // FIX 1: Changed "recovered: val" to "unrecovered: val"
                       const next = { ...v, unrecovered: val };
                       cableSpansRef.current = cableSpansRef.current.map(
                         (span) =>
@@ -1990,7 +1938,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
                   onChange={(e) => {
                     const val = parseInt(e.target.value) || 0;
                     setModalValues((v) => {
-                      // FIX 1: Changed "recovered: val" to "missing: val"
                       const next = { ...v, missing: val };
                       cableSpansRef.current = cableSpansRef.current.map(
                         (span) =>
