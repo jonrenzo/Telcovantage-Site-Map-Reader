@@ -25,8 +25,8 @@ interface CableSpan {
 }
 
 interface Props {
-    dxfPath: string;
-    ocrResults: any[]; // Assuming you import DigitResult, otherwise use any[] for now
+  dxfPath: string;
+  ocrResults: any[]; // Assuming you import DigitResult, otherwise use any[] for now
 }
 
 interface PartialDetail {
@@ -149,17 +149,15 @@ function getStatusStyle(status: CableRecoveryStatus) {
   }
 }
 
-
-
 export default function DxfViewer({ dxfPath, ocrResults }: Props) {
-    const canvasRef        = useRef<HTMLCanvasElement>(null);
-    const vpRef            = useRef<Viewport>({ x: 0, y: 0, scale: 1 });
-    const panRef           = useRef({
-        active: false,
-        moved: false,
-        start: { x: 0, y: 0 },
-        vpStart: { x: 0, y: 0, scale: 1 }
-    });
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const vpRef = useRef<Viewport>({ x: 0, y: 0, scale: 1 });
+  const panRef = useRef({
+    active: false,
+    moved: false,
+    start: { x: 0, y: 0 },
+    vpStart: { x: 0, y: 0, scale: 1 },
+  });
 
   const boundsRef = useRef<{
     minx: number;
@@ -711,386 +709,546 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
     [redraw, partialDetails],
   );
 
-// NEW: Automatically cut long spans (> 1.5) with True Geometric Splitting
-    const autoCutLongSpans = useCallback(() => {
-        const LONG_SPAN_THRESHOLD = 1.5;
-        let currentSpans = [...cableSpansRef.current];
-        let nextId = Math.max(...currentSpans.map(s => s.span_id), 0) + 1;
-        let cutCount = 0;
+  // NEW: Automatically cut long spans (> 1.5) with True Geometric Splitting
+  const autoCutLongSpans = useCallback(() => {
+    const LONG_SPAN_THRESHOLD = 1.5;
+    let currentSpans = [...cableSpansRef.current];
+    let nextId = Math.max(...currentSpans.map((s) => s.span_id), 0) + 1;
+    let cutCount = 0;
 
-        const vpScale = Math.max(vpRef.current.scale, 1e-9);
-        const searchTol = Math.max(150 / vpScale, 3.0); 
-        let closestFoundDist = Infinity;
+    const vpScale = Math.max(vpRef.current.scale, 1e-9);
+    const searchTol = Math.max(150 / vpScale, 3.0);
+    let closestFoundDist = Infinity;
 
-        // GEOMETRIC SCISSORS: Mathematically find the exact projection point on a line
-        const projectOnSegment = (px: number, py: number, x1: number, y1: number, x2: number, y2: number) => {
-            const dx = x2 - x1, dy = y2 - y1;
-            const len2 = dx * dx + dy * dy;
-            if (len2 === 0) return { x: x1, y: y1, t: 0 };
-            let t = ((px - x1) * dx + (py - y1) * dy) / len2;
-            t = Math.max(0, Math.min(1, t)); // Bound to the segment ends
-            return { x: x1 + t * dx, y: y1 + t * dy, t };
-        };
-
-        const computeCenter = (segments: RawSegment[]) => {
-            let sumX = 0, sumY = 0, count = 0;
-            for (const s of segments) { sumX += s.x1 + s.x2; sumY += s.y1 + s.y2; count += 2; }
-            return { x: sumX / count, y: sumY / count };
-        };
-
-        const getNearestMeterValue = (cx: number, cy: number) => {
-            let nearest: { x: number; y: number; value: number } | null = null;
-            let minDist = Infinity;
-            for (const v of ocrMeterValuesRef.current) {
-                const dist = Math.hypot(cx - v.x, cy - v.y);
-                if (dist < minDist) { minDist = dist; nearest = v; }
-            }
-            return nearest ? nearest.value : null;
-        };
-
-        let processing = true;
-        while (processing) {
-            processing = false; 
-
-            // FIX 1: Strictly use the physical DXF length, ignoring the OCR meterValue label!
-            const longSpans = currentSpans.filter(s => s.total_length > LONG_SPAN_THRESHOLD);
-            const shortSpans = currentSpans.filter(s => s.total_length <= LONG_SPAN_THRESHOLD);
-
-            if (longSpans.length === 0 || shortSpans.length === 0) break;
-
-            for (let i = 0; i < longSpans.length; i++) {
-                const targetSpan = longSpans[i];
-                let foundMatch = false;
-
-                for (const template of shortSpans) {
-                    if (template.segments.length === 0) continue;
-
-                    const ptA = { x: template.segments[0].x1, y: template.segments[0].y1 };
-                    const ptB = { x: template.segments[template.segments.length - 1].x2, y: template.segments[template.segments.length - 1].y2 };
-
-                    let idxA = -1, minDistA = Infinity, projA = {x:0, y:0, t:0};
-                    let idxB = -1, minDistB = Infinity, projB = {x:0, y:0, t:0};
-
-                    for (let j = 0; j < targetSpan.segments.length; j++) {
-                        const s = targetSpan.segments[j];
-                        
-                        const pA = projectOnSegment(ptA.x, ptA.y, s.x1, s.y1, s.x2, s.y2);
-                        const dA = Math.hypot(ptA.x - pA.x, ptA.y - pA.y);
-                        if (dA < minDistA) { minDistA = dA; idxA = j; projA = pA; }
-
-                        const pB = projectOnSegment(ptB.x, ptB.y, s.x1, s.y1, s.x2, s.y2);
-                        const dB = Math.hypot(ptB.x - pB.x, ptB.y - pB.y);
-                        if (dB < minDistB) { minDistB = dB; idxB = j; projB = pB; }
-                    }
-
-                    if (minDistA < closestFoundDist) closestFoundDist = minDistA;
-                    if (minDistB < closestFoundDist) closestFoundDist = minDistB;
-
-                    if (minDistA < searchTol && minDistB < searchTol) {
-                        // FIX 2: Geometric Splitting! We inject exact x/y points to shatter the segments.
-                        const swap = idxA > idxB || (idxA === idxB && projA.t > projB.t);
-                        const firstIdx = swap ? idxB : idxA;
-                        const secondIdx = swap ? idxA : idxB;
-                        const firstProj = swap ? projB : projA;
-                        const secondProj = swap ? projA : projB;
-
-                        const newSegmentsPart1: RawSegment[] = [];
-                        const newSegmentsPart2: RawSegment[] = [];
-                        const newSegmentsPart3: RawSegment[] = [];
-
-                        for (let j = 0; j < targetSpan.segments.length; j++) {
-                            const s = targetSpan.segments[j];
-
-                            if (j < firstIdx) {
-                                newSegmentsPart1.push(s);
-                            } else if (j === firstIdx && j === secondIdx) {
-                                // Master cut: Shatter a single segment into 3 pieces
-                                if (firstProj.t > 0.01) newSegmentsPart1.push({ x1: s.x1, y1: s.y1, x2: firstProj.x, y2: firstProj.y });
-                                newSegmentsPart2.push({ x1: firstProj.x, y1: firstProj.y, x2: secondProj.x, y2: secondProj.y });
-                                if (secondProj.t < 0.99) newSegmentsPart3.push({ x1: secondProj.x, y1: secondProj.y, x2: s.x2, y2: s.y2 });
-                            } else if (j === firstIdx) {
-                                if (firstProj.t > 0.01) newSegmentsPart1.push({ x1: s.x1, y1: s.y1, x2: firstProj.x, y2: firstProj.y });
-                                newSegmentsPart2.push({ x1: firstProj.x, y1: firstProj.y, x2: s.x2, y2: s.y2 });
-                            } else if (j > firstIdx && j < secondIdx) {
-                                newSegmentsPart2.push(s);
-                            } else if (j === secondIdx) {
-                                newSegmentsPart2.push({ x1: s.x1, y1: s.y1, x2: secondProj.x, y2: secondProj.y });
-                                if (secondProj.t < 0.99) newSegmentsPart3.push({ x1: secondProj.x, y1: secondProj.y, x2: s.x2, y2: s.y2 });
-                            } else {
-                                newSegmentsPart3.push(s);
-                            }
-                        }
-
-                        if (newSegmentsPart2.length > 0 && (newSegmentsPart1.length > 0 || newSegmentsPart3.length > 0)) {
-                            foundMatch = true;
-                            cutCount++;
-                            processing = true; 
-                            
-                            const newSpansToInsert: CableSpan[] = [];
-                            
-                            const makeSpan = (segs: RawSegment[]) => {
-                                if (segs.length === 0) return null;
-                                const c = computeCenter(segs);
-                                return {
-                                    ...targetSpan,
-                                    span_id: nextId++,
-                                    segments: segs,
-                                    cx: c.x, cy: c.y,
-                                    meterValue: getNearestMeterValue(c.x, c.y),
-                                    total_length: segs.reduce((acc, s) => acc + Math.hypot(s.x2 - s.x1, s.y2 - s.y1), 0),
-                                    segment_count: segs.length
-                                } as CableSpan;
-                            };
-
-                            const s1 = makeSpan(newSegmentsPart1);
-                            const s2 = makeSpan(newSegmentsPart2);
-                            const s3 = makeSpan(newSegmentsPart3);
-
-                            if (s1) newSpansToInsert.push(s1);
-                            if (s2) newSpansToInsert.push(s2);
-                            if (s3) newSpansToInsert.push(s3);
-
-                            // Reapply previous label logic
-                            const prevStatus = cableStatusRef.current[targetSpan.span_id];
-                            if (prevStatus) {
-                                setCableStatuses(prev => {
-                                    const next = { ...prev };
-                                    if (s1) next[s1.span_id] = prevStatus;
-                                    if (s2) next[s2.span_id] = prevStatus;
-                                    if (s3) next[s3.span_id] = prevStatus;
-                                    cableStatusRef.current = next;
-                                    return next;
-                                });
-                                if (prevStatus === "Unrecovered or Partial" && partialDetails[targetSpan.span_id]) {
-                                    setPartialDetails(prev => {
-                                        const pdNext = { ...prev };
-                                        if (s1) pdNext[s1.span_id] = { ...prev[targetSpan.span_id] };
-                                        if (s2) pdNext[s2.span_id] = { ...prev[targetSpan.span_id] };
-                                        if (s3) pdNext[s3.span_id] = { ...prev[targetSpan.span_id] };
-                                        return pdNext;
-                                    });
-                                }
-                            }
-
-                            const targetIndex = currentSpans.findIndex(s => s.span_id === targetSpan.span_id);
-                            currentSpans.splice(targetIndex, 1, ...newSpansToInsert);
-                            break; 
-                        }
-                    }
-                }
-                if (foundMatch) break; 
-            }
-        }
-
-        if (cutCount > 0) {
-            splitHistoryRef.current.push({ prev: cableSpansRef.current.map(s => ({ ...s })) });
-            cableSpansRef.current = currentSpans;
-            setCableSpans(currentSpans);
-            redraw();
-            alert(`✅ Success! Auto-matched and carved out ${cutCount} replica spans.`);
-        } else {
-            alert(`ℹ️ 0 cuts made.\n\nThe closest gap between a short span and a long span was ${closestFoundDist === Infinity ? "Unknown" : closestFoundDist.toFixed(1)} units. (Tolerance allows up to ${searchTol.toFixed(1)} units).`);
-        }
-    }, [redraw, partialDetails]);
-
-// NEW: Auto-cut adjacent parallel spans
-    const cutAdjacentSpans = useCallback(() => {
-        const targetId = selectedSpanRef.current;
-        if (targetId === null) return;
-        
-        const currentSpans = cableSpansRef.current;
-        const refSpan = currentSpans.find(s => s.span_id === targetId);
-        if (!refSpan || refSpan.segments.length < 2) return;
-
-        // 1. Get the two extreme points of our reference span
-        const segs = refSpan.segments;
-        const ptA = { x: segs[0].x1, y: segs[0].y1 };
-        const ptB = { x: segs[segs.length - 1].x2, y: segs[segs.length - 1].y2 };
-
-        // 2. Set search tolerance (approx 50 screen pixels scaled to world space)
-        const searchTol = 50 / Math.max(vpRef.current.scale, 1e-9);
-
-        let newSpans = [...currentSpans];
-        let nextId = Math.max(...currentSpans.map(s => s.span_id)) + 1;
-        let madeCuts = false;
-
-        const computeCenter = (segments: RawSegment[]) => {
-            let sumX = 0, sumY = 0, count = 0;
-            for (const s of segments) { sumX += s.x1 + s.x2; sumY += s.y1 + s.y2; count += 2; }
-            return { x: sumX / count, y: sumY / count };
-        };
-
-        const getNearestMeterValue = (cx: number, cy: number) => {
-            let nearest: { x: number; y: number; value: number } | null = null;
-            let minDist = Infinity;
-            for (const v of ocrMeterValuesRef.current) {
-                const dist = Math.hypot(cx - v.x, cy - v.y);
-                if (dist < minDist) { minDist = dist; nearest = v; }
-            }
-            return nearest ? nearest.value : null;
-        };
-
-        const trySplitAtPoint = (targetPt: {x: number, y: number}) => {
-            const resultSpans: CableSpan[] = [];
-            for (const span of newSpans) {
-                // Skip the reference span itself
-                if (span.span_id === refSpan.span_id) {
-                    resultSpans.push(span);
-                    continue;
-                }
-
-                // Find the closest segment on the target cable
-                let minDist = Infinity;
-                let splitIdx = -1;
-                for (let i = 0; i < span.segments.length; i++) {
-                    const s = span.segments[i];
-                    const d = pointToSegmentDistance(targetPt.x, targetPt.y, s.x1, s.y1, s.x2, s.y2);
-                    if (d < minDist) { minDist = d; splitIdx = i; }
-                }
-
-                // If within tolerance AND not already at the very tips of the cable
-                if (minDist < searchTol && splitIdx >= 1 && splitIdx < span.segments.length - 2) {
-                    madeCuts = true;
-                    
-                    const firstHalf = span.segments.slice(0, splitIdx + 1);
-                    const secondHalf = span.segments.slice(splitIdx + 1);
-
-                    const c1 = computeCenter(firstHalf);
-                    const c2 = computeCenter(secondHalf);
-
-                    const span1: CableSpan = {
-                        ...span,
-                        span_id: nextId++,
-                        segments: firstHalf,
-                        cx: c1.x, cy: c1.y,
-                        meterValue: getNearestMeterValue(c1.x, c1.y),
-                        total_length: firstHalf.reduce((acc, s) => acc + Math.hypot(s.x2 - s.x1, s.y2 - s.y1), 0),
-                        segment_count: firstHalf.length,
-                    };
-
-                    const span2: CableSpan = {
-                        ...span,
-                        span_id: nextId++,
-                        segments: secondHalf,
-                        cx: c2.x, cy: c2.y,
-                        meterValue: getNearestMeterValue(c2.x, c2.y),
-                        total_length: secondHalf.reduce((acc, s) => acc + Math.hypot(s.x2 - s.x1, s.y2 - s.y1), 0),
-                        segment_count: secondHalf.length,
-                    };
-
-                    resultSpans.push(span1, span2);
-                    
-                    // Inherit previous label status if it had one
-                    const prevStatus = cableStatusRef.current[span.span_id];
-                    if (prevStatus) {
-                        setCableStatuses(prev => {
-                            const next = { ...prev, [span1.span_id]: prevStatus, [span2.span_id]: prevStatus };
-                            cableStatusRef.current = next;
-                            return next;
-                        });
-                        if (prevStatus === "Unrecovered or Partial" && partialDetails[span.span_id]) {
-                            setPartialDetails(prev => ({
-                                ...prev,
-                                [span1.span_id]: { ...prev[span.span_id] },
-                                [span2.span_id]: { ...prev[span.span_id] },
-                            }));
-                        }
-                    }
-                } else {
-                    resultSpans.push(span);
-                }
-            }
-            newSpans = resultSpans;
-        };
-
-        // Fire the split test on both ends of the reference cable!
-        trySplitAtPoint(ptA);
-        trySplitAtPoint(ptB);
-
-        if (madeCuts) {
-            // Push to Undo history, update state, and redraw!
-            splitHistoryRef.current.push({ prev: currentSpans.map(s => ({ ...s })) });
-            cableSpansRef.current = newSpans;
-            setCableSpans(newSpans);
-            redraw();
-        }
-    }, [partialDetails, redraw]);
-
-const onDoubleClick = (e: React.MouseEvent) => {
-        const rect = canvasRef.current?.getBoundingClientRect();
-        if (!rect) return;
-
-        const sx = e.clientX - rect.left;
-        const sy = e.clientY - rect.top;
-        const { x, y } = screenToWorld(sx, sy);
-
-        const hitId = findNearestCableSpan(x, y);
-        if (hitId === null) return;
-
-        // 1. SMART RECONNECT LOGIC: Check if we are near the endpoints of the clicked span
-        const targetSpan = cableSpansRef.current.find(s => s.span_id === hitId);
-        if (targetSpan && targetSpan.segments.length > 0) {
-            const searchTol = 30 / Math.max(vpRef.current.scale, 1e-9); // Snap radius for endpoints
-            const firstSeg = targetSpan.segments[0];
-            const lastSeg = targetSpan.segments[targetSpan.segments.length - 1];
-            
-            const nearStart = Math.hypot(x - firstSeg.x1, y - firstSeg.y1) < searchTol;
-            const nearEnd = Math.hypot(x - lastSeg.x2, y - lastSeg.y2) < searchTol;
-
-            if (nearStart || nearEnd) {
-                // Find a neighboring span that also has an endpoint right here
-                const neighbor = cableSpansRef.current.find(s => {
-                    if (s.span_id === hitId || s.segments.length === 0) return false;
-                    const nFirst = s.segments[0];
-                    const nLast = s.segments[s.segments.length - 1];
-                    const distToStart = nearStart ? Math.hypot(firstSeg.x1 - nLast.x2, firstSeg.y1 - nLast.y2) : Math.hypot(lastSeg.x2 - nFirst.x1, lastSeg.y2 - nFirst.y1);
-                    const distToEnd = nearStart ? Math.hypot(firstSeg.x1 - nFirst.x1, firstSeg.y1 - nFirst.y1) : Math.hypot(lastSeg.x2 - nLast.x2, lastSeg.y2 - nLast.y2);
-                    return distToStart < searchTol || distToEnd < searchTol;
-                });
-
-                if (neighbor) {
-                    // We found a neighbor! Combine their segments (basic end-to-end append for now)
-                    splitHistoryRef.current.push({ prev: cableSpansRef.current.map(s => ({ ...s })) });
-                    
-                    const newSegments = [...targetSpan.segments, ...neighbor.segments];
-                    const nextId = Math.max(...cableSpansRef.current.map(s => s.span_id), 0) + 1;
-                    
-                    let sumX = 0, sumY = 0, count = 0;
-                    for (const s of newSegments) { sumX += s.x1 + s.x2; sumY += s.y1 + s.y2; count += 2; }
-                    const cx = sumX / count; const cy = sumY / count;
-
-                    let nearestOcr = null;
-                    let minDist = Infinity;
-                    for (const v of ocrMeterValuesRef.current) {
-                        const dist = Math.hypot(cx - v.x, cy - v.y);
-                        if (dist < minDist) { minDist = dist; nearestOcr = v.value; }
-                    }
-
-                    const mergedSpan: CableSpan = {
-                        ...targetSpan,
-                        span_id: nextId,
-                        segments: newSegments,
-                        cx, cy,
-                        meterValue: nearestOcr ?? undefined,
-                        total_length: targetSpan.total_length + neighbor.total_length,
-                        segment_count: newSegments.length
-                    };
-
-                    const newSpans = cableSpansRef.current.filter(s => s.span_id !== hitId && s.span_id !== neighbor.span_id);
-                    newSpans.push(mergedSpan);
-                    
-                    cableSpansRef.current = newSpans;
-                    setCableSpans(newSpans);
-                    setSelectedSpanId(nextId);
-                    redraw();
-                    return; // Exit early, we merged instead of cutting!
-                }
-            }
-        }
-
-        // 2. DEFAULT LOGIC: If we aren't merging, do a standard cut
-        splitCableSpan(hitId, { x, y });
+    // GEOMETRIC SCISSORS: Mathematically find the exact projection point on a line
+    const projectOnSegment = (
+      px: number,
+      py: number,
+      x1: number,
+      y1: number,
+      x2: number,
+      y2: number,
+    ) => {
+      const dx = x2 - x1,
+        dy = y2 - y1;
+      const len2 = dx * dx + dy * dy;
+      if (len2 === 0) return { x: x1, y: y1, t: 0 };
+      let t = ((px - x1) * dx + (py - y1) * dy) / len2;
+      t = Math.max(0, Math.min(1, t)); // Bound to the segment ends
+      return { x: x1 + t * dx, y: y1 + t * dy, t };
     };
+
+    const computeCenter = (segments: RawSegment[]) => {
+      let sumX = 0,
+        sumY = 0,
+        count = 0;
+      for (const s of segments) {
+        sumX += s.x1 + s.x2;
+        sumY += s.y1 + s.y2;
+        count += 2;
+      }
+      return { x: sumX / count, y: sumY / count };
+    };
+
+    const getNearestMeterValue = (cx: number, cy: number) => {
+      let nearest: { x: number; y: number; value: number } | null = null;
+      let minDist = Infinity;
+      for (const v of ocrMeterValuesRef.current) {
+        const dist = Math.hypot(cx - v.x, cy - v.y);
+        if (dist < minDist) {
+          minDist = dist;
+          nearest = v;
+        }
+      }
+      return nearest ? nearest.value : null;
+    };
+
+    let processing = true;
+    while (processing) {
+      processing = false;
+
+      // FIX 1: Strictly use the physical DXF length, ignoring the OCR meterValue label!
+      const longSpans = currentSpans.filter(
+        (s) => s.total_length > LONG_SPAN_THRESHOLD,
+      );
+      const shortSpans = currentSpans.filter(
+        (s) => s.total_length <= LONG_SPAN_THRESHOLD,
+      );
+
+      if (longSpans.length === 0 || shortSpans.length === 0) break;
+
+      for (let i = 0; i < longSpans.length; i++) {
+        const targetSpan = longSpans[i];
+        let foundMatch = false;
+
+        for (const template of shortSpans) {
+          if (template.segments.length === 0) continue;
+
+          const ptA = {
+            x: template.segments[0].x1,
+            y: template.segments[0].y1,
+          };
+          const ptB = {
+            x: template.segments[template.segments.length - 1].x2,
+            y: template.segments[template.segments.length - 1].y2,
+          };
+
+          let idxA = -1,
+            minDistA = Infinity,
+            projA = { x: 0, y: 0, t: 0 };
+          let idxB = -1,
+            minDistB = Infinity,
+            projB = { x: 0, y: 0, t: 0 };
+
+          for (let j = 0; j < targetSpan.segments.length; j++) {
+            const s = targetSpan.segments[j];
+
+            const pA = projectOnSegment(ptA.x, ptA.y, s.x1, s.y1, s.x2, s.y2);
+            const dA = Math.hypot(ptA.x - pA.x, ptA.y - pA.y);
+            if (dA < minDistA) {
+              minDistA = dA;
+              idxA = j;
+              projA = pA;
+            }
+
+            const pB = projectOnSegment(ptB.x, ptB.y, s.x1, s.y1, s.x2, s.y2);
+            const dB = Math.hypot(ptB.x - pB.x, ptB.y - pB.y);
+            if (dB < minDistB) {
+              minDistB = dB;
+              idxB = j;
+              projB = pB;
+            }
+          }
+
+          if (minDistA < closestFoundDist) closestFoundDist = minDistA;
+          if (minDistB < closestFoundDist) closestFoundDist = minDistB;
+
+          if (minDistA < searchTol && minDistB < searchTol) {
+            // FIX 2: Geometric Splitting! We inject exact x/y points to shatter the segments.
+            const swap = idxA > idxB || (idxA === idxB && projA.t > projB.t);
+            const firstIdx = swap ? idxB : idxA;
+            const secondIdx = swap ? idxA : idxB;
+            const firstProj = swap ? projB : projA;
+            const secondProj = swap ? projA : projB;
+
+            const newSegmentsPart1: RawSegment[] = [];
+            const newSegmentsPart2: RawSegment[] = [];
+            const newSegmentsPart3: RawSegment[] = [];
+
+            for (let j = 0; j < targetSpan.segments.length; j++) {
+              const s = targetSpan.segments[j];
+
+              if (j < firstIdx) {
+                newSegmentsPart1.push(s);
+              } else if (j === firstIdx && j === secondIdx) {
+                // Master cut: Shatter a single segment into 3 pieces
+                if (firstProj.t > 0.01)
+                  newSegmentsPart1.push({
+                    x1: s.x1,
+                    y1: s.y1,
+                    x2: firstProj.x,
+                    y2: firstProj.y,
+                  });
+                newSegmentsPart2.push({
+                  x1: firstProj.x,
+                  y1: firstProj.y,
+                  x2: secondProj.x,
+                  y2: secondProj.y,
+                });
+                if (secondProj.t < 0.99)
+                  newSegmentsPart3.push({
+                    x1: secondProj.x,
+                    y1: secondProj.y,
+                    x2: s.x2,
+                    y2: s.y2,
+                  });
+              } else if (j === firstIdx) {
+                if (firstProj.t > 0.01)
+                  newSegmentsPart1.push({
+                    x1: s.x1,
+                    y1: s.y1,
+                    x2: firstProj.x,
+                    y2: firstProj.y,
+                  });
+                newSegmentsPart2.push({
+                  x1: firstProj.x,
+                  y1: firstProj.y,
+                  x2: s.x2,
+                  y2: s.y2,
+                });
+              } else if (j > firstIdx && j < secondIdx) {
+                newSegmentsPart2.push(s);
+              } else if (j === secondIdx) {
+                newSegmentsPart2.push({
+                  x1: s.x1,
+                  y1: s.y1,
+                  x2: secondProj.x,
+                  y2: secondProj.y,
+                });
+                if (secondProj.t < 0.99)
+                  newSegmentsPart3.push({
+                    x1: secondProj.x,
+                    y1: secondProj.y,
+                    x2: s.x2,
+                    y2: s.y2,
+                  });
+              } else {
+                newSegmentsPart3.push(s);
+              }
+            }
+
+            if (
+              newSegmentsPart2.length > 0 &&
+              (newSegmentsPart1.length > 0 || newSegmentsPart3.length > 0)
+            ) {
+              foundMatch = true;
+              cutCount++;
+              processing = true;
+
+              const newSpansToInsert: CableSpan[] = [];
+
+              const makeSpan = (segs: RawSegment[]) => {
+                if (segs.length === 0) return null;
+                const c = computeCenter(segs);
+                return {
+                  ...targetSpan,
+                  span_id: nextId++,
+                  segments: segs,
+                  cx: c.x,
+                  cy: c.y,
+                  meterValue: getNearestMeterValue(c.x, c.y),
+                  total_length: segs.reduce(
+                    (acc, s) => acc + Math.hypot(s.x2 - s.x1, s.y2 - s.y1),
+                    0,
+                  ),
+                  segment_count: segs.length,
+                } as CableSpan;
+              };
+
+              const s1 = makeSpan(newSegmentsPart1);
+              const s2 = makeSpan(newSegmentsPart2);
+              const s3 = makeSpan(newSegmentsPart3);
+
+              if (s1) newSpansToInsert.push(s1);
+              if (s2) newSpansToInsert.push(s2);
+              if (s3) newSpansToInsert.push(s3);
+
+              // Reapply previous label logic
+              const prevStatus = cableStatusRef.current[targetSpan.span_id];
+              if (prevStatus) {
+                setCableStatuses((prev) => {
+                  const next = { ...prev };
+                  if (s1) next[s1.span_id] = prevStatus;
+                  if (s2) next[s2.span_id] = prevStatus;
+                  if (s3) next[s3.span_id] = prevStatus;
+                  cableStatusRef.current = next;
+                  return next;
+                });
+                if (
+                  prevStatus === "Unrecovered or Partial" &&
+                  partialDetails[targetSpan.span_id]
+                ) {
+                  setPartialDetails((prev) => {
+                    const pdNext = { ...prev };
+                    if (s1)
+                      pdNext[s1.span_id] = { ...prev[targetSpan.span_id] };
+                    if (s2)
+                      pdNext[s2.span_id] = { ...prev[targetSpan.span_id] };
+                    if (s3)
+                      pdNext[s3.span_id] = { ...prev[targetSpan.span_id] };
+                    return pdNext;
+                  });
+                }
+              }
+
+              const targetIndex = currentSpans.findIndex(
+                (s) => s.span_id === targetSpan.span_id,
+              );
+              currentSpans.splice(targetIndex, 1, ...newSpansToInsert);
+              break;
+            }
+          }
+        }
+        if (foundMatch) break;
+      }
+    }
+
+    if (cutCount > 0) {
+      splitHistoryRef.current.push({
+        prev: cableSpansRef.current.map((s) => ({ ...s })),
+      });
+      cableSpansRef.current = currentSpans;
+      setCableSpans(currentSpans);
+      redraw();
+      alert(
+        `✅ Success! Auto-matched and carved out ${cutCount} replica spans.`,
+      );
+    } else {
+      alert(
+        `ℹ️ 0 cuts made.\n\nThe closest gap between a short span and a long span was ${closestFoundDist === Infinity ? "Unknown" : closestFoundDist.toFixed(1)} units. (Tolerance allows up to ${searchTol.toFixed(1)} units).`,
+      );
+    }
+  }, [redraw, partialDetails]);
+
+  // NEW: Auto-cut adjacent parallel spans
+  const cutAdjacentSpans = useCallback(() => {
+    const targetId = selectedSpanRef.current;
+    if (targetId === null) return;
+
+    const currentSpans = cableSpansRef.current;
+    const refSpan = currentSpans.find((s) => s.span_id === targetId);
+    if (!refSpan || refSpan.segments.length < 2) return;
+
+    // 1. Get the two extreme points of our reference span
+    const segs = refSpan.segments;
+    const ptA = { x: segs[0].x1, y: segs[0].y1 };
+    const ptB = { x: segs[segs.length - 1].x2, y: segs[segs.length - 1].y2 };
+
+    // 2. Set search tolerance (approx 50 screen pixels scaled to world space)
+    const searchTol = 50 / Math.max(vpRef.current.scale, 1e-9);
+
+    let newSpans = [...currentSpans];
+    let nextId = Math.max(...currentSpans.map((s) => s.span_id)) + 1;
+    let madeCuts = false;
+
+    const computeCenter = (segments: RawSegment[]) => {
+      let sumX = 0,
+        sumY = 0,
+        count = 0;
+      for (const s of segments) {
+        sumX += s.x1 + s.x2;
+        sumY += s.y1 + s.y2;
+        count += 2;
+      }
+      return { x: sumX / count, y: sumY / count };
+    };
+
+    const getNearestMeterValue = (cx: number, cy: number) => {
+      let nearest: { x: number; y: number; value: number } | null = null;
+      let minDist = Infinity;
+      for (const v of ocrMeterValuesRef.current) {
+        const dist = Math.hypot(cx - v.x, cy - v.y);
+        if (dist < minDist) {
+          minDist = dist;
+          nearest = v;
+        }
+      }
+      return nearest ? nearest.value : null;
+    };
+
+    const trySplitAtPoint = (targetPt: { x: number; y: number }) => {
+      const resultSpans: CableSpan[] = [];
+      for (const span of newSpans) {
+        // Skip the reference span itself
+        if (span.span_id === refSpan.span_id) {
+          resultSpans.push(span);
+          continue;
+        }
+
+        // Find the closest segment on the target cable
+        let minDist = Infinity;
+        let splitIdx = -1;
+        for (let i = 0; i < span.segments.length; i++) {
+          const s = span.segments[i];
+          const d = pointToSegmentDistance(
+            targetPt.x,
+            targetPt.y,
+            s.x1,
+            s.y1,
+            s.x2,
+            s.y2,
+          );
+          if (d < minDist) {
+            minDist = d;
+            splitIdx = i;
+          }
+        }
+
+        // If within tolerance AND not already at the very tips of the cable
+        if (
+          minDist < searchTol &&
+          splitIdx >= 1 &&
+          splitIdx < span.segments.length - 2
+        ) {
+          madeCuts = true;
+
+          const firstHalf = span.segments.slice(0, splitIdx + 1);
+          const secondHalf = span.segments.slice(splitIdx + 1);
+
+          const c1 = computeCenter(firstHalf);
+          const c2 = computeCenter(secondHalf);
+
+          const span1: CableSpan = {
+            ...span,
+            span_id: nextId++,
+            segments: firstHalf,
+            cx: c1.x,
+            cy: c1.y,
+            meterValue: getNearestMeterValue(c1.x, c1.y),
+            total_length: firstHalf.reduce(
+              (acc, s) => acc + Math.hypot(s.x2 - s.x1, s.y2 - s.y1),
+              0,
+            ),
+            segment_count: firstHalf.length,
+          };
+
+          const span2: CableSpan = {
+            ...span,
+            span_id: nextId++,
+            segments: secondHalf,
+            cx: c2.x,
+            cy: c2.y,
+            meterValue: getNearestMeterValue(c2.x, c2.y),
+            total_length: secondHalf.reduce(
+              (acc, s) => acc + Math.hypot(s.x2 - s.x1, s.y2 - s.y1),
+              0,
+            ),
+            segment_count: secondHalf.length,
+          };
+
+          resultSpans.push(span1, span2);
+
+          // Inherit previous label status if it had one
+          const prevStatus = cableStatusRef.current[span.span_id];
+          if (prevStatus) {
+            setCableStatuses((prev) => {
+              const next = {
+                ...prev,
+                [span1.span_id]: prevStatus,
+                [span2.span_id]: prevStatus,
+              };
+              cableStatusRef.current = next;
+              return next;
+            });
+            if (
+              prevStatus === "Unrecovered or Partial" &&
+              partialDetails[span.span_id]
+            ) {
+              setPartialDetails((prev) => ({
+                ...prev,
+                [span1.span_id]: { ...prev[span.span_id] },
+                [span2.span_id]: { ...prev[span.span_id] },
+              }));
+            }
+          }
+        } else {
+          resultSpans.push(span);
+        }
+      }
+      newSpans = resultSpans;
+    };
+
+    // Fire the split test on both ends of the reference cable!
+    trySplitAtPoint(ptA);
+    trySplitAtPoint(ptB);
+
+    if (madeCuts) {
+      // Push to Undo history, update state, and redraw!
+      splitHistoryRef.current.push({
+        prev: currentSpans.map((s) => ({ ...s })),
+      });
+      cableSpansRef.current = newSpans;
+      setCableSpans(newSpans);
+      redraw();
+    }
+  }, [partialDetails, redraw]);
+
+  const onDoubleClick = (e: React.MouseEvent) => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const sx = e.clientX - rect.left;
+    const sy = e.clientY - rect.top;
+    const { x, y } = screenToWorld(sx, sy);
+
+    const hitId = findNearestCableSpan(x, y);
+    if (hitId === null) return;
+
+    // 1. SMART RECONNECT LOGIC: Check if we are near the endpoints of the clicked span
+    const targetSpan = cableSpansRef.current.find((s) => s.span_id === hitId);
+    if (targetSpan && targetSpan.segments.length > 0) {
+      const searchTol = 30 / Math.max(vpRef.current.scale, 1e-9); // Snap radius for endpoints
+      const firstSeg = targetSpan.segments[0];
+      const lastSeg = targetSpan.segments[targetSpan.segments.length - 1];
+
+      const nearStart =
+        Math.hypot(x - firstSeg.x1, y - firstSeg.y1) < searchTol;
+      const nearEnd = Math.hypot(x - lastSeg.x2, y - lastSeg.y2) < searchTol;
+
+      if (nearStart || nearEnd) {
+        // Find a neighboring span that also has an endpoint right here
+        const neighbor = cableSpansRef.current.find((s) => {
+          if (s.span_id === hitId || s.segments.length === 0) return false;
+          const nFirst = s.segments[0];
+          const nLast = s.segments[s.segments.length - 1];
+          const distToStart = nearStart
+            ? Math.hypot(firstSeg.x1 - nLast.x2, firstSeg.y1 - nLast.y2)
+            : Math.hypot(lastSeg.x2 - nFirst.x1, lastSeg.y2 - nFirst.y1);
+          const distToEnd = nearStart
+            ? Math.hypot(firstSeg.x1 - nFirst.x1, firstSeg.y1 - nFirst.y1)
+            : Math.hypot(lastSeg.x2 - nLast.x2, lastSeg.y2 - nLast.y2);
+          return distToStart < searchTol || distToEnd < searchTol;
+        });
+
+        if (neighbor) {
+          // We found a neighbor! Combine their segments (basic end-to-end append for now)
+          splitHistoryRef.current.push({
+            prev: cableSpansRef.current.map((s) => ({ ...s })),
+          });
+
+          const newSegments = [...targetSpan.segments, ...neighbor.segments];
+          const nextId =
+            Math.max(...cableSpansRef.current.map((s) => s.span_id), 0) + 1;
+
+          let sumX = 0,
+            sumY = 0,
+            count = 0;
+          for (const s of newSegments) {
+            sumX += s.x1 + s.x2;
+            sumY += s.y1 + s.y2;
+            count += 2;
+          }
+          const cx = sumX / count;
+          const cy = sumY / count;
+
+          let nearestOcr = null;
+          let minDist = Infinity;
+          for (const v of ocrMeterValuesRef.current) {
+            const dist = Math.hypot(cx - v.x, cy - v.y);
+            if (dist < minDist) {
+              minDist = dist;
+              nearestOcr = v.value;
+            }
+          }
+
+          const mergedSpan: CableSpan = {
+            ...targetSpan,
+            span_id: nextId,
+            segments: newSegments,
+            cx,
+            cy,
+            meterValue: nearestOcr ?? undefined,
+            total_length: targetSpan.total_length + neighbor.total_length,
+            segment_count: newSegments.length,
+          };
+
+          const newSpans = cableSpansRef.current.filter(
+            (s) => s.span_id !== hitId && s.span_id !== neighbor.span_id,
+          );
+          newSpans.push(mergedSpan);
+
+          cableSpansRef.current = newSpans;
+          setCableSpans(newSpans);
+          setSelectedSpanId(nextId);
+          redraw();
+          return; // Exit early, we merged instead of cutting!
+        }
+      }
+    }
+
+    // 2. DEFAULT LOGIC: If we aren't merging, do a standard cut
+    splitCableSpan(hitId, { x, y });
+  };
 
   const undoSplit = useCallback(() => {
     const history = splitHistoryRef.current;
@@ -1124,57 +1282,61 @@ const onDoubleClick = (e: React.MouseEvent) => {
     return () => window.removeEventListener("keydown", handler);
   }, [undoSplit, redoSplit]);
 
+  // NEW: Listen for live changes from the OCR Review tab AND initial load completion
+  useEffect(() => {
+    if (loading || !cableSpansRef.current.length) return;
 
-// NEW: Listen for live changes from the OCR Review tab AND initial load completion
-    useEffect(() => {
-        if (loading || !cableSpansRef.current.length) return;
+    const safeOcrResults = ocrResults || [];
 
-        const safeOcrResults = ocrResults || [];
+    // 1. Update our OCR reference map with the fresh data
+    ocrMeterValuesRef.current = safeOcrResults.map((r) => ({
+      x: r.center_x,
+      y: r.center_y,
+      value: parseFloat(r.corrected_value ?? r.value) || 0,
+    }));
 
-        // 1. Update our OCR reference map with the fresh data
-        ocrMeterValuesRef.current = safeOcrResults.map(r => ({
-            x: r.center_x,
-            y: r.center_y,
-            value: parseFloat(r.corrected_value ?? r.value) || 0
-        }));
+    // 2. Re-map the cable spans to catch the new values
+    cableSpansRef.current = cableSpansRef.current.map((span) => {
+      const status = cableStatusRef.current[span.span_id];
 
-        // 2. Re-map the cable spans to catch the new values
-        cableSpansRef.current = cableSpansRef.current.map(span => {
-            const status = cableStatusRef.current[span.span_id];
-            
-            // Preserve manual math if the user explicitly typed in a Partial Recovery breakdown
-            if (status === "Unrecovered or Partial" && span.meterValue !== undefined && span.meterValue !== null) {
-                return span; 
-            }
+      // Preserve manual math if the user explicitly typed in a Partial Recovery breakdown
+      if (
+        status === "Unrecovered or Partial" &&
+        span.meterValue !== undefined &&
+        span.meterValue !== null
+      ) {
+        return span;
+      }
 
-            // Find the nearest OCR label for ALL cables, regardless of length
-            let nearest = null;
-            let nearestDist = Infinity;
-            
-            for (const r of safeOcrResults) {
-                const dx = span.cx - r.center_x;
-                const dy = span.cy - r.center_y;
-                const dist = Math.hypot(dx, dy);
-                
-                if (dist < nearestDist) {
-                    nearestDist = dist;
-                    nearest = r;
-                }
-            }
+      // Find the nearest OCR label for ALL cables, regardless of length
+      let nearest = null;
+      let nearestDist = Infinity;
 
-            return {
-                ...span,
-                meterValue: nearest ? parseFloat(nearest.corrected_value ?? nearest.value) || null : null,
-            };
-        });
+      for (const r of safeOcrResults) {
+        const dx = span.cx - r.center_x;
+        const dy = span.cy - r.center_y;
+        const dist = Math.hypot(dx, dy);
 
-        // 3. Trigger a state update and redraw
-        setCableSpans([...cableSpansRef.current]);
-        redraw();
-        
-    }, [ocrResults, loading, redraw]);
+        if (dist < nearestDist) {
+          nearestDist = dist;
+          nearest = r;
+        }
+      }
 
-/* End of split/undo/redo implementation */
+      return {
+        ...span,
+        meterValue: nearest
+          ? parseFloat(nearest.corrected_value ?? nearest.value) || null
+          : null,
+      };
+    });
+
+    // 3. Trigger a state update and redraw
+    setCableSpans([...cableSpansRef.current]);
+    redraw();
+  }, [ocrResults, loading, redraw]);
+
+  /* End of split/undo/redo implementation */
 
   const fitView = useCallback(() => {
     const canvas = canvasRef.current;
@@ -1192,127 +1354,110 @@ const onDoubleClick = (e: React.MouseEvent) => {
     redraw();
   }, [redraw]);
 
-    
+  // Load all layer segments and cable spans from backend
+  useEffect(() => {
+    if (!dxfPath) return;
+    setLoading(true);
+    setError(null);
+    setHoveredSpanId(null);
+    setSelectedSpanId(null);
+    setCableStatuses({});
+    hoveredSpanRef.current = null;
+    selectedSpanRef.current = null;
+    cableSpansRef.current = [];
+    cableLayerRef.current = null;
+    cableStatusRef.current = {};
+    setCableLayerName(null);
 
-    // Load all layer segments and cable spans from backend
-    useEffect(() => {
-        if (!dxfPath) return;
-        setLoading(true);
-        setError(null);
-        setHoveredSpanId(null);
-        setSelectedSpanId(null);
-        setCableStatuses({});
-        hoveredSpanRef.current = null;
-        selectedSpanRef.current = null;
-        cableSpansRef.current = [];
-        cableLayerRef.current = null;
-        cableStatusRef.current = {};
-        setCableLayerName(null);
+    // ONLY fetch the DXF segments and cable spans now
+    Promise.all([
+      fetch("/api/dxf_segments").then((r) => r.json()),
+      fetch("/api/cable_spans").then((r) => r.json()),
+    ])
+      .then(([segData, cableData]) => {
+        if (segData.error) {
+          setError(segData.error);
+          setLoading(false);
+          return;
+        }
+        if (cableData.error) {
+          setError(cableData.error);
+          setLoading(false);
+          return;
+        }
 
-        // ONLY fetch the DXF segments and cable spans now
-        Promise.all([
-            fetch("/api/dxf_segments").then((r) => r.json()),
-            fetch("/api/cable_spans").then((r) => r.json()),
-        ])
-            .then(([segData, cableData]) => {
-                if (segData.error) { setError(segData.error); setLoading(false); return; }
-                if (cableData.error) { setError(cableData.error); setLoading(false); return; }
+        segmentsRef.current = segData.segments;
 
-                segmentsRef.current = segData.segments;
+        // compute bounds
+        let minx = Infinity,
+          miny = Infinity,
+          maxx = -Infinity,
+          maxy = -Infinity;
+        for (const segs of Object.values(segData.segments) as RawSegment[][]) {
+          for (const s of segs) {
+            minx = Math.min(minx, s.x1, s.x2);
+            miny = Math.min(miny, s.y1, s.y2);
+            maxx = Math.max(maxx, s.x1, s.x2);
+            maxy = Math.max(maxy, s.y1, s.y2);
+          }
+        }
+        boundsRef.current = { minx, miny, maxx, maxy };
 
-                // compute bounds
-                let minx = Infinity, miny = Infinity, maxx = -Infinity, maxy = -Infinity;
-                for (const segs of Object.values(segData.segments) as RawSegment[][]) {
-                    for (const s of segs) {
-                        minx = Math.min(minx, s.x1, s.x2);
-                        miny = Math.min(miny, s.y1, s.y2);
-                        maxx = Math.max(maxx, s.x1, s.x2);
-                        maxy = Math.max(maxy, s.y1, s.y2);
-                    }
-                }
-                boundsRef.current = { minx, miny, maxx, maxy };
+        const layerData: DxfLayerData[] = segData.layers.map(
+          (name: string) => ({
+            name,
+            visible: true,
+            color: layerColor(name),
+            segmentCount: (segData.segments[name] ?? []).length,
+          }),
+        );
+        layersRef.current = layerData;
+        setLayers(layerData);
 
-                const layerData: DxfLayerData[] = segData.layers.map((name: string) => ({
-                    name,
-                    visible: true,
-                    color: layerColor(name),
-                    segmentCount: (segData.segments[name] ?? []).length,
-                }));
-                layersRef.current = layerData;
-                setLayers(layerData);
+        cableSpansRef.current = cableData.spans ?? [];
 
-                cableSpansRef.current = cableData.spans ?? [];
+        // NOTE: We removed the initial OCR merging logic here because
+        // the new useEffect we just added handles syncing the OCR data!
 
-                // NOTE: We removed the initial OCR merging logic here because 
-                // the new useEffect we just added handles syncing the OCR data!
+        cableLayerRef.current = cableData.cable_layer ?? null;
+        setCableLayerName(cableData.cable_layer ?? null);
 
-                cableLayerRef.current = cableData.cable_layer ?? null;
-                setCableLayerName(cableData.cable_layer ?? null);
+        setLoading(false);
+        setTimeout(fitView, 50);
+      })
+      .catch((e) => {
+        setError(e.message);
+        setLoading(false);
+      });
+  }, [dxfPath, fitView]);
 
-                setLoading(false);
-                setTimeout(fitView, 50);
-            })
-            .catch((e) => {
-                setError(e.message);
-                setLoading(false);
-            });
-    }, [dxfPath, fitView]);
+  // Resize observer
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ro = new ResizeObserver(() => {
+      canvas.width = canvas.parentElement?.clientWidth ?? 0;
+      canvas.height = canvas.parentElement?.clientHeight ?? 0;
+      redraw();
+    });
+    ro.observe(canvas.parentElement!);
+    canvas.width = canvas.parentElement?.clientWidth ?? 0;
+    canvas.height = canvas.parentElement?.clientHeight ?? 0;
+    return () => ro.disconnect();
+  }, [redraw]);
 
+  const toggleLayer = useCallback(
+    (name: string) => {
+      setLayers((prev) => {
+        const next = prev.map((l) =>
+          l.name === name ? { ...l, visible: !l.visible } : l,
+        );
+        layersRef.current = next;
 
-
-
-
-    // Resize observer
-    useEffect(() => {
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-        const ro = new ResizeObserver(() => {
-            canvas.width  = canvas.parentElement?.clientWidth  ?? 0;
-            canvas.height = canvas.parentElement?.clientHeight ?? 0;
-            redraw();
-        });
-        ro.observe(canvas.parentElement!);
-        canvas.width  = canvas.parentElement?.clientWidth  ?? 0;
-        canvas.height = canvas.parentElement?.clientHeight ?? 0;
-        return () => ro.disconnect();
-    }, [redraw]);
-
-    const toggleLayer = useCallback((name: string) => {
-        setLayers((prev) => {
-            const next = prev.map((l) =>
-                l.name === name ? { ...l, visible: !l.visible } : l
-            );
-            layersRef.current = next;
-
-            const cableLayer = cableLayerRef.current;
-            if (cableLayer === name) {
-                const visible = next.find((l) => l.name === name)?.visible ?? false;
-                if (!visible) {
-                    hoveredSpanRef.current = null;
-                    selectedSpanRef.current = null;
-                    setHoveredSpanId(null);
-                    setSelectedSpanId(null);
-                }
-            }
-
-            redraw();
-            return next;
-        });
-    }, [redraw]);
-
-    const showAll = useCallback(() => {
-        setLayers((prev) => {
-            const next = prev.map((l) => ({ ...l, visible: true }));
-            layersRef.current = next;
-            redraw();
-            return next;
-        });
-    }, [redraw]);
-
-    const hideAll = useCallback(() => {
-        setLayers((prev) => {
-            const next = prev.map((l) => ({ ...l, visible: false }));
-            layersRef.current = next;
+        const cableLayer = cableLayerRef.current;
+        if (cableLayer === name) {
+          const visible = next.find((l) => l.name === name)?.visible ?? false;
+          if (!visible) {
             hoveredSpanRef.current = null;
             selectedSpanRef.current = null;
             setHoveredSpanId(null);
@@ -1655,6 +1800,7 @@ const onDoubleClick = (e: React.MouseEvent) => {
 
       {!loading && !error && cableLayerName && (
         <div className="absolute top-4 right-4 z-10 flex flex-col gap-2 items-end">
+          {/* 1. Summary Box */}
           <div className="bg-surface/90 border border-border rounded-lg px-3 py-2 text-[11px] text-muted backdrop-blur-sm shadow-sm min-w-[250px]">
             <div className="font-semibold text-[#1e293b]">
               Cable interaction
@@ -1662,12 +1808,6 @@ const onDoubleClick = (e: React.MouseEvent) => {
             <div>
               Layer: <span className="font-mono">{cableLayerName}</span>
             </div>
-
-            {/* <div>Status: {cableVisible ? "visible" : "hidden"}</div>
-                        <div>Spans: {cableSpansRef.current.length.toLocaleString()}</div>
-                        <div className="mt-1 text-[#334155]">
-                            Tagged: {Object.keys(cableStatuses).length}
-                        </div> */}
             <div className="text-[#166534]">
               Recovered: {totalRecovered.toFixed(2)} m
             </div>
@@ -1682,69 +1822,13 @@ const onDoubleClick = (e: React.MouseEvent) => {
             </div>
           </div>
 
-
-
-                            <div className="mt-3 flex flex-wrap gap-2">
-                                {/* NEW BUTTON */}
-                                <button
-                                    className="w-full mb-1 px-2.5 py-1.5 rounded-md border border-purple-200 bg-purple-50 text-purple-800 hover:bg-purple-100 transition font-medium flex justify-center items-center shadow-sm"
-                                    onClick={cutAdjacentSpans}
-                                    title="Automatically slice parallel cables to match this span's length"
-                                >
-                                    ✂️ Cut Adjacent Spans
-                                </button>
-                                {/* END NEW BUTTON */}
-                                
-
-                                {/* <button
-                                    className="px-2.5 py-1 rounded-md border border-green-200 bg-green-50 text-green-800 hover:bg-green-100 transition"
-                                    onClick={() => setCableStatus(selectedSpan.span_id, "Recovered")}
-                                ></button> */}
-                                
-                                <button
-                                    className="px-2.5 py-1 rounded-md border border-green-200 bg-green-50 text-green-800 hover:bg-green-100 transition"
-                                    onClick={() => setCableStatus(selectedSpan.span_id, "Recovered")}
-                                >
-                                    Recovered
-                                </button>
-
-                                <button
-                                    className="px-2.5 py-1 rounded-md border border-yellow-200 bg-yellow-50 text-yellow-800 hover:bg-yellow-100 transition"
-                                    onClick={() => setCableStatus(selectedSpan.span_id, "Unrecovered or Partial")}
-                                >
-                                    Unrecovered or Partial
-                                </button>
-                                
-
-
-                                <button
-                                    className="px-2.5 py-1 rounded-md border border-red-200 bg-red-50 text-red-800 hover:bg-red-100 transition"
-                                    onClick={() => setCableStatus(selectedSpan.span_id, "Missing")}
-                                >
-                                    Missing
-                                </button>
-
-                                <button
-                                    className="px-2.5 py-1 rounded-md border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 transition"
-                                    onClick={() => clearCableStatus(selectedSpan.span_id)}
-                                >
-                                    Clear
-                                </button>
-                            </div>
-                        </div>
-                    )}
-                </div>
-              )}
-            </div>
-          )}
-
+          {/* 2. Selected Span Box & Action Buttons */}
           {selectedSpan && (
             <div className="bg-white/95 border border-slate-200 rounded-lg px-3 py-3 text-[11px] text-slate-900 backdrop-blur-sm shadow-sm min-w-[280px]">
               <div className="font-semibold text-[12px] mb-2">
                 Selected cable span
               </div>
               <div>ID: {selectedSpan.span_id}</div>
-              {/* <div>Segments: {selectedSpan.segment_count}</div> */}
               <div>
                 Length:{" "}
                 {selectedSpan.meterValue?.toFixed(2) ??
@@ -1757,110 +1841,193 @@ const onDoubleClick = (e: React.MouseEvent) => {
                   {selectedStatus ?? "Not labeled"}
                 </span>
               </div>
+
               {selectedStatus === "Unrecovered or Partial" && (
                 <div className="mt-1 text-[11px]">
                   R: {partialDetails[selectedSpan.span_id]?.recovered ?? 0} / U:{" "}
                   {partialDetails[selectedSpan.span_id]?.unrecovered ?? 0} / M:{" "}
                   {partialDetails[selectedSpan.span_id]?.missing ?? 0}
                 </div>
-            )}
+              )}
 
-            <button
-                    className="absolute bottom-4 left-4 bg-purple-600 hover:bg-purple-700 text-white shadow-lg border border-purple-800 rounded-lg px-4 py-2 text-sm font-semibold transition"
-                    onClick={autoCutLongSpans}
+              {/* These buttons belong inside the selectedSpan block! */}
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  className="w-full mb-1 px-2.5 py-1.5 rounded-md border border-purple-200 bg-purple-50 text-purple-800 hover:bg-purple-100 transition font-medium flex justify-center items-center shadow-sm"
+                  onClick={cutAdjacentSpans}
+                  title="Automatically slice parallel cables to match this span's length"
                 >
-                    ✨ Auto-Cut Long Spans
+                  ✂️ Cut Adjacent Spans
                 </button>
 
-            {modalOpen && modalSpanId !== null && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-                    <div className="bg-white rounded-lg shadow-lg p-6 w-[300px]">
-                        <h3 className="font-semibold mb-3 text-sm">Partial Recovery Details</h3>
-                        <div className="flex gap-2 mb-3">
-                            <div className="flex flex-col">
-                                <label className="text-[10px]">Recovered</label>
-                                <input
-                                    type="number"
-                                    min={0}
-                                    className="border px-2 py-1 rounded w-20"
-                                    // FIX 2: Replaces 0 with an empty string so the user doesn't have to backspace
-                                    value={modalValues.recovered === 0 ? "" : modalValues.recovered}
-                                    onChange={e => {
-                                        const val = parseInt(e.target.value) || 0;
-                                        setModalValues(v => {
-                                            const next = { ...v, recovered: val };
-                                            cableSpansRef.current = cableSpansRef.current.map(span =>
-                                                span.span_id === modalSpanId ? { ...span, meterValue: next.recovered + next.unrecovered + next.missing } : span
-                                            );
-                                            setCableSpans([...cableSpansRef.current]);
-                                            return next;
-                                        });
-                                    }}
-                                />
-                            </div>
-                            <div className="flex flex-col">
-                                <label className="text-[10px]">Unrecovered</label>
-                                <input
-                                    type="number"
-                                    min={0}
-                                    className="border px-2 py-1 rounded w-20"
-                                    value={modalValues.unrecovered === 0 ? "" : modalValues.unrecovered}
-                                    onChange={e => {
-                                        const val = parseInt(e.target.value) || 0;
-                                        setModalValues(v => {
-                                            // FIX 1: Changed "recovered: val" to "unrecovered: val"
-                                            const next = { ...v, unrecovered: val }; 
-                                            cableSpansRef.current = cableSpansRef.current.map(span =>
-                                                span.span_id === modalSpanId ? { ...span, meterValue: next.recovered + next.unrecovered + next.missing } : span
-                                            );
-                                            setCableSpans([...cableSpansRef.current]);
-                                            return next;
-                                        });
-                                    }}
-                                />
-                            </div>
-                            <div className="flex flex-col">
-                                <label className="text-[10px]">Missing</label>
-                                <input
-                                    type="number"
-                                    min={0}
-                                    className="border px-2 py-1 rounded w-20"
-                                    value={modalValues.missing === 0 ? "" : modalValues.missing}
-                                    onChange={e => {
-                                        const val = parseInt(e.target.value) || 0;
-                                        setModalValues(v => {
-                                            // FIX 1: Changed "recovered: val" to "missing: val"
-                                            const next = { ...v, missing: val }; 
-                                            cableSpansRef.current = cableSpansRef.current.map(span =>
-                                                span.span_id === modalSpanId ? { ...span, meterValue: next.recovered + next.unrecovered + next.missing } : span
-                                            );
-                                            setCableSpans([...cableSpansRef.current]);
-                                            return next;
-                                        });
-                                    }}
-                                />
-                            </div>
-                        </div>
-                        <div className="flex justify-end gap-2">
-                            <button
-                                className="px-3 py-1 bg-gray-200 rounded text-sm"
-                                onClick={() => setModalOpen(false)}
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                className="px-3 py-1 bg-yellow-500 text-white rounded text-sm"
-                                onClick={savePartialCounts}
-                            >
-                                Save
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+                <button
+                  className="px-2.5 py-1 rounded-md border border-green-200 bg-green-50 text-green-800 hover:bg-green-100 transition"
+                  onClick={() =>
+                    setCableStatus(selectedSpan.span_id, "Recovered")
+                  }
+                >
+                  Recovered
+                </button>
 
+                <button
+                  className="px-2.5 py-1 rounded-md border border-yellow-200 bg-yellow-50 text-yellow-800 hover:bg-yellow-100 transition"
+                  onClick={() =>
+                    setCableStatus(
+                      selectedSpan.span_id,
+                      "Unrecovered or Partial",
+                    )
+                  }
+                >
+                  Unrecovered or Partial
+                </button>
+
+                <button
+                  className="px-2.5 py-1 rounded-md border border-red-200 bg-red-50 text-red-800 hover:bg-red-100 transition"
+                  onClick={() =>
+                    setCableStatus(selectedSpan.span_id, "Missing")
+                  }
+                >
+                  Missing
+                </button>
+
+                <button
+                  className="px-2.5 py-1 rounded-md border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 transition"
+                  onClick={() => clearCableStatus(selectedSpan.span_id)}
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+          )}
         </div>
-    );
+      )}
 
-    
+      <button
+        className="absolute bottom-4 left-4 bg-purple-600 hover:bg-purple-700 text-white shadow-lg border border-purple-800 rounded-lg px-4 py-2 text-sm font-semibold transition"
+        onClick={autoCutLongSpans}
+      >
+        ✨ Auto-Cut Long Spans
+      </button>
+
+      {modalOpen && modalSpanId !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-[300px]">
+            <h3 className="font-semibold mb-3 text-sm">
+              Partial Recovery Details
+            </h3>
+            <div className="flex gap-2 mb-3">
+              <div className="flex flex-col">
+                <label className="text-[10px]">Recovered</label>
+                <input
+                  type="number"
+                  min={0}
+                  className="border px-2 py-1 rounded w-20"
+                  // FIX 2: Replaces 0 with an empty string so the user doesn't have to backspace
+                  value={
+                    modalValues.recovered === 0 ? "" : modalValues.recovered
+                  }
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value) || 0;
+                    setModalValues((v) => {
+                      const next = { ...v, recovered: val };
+                      cableSpansRef.current = cableSpansRef.current.map(
+                        (span) =>
+                          span.span_id === modalSpanId
+                            ? {
+                                ...span,
+                                meterValue:
+                                  next.recovered +
+                                  next.unrecovered +
+                                  next.missing,
+                              }
+                            : span,
+                      );
+                      setCableSpans([...cableSpansRef.current]);
+                      return next;
+                    });
+                  }}
+                />
+              </div>
+              <div className="flex flex-col">
+                <label className="text-[10px]">Unrecovered</label>
+                <input
+                  type="number"
+                  min={0}
+                  className="border px-2 py-1 rounded w-20"
+                  value={
+                    modalValues.unrecovered === 0 ? "" : modalValues.unrecovered
+                  }
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value) || 0;
+                    setModalValues((v) => {
+                      // FIX 1: Changed "recovered: val" to "unrecovered: val"
+                      const next = { ...v, unrecovered: val };
+                      cableSpansRef.current = cableSpansRef.current.map(
+                        (span) =>
+                          span.span_id === modalSpanId
+                            ? {
+                                ...span,
+                                meterValue:
+                                  next.recovered +
+                                  next.unrecovered +
+                                  next.missing,
+                              }
+                            : span,
+                      );
+                      setCableSpans([...cableSpansRef.current]);
+                      return next;
+                    });
+                  }}
+                />
+              </div>
+              <div className="flex flex-col">
+                <label className="text-[10px]">Missing</label>
+                <input
+                  type="number"
+                  min={0}
+                  className="border px-2 py-1 rounded w-20"
+                  value={modalValues.missing === 0 ? "" : modalValues.missing}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value) || 0;
+                    setModalValues((v) => {
+                      // FIX 1: Changed "recovered: val" to "missing: val"
+                      const next = { ...v, missing: val };
+                      cableSpansRef.current = cableSpansRef.current.map(
+                        (span) =>
+                          span.span_id === modalSpanId
+                            ? {
+                                ...span,
+                                meterValue:
+                                  next.recovered +
+                                  next.unrecovered +
+                                  next.missing,
+                              }
+                            : span,
+                      );
+                      setCableSpans([...cableSpansRef.current]);
+                      return next;
+                    });
+                  }}
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                className="px-3 py-1 bg-gray-200 rounded text-sm"
+                onClick={() => setModalOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-3 py-1 bg-yellow-500 text-white rounded text-sm"
+                onClick={savePartialCounts}
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }

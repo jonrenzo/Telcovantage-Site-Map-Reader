@@ -85,11 +85,11 @@ export default function Home() {
                 key={key}
                 onClick={() => setMapTab(key)}
                 className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold rounded-t-lg border-b-2 transition-all
-                  ${
-                    mapTab === key
-                      ? "text-accent border-accent bg-accent-light"
-                      : "text-muted border-transparent hover:text-[#1e293b] hover:bg-surface-2"
-                  }`}
+                        ${
+                          mapTab === key
+                            ? "text-accent border-accent bg-accent-light"
+                            : "text-muted border-transparent hover:text-[#1e293b] hover:bg-surface-2"
+                        }`}
               >
                 <span>{icon}</span>
                 {label}
@@ -97,35 +97,6 @@ export default function Home() {
             ))}
           </div>
 
-              {/* Tab content — all mounted, hidden when inactive to preserve canvas state */}
-              <div className="flex-1 flex overflow-hidden">
-                <div className={`flex-1 flex overflow-hidden ${mapTab === "review" ? "" : "hidden"}`}>
-                  <ReviewLayout
-                      dxfPath={dxfPath}
-                      results={results}
-                      setResults={setResults}
-                      segments={segments}
-                      onExportDone={() => setStep(4)}
-                  />
-                </div>
-                <div className={`flex-1 flex overflow-hidden ${mapTab === "dxf" ? "" : "hidden"}`}>
-                  <DxfViewer dxfPath={dxfPath} ocrResults={results} />
-                </div>
-                <div className={`flex-1 flex overflow-hidden ${mapTab === "equipment" ? "" : "hidden"}`}>
-                  <EquipmentLayout
-                      dxfPath={dxfPath}
-                      layers={layers}
-                      segments={segments}
-                  />
-                </div>
-                <div className={`flex-1 flex overflow-hidden ${mapTab === "pole" ? "" : "hidden"}`}>
-                  <PoleLayout
-                      dxfPath={dxfPath}
-                      allLayers={layers}
-                      layerSegments={{ all: segments }}
-                  />
-                </div>
-              </div>
           {/* Tab content — all mounted, hidden when inactive to preserve canvas state */}
           <div className="flex-1 flex overflow-hidden">
             <div
@@ -142,7 +113,7 @@ export default function Home() {
             <div
               className={`flex-1 flex overflow-hidden ${mapTab === "dxf" ? "" : "hidden"}`}
             >
-              <DxfViewer dxfPath={dxfPath} />
+              <DxfViewer dxfPath={dxfPath} ocrResults={results} />
             </div>
             <div
               className={`flex-1 flex overflow-hidden ${mapTab === "equipment" ? "" : "hidden"}`}
