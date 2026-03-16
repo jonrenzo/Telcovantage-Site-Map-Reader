@@ -256,6 +256,17 @@ def _generate_batch(
 
 # ── post-processing ───────────────────────────────────────────────────────────
 
+# Substitutions applied only to the FIRST character (prefix position).
+# TrOCR commonly misreads a stroked capital T as these characters.
+_PREFIX_SUBS = {
+    "1": "T",  # TrOCR reads stroked T as 1  →  T
+    "l": "T",  # lowercase l → T  (kept for direct calls bypassing _clean)
+    "L": "T",  # uppercase L → T  (_clean uppercases first, so this is what arrives)
+    "I": "T",  # capital I → T (also looks like T in strokes)
+    "7": "T",  # 7 with crossbar → T
+    "|": "T",  # pipe → T
+}
+
 
 def _clean(text: str) -> str:
     text = text.strip()
@@ -265,6 +276,45 @@ def _clean(text: str) -> str:
 
 def _is_valid(text: str) -> bool:
     return bool(text and _POLEID_RE.match(text))
+
+
+def _fix_pole_id(text: str) -> str:
+    """
+    Apply domain-specific corrections for common TrOCR misreads on
+    stroked DXF pole labels.
+
+    Prefix substitutions are tried FIRST — before the validity check —
+    because characters like "1", "l", "I" and "7" are never the intended
+    first character of a pole ID and should always be corrected to "T".
+    """
+    if not text:
+        return text
+
+    # Always try the prefix substitution first.
+    # "l" and "I" pass isalpha() and would fool _is_valid, so we must
+    # attempt the fix before the validity short-circuit below.
+    if text[0] in _PREFIX_SUBS:
+        candidate = _PREFIX_SUBS[text[0]] + text[1:]
+        if _is_valid(candidate):
+            print(f"[pole_ocr] prefix-fix: {text!r} → {candidate!r}")
+            return candidate
+
+    # Already valid and no prefix fix applied — return as-is
+    if _is_valid(text):
+        return text
+
+    # Try fixing each remaining character individually
+    mid_subs = {"0": "O", "O": "0", "1": "I", "I": "1", "5": "S", "S": "5"}
+    for i, ch in enumerate(text):
+        if i == 0:
+            continue  # prefix already handled above
+        if ch in mid_subs:
+            candidate = text[:i] + mid_subs[ch] + text[i + 1 :]
+            if _is_valid(candidate):
+                print(f"[pole_ocr] mid-fix pos {i}: {text!r} → {candidate!r}")
+                return candidate
+
+    return text
 
 
 # ── public API ────────────────────────────────────────────────────────────────
@@ -297,7 +347,7 @@ def _pick_best(
     best_valid = False
 
     for rot, (raw_text, confidence) in zip(angles, raw_results):
-        cleaned = _clean(raw_text)
+        cleaned = _fix_pole_id(_clean(raw_text))
         valid = _is_valid(cleaned)
 
         print(
@@ -380,7 +430,7 @@ def ocr_pole(
 
     # ── Pass 1: upright only ──────────────────────────────────────────────────
     pass1 = _run_angles(img_rgb, [0], max_new_tokens)
-    p1_text = _clean(pass1[0][0])
+    p1_text = _fix_pole_id(_clean(pass1[0][0]))
     p1_conf = pass1[0][1]
     p1_valid = _is_valid(p1_text)
 
@@ -411,7 +461,7 @@ def ocr_pole(
     accepted = bool(best_text and best_conf >= min_conf and best_valid)
 
     return OcrResult(
-        text=best_text if best_text else _clean(all_raw[0][0]),
+        text=best_text if best_text else _fix_pole_id(_clean(all_raw[0][0])),
         confidence=round(best_conf, 4),
         accepted=accepted,
         crop_png=png_bytes or None,
