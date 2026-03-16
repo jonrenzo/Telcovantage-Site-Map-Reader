@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useCallback, useState } from "react";
-import type { DxfLayerData } from "../../types";
+import type { DxfLayerData, EquipmentShape } from "../../types";
 import DxfToolbar from "./DxfToolbar";
 import DxfLayerPanel from "./DxfLayerPanel";
 
@@ -30,7 +30,6 @@ interface Props {
   ocrResults: any[];
 }
 
-// Simplified to only store recovered; unrecovered is dynamically calculated
 interface PartialDetail {
   recovered?: number;
 }
@@ -226,6 +225,13 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
   const [showChips, setShowChips] = useState(true);
   const showChipsRef = useRef(true);
 
+  // Actives Toggle State
+  const [showActives, setShowActives] = useState(false);
+  const [activesLoading, setActivesLoading] = useState(false);
+  const showActivesRef = useRef(false);
+  const activeShapesRef = useRef<any[]>([]); // To hold EquipmentShape from scanner
+  const activesPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   const [cableSpans, setCableSpans] = useState<CableSpan[]>([]);
   const [layers, setLayers] = useState<DxfLayerData[]>([]);
   const [layerPanelOpen, setLayerPanelOpen] = useState(true);
@@ -262,7 +268,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
         totalMissing += actualLength;
       } else if (status === "Unrecovered or Partial") {
         const detail = partialDetails[span.span_id] ?? { recovered: 0 };
-        // Safe clamp and auto-calculate unrecovered
         const safeRecovered = Math.min(detail.recovered ?? 0, strandLength);
         const calcUnrecovered = strandLength - safeRecovered;
 
@@ -308,7 +313,7 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
       vp: Viewport,
       width: number,
       height: number,
-      opts: { showChips: boolean; showHover: boolean },
+      opts: { showChips: boolean; showHover: boolean; showActives: boolean },
     ) => {
       ctx.clearRect(0, 0, width, height);
 
@@ -461,9 +466,51 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
         }
       }
 
+      // 3. Draw Equipment Actives if toggled on
+      if (opts.showActives) {
+        ctx.save();
+        for (const shape of activeShapesRef.current) {
+          const str = `${shape.kind} ${shape.layer}`.toLowerCase();
+
+          let fillColor = "rgba(156, 163, 175, 0.4)"; // Gray fallback
+          let strokeColor = "rgba(100, 116, 139, 0.9)";
+
+          if (str.includes("extender")) {
+            fillColor = "rgba(239, 68, 68, 0.4)"; // Red
+            strokeColor = "rgba(220, 38, 38, 0.9)";
+          } else if (str.includes("amp")) {
+            fillColor = "rgba(249, 115, 22, 0.4)"; // Bright Orange
+            strokeColor = "rgba(234, 88, 12, 0.9)";
+          } else if (str.includes("node")) {
+            fillColor = "rgba(59, 130, 246, 0.4)"; // Blue
+            strokeColor = "rgba(37, 99, 235, 0.9)";
+          }
+
+          ctx.fillStyle = fillColor;
+          ctx.strokeStyle = strokeColor;
+          ctx.lineWidth = 2.5 / vp.scale;
+
+          if (shape.points && shape.points.length > 0) {
+            ctx.beginPath();
+            ctx.moveTo(shape.points[0][0], shape.points[0][1]);
+            for (let i = 1; i < shape.points.length; i++) {
+              ctx.lineTo(shape.points[i][0], shape.points[i][1]);
+            }
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+          } else if (shape.bbox) {
+            const [minx, miny, maxx, maxy] = shape.bbox;
+            ctx.fillRect(minx, miny, maxx - minx, maxy - miny);
+            ctx.strokeRect(minx, miny, maxx - minx, maxy - miny);
+          }
+        }
+        ctx.restore();
+      }
+
       ctx.restore();
 
-      // 3. Draw Chips (Screen space)
+      // 4. Draw Chips (Screen space)
       if (opts.showChips && cableLayer && isLayerVisible(cableLayer)) {
         const spans = cableSpansRef.current;
         for (const span of spans) {
@@ -518,21 +565,98 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
     renderScene(ctx, vpRef.current, canvas.width, canvas.height, {
       showChips: showChipsRef.current,
       showHover: true,
+      showActives: showActivesRef.current,
     });
   }, [renderScene]);
 
+  // Fetch and toggle Equipment Actives
+  const toggleActives = async () => {
+    if (showActives) {
+      setShowActives(false);
+      showActivesRef.current = false;
+      redraw();
+      return;
+    }
+
+    // If we've already cached them, just show them
+    if (activeShapesRef.current.length > 0) {
+      setShowActives(true);
+      showActivesRef.current = true;
+      redraw();
+      return;
+    }
+
+    setActivesLoading(true);
+    try {
+      // 1. Kick off the scan
+      const res = await fetch("/api/scan_equipment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dxf_path: dxfPath, boundary_layer: null }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      // 2. Poll for completion
+      const poll = setInterval(async () => {
+        try {
+          const sres = await fetch("/api/scan_status");
+          const sdata = await sres.json();
+
+          if (sdata.status === "done") {
+            clearInterval(poll);
+            const rres = await fetch("/api/scan_results");
+            const rdata = await rres.json();
+            const fetched: any[] = rdata.shapes ?? [];
+
+            // 3. Filter for the designated "Actives"
+            const actives = fetched.filter((s) => {
+              const str = `${s.kind} ${s.layer}`.toLowerCase();
+              return (
+                str.includes("amp") ||
+                str.includes("node") ||
+                str.includes("extender")
+              );
+            });
+
+            activeShapesRef.current = actives;
+            setActivesLoading(false);
+            setShowActives(true);
+            showActivesRef.current = true;
+            redraw();
+          } else if (sdata.status === "error") {
+            clearInterval(poll);
+            setActivesLoading(false);
+            console.error(sdata.error);
+          }
+        } catch (e) {
+          // Ignore network hiccups while polling
+        }
+      }, 600);
+
+      activesPollRef.current = poll;
+    } catch (err) {
+      console.error(err);
+      setActivesLoading(false);
+    }
+  };
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (activesPollRef.current) clearInterval(activesPollRef.current);
+    };
+  }, []);
+
   const setCableStatus = useCallback(
     (spanId: number, status: CableRecoveryStatus) => {
-      // 1. Immediately update ref to guarantee instantaneous redraw
       cableStatusRef.current = {
         ...cableStatusRef.current,
         [spanId]: status,
       };
 
-      // 2. Sync React State
       setCableStatuses(cableStatusRef.current);
 
-      // 3. Initialize partial details immediately if it's partial
       if (status === "Unrecovered or Partial") {
         setPartialDetails((prev) => {
           if (prev[spanId]) return prev;
@@ -540,7 +664,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
         });
       }
 
-      // 4. Force imperative redraw
       redraw();
     },
     [redraw],
@@ -548,15 +671,10 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
 
   const clearCableStatus = useCallback(
     (spanId: number) => {
-      // 1. Immediately update ref
       const next = { ...cableStatusRef.current };
       delete next[spanId];
       cableStatusRef.current = next;
-
-      // 2. Sync React state
       setCableStatuses(next);
-
-      // 3. Force imperative redraw
       redraw();
     },
     [redraw],
@@ -1367,8 +1485,11 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
     exportVp.y = H / 2 + ((miny + maxy) / 2) * exportVp.scale;
 
     // Render the scene directly to the offscreen canvas!
-    // IMPORTANT: Turn OFF chips and Hover effects
-    renderScene(ctx, exportVp, W, H, { showChips: false, showHover: false });
+    renderScene(ctx, exportVp, W, H, {
+      showChips: false,
+      showHover: false,
+      showActives: showActivesRef.current,
+    });
 
     const imageData = offCanvas.toDataURL("image/png");
 
@@ -1511,6 +1632,21 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
       <div class="legend-item">
         <span class="legend-line" style="background: rgba(220, 38, 38, 0.95); box-shadow: 0 0 0 4px rgba(248, 113, 113, 0.22);"></span> Missing
       </div>
+      ${
+        showActivesRef.current
+          ? `
+      <div class="legend-item">
+        <span class="legend-line" style="background: rgba(249, 115, 22, 0.4); border: 2px solid rgba(234, 88, 12, 0.9); height: 12px; border-radius: 2px;"></span> Amplifier
+      </div>
+      <div class="legend-item">
+        <span class="legend-line" style="background: rgba(59, 130, 246, 0.4); border: 2px solid rgba(37, 99, 235, 0.9); height: 12px; border-radius: 2px;"></span> Node
+      </div>
+      <div class="legend-item">
+        <span class="legend-line" style="background: rgba(239, 68, 68, 0.4); border: 2px solid rgba(220, 38, 38, 0.9); height: 12px; border-radius: 2px;"></span> Extender
+      </div>
+      `
+          : ""
+      }
     </div>
   </div>
 
@@ -1633,6 +1769,23 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
           onShowAll={showAll}
           onHideAll={hideAll}
         />
+      )}
+
+      {/* Actives Toggle Button */}
+      {!loading && !error && (
+        <button
+          onClick={toggleActives}
+          disabled={activesLoading}
+          className="absolute bottom-6 right-6 z-10 bg-white/95 backdrop-blur border border-slate-200 shadow-lg px-5 py-2.5 rounded-full font-semibold text-sm text-slate-700 hover:bg-slate-50 transition-all flex items-center gap-2"
+        >
+          {activesLoading ? (
+            <div className="w-4 h-4 border-2 border-slate-300 border-t-purple-500 rounded-full animate-spin" />
+          ) : showActives ? (
+            "👁️ Hide Actives"
+          ) : (
+            "🔌 Show Actives"
+          )}
+        </button>
       )}
 
       {!loading && !error && cableLayerName && (
