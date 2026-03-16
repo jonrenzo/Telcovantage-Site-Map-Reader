@@ -1,246 +1,295 @@
 """
-pole_ocr.py — Tesseract OCR for stroked-polyline pole labels.
+app_python/services/pole_ocr.py
+────────────────────────────────
+OCR for stroked (hand-drawn) pole ID labels using TrOCR.
 
-Renders the label segments to a clean 800×800 white-on-black image,
-runs Tesseract OSD to detect if 180° rotation is needed, then reads
-the text with Tesseract.
+Model: microsoft/trocr-base-printed
+  - ViT image encoder + RoBERTa text decoder
+  - Designed for printed/handwritten single-line text on a white background
+  - ~334 MB download on first use, cached by HuggingFace in ~/.cache/huggingface
 
-Requirements:
-    pip install pytesseract opencv-python numpy Pillow
-    Install Tesseract: https://github.com/UB-Mannheim/tesseract/wiki
+Call surface (unchanged from prior Tesseract version):
+    result = ocr_pole(segments, bbox)
+    result.text        → str  (recognised text, cleaned)
+    result.confidence  → float  (0.0 – 1.0, mean per-token probability)
+    result.accepted    → bool  (passes pole-ID regex + confidence gate)
+    result.crop_png    → bytes | None  (PNG of the rendered crop)
 """
 
 from __future__ import annotations
 
+import io
 import math
-import os
-from typing import Tuple, Optional, List
+import re
+from dataclasses import dataclass, field
+from typing import List, Optional, Sequence, Tuple
 
-import cv2
 import numpy as np
 
-try:
-    import pytesseract
-    from pytesseract import Output as TessOutput
-    _TESS_OK = True
-except ImportError:
-    _TESS_OK = False
-    print("[pole_ocr] WARNING: pytesseract not installed — OCR will be skipped")
+# ── lazy imports – loaded once on first call ──────────────────────────────────
+_processor = None
+_model = None
+_device = None
 
-# ── constants ────────────────────────────────────────────────────────────────
+# ── constants ─────────────────────────────────────────────────────────────────
 
-OCR_IMG_SIZE   = 800
-STROKE_PX      = 6
-CONF_THRESHOLD = 0.55
+MODEL_ID = "microsoft/trocr-base-printed"
 
-TESS_WHITELIST = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-."
-TESS_MODES = [
-    f"--psm 8 --oem 1 -c tessedit_char_whitelist={TESS_WHITELIST}",
-    f"--psm 7 --oem 1 -c tessedit_char_whitelist={TESS_WHITELIST}",
-    f"--psm 6 --oem 1 -c tessedit_char_whitelist={TESS_WHITELIST}",
-]
+# Image rasterisation
+CROP_PX = 192  # output image size (square)
+PAD_FRAC = 0.18  # padding as fraction of bbox dimension
+LINE_PX = 4  # stroke thickness in pixels
 
-DEBUG_DIR: Optional[str] = None  # e.g. r"C:\Users\Vero\Downloads\pole_crops"
+# Acceptance gate
+MIN_CONF = 0.60  # minimum mean token confidence to accept
+_POLEID_RE = re.compile(r"^(?:NPT|[A-Z]{0,2}\d+(?:-\d+)?)$", re.IGNORECASE)
 
 
-# ── result ────────────────────────────────────────────────────────────────────
-
-class PoleOcrResult:
-    __slots__ = ("text", "confidence", "accepted", "crop_png")
-
-    def __init__(self, text: str, confidence: float,
-                 accepted: bool, crop_png: Optional[bytes]) -> None:
-        self.text       = text
-        self.confidence = confidence
-        self.accepted   = accepted
-        self.crop_png   = crop_png
+# ── data classes ──────────────────────────────────────────────────────────────
 
 
-# ── segment filtering ─────────────────────────────────────────────────────────
+@dataclass
+class _Seg:
+    x1: float
+    y1: float
+    x2: float
+    y2: float
 
-def _filter_segments(segments: list,
-                     bbox: Tuple[float, float, float, float],
-                     expand: float = 0.05) -> list:
-    minx, miny, maxx, maxy = bbox
-    bw = maxx - minx
-    bh = maxy - miny
-    x0, x1 = minx - bw * expand, maxx + bw * expand
-    y0, y1 = miny - bh * expand, maxy + bh * expand
+    def length(self) -> float:
+        return math.hypot(self.x2 - self.x1, self.y2 - self.y1)
+
+
+@dataclass
+class OcrResult:
+    text: str
+    confidence: float
+    accepted: bool
+    crop_png: Optional[bytes] = field(default=None, repr=False)
+
+
+# ── model loader (singleton) ──────────────────────────────────────────────────
+
+
+def _load_model():
+    global _processor, _model, _device
+
+    if _model is not None:
+        return
+
+    import torch
+    from transformers import TrOCRProcessor, VisionEncoderDecoderModel
+
+    _device = "cuda" if torch.cuda.is_available() else "cpu"
+    print(f"[pole_ocr] Loading TrOCR ({MODEL_ID}) on {_device} …")
+
+    _processor = TrOCRProcessor.from_pretrained(MODEL_ID)
+    _model = VisionEncoderDecoderModel.from_pretrained(MODEL_ID)
+    _model.to(_device)
+    _model.eval()
+
+    print("[pole_ocr] TrOCR ready.")
+
+
+# ── rasterisation helpers ─────────────────────────────────────────────────────
+
+
+def _to_segs(raw_segments) -> List[_Seg]:
+    """Accept either _Seg-like objects or dicts with x1/y1/x2/y2 keys."""
     out = []
-    for s in segments:
-        if hasattr(s, "x1"):
-            sx1, sy1, sx2, sy2 = s.x1, s.y1, s.x2, s.y2
-        elif isinstance(s, dict):
-            sx1, sy1, sx2, sy2 = s["x1"], s["y1"], s["x2"], s["y2"]
+    for s in raw_segments:
+        if isinstance(s, dict):
+            out.append(_Seg(s["x1"], s["y1"], s["x2"], s["y2"]))
         else:
-            continue
-        if (x0 <= sx1 <= x1 and y0 <= sy1 <= y1 and
-                x0 <= sx2 <= x1 and y0 <= sy2 <= y1):
-            out.append(s)
+            out.append(_Seg(float(s.x1), float(s.y1), float(s.x2), float(s.y2)))
     return out
 
 
-# ── rendering ────────────────────────────────────────────────────────────────
+def _rasterise(
+    segments: List[_Seg],
+    bbox: Tuple[float, float, float, float],
+    out_px: int = CROP_PX,
+    pad_frac: float = PAD_FRAC,
+    line_px: int = LINE_PX,
+) -> np.ndarray:
+    """
+    Render stroked segments into a white-background, black-ink RGB image
+    suitable for TrOCR (which expects printed text on a white background).
 
-def _render(segments: list,
-            bbox: Tuple[float, float, float, float],
-            size: int = OCR_IMG_SIZE,
-            thickness: int = STROKE_PX) -> np.ndarray:
-    """Render label segments → white strokes on black background."""
+    Returns: uint8 ndarray (out_px, out_px, 3)
+    """
+    import cv2  # already in requirements via main pipeline
+
     minx, miny, maxx, maxy = bbox
-    bw = max(maxx - minx, 1e-9)
-    bh = max(maxy - miny, 1e-9)
-    m  = 0.12
-    x0, xr = minx - bw * m, maxx + bw * m
-    y0, yr = miny - bh * m, maxy + bh * m
-    rw, rh = xr - x0, yr - y0
+    w = maxx - minx
+    h = maxy - miny
 
-    img = np.zeros((size, size), dtype=np.uint8)
+    # Expand bbox by padding
+    px = max(pad_frac * w, 1e-9)
+    py = max(pad_frac * h, 1e-9)
+    minx -= px
+    maxx += px
+    miny -= py
+    maxy += py
+    w2 = maxx - minx
+    h2 = maxy - miny
 
-    def to_px(x: float, y: float) -> Tuple[int, int]:
-        return (
-            int(round((x - x0) / rw * (size - 1))),
-            int(round((1.0 - (y - y0) / rh) * (size - 1))),
+    # White background (3-channel so TrOCR gets RGB)
+    img = np.full((out_px, out_px, 3), 255, dtype=np.uint8)
+
+    def to_px(x: float, y: float):
+        px_ = int(round((x - minx) / w2 * (out_px - 1)))
+        py_ = int(round((1.0 - (y - miny) / h2) * (out_px - 1)))
+        return px_, py_
+
+    # Draw black strokes
+    for s in segments:
+        if s.length() <= 1e-9:
+            continue
+        cv2.line(
+            img,
+            to_px(s.x1, s.y1),
+            to_px(s.x2, s.y2),
+            (0, 0, 0),
+            thickness=line_px,
+            lineType=cv2.LINE_AA,
         )
 
-    for s in segments:
-        if hasattr(s, "x1"):
-            sx1, sy1, sx2, sy2 = s.x1, s.y1, s.x2, s.y2
-        elif isinstance(s, dict):
-            sx1, sy1, sx2, sy2 = s["x1"], s["y1"], s["x2"], s["y2"]
-        else:
-            continue
-        if math.hypot(sx2 - sx1, sy2 - sy1) < 1e-9:
-            continue
-        cv2.line(img, to_px(sx1, sy1), to_px(sx2, sy2),
-                 255, thickness=thickness, lineType=cv2.LINE_AA)
-
-    return img  # white strokes on black
+    return img
 
 
-def _rot(img: np.ndarray, deg: float) -> np.ndarray:
-    if abs(deg) < 0.5:
-        return img
-    h, w = img.shape[:2]
-    M = cv2.getRotationMatrix2D((w / 2.0, h / 2.0), deg, 1.0)
-    return cv2.warpAffine(img, M, (w, h), flags=cv2.INTER_LINEAR, borderValue=0)
+def _img_to_png_bytes(img: np.ndarray) -> bytes:
+    import cv2
+
+    ok, buf = cv2.imencode(".png", img)
+    return bytes(buf) if ok else b""
 
 
-def _to_png(img: np.ndarray, deg: float = 0.0) -> bytes:
-    """Rotate + invert to dark-on-white + encode as PNG bytes for UI display."""
-    oriented = _rot(img, deg)
-    inverted = cv2.bitwise_not(oriented)   # black strokes on white — same as OCR Review
-    _, buf   = cv2.imencode(".png", inverted)
-    return bytes(buf)
+def _img_to_pil(img: np.ndarray):
+    """Convert BGR numpy array to PIL RGB Image."""
+    from PIL import Image
+
+    # cv2 gives BGR; TrOCR expects RGB
+    rgb = img[:, :, ::-1]
+    return Image.fromarray(rgb, mode="RGB")
 
 
-def _primary_deg(bbox: Tuple[float, float, float, float]) -> float:
-    # No automatic rotation — render segments as-is.
-    # Use the inline rename to correct any misread names.
-    return 0.0
+# ── confidence extraction ─────────────────────────────────────────────────────
 
 
-# ── Tesseract OCR ─────────────────────────────────────────────────────────────
+def _decode_with_confidence(
+    pixel_values, max_new_tokens: int = 16
+) -> Tuple[str, float]:
+    """
+    Run TrOCR and return (text, mean_token_confidence).
 
-def _preprocess(img: np.ndarray) -> np.ndarray:
-    """Upscale + sharpen for better Tesseract accuracy."""
-    img    = cv2.resize(img, (img.shape[1] * 2, img.shape[0] * 2),
-                        interpolation=cv2.INTER_CUBIC)
-    clahe  = cv2.createCLAHE(clipLimit=4.0, tileGridSize=(4, 4))
-    img    = clahe.apply(img)
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
-    img    = cv2.dilate(img, kernel, iterations=1)
-    return cv2.copyMakeBorder(img, 24, 24, 24, 24, cv2.BORDER_CONSTANT, value=0)
+    We use generate() with output_scores=True so we can read per-token
+    softmax probabilities and average them as a confidence proxy.
+    """
+    import torch
 
+    with torch.no_grad():
+        out = _model.generate(
+            pixel_values,
+            max_new_tokens=max_new_tokens,
+            output_scores=True,
+            return_dict_in_generate=True,
+        )
 
-def _run_tess(img: np.ndarray, config: str) -> Tuple[str, float]:
-    if not _TESS_OK:
-        return "", 0.0
-    try:
-        data  = pytesseract.image_to_data(img, config=config,
-                                          output_type=TessOutput.DICT)
-        pairs = [(w.strip(), int(c))
-                 for w, c in zip(data["text"], data["conf"])
-                 if w.strip() and int(c) >= 0]
-        if not pairs:
-            return "", 0.0
-        text = "".join(w for w, _ in pairs).upper().strip()
-        conf = sum(c for _, c in pairs) / len(pairs) / 100.0
-        return text, conf
-    except Exception:
-        return "", 0.0
+    # Decode text
+    token_ids = out.sequences[0]
+    text = _processor.tokenizer.decode(token_ids, skip_special_tokens=True)
 
+    # Mean per-token probability (geometric mean of softmax maxima)
+    if out.scores:
+        probs = []
+        for score_tensor in out.scores:
+            p = torch.softmax(score_tensor[0], dim=-1)
+            probs.append(float(p.max().item()))
+        confidence = float(np.mean(probs))
+    else:
+        confidence = 0.0
 
-def _tess_read(raw: np.ndarray, deg: float) -> Tuple[str, float]:
-    """Read text from raw image at the given total rotation."""
-    inverted = cv2.bitwise_not(_rot(raw, deg))
-    proc     = _preprocess(inverted)
-    best_t, best_c = "", 0.0
-    for cfg in TESS_MODES:
-        t, c = _run_tess(proc, cfg)
-        if c > best_c:
-            best_t, best_c = t, c
-    return best_t, best_c
-
-
-# ── debug ────────────────────────────────────────────────────────────────────
-
-def _debug_save(pole_id: int, png_bytes: bytes,
-                text: str, conf: float) -> None:
-    if not DEBUG_DIR:
-        return
-    try:
-        os.makedirs(DEBUG_DIR, exist_ok=True)
-        label = f"{text or 'NONE'}_{int(conf * 100)}pct"
-        with open(os.path.join(DEBUG_DIR, f"p{pole_id:03d}_{label}.png"), "wb") as f:
-            f.write(png_bytes)
-    except Exception as e:
-        print(f"[pole_ocr debug] {e}")
-
-
-_counter = 0
+    return text.strip(), confidence
 
 
 # ── public API ────────────────────────────────────────────────────────────────
 
+
+def _clean(text: str) -> str:
+    """Strip whitespace and common OCR noise characters."""
+    text = text.strip()
+    # Remove leading/trailing punctuation that TrOCR sometimes hallucinates
+    text = re.sub(r"^[^A-Za-z0-9]+|[^A-Za-z0-9]+$", "", text)
+    return text.upper()
+
+
 def ocr_pole(
-    segments: list,
+    segments,
     bbox: Tuple[float, float, float, float],
-    conf_threshold: float = CONF_THRESHOLD,
-) -> PoleOcrResult:
+    *,
+    min_conf: float = MIN_CONF,
+    crop_px: int = CROP_PX,
+    pad_frac: float = PAD_FRAC,
+    line_px: int = LINE_PX,
+    max_new_tokens: int = 16,
+) -> OcrResult:
     """
-    OCR one stroked-polyline pole label using Tesseract.
+    Rasterise the stroked segments inside `bbox` and run TrOCR.
 
-    segments  - full layer segment list (filtered to bbox internally)
-    bbox      - (minx, miny, maxx, maxy) in DXF coordinates
+    Parameters
+    ----------
+    segments  : iterable of Seg-like objects or dicts with x1/y1/x2/y2
+    bbox      : (minx, miny, maxx, maxy) in DXF world coordinates
+    min_conf  : minimum mean token confidence to mark result as accepted
+    crop_px   : pixel size of the square crop image
+    pad_frac  : padding fraction around bbox
+    line_px   : stroke thickness for rasterisation
+    max_new_tokens : max tokens to generate (pole IDs are short)
+
+    Returns
+    -------
+    OcrResult with .text, .confidence, .accepted, .crop_png
     """
-    global _counter
-    _counter += 1
-    pole_id = _counter
+    _load_model()
 
-    # 1. Filter segments to bbox
-    tight = _filter_segments(segments, bbox, expand=0.05)
-    if len(tight) < 3:
-        tight = _filter_segments(segments, bbox, expand=0.30)
-    raw = _render(tight, bbox)
+    segs = _to_segs(segments)
 
-    # 2. Primary orientation from bbox aspect ratio
-    base_deg = _primary_deg(bbox)
+    # Filter segments to only those inside or near the bbox
+    minx, miny, maxx, maxy = bbox
+    margin = max((maxx - minx), (maxy - miny)) * 0.5
+    segs = [
+        s
+        for s in segs
+        if not (
+            max(s.x1, s.x2) < minx - margin
+            or min(s.x1, s.x2) > maxx + margin
+            or max(s.y1, s.y2) < miny - margin
+            or min(s.y1, s.y2) > maxy + margin
+        )
+    ]
 
-    # 3. Build display PNG (black strokes on white — same as OCR Review tab)
-    crop_png = _to_png(raw, base_deg)
+    # Rasterise
+    img_np = _rasterise(segs, bbox, out_px=crop_px, pad_frac=pad_frac, line_px=line_px)
+    pil_img = _img_to_pil(img_np)
+    png_bytes = _img_to_png_bytes(img_np)
 
-    # 4. Read with Tesseract
-    text, conf = _tess_read(raw, base_deg)
+    # Run TrOCR
+    import torch
 
-    _debug_save(pole_id, crop_png, text, conf)
-    print(f"[pole_ocr] #{pole_id:03d} [tesseract] → '{text}' conf={conf:.2f}")
+    pixel_values = _processor(images=pil_img, return_tensors="pt").pixel_values
+    pixel_values = pixel_values.to(_device)
 
-    accepted = bool(text) and conf >= conf_threshold
+    raw_text, confidence = _decode_with_confidence(
+        pixel_values, max_new_tokens=max_new_tokens
+    )
+    cleaned = _clean(raw_text)
 
-    return PoleOcrResult(
-        text       = text,
-        confidence = round(conf, 4),
-        accepted   = accepted,
-        crop_png   = crop_png,
+    # Accept only strings that look like valid pole IDs and meet confidence gate
+    accepted = bool(cleaned and confidence >= min_conf and _POLEID_RE.match(cleaned))
+
+    return OcrResult(
+        text=cleaned if cleaned else raw_text.strip(),
+        confidence=round(confidence, 4),
+        accepted=accepted,
+        crop_png=png_bytes or None,
     )

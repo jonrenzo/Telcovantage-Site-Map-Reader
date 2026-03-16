@@ -15,23 +15,23 @@ import PoleLayout from "./components/poles/Polelayout";
 type MapTab = "review" | "dxf" | "equipment" | "pole";
 
 export default function Home() {
-  const [step,     setStep]     = useState<Step>(1);
-  const [dxfPath,  setDxfPath]  = useState<string>("");
-  const [layers,   setLayers]   = useState<string[]>([]);
-  const [results,  setResults]  = useState<DigitResult[]>([]);
+  const [step, setStep] = useState<Step>(1);
+  const [dxfPath, setDxfPath] = useState<string>("");
+  const [layers, setLayers] = useState<string[]>([]);
+  const [results, setResults] = useState<DigitResult[]>([]);
   const [segments, setSegments] = useState<Segment[]>([]);
-  const [mapTab,   setMapTab]   = useState<MapTab>("review");
+  const [mapTab, setMapTab] = useState<MapTab>("review");
 
   const pipeline = usePipeline();
 
   const handleStartProcessing = useCallback(
-      async (opts: { dxfPath: string; layer: string; allLayers: string[] }) => {
-        setDxfPath(opts.dxfPath);
-        setLayers(opts.allLayers);
-        setStep(2);
-        await pipeline.run(opts);
-      },
-      [pipeline]
+    async (opts: { dxfPath: string; layer: string; allLayers: string[] }) => {
+      setDxfPath(opts.dxfPath);
+      setLayers(opts.allLayers);
+      setStep(2);
+      await pipeline.run(opts);
+    },
+    [pipeline],
   );
 
   if (step === 2 && pipeline.status === "done" && pipeline.results.length > 0) {
@@ -56,46 +56,46 @@ export default function Home() {
   }, [pipeline]);
 
   const TABS = [
-    { key: "review",    label: "OCR Review",  icon: "🔍" },
-    { key: "dxf",       label: "DXF Viewer",  icon: "🗺️" },
-    { key: "equipment", label: "Equipment",   icon: "⚙️"  },
-    { key: "pole",      label: "Pole IDs",    icon: "🔵"  },
+    { key: "review", label: "OCR Review", icon: "🔍" },
+    { key: "dxf", label: "DXF Viewer", icon: "🗺️" },
+    { key: "equipment", label: "Equipment", icon: "⚙️" },
+    { key: "pole", label: "Pole IDs", icon: "🔵" },
   ] as const;
 
   return (
-      <div className="flex flex-col h-screen overflow-hidden">
-        <Header step={step} />
+    <div className="flex flex-col h-screen overflow-hidden">
+      <Header step={step} />
 
-        {step === 1 && (
-            <LoadScreen onStartProcessing={handleStartProcessing} />
-        )}
+      {step === 1 && <LoadScreen onStartProcessing={handleStartProcessing} />}
 
-        {step === 2 && (
-            <ProcessingScreen
-                progress={pipeline.progress}
-                total={pipeline.total}
-                status={pipeline.status}
-            />
-        )}
+      {step === 2 && (
+        <ProcessingScreen
+          progress={pipeline.progress}
+          total={pipeline.total}
+          status={pipeline.status}
+        />
+      )}
 
-        {step === 3 && (
-            <div className="flex-1 flex flex-col overflow-hidden">
-              {/* Tab bar */}
-              <div className="flex items-center gap-1 px-4 pt-2 bg-surface border-b border-border flex-shrink-0">
-                {TABS.map(({ key, label, icon }) => (
-                    <button
-                        key={key}
-                        onClick={() => setMapTab(key)}
-                        className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold rounded-t-lg border-b-2 transition-all
-                  ${mapTab === key
-                            ? "text-accent border-accent bg-accent-light"
-                            : "text-muted border-transparent hover:text-[#1e293b] hover:bg-surface-2"}`}
-                    >
-                      <span>{icon}</span>
-                      {label}
-                    </button>
-                ))}
-              </div>
+      {step === 3 && (
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Tab bar */}
+          <div className="flex items-center gap-1 px-4 pt-2 bg-surface border-b border-border flex-shrink-0">
+            {TABS.map(({ key, label, icon }) => (
+              <button
+                key={key}
+                onClick={() => setMapTab(key)}
+                className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold rounded-t-lg border-b-2 transition-all
+                  ${
+                    mapTab === key
+                      ? "text-accent border-accent bg-accent-light"
+                      : "text-muted border-transparent hover:text-[#1e293b] hover:bg-surface-2"
+                  }`}
+              >
+                <span>{icon}</span>
+                {label}
+              </button>
+            ))}
+          </div>
 
               {/* Tab content — all mounted, hidden when inactive to preserve canvas state */}
               <div className="flex-1 flex overflow-hidden">
@@ -126,10 +126,47 @@ export default function Home() {
                   />
                 </div>
               </div>
+          {/* Tab content — all mounted, hidden when inactive to preserve canvas state */}
+          <div className="flex-1 flex overflow-hidden">
+            <div
+              className={`flex-1 flex overflow-hidden ${mapTab === "review" ? "" : "hidden"}`}
+            >
+              <ReviewLayout
+                dxfPath={dxfPath}
+                results={results}
+                setResults={setResults}
+                segments={segments}
+                onExportDone={() => setStep(4)}
+              />
             </div>
-        )}
+            <div
+              className={`flex-1 flex overflow-hidden ${mapTab === "dxf" ? "" : "hidden"}`}
+            >
+              <DxfViewer dxfPath={dxfPath} />
+            </div>
+            <div
+              className={`flex-1 flex overflow-hidden ${mapTab === "equipment" ? "" : "hidden"}`}
+            >
+              <EquipmentLayout
+                dxfPath={dxfPath}
+                layers={layers}
+                segments={segments}
+              />
+            </div>
+            <div
+              className={`flex-1 flex overflow-hidden ${mapTab === "pole" ? "" : "hidden"}`}
+            >
+              <PoleLayout
+                dxfPath={dxfPath}
+                allLayers={layers}
+                layerSegments={{ all: segments }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
-        {step === 4 && <ExportDone onStartOver={handleStartOver} />}
-      </div>
+      {step === 4 && <ExportDone onStartOver={handleStartOver} />}
+    </div>
   );
 }
