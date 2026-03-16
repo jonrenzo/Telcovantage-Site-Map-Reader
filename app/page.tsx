@@ -109,7 +109,7 @@ export default function Home() {
                   />
                 </div>
                 <div className={`flex-1 flex overflow-hidden ${mapTab === "dxf" ? "" : "hidden"}`}>
-                  <DxfViewer dxfPath={dxfPath} />
+                  <DxfViewer dxfPath={dxfPath} ocrResults={results} />
                 </div>
                 <div className={`flex-1 flex overflow-hidden ${mapTab === "equipment" ? "" : "hidden"}`}>
                   <EquipmentLayout
