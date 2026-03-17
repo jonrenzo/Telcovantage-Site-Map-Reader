@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 
 export async function POST() {
   try {
-    const res = await fetch("http://localhost:5000/api/pole_tags/export", {
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
+    const res = await fetch(`${backendUrl}/api/pole_tags/export`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
     });

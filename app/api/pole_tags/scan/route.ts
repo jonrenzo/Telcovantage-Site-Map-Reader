@@ -3,7 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const res  = await fetch("http://localhost:5000/api/pole_tags/scan", {
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
+        const res  = await fetch(`${backendUrl}/api/pole_tags/scan`, {
             method:  "POST",
             headers: { "Content-Type": "application/json" },
             body:    JSON.stringify(body),

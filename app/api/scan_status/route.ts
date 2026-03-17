@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 
 export async function GET() {
     try {
-        const response = await fetch("http://localhost:5000/api/scan_status");
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
+        const response = await fetch(`${backendUrl}/api/scan_status`);
         const data = await response.json();
         return NextResponse.json(data, { status: response.status });
     } catch (e) {

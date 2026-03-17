@@ -3,7 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 export async function POST(req: NextRequest) {
   const contentType = req.headers.get("content-type") ?? "";
 
-  const response = await fetch("http://localhost:5000/api/upload", {
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
+  const response = await fetch(`${backendUrl}/api/upload`, {
     method: "POST",
     headers: {
       "content-type": contentType,
