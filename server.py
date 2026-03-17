@@ -99,7 +99,7 @@ QUIT
 # DXF PIPELINE
 # ─────────────────────────────────────────────────────────────────────────────
 
-CONNECT_TOL = 0.2
+CONNECT_TOL = 0.20
 MIN_TOTAL_LENGTH = 0.15
 EPS_THIN = 0.03
 LONG_DIM = 3.0
@@ -1557,6 +1557,87 @@ def export_excel(results, dxf_path):
     out_path = Path(dxf_path).stem + "_results.xlsx"
     wb.save(out_path)
     return out_path, None
+
+
+# Add this function after the existing export_excel() function
+
+
+def export_poles_excel(tags: list, dxf_path: str) -> tuple:
+    try:
+        import openpyxl
+        from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+    except ImportError:
+        return None, "openpyxl not installed. Run: pip install openpyxl"
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Pole IDs"
+
+    # ── Styles ────────────────────────────────────────────────────────────────
+    header_fill = PatternFill("solid", fgColor="7C4A00")
+    header_font = Font(bold=True, color="FFFFFF", name="Calibri")
+    row_fill = PatternFill("solid", fgColor="FEF3C7")
+    total_fill = PatternFill("solid", fgColor="E8EAF6")
+    thin = Side(style="thin", color="CCCCCC")
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    # ── Header row ────────────────────────────────────────────────────────────
+    headers = ["#", "Pole Name"]
+    col_widths = [8, 28]
+
+    for ci, (h, w) in enumerate(zip(headers, col_widths), 1):
+        cell = ws.cell(row=1, column=ci, value=h)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+        cell.border = border
+        ws.column_dimensions[cell.column_letter].width = w
+    ws.row_dimensions[1].height = 22
+    ws.freeze_panes = "A2"
+
+    # ── Data rows ─────────────────────────────────────────────────────────────
+    for ri, tag in enumerate(tags, 2):
+        row_data = [ri - 1, tag.get("name", "")]
+        for ci, val in enumerate(row_data, 1):
+            cell = ws.cell(row=ri, column=ci, value=val)
+            cell.fill = row_fill
+            cell.alignment = Alignment(horizontal="center")
+            cell.border = border
+
+    # ── Total row ─────────────────────────────────────────────────────────────
+    total_row = len(tags) + 2
+    tc = ws.cell(row=total_row, column=1, value="TOTAL")
+    tc.font = Font(bold=True)
+    tc.fill = total_fill
+    tc.border = border
+    tc.alignment = Alignment(horizontal="center")
+
+    tv = ws.cell(row=total_row, column=2, value=len(tags))
+    tv.font = Font(bold=True)
+    tv.fill = total_fill
+    tv.border = border
+    tv.alignment = Alignment(horizontal="center")
+
+    out_path = Path(dxf_path).stem + "_pole_ids.xlsx"
+    wb.save(out_path)
+    return out_path, None
+
+
+# Add this Flask route alongside the other /api/ routes
+
+
+@app.route("/api/pole_tags/export", methods=["POST"])
+def api_export_poles():
+    dxf_path = state.get("dxf_path", "")
+    tags = POLE_STATE.get("tags", [])
+
+    if not tags:
+        return jsonify({"error": "No pole tags to export. Run a scan first."}), 400
+
+    path, err = export_poles_excel(tags, dxf_path or "pole_export")
+    if err:
+        return jsonify({"error": err}), 500
+    return jsonify({"path": path})
 
 
 # ─────────────────────────────────────────────────────────────────────────────
