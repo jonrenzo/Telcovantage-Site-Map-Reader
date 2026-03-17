@@ -1095,6 +1095,7 @@ POLE_STATE: Dict = {
     "error": None,
     "tags": [],
     "layer": None,
+    "dxf_path": None,
     "progress": 0,  # ← NEW: poles processed so far
     "total": 0,  # ← NEW: total poles to process
 }
@@ -1640,6 +1641,68 @@ def api_export_poles():
     return jsonify({"path": path})
 
 
+def _find_pole_layer_name(layers: List[str]) -> Optional[str]:
+    """
+    Auto-detect the most likely pole label layer from the layer list.
+    Checks for common naming patterns used in telecom DXF drawings.
+    """
+    patterns = ["pole", "poleid", "pole_id", "pole id", "tag", "label"]
+    lower_map = {l.lower(): l for l in layers}
+
+    # Exact match first
+    for p in patterns:
+        if p in lower_map:
+            return lower_map[p]
+
+    # Partial match
+    for layer in layers:
+        ll = layer.lower()
+        for p in patterns:
+            if p in ll:
+                return layer
+
+    return None
+
+
+@app.route("/api/pole_tags/auto_scan", methods=["POST"])
+def api_pole_tags_auto_scan():
+    """
+    Called automatically after a DXF is uploaded.
+    Auto-detects the pole layer and starts a background scan immediately
+    so results are ready by the time the user opens the Pole IDs tab.
+    """
+    data = request.get_json()
+    dxf_path = data.get("dxf_path", "") or state.get("dxf_path", "")
+    all_layers = data.get("layers", [])
+
+    if not dxf_path:
+        return jsonify({"error": "No DXF path provided"}), 400
+
+    # Don't restart if already scanning or done for the same file
+    if (
+        POLE_STATE.get("status") in ("processing", "done")
+        and POLE_STATE.get("dxf_path") == dxf_path
+    ):
+        return jsonify({"ok": True, "skipped": True, "layer": POLE_STATE.get("layer")})
+
+    layer_name = _find_pole_layer_name(all_layers)
+    if not layer_name:
+        return jsonify(
+            {"ok": False, "reason": "No pole layer detected in this drawing"}
+        )
+
+    # Store the dxf_path in POLE_STATE so we can check it above
+    POLE_STATE["dxf_path"] = dxf_path
+
+    t = threading.Thread(
+        target=_run_pole_scan,
+        args=(dxf_path, layer_name),
+        daemon=True,
+    )
+    t.start()
+    return jsonify({"ok": True, "layer": layer_name})
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # FLASK ROUTES
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1869,6 +1932,7 @@ def _prewarm_trocr():
 
 _prewarm_trocr()
 
-
 if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
     main()
