@@ -39,9 +39,8 @@ from torchvision import transforms
 app = Flask(__name__, static_folder="frontend/dist", static_url_path="")
 CORS(app)  # Allow React dev server to call API during development
 
-# ── Register Public Integration API blueprint ─────────────────────────────────
+# ── Public Integration API blueprint (routes defined later, registered at bottom) ─
 public_api = Blueprint("public_api", __name__, url_prefix="/api/v1")
-app.register_blueprint(public_api)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -2582,6 +2581,10 @@ def main():
     print(f"{'=' * 50}\n")
 
     app.run(host="localhost", port=args.port, debug=False, threaded=True)
+
+
+# ── Register blueprint now that all routes are defined ───────────────────────
+app.register_blueprint(public_api)
 
 
 # ── Pre-warm TrOCR at startup (before any worker threads spawn) ───────────────

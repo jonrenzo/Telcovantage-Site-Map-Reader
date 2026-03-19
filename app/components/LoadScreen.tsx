@@ -352,7 +352,7 @@ export default function LoadScreen({ onStartProcessing }: Props) {
 
   return (
     <main
-      className="flex-1 flex overflow-hidden bg-[#f4f6fb]"
+      className="flex-1 flex overflow-hidden bg-[#f4f6fb] font-family-sans"
       onClick={() => setContextMenu(null)}
     >
       {/* ── Sidebar ── */}
