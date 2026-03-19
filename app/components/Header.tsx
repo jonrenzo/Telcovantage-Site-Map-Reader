@@ -1,12 +1,34 @@
-const STEPS = ["Load Plan", "Reading", "Review", "Export"];
+const STEPS = ["Load Plan", "Reading", "Review"];
 
 interface Props {
   step: number;
+  onBack?: () => void;
 }
 
-export default function Header({ step }: Props) {
+export default function Header({ step, onBack }: Props) {
   return (
     <header className="bg-surface border-b border-border px-6 h-14 flex items-center gap-4 flex-shrink-0 shadow-sm">
+      {/* Back button — only shown when a handler is provided (step 3) */}
+      {onBack && (
+        <button
+          onClick={onBack}
+          className="flex items-center gap-1.5 text-xs font-semibold text-muted hover:text-[#1e293b]
+            px-2.5 py-1.5 rounded-lg hover:bg-surface-2 transition-colors border border-transparent
+            hover:border-border flex-shrink-0"
+        >
+          <svg
+            className="w-3.5 h-3.5"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+          >
+            <path d="M19 12H5M12 5l-7 7 7 7" />
+          </svg>
+          Back
+        </button>
+      )}
+
       <div className="flex items-center gap-2 font-bold text-accent text-[0.95rem]">
         <svg
           className="w-5 h-5"

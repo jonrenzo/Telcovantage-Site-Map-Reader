@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import type { EquipmentShape, BoundaryPoint, Segment } from "../../types";
+import type { FileCache } from "../../hooks/useSessionCache";
 import EquipmentPanel from "./EquipmentPanel";
 import EquipmentCanvas, { getDisplayKind } from "./EquipmentCanvas";
 
@@ -9,11 +10,21 @@ interface Props {
   dxfPath: string;
   layers: string[];
   segments: Segment[];
+  cachedData: FileCache | null;
+  onCacheUpdate: (data: Partial<FileCache>) => void;
+  isActive: boolean;
 }
 
 type ScanStatus = "idle" | "processing" | "done" | "error";
 
-export default function EquipmentLayout({ dxfPath, layers, segments }: Props) {
+export default function EquipmentLayout({
+  dxfPath,
+  layers,
+  segments,
+  cachedData,
+  onCacheUpdate,
+  isActive,
+}: Props) {
   const [shapes, setShapes] = useState<EquipmentShape[]>([]);
   const [boundary, setBoundary] = useState<BoundaryPoint[] | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -65,14 +76,25 @@ export default function EquipmentLayout({ dxfPath, layers, segments }: Props) {
             const rres = await fetch("/api/scan_results");
             const rdata = await rres.json();
             const fetched: EquipmentShape[] = rdata.shapes ?? [];
+            const fetchedBoundary = rdata.boundary ?? null;
+
             setShapes(fetched);
-            setBoundary(rdata.boundary ?? null);
+            setBoundary(fetchedBoundary);
             setStatus("done");
-            // Initialise filters using display kinds (node/amplifier, not just rectangle)
-            setVisibleKinds(
-              new Set(fetched.map((s) => getDisplayKind(s.kind, s.layer))),
+
+            const kinds = new Set(
+              fetched.map((s) => getDisplayKind(s.kind, s.layer)),
             );
-            setVisibleLayers(new Set(fetched.map((s) => s.layer)));
+            const layerSet = new Set(fetched.map((s) => s.layer));
+            setVisibleKinds(kinds);
+            setVisibleLayers(layerSet);
+
+            // Save to cache
+            onCacheUpdate({
+              shapes: fetched,
+              boundary: fetchedBoundary,
+              equipmentDone: true,
+            });
           } else if (sdata.status === "error") {
             clearInterval(pollRef.current!);
             setStatus("error");
@@ -81,19 +103,41 @@ export default function EquipmentLayout({ dxfPath, layers, segments }: Props) {
         } catch (_) {}
       }, 600);
     },
-    [dxfPath],
+    [dxfPath, onCacheUpdate],
   );
 
-  // Auto-scan once when component mounts
+  const [fitTrigger, setFitTrigger] = useState(0);
+
+  // Re-fit the canvas whenever this tab becomes active
   useEffect(() => {
-    if (!hasScanned.current && dxfPath) {
-      hasScanned.current = true;
-      startScan("");
+    if (!isActive) return;
+    const id = setTimeout(() => setFitTrigger((n) => n + 1), 30);
+    return () => clearTimeout(id);
+  }, [isActive]);
+  // Never auto-scan — user must click "Re-scan" to trigger a fresh scan.
+  useEffect(() => {
+    if (hasScanned.current) return;
+    hasScanned.current = true;
+
+    if (cachedData?.equipmentDone) {
+      // Restore from cache — covers both "found shapes" and "no shapes on this file"
+      const fetched = cachedData.shapes;
+      const fetchedBoundary = cachedData.boundary;
+      setShapes(fetched);
+      setBoundary(fetchedBoundary);
+      setStatus("done");
+      setVisibleKinds(
+        new Set(fetched.map((s) => getDisplayKind(s.kind, s.layer))),
+      );
+      setVisibleLayers(new Set(fetched.map((s) => s.layer)));
     }
+
+    // No cache — leave status as "idle". User clicks Re-scan to start.
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [dxfPath, startScan]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="flex-1 flex overflow-hidden">
@@ -122,9 +166,12 @@ export default function EquipmentLayout({ dxfPath, layers, segments }: Props) {
         )}
 
         {status === "idle" && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-center px-8">
-            <div className="w-8 h-8 border-4 border-border border-t-accent rounded-full animate-spin-fast" />
-            <p className="text-sm text-muted">Starting scan…</p>
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-center px-8 pointer-events-none">
+            <div className="text-4xl opacity-20">⬡◻△</div>
+            <p className="text-sm text-muted">
+              Click <strong>Re-scan</strong> in the panel to detect equipment
+              shapes.
+            </p>
           </div>
         )}
 
@@ -145,6 +192,7 @@ export default function EquipmentLayout({ dxfPath, layers, segments }: Props) {
           visibleKinds={visibleKinds}
           visibleLayers={visibleLayers}
           onSelectShape={setSelectedId}
+          fitTrigger={fitTrigger}
         />
       </div>
     </div>

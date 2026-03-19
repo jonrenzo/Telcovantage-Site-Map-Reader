@@ -11,6 +11,8 @@ interface Props {
   visibleKinds: Set<string>;
   visibleLayers: Set<string>;
   onSelectShape: (id: number | null) => void;
+  /** Increment this counter from outside to force a fit-to-screen. */
+  fitTrigger?: number;
 }
 
 interface Viewport {
@@ -20,9 +22,6 @@ interface Viewport {
 }
 
 // ── Display kind helpers ──────────────────────────────────────────────────────
-// Both nodes and amplifiers are "rectangle" kind, but live on different layers.
-// We derive a "display kind" from (kind + layer) so they can be styled separately.
-
 export function getDisplayKind(kind: string, layer: string): string {
   if (kind === "rectangle") {
     const l = layer.toLowerCase();
@@ -33,13 +32,13 @@ export function getDisplayKind(kind: string, layer: string): string {
 }
 
 const KIND_COLOR: Record<string, string> = {
-  circle: "#2563eb", // 2-Way Tap
-  square: "#16a34a", // 4-Way Tap
-  hexagon: "#7c3aed", // 8-Way Tap
-  node: "#0891b2", // Node  (teal — distinct from amplifier)
-  amplifier: "#d97706", // Amplifier (amber)
-  rectangle: "#d97706", // fallback for unclassified rectangles
-  triangle: "#dc2626", // Line Extender
+  circle: "#2563eb",
+  square: "#16a34a",
+  hexagon: "#7c3aed",
+  node: "#0891b2",
+  amplifier: "#d97706",
+  rectangle: "#d97706",
+  triangle: "#dc2626",
 };
 
 export const KIND_LABEL: Record<string, string> = {
@@ -48,7 +47,7 @@ export const KIND_LABEL: Record<string, string> = {
   hexagon: "8 Way Tap",
   node: "Node",
   amplifier: "Amplifier",
-  rectangle: "Node/Amplifier", // fallback
+  rectangle: "Node/Amplifier",
   triangle: "Line Extender",
 };
 
@@ -62,6 +61,7 @@ export default function EquipmentCanvas({
   visibleKinds,
   visibleLayers,
   onSelectShape,
+  fitTrigger,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const vpRef = useRef<Viewport>({ x: 0, y: 0, scale: 1 });
@@ -120,7 +120,6 @@ export default function EquipmentCanvas({
     ctx.translate(vp.x, vp.y);
     ctx.scale(vp.scale, -vp.scale);
 
-    // Segments
     if (segments.length) {
       ctx.strokeStyle = "rgba(71,85,105,0.2)";
       ctx.lineWidth = 0.8 / vp.scale;
@@ -132,7 +131,6 @@ export default function EquipmentCanvas({
       ctx.stroke();
     }
 
-    // Boundary
     if (boundary && boundary.length >= 3) {
       ctx.beginPath();
       ctx.moveTo(boundary[0].x, boundary[0].y);
@@ -147,7 +145,6 @@ export default function EquipmentCanvas({
       ctx.fill();
     }
 
-    // Shapes
     for (const shape of visibleShapes()) {
       const isSel = shape.shape_id === selectedRef.current;
       const dk = getDisplayKind(shape.kind, shape.layer);
@@ -180,11 +177,9 @@ export default function EquipmentCanvas({
       } else if (shape.kind === "square") {
         ctx.rect(-r * 0.75, -r * 0.75, r * 1.5, r * 1.5);
       } else if (shape.kind === "rectangle") {
-        // Node: taller portrait rectangle; Amplifier: wider landscape rectangle
         if (dk === "node") {
           ctx.rect(-r * 0.65, -r, r * 1.3, r * 2);
         } else {
-          // amplifier or unknown rectangle
           ctx.rect(-r, -r * 0.6, r * 2, r * 1.2);
         }
       } else {
@@ -197,12 +192,10 @@ export default function EquipmentCanvas({
       ctx.lineWidth = (isSel ? 2.5 : 1.5) / vp.scale;
       ctx.stroke();
 
-      // Draw a small distinguishing icon inside node vs amplifier
       if (shape.kind === "rectangle") {
         ctx.strokeStyle = isSel ? "#fff" : color;
         ctx.lineWidth = 1.2 / vp.scale;
         if (dk === "node") {
-          // Node: small horizontal lines (like a server rack)
           const lineR = r * 0.35;
           for (let li = -1; li <= 1; li++) {
             ctx.beginPath();
@@ -211,7 +204,6 @@ export default function EquipmentCanvas({
             ctx.stroke();
           }
         } else {
-          // Amplifier: small triangle/arrow pointing right
           ctx.beginPath();
           const ar = r * 0.32;
           ctx.moveTo(-ar, -ar);
@@ -227,7 +219,6 @@ export default function EquipmentCanvas({
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText(String(shape.shape_id + 1), 0, 0);
-
       ctx.restore();
     }
 
@@ -249,6 +240,12 @@ export default function EquipmentCanvas({
     vp.y = H / 2 + ((miny + maxy) / 2) * vp.scale;
     redraw();
   }, [redraw]);
+
+  // Re-fit whenever parent increments fitTrigger (tab becomes visible)
+  useEffect(() => {
+    if (fitTrigger === undefined || fitTrigger === 0) return;
+    fitView();
+  }, [fitTrigger, fitView]);
 
   useEffect(() => {
     if (!segments.length) return;
@@ -373,7 +370,6 @@ export default function EquipmentCanvas({
         onWheel={onWheel}
       />
 
-      {/* Tooltip */}
       {tooltip && (
         <div
           className="absolute z-30 bg-[#1e293b] text-white text-[10px] font-mono px-2 py-1 rounded-lg pointer-events-none shadow-lg"
@@ -383,7 +379,6 @@ export default function EquipmentCanvas({
         </div>
       )}
 
-      {/* Stats bar */}
       {visible.length > 0 && (
         <div className="absolute top-4 right-4 bg-surface/90 border border-border rounded-xl px-4 py-2 flex items-center gap-2.5 shadow-sm backdrop-blur-sm flex-wrap max-w-md">
           {Object.entries(kindBreakdown).map(([dk, count]) => (
@@ -407,7 +402,6 @@ export default function EquipmentCanvas({
         </div>
       )}
 
-      {/* Zoom controls */}
       <div className="absolute bottom-4 right-4 flex flex-col gap-1.5">
         {[
           { label: "⊡", title: "Fit to screen", onClick: fitView },
@@ -439,9 +433,7 @@ export default function EquipmentCanvas({
         ))}
       </div>
 
-      {/* Legend */}
       <div className="absolute bottom-4 left-4 bg-white/90 border border-border rounded-xl px-3.5 py-2.5 flex flex-col gap-1.5 shadow-sm backdrop-blur-sm">
-        {/* Standard kinds */}
         {[
           { dk: "circle", shape: "circle" },
           { dk: "square", shape: "square" },

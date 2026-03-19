@@ -64,6 +64,7 @@ interface Props {
   dxfPath: string;
 
   ocrResults: any[];
+  isActive: boolean;
 }
 
 interface PartialDetail {
@@ -71,6 +72,18 @@ interface PartialDetail {
 }
 
 type CableRecoveryStatus = "Recovered" | "Unrecovered or Partial" | "Missing";
+
+// ── Per-file data cache ────────────────────────────────────────────────────
+// Keyed by dxfPath. Stores the raw fetched data so switching back to a
+// previously loaded file never re-fetches from the server (which may have
+// moved on to a different file's state).
+interface FileDataCache {
+  segments: Record<string, RawSegment[]>;
+  layers: string[];
+  bounds: { minx: number; miny: number; maxx: number; maxy: number };
+  cableLayer: string | null;
+  spans: CableSpan[];
+}
 
 // Deterministic per-layer color from name
 
@@ -286,7 +299,7 @@ function getStatusStyle(status: CableRecoveryStatus) {
   }
 }
 
-export default function DxfViewer({ dxfPath, ocrResults }: Props) {
+export default function DxfViewer({ dxfPath, ocrResults, isActive }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const vpRef = useRef<Viewport>({ x: 0, y: 0, scale: 1 });
@@ -324,14 +337,13 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
   const selectedSpanRef = useRef<number | null>(null);
 
   const cableStatusRef = useRef<Record<number, CableRecoveryStatus>>({});
-
   const ocrMeterValuesRef = useRef<{ x: number; y: number; value: number }[]>(
     [],
   );
+  const splitHistoryRef = useRef<{ prev: CableSpan[] }[]>([]);
 
-  const splitHistoryRef = useRef<{ prev: CableSpan[]; next?: CableSpan[] }[]>(
-    [],
-  );
+  // ── Per-file cache: prevents re-fetching when switching back to a file ──
+  const fileCacheRef = useRef<Record<string, FileDataCache>>({});
 
   const [partialDetails, setPartialDetails] = useState<
     Record<number, PartialDetail>
@@ -434,11 +446,10 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
       totalLength += actualLength;
 
       const status = cableStatuses[span.span_id];
-
       if (status === "Recovered") {
-        totalRecovered += actualLength;
+        totalRecovered += strandLength * runs;
       } else if (status === "Missing") {
-        totalMissing += actualLength;
+        totalMissing += strandLength * runs;
       } else if (status === "Unrecovered or Partial") {
         const detail = partialDetails[span.span_id] ?? { recovered: 0 };
 
@@ -451,7 +462,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
         totalUnrecovered += calcUnrecovered * runs;
       }
     }
-
     return {
       totalRecovered,
 
@@ -537,7 +547,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
         const segs = segmentsRef.current[layer.name] ?? [];
 
         if (!segs.length) continue;
-
         ctx.strokeStyle = layer.color;
 
         ctx.lineWidth = 0.8 / vp.scale;
@@ -582,7 +591,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
           const span = spanMap.get(spanId);
 
           if (!span) continue;
-
           const style = getStatusStyle(status);
 
           const runs = span.cable_runs || 1;
@@ -638,7 +646,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
 
                   stroke: "rgba(37, 99, 235, 0.95)",
                 };
-
             const runs = span.cable_runs || 1;
 
             const markerWidth = (12 + (runs - 1) * 12) / vp.scale;
@@ -768,14 +775,12 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
 
             strokeColor = "rgba(37, 99, 235, 0.9)";
           }
-
           ctx.fillStyle = fillColor;
 
           ctx.strokeStyle = strokeColor;
 
           ctx.lineWidth = 2.5 / vp.scale;
-
-          if (shape.points && shape.points.length > 0) {
+          if (shape.points?.length > 0) {
             ctx.beginPath();
 
             ctx.moveTo(shape.points[0][0], shape.points[0][1]);
@@ -860,7 +865,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
           const status = cableStatusRef.current[span.span_id];
 
           if (!status) continue;
-
           const style = getStatusStyle(status);
 
           const anchor = worldToScreenLocal(span.cx, span.cy);
@@ -896,13 +900,11 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
           ctx.strokeStyle = style.chipBorder;
 
           ctx.lineWidth = 1;
-
           drawRoundedRect(ctx, chipX, chipY, chipW, chipH, 8);
 
           ctx.fill();
 
           ctx.stroke();
-
           ctx.fillStyle = style.chipText;
 
           ctx.textBaseline = "middle";
@@ -925,7 +927,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
     const ctx = canvas.getContext("2d");
 
     if (!ctx) return;
-
     renderScene(ctx, vpRef.current, canvas.width, canvas.height, {
       showChips: showChipsRef.current,
 
@@ -959,7 +960,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
 
       return;
     }
-
     setActivesLoading(true);
 
     try {
@@ -980,7 +980,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
           const sres = await fetch("/api/scan_status");
 
           const sdata = await sres.json();
-
           if (sdata.status === "done") {
             clearInterval(poll);
 
@@ -1020,7 +1019,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
           // Ignore network hiccups
         }
       }, 600);
-
       activesPollRef.current = poll;
     } catch (err) {
       console.error(err);
@@ -1082,7 +1080,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
       };
 
       setCableStatuses(cableStatusRef.current);
-
       if (status === "Unrecovered or Partial") {
         setPartialDetails((prev) => {
           if (prev[spanId]) return prev;
@@ -1090,7 +1087,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
           return { ...prev, [spanId]: { recovered: 0 } };
         });
       }
-
       redraw();
     },
 
@@ -1118,7 +1114,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
       const cableLayer = cableLayerRef.current;
 
       if (!cableLayer || !isLayerVisible(cableLayer)) return null;
-
       const spans = cableSpansRef.current;
 
       if (!spans.length) return null;
@@ -1130,17 +1125,14 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
       let bestDist = Infinity;
 
       for (const span of spans) {
-        const [minx, miny, maxx, maxy] = span.bbox;
-
+        const [mnx, mny, mxx, mxy] = span.bbox;
         if (
-          worldX < minx - hoverTolWorld ||
-          worldX > maxx + hoverTolWorld ||
-          worldY < miny - hoverTolWorld ||
-          worldY > maxy + hoverTolWorld
-        ) {
+          worldX < mnx - hoverTol ||
+          worldX > mxx + hoverTol ||
+          worldY < mny - hoverTol ||
+          worldY > mxy + hoverTol
+        )
           continue;
-        }
-
         for (const s of span.segments) {
           const d = pointToSegmentDistance(
             worldX,
@@ -1179,7 +1171,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
       const spanIndex = spans.findIndex((s) => s.span_id === spanId);
 
       if (spanIndex === -1) return;
-
       const span = spans[spanIndex];
 
       const segs = span.segments;
@@ -1219,7 +1210,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
       const firstHalf = segs.slice(0, splitIndex + 1);
 
       const secondHalf = segs.slice(splitIndex + 1);
-
       const newId1 = Math.max(...spans.map((s) => s.span_id)) + 1;
 
       const newId2 = newId1 + 1;
@@ -1245,7 +1235,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
       const m1 = computeSpanMetrics(firstHalf);
 
       const m2 = computeSpanMetrics(secondHalf);
-
       const newSpan1: CableSpan = {
         ...span,
 
@@ -1265,7 +1254,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
 
         meterValue: getNearestMeterValue(m1.cx, m1.cy),
       };
-
       const newSpan2: CableSpan = {
         ...span,
 
@@ -1295,9 +1283,7 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
 
         ...spans.slice(spanIndex + 1),
       ];
-
       splitHistoryRef.current.push({ prev: spans.map((s) => ({ ...s })) });
-
       cableSpansRef.current = newSpans;
 
       setCableSpans(newSpans);
@@ -1312,7 +1298,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
 
           return next;
         });
-
         if (prevStatus === "Unrecovered or Partial" && partialDetails[spanId]) {
           setPartialDetails((prev) => ({
             ...prev,
@@ -1331,7 +1316,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
       hoveredSpanRef.current = null;
 
       setHoveredSpanId(null);
-
       redraw();
     },
 
@@ -1342,7 +1326,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
     const targetId = selectedSpanRef.current;
 
     if (targetId === null) return;
-
     const currentSpans = cableSpansRef.current;
 
     const refSpan = currentSpans.find((s) => s.span_id === targetId);
@@ -1354,9 +1337,7 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
     const ptA = { x: segs[0].x1, y: segs[0].y1 };
 
     const ptB = { x: segs[segs.length - 1].x2, y: segs[segs.length - 1].y2 };
-
     const searchTol = 50 / Math.max(vpRef.current.scale, 1e-9);
-
     let newSpans = [...currentSpans];
 
     let nextId = Math.max(...currentSpans.map((s) => s.span_id)) + 1;
@@ -1418,22 +1399,18 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
             splitIdx = i;
           }
         }
-
         if (
           minDist < searchTol &&
           splitIdx >= 1 &&
           splitIdx < span.segments.length - 2
         ) {
           madeCuts = true;
-
           const firstHalf = span.segments.slice(0, splitIdx + 1);
 
           const secondHalf = span.segments.slice(splitIdx + 1);
-
           const m1 = computeSpanMetrics(firstHalf);
 
           const m2 = computeSpanMetrics(secondHalf);
-
           const span1: CableSpan = {
             ...span,
 
@@ -1453,7 +1430,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
 
             meterValue: getNearestMeterValue(m1.cx, m1.cy),
           };
-
           const span2: CableSpan = {
             ...span,
 
@@ -1473,9 +1449,7 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
 
             meterValue: getNearestMeterValue(m2.cx, m2.cy),
           };
-
           resultSpans.push(span1, span2);
-
           const prevStatus = cableStatusRef.current[span.span_id];
 
           if (prevStatus) {
@@ -1554,7 +1528,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
       const firstSeg = targetSpan.segments[0];
 
       const lastSeg = targetSpan.segments[targetSpan.segments.length - 1];
-
       const nearStart =
         Math.hypot(x - firstSeg.x1, y - firstSeg.y1) < searchTol;
 
@@ -1583,12 +1556,10 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
           splitHistoryRef.current.push({
             prev: cableSpansRef.current.map((s) => ({ ...s })),
           });
-
           const newSegments = [...targetSpan.segments, ...neighbor.segments];
 
           const nextId =
             Math.max(...cableSpansRef.current.map((s) => s.span_id), 0) + 1;
-
           const m = computeSpanMetrics(newSegments);
 
           let nearestOcr = null;
@@ -1604,7 +1575,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
               nearestOcr = v.value;
             }
           }
-
           const mergedSpan: CableSpan = {
             ...targetSpan,
 
@@ -1624,13 +1594,11 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
 
             meterValue: nearestOcr ?? undefined,
           };
-
           const newSpans = cableSpansRef.current.filter(
             (s) => s.span_id !== hitId && s.span_id !== neighbor.span_id,
           );
 
           newSpans.push(mergedSpan);
-
           cableSpansRef.current = newSpans;
 
           setCableSpans(newSpans);
@@ -1699,19 +1667,17 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
     return () => window.removeEventListener("keydown", handler);
   }, [undoSplit, redoSplit]);
 
+  // OCR meter value sync
   useEffect(() => {
     if (!cableSpansRef.current.length) return;
-
-    const safeOcrResults = ocrResults || [];
-
-    ocrMeterValuesRef.current = safeOcrResults.map((r) => ({
+    const safeOcr = ocrResults || [];
+    ocrMeterValuesRef.current = safeOcr.map((r) => ({
       x: r.center_x,
 
       y: r.center_y,
 
       value: parseFloat(r.corrected_value ?? r.value) || 0,
     }));
-
     cableSpansRef.current = cableSpansRef.current.map((span) => {
       const status = cableStatusRef.current[span.span_id];
 
@@ -1740,7 +1706,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
           nearest = r;
         }
       }
-
       return {
         ...span,
 
@@ -1749,7 +1714,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
           : null,
       };
     });
-
     setCableSpans([...cableSpansRef.current]);
 
     redraw();
@@ -1789,11 +1753,9 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
     );
 
     if (!mainSpan) return;
-
     splitHistoryRef.current.push({
       prev: cableSpansRef.current.map((s) => ({ ...s })),
     });
-
     const pIds = pairedSpanIdsRef.current;
 
     const pairedSpansToMerge = cableSpansRef.current.filter((s) =>
@@ -1805,13 +1767,11 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
     pairedSpansToMerge.forEach((ps) => newSegments.push(...ps.segments));
 
     const m = computeSpanMetrics(newSegments);
-
-    const totalRunsToAdd = pairedSpansToMerge.reduce(
+    const totalRunsToAdd = toMerge.reduce(
       (sum, s) => sum + (s.cable_runs || 1),
 
       0,
     );
-
     const mergedSpan: CableSpan = {
       ...mainSpan,
 
@@ -1823,17 +1783,14 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
 
       ...m,
     };
-
     const newSpans = cableSpansRef.current.filter(
       (s) => s.span_id !== mainSpan.span_id && !pIds.includes(s.span_id),
     );
 
     newSpans.push(mergedSpan);
-
     cableSpansRef.current = newSpans;
 
     setCableSpans(newSpans);
-
     cancelPairing();
   };
 
@@ -1879,6 +1836,14 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
     redraw();
   }, [redraw]);
 
+  // ── Re-fit when tab becomes visible ──────────────────────────────────────
+  useEffect(() => {
+    if (!isActive) return;
+    const id = setTimeout(() => fitView(), 50);
+    return () => clearTimeout(id);
+  }, [isActive, fitView]);
+
+  // ── Load data for dxfPath — uses per-file cache to avoid stale server data ──
   useEffect(() => {
     if (!dxfPath) return;
 
@@ -1964,7 +1929,7 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
 
         setLayers(layerData);
 
-        cableSpansRef.current = (cableData.spans ?? []).map((s: any) => ({
+        const spans: CableSpan[] = (cableData.spans ?? []).map((s: any) => ({
           ...s,
 
           cable_runs: s.cable_runs || 1,
@@ -1975,7 +1940,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
         setCableLayerName(cableData.cable_layer ?? null);
 
         setCableDataVersion((v) => v + 1);
-
         setLoading(false);
 
         setTimeout(fitView, 50);
@@ -1988,6 +1952,7 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
       });
   }, [dxfPath, fitView]);
 
+  // ResizeObserver
   useEffect(() => {
     const canvas = canvasRef.current;
 
@@ -2036,7 +2001,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
             cancelPairing();
           }
         }
-
         redraw();
 
         return next;
@@ -2107,11 +2071,7 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
       const dx = e.clientX - panRef.current.start.x;
 
       const dy = e.clientY - panRef.current.start.y;
-
-      if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
-        panRef.current.moved = true;
-      }
-
+      if (Math.abs(dx) > 2 || Math.abs(dy) > 2) panRef.current.moved = true;
       vpRef.current.x = panRef.current.vpStart.x + dx;
 
       vpRef.current.y = panRef.current.vpStart.y + dy;
@@ -2216,7 +2176,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
     // Standard Selection Behavior
 
     const hitId = hoveredSpanRef.current;
-
     if (pairingModeRef.current) {
       if (hitId !== null && hitId !== mainPairingSpanId) {
         const current = pairedSpanIdsRef.current;
@@ -2276,7 +2235,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
 
   const exportToPdf = useCallback(() => {
     if (!boundsRef.current) return;
-
     const { minx, miny, maxx, maxy } = boundsRef.current;
 
     const dw = maxx - minx;
@@ -2296,7 +2254,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
     offCanvas.height = H;
 
     const ctx = offCanvas.getContext("2d");
-
     if (!ctx) return;
 
     const exportVp = { x: 0, y: 0, scale: 1 };
@@ -2318,7 +2275,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
     });
 
     const imageData = offCanvas.toDataURL("image/png");
-
     const statuses = cableStatusRef.current;
 
     const spanCount = cableSpansRef.current.length;
@@ -2343,7 +2299,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
       const span = cableSpansRef.current.find((s) => s.span_id === spanId);
 
       if (!span) return;
-
       const runs = span.cable_runs || 1;
 
       const strandLen = span.meterValue ?? span.total_length ?? 0;
@@ -2353,9 +2308,9 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
       pdfTotalLength += strandLen * runs;
 
       if (status === "Recovered") {
-        totalRecovered += strandLen * runs;
+        totalRec += strandLen * runs;
       } else if (status === "Missing") {
-        totalMissing += strandLen * runs;
+        totalMiss += strandLen * runs;
       } else if (status === "Unrecovered or Partial") {
         const detail = partialDetails[spanId] ?? { recovered: 0 };
 
@@ -2393,7 +2348,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
 
           Missing: "#fee2e2",
         };
-
         const strandLen = span?.meterValue ?? span?.total_length ?? 0;
 
         const runs = span?.cable_runs || 1;
@@ -2415,7 +2369,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
 
           lengthText += ` (R:${safeRecovered.toFixed(2)} / U:${calcUnrecovered.toFixed(2)})`;
         }
-
         return `<tr>
 
                 <td style="padding:6px 12px;border:1px solid #e2e8f0;font-family:monospace">${id}</td>
@@ -2629,7 +2582,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
       "position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;border:none;";
 
     document.body.appendChild(iframe);
-
     const doc = iframe.contentDocument;
 
     if (!doc) {
@@ -2643,7 +2595,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
     doc.write(html);
 
     doc.close();
-
     const imgEl = doc.querySelector("img");
 
     const doPrint = () => {
@@ -2672,7 +2623,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
 
   const selectedStatus =
     selectedSpanId !== null ? (cableStatuses[selectedSpanId] ?? null) : null;
-
   const canvasCursor = panRef.current.active
     ? "grabbing"
     : poleConnectModeRef.current !== "idle"
@@ -2816,7 +2766,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
             <div className="text-[#64748b]">
               Total Cables: {totalLength.toFixed(2)} m
             </div>
-
             <label className="flex items-center gap-1.5 mt-2 pt-2 border-t border-slate-200 cursor-pointer hover:text-slate-800 transition-colors">
               <input
                 type="checkbox"
@@ -2918,7 +2867,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
                           selectedSpan.meterValue ?? selectedSpan.total_length;
 
                         let val = parseFloat(e.target.value);
-
                         if (isNaN(val)) val = 0;
 
                         if (val > strandLen) val = strandLen;
@@ -2933,7 +2881,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
                       }}
                     />
                   </div>
-
                   <div className="flex justify-between items-center">
                     <label className="text-[10px] font-semibold text-slate-500 uppercase">
                       Unrecovered (m)
@@ -3014,16 +2961,11 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
 
               <div className="mt-3 flex flex-wrap gap-2">
                 <button
-                  className={`w-full mb-1 px-2.5 py-1.5 rounded-md border transition font-medium flex justify-center items-center shadow-sm ${
-                    pairingMode
-                      ? "border-purple-300 bg-purple-500 text-white hover:bg-purple-600"
-                      : "border-purple-200 bg-purple-50 text-purple-800 hover:bg-purple-100"
-                  }`}
+                  className={`w-full mb-1 px-2.5 py-1.5 rounded-md border transition font-medium flex justify-center items-center shadow-sm ${pairingMode ? "border-purple-300 bg-purple-500 text-white hover:bg-purple-600" : "border-purple-200 bg-purple-50 text-purple-800 hover:bg-purple-100"}`}
                   onClick={pairingMode ? promptFinishPairing : startPairing}
                 >
                   {pairingMode ? "Finish (Enter)" : "🔗 Select Cable runs"}
                 </button>
-
                 {!pairingMode && (
                   <>
                     <button
@@ -3034,7 +2976,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
                     >
                       Recovered
                     </button>
-
                     <button
                       className="px-2.5 py-1 rounded-md border border-yellow-200 bg-yellow-50 text-yellow-800 hover:bg-yellow-100 transition"
                       onClick={() =>
@@ -3047,7 +2988,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
                     >
                       Unrecovered or Partial
                     </button>
-
                     <button
                       className="px-2.5 py-1 rounded-md border border-red-200 bg-red-50 text-red-800 hover:bg-red-100 transition"
                       onClick={() =>
@@ -3056,7 +2996,6 @@ export default function DxfViewer({ dxfPath, ocrResults }: Props) {
                     >
                       Missing
                     </button>
-
                     <button
                       className="px-2.5 py-1 rounded-md border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 transition"
                       onClick={() => clearCableStatus(selectedSpan.span_id)}
