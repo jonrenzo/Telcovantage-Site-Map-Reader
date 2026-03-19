@@ -23,7 +23,7 @@ from collections import Counter, defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import cv2
 import ezdxf
@@ -31,13 +31,17 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from flask import Flask, jsonify, request, send_file, send_from_directory
+from flask import Blueprint, Flask, jsonify, request, send_file, send_from_directory
 from flask_cors import CORS
 from PIL import Image
 from torchvision import transforms
 
 app = Flask(__name__, static_folder="frontend/dist", static_url_path="")
 CORS(app)  # Allow React dev server to call API during development
+
+# ── Register Public Integration API blueprint ─────────────────────────────────
+public_api = Blueprint("public_api", __name__, url_prefix="/api/v1")
+app.register_blueprint(public_api)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -686,17 +690,14 @@ def assign_meter_values_to_spans(spans, ocr_results, max_dist=None):
         spans : list of dicts with new key 'meter_value' added
     """
     if not spans:
-        # print("[meter_assign] No spans to process")
         return spans
     if not ocr_results:
-        # print("[meter_assign] No OCR results found")
         for s in spans:
             s["meter_value"] = None
         return spans
 
     # Auto-tune max_dist if not provided
     if max_dist is None:
-        # Approximate from span bbox sizes: 10% of avg span width/height
         avg_size = sum(
             max(s["bbox"][2] - s["bbox"][0], s["bbox"][3] - s["bbox"][1]) for s in spans
         ) / len(spans)
@@ -718,7 +719,6 @@ def assign_meter_values_to_spans(spans, ocr_results, max_dist=None):
                 nearest_digit = r
 
         if nearest_digit:
-            # Prefer corrected_value, fallback to OCR value
             value = nearest_digit.get("corrected_value") or nearest_digit.get("value")
             try:
                 span["meter_value"] = float(value)
@@ -733,7 +733,6 @@ def assign_meter_values_to_spans(spans, ocr_results, max_dist=None):
                 f"[meter_assign] No OCR digit near span {span['span_id']} (max_dist={max_dist})"
             )
 
-        # Debug output
         print(
             f"[meter_assign] span_id={span['span_id']} cx={cx:.3f} cy={cy:.3f} meter_value={span['meter_value']}"
         )
@@ -1100,8 +1099,8 @@ POLE_STATE: Dict = {
     "tags": [],
     "layer": None,
     "dxf_path": None,
-    "progress": 0,  # ← NEW: poles processed so far
-    "total": 0,  # ← NEW: total poles to process
+    "progress": 0,
+    "total": 0,
 }
 
 POLE_CONFIG = _poleid.PoleIdConfig(
@@ -1125,7 +1124,7 @@ POLE_CONFIG = _poleid.PoleIdConfig(
 )
 
 
-OCR_WORKERS = 4  # parallel moondream calls — tune up if your CPU has more cores
+OCR_WORKERS = 4  # parallel OCR calls — tune up if your CPU has more cores
 
 
 def _run_pole_scan(dxf_path: str, layer_name: str) -> None:
@@ -1564,9 +1563,6 @@ def export_excel(results, dxf_path):
     return out_path, None
 
 
-# Add this function after the existing export_excel() function
-
-
 def export_poles_excel(tags: list, dxf_path: str) -> tuple:
     try:
         import openpyxl
@@ -1626,9 +1622,6 @@ def export_poles_excel(tags: list, dxf_path: str) -> tuple:
     out_path = Path(dxf_path).stem + "_pole_ids.xlsx"
     wb.save(out_path)
     return out_path, None
-
-
-# Add this Flask route alongside the other /api/ routes
 
 
 @app.route("/api/pole_tags/export", methods=["POST"])
@@ -1708,7 +1701,7 @@ def api_pole_tags_auto_scan():
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# FLASK ROUTES
+# FLASK ROUTES  (internal — used by the Next.js frontend)
 # ─────────────────────────────────────────────────────────────────────────────
 
 
@@ -1947,7 +1940,7 @@ def api_run():
 def api_export():
     data = request.get_json()
     corrections = data.get("corrections", {})
-    partials = data.get("partials", {})  # <-- new
+    partials = data.get("partials", {})
 
     # Apply OCR corrections
     for r in state["results"]:
@@ -1956,7 +1949,7 @@ def api_export():
             r["corrected_value"] = corrections[did]
 
     # Pass partials to Excel export
-    path, err = export_excel(state["results"], state["dxf_path"], partials=partials)
+    path, err = export_excel(state["results"], state["dxf_path"])
     if err:
         return jsonify({"error": err}), 500
     return jsonify({"path": path})
@@ -2017,9 +2010,6 @@ def api_cable_spans():
 
         spans = build_cable_spans(doc, cable_layer, connect_tol=CABLE_CONNECT_TOL)
 
-        # Fetch digit OCR results (from current scan)
-        ocr_results = state.get("results", [])
-
         # Assign meter values
         spans = assign_meter_values_to_spans(spans, state.get("results", []))
 
@@ -2035,6 +2025,538 @@ def api_cable_spans():
 
         traceback.print_exc()
         return jsonify({"error": str(e)}), 400
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PUBLIC INTEGRATION API  —  /api/v1/
+# ─────────────────────────────────────────────────────────────────────────────
+# All routes below are registered on the `public_api` Blueprint which is
+# mounted at the /api/v1/ prefix.  External systems should use these endpoints.
+# The internal routes above (no version prefix) are used by the React frontend.
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def _v1_ok(data: Any, status: int = 200):
+    """Standard success envelope for v1 responses."""
+    return jsonify({"ok": True, "data": data}), status
+
+
+def _v1_err(message: str, status: int = 400):
+    """Standard error envelope for v1 responses."""
+    return jsonify({"ok": False, "error": message}), status
+
+
+# ── GET /api/v1/health ────────────────────────────────────────────────────────
+
+
+@public_api.route("/health", methods=["GET"])
+def v1_health():
+    """
+    Liveness check. Always returns 200 when the server is running.
+
+    Response data:
+        service      : "strand-identifier"
+        version      : "1.0.0"
+        model_loaded : true | false
+    """
+    return _v1_ok(
+        {
+            "service": "strand-identifier",
+            "version": "1.0.0",
+            "model_loaded": Path("cad_digit_model.pt").exists(),
+        }
+    )
+
+
+# ── GET /api/v1/status ────────────────────────────────────────────────────────
+
+
+@public_api.route("/status", methods=["GET"])
+def v1_status():
+    """
+    Full pipeline status snapshot — all three subsystems in one call.
+    Poll this endpoint until the desired subsystem status is "done".
+
+    Response data:
+        dxf_path  : currently loaded file path, or null
+        ocr       : { status, progress, total, error }
+        equipment : { status, progress, total, count, error }
+        poles     : { status, layer, progress, total, count, error }
+
+    Status values: "idle" | "processing" | "done" | "error"
+    """
+    return _v1_ok(
+        {
+            "dxf_path": state.get("dxf_path"),
+            "ocr": {
+                "status": state.get("status", "idle"),
+                "progress": state.get("progress", 0),
+                "total": state.get("total", 0),
+                "error": state.get("error"),
+            },
+            "equipment": {
+                "status": SCAN_STATE.get("status", "idle"),
+                "progress": SCAN_STATE.get("progress", 0),
+                "total": SCAN_STATE.get("total", 0),
+                "count": len(SCAN_STATE.get("shapes", [])),
+                "error": SCAN_STATE.get("error"),
+            },
+            "poles": {
+                "status": POLE_STATE.get("status", "idle"),
+                "layer": POLE_STATE.get("layer"),
+                "progress": POLE_STATE.get("progress", 0),
+                "total": POLE_STATE.get("total", 0),
+                "count": len(POLE_STATE.get("tags", [])),
+                "error": POLE_STATE.get("error"),
+            },
+        }
+    )
+
+
+# ── GET /api/v1/ocr/results ───────────────────────────────────────────────────
+
+
+@public_api.route("/ocr/results", methods=["GET"])
+def v1_ocr_results():
+    """
+    All strand-digit OCR results for the currently loaded DXF.
+
+    Query parameters:
+        include_crops : "true"/"false"  (default "false") — include base64 crop PNGs
+        needs_review  : "true"/"false"  (omit = return all) — filter by review status
+
+    Response data:
+        dxf_path : file path
+        count    : number of results returned
+        sum      : integer sum of all final_value fields
+        results  : list of digit objects, each with:
+            digit_id        — stable integer ID for this reading
+            value           — raw OCR prediction
+            corrected_value — user correction, or null
+            final_value     — corrected_value if set, else value  ← USE THIS
+            confidence      — 0.0–1.0 model confidence
+            needs_review    — true if confidence < 0.95
+            center_x        — DXF world X coordinate
+            center_y        — DXF world Y coordinate (negative = higher on drawing)
+            bbox            — [minX, minY, maxX, maxY] in DXF world coordinates
+            manual          — true if added manually by the user
+            crop_b64        — base64 PNG of the OCR crop, or null
+    """
+    if state.get("status") == "idle":
+        return _v1_err("No OCR run has been started yet.", 404)
+    if state.get("status") == "processing":
+        return _v1_err(
+            "OCR is still processing. Poll /api/v1/status for progress.", 202
+        )
+    if state.get("status") == "error":
+        return _v1_err(f"OCR pipeline failed: {state.get('error')}", 500)
+
+    include_crops = request.args.get("include_crops", "false").lower() == "true"
+    filter_review = request.args.get("needs_review", "").lower()
+
+    raw_results = list(state.get("results", []))
+
+    if filter_review == "true":
+        raw_results = [r for r in raw_results if r.get("needs_review")]
+    elif filter_review == "false":
+        raw_results = [r for r in raw_results if not r.get("needs_review")]
+
+    output = []
+    total_sum = 0
+    for r in raw_results:
+        final = r.get("corrected_value") or r.get("value", "")
+        try:
+            total_sum += int(final)
+        except (ValueError, TypeError):
+            pass
+
+        output.append(
+            {
+                "digit_id": r.get("digit_id"),
+                "value": r.get("value"),
+                "corrected_value": r.get("corrected_value"),
+                "final_value": final,
+                "confidence": r.get("confidence"),
+                "needs_review": r.get("needs_review"),
+                "center_x": r.get("center_x"),
+                "center_y": r.get("center_y"),
+                "bbox": r.get("bbox"),
+                "manual": r.get("manual", False),
+                "crop_b64": r.get("crop_b64") if include_crops else None,
+            }
+        )
+
+    return _v1_ok(
+        {
+            "dxf_path": state.get("dxf_path"),
+            "count": len(output),
+            "sum": total_sum,
+            "results": output,
+        }
+    )
+
+
+# ── GET /api/v1/ocr/segments ──────────────────────────────────────────────────
+
+
+@public_api.route("/ocr/segments", methods=["GET"])
+def v1_ocr_segments():
+    """
+    Raw DXF stroke segments from the most recent OCR scan.
+    Useful for re-rendering the drawing on the consuming side.
+
+    Response data:
+        dxf_path : file path
+        count    : number of segments
+        segments : list of { x1, y1, x2, y2 }
+    """
+    raw_segs = state.get("segments", [])
+    segments = [{"x1": s.x1, "y1": s.y1, "x2": s.x2, "y2": s.y2} for s in raw_segs]
+    return _v1_ok(
+        {
+            "dxf_path": state.get("dxf_path"),
+            "count": len(segments),
+            "segments": segments,
+        }
+    )
+
+
+# ── GET /api/v1/poles ─────────────────────────────────────────────────────────
+
+
+@public_api.route("/poles", methods=["GET"])
+def v1_poles():
+    """
+    All detected pole IDs for the currently loaded DXF.
+
+    Query parameters:
+        needs_review  : "true"/"false"  (omit = return all)
+        source        : "text"/"mtext"/"stroke"  (omit = return all)
+        include_crops : "true"/"false"  (default "false")
+
+    Source values:
+        "text"   — read directly from a CAD TEXT entity (high reliability)
+        "mtext"  — read directly from a CAD MTEXT entity (high reliability)
+        "stroke" — recognised via TrOCR from drawn strokes (may need review)
+
+    Response data:
+        dxf_path : file path
+        layer    : DXF layer that was scanned
+        count    : number of poles returned
+        poles    : list of pole objects, each with:
+            pole_id      — stable integer ID
+            name         — detected or OCR-resolved pole name
+            cx / cy      — DXF world coordinates of pole centre
+            bbox         — [minX, minY, maxX, maxY]
+            layer        — source DXF layer
+            source       — "text" | "mtext" | "stroke"
+            ocr_conf     — confidence 0.0–1.0 (null for text/mtext)
+            needs_review — true if OCR was uncertain
+            crop_b64     — base64 PNG of OCR crop, or null
+    """
+    status = POLE_STATE.get("status", "idle")
+    if status == "idle":
+        return _v1_err("No pole scan has been started yet.", 404)
+    if status == "processing":
+        return _v1_err("Pole scan is still running. Poll /api/v1/status.", 202)
+    if status == "error":
+        return _v1_err(f"Pole scan failed: {POLE_STATE.get('error')}", 500)
+
+    include_crops = request.args.get("include_crops", "false").lower() == "true"
+    filter_review = request.args.get("needs_review", "").lower()
+    filter_source = request.args.get("source", "").lower()
+
+    tags = list(POLE_STATE.get("tags", []))
+
+    if filter_review == "true":
+        tags = [t for t in tags if t.get("needs_review")]
+    elif filter_review == "false":
+        tags = [t for t in tags if not t.get("needs_review")]
+
+    if filter_source in ("text", "mtext", "stroke"):
+        tags = [t for t in tags if t.get("source") == filter_source]
+
+    output = []
+    for t in tags:
+        output.append(
+            {
+                "pole_id": t.get("pole_id"),
+                "name": t.get("name"),
+                "cx": t.get("cx"),
+                "cy": t.get("cy"),
+                "bbox": t.get("bbox"),
+                "layer": t.get("layer"),
+                "source": t.get("source"),
+                "ocr_conf": t.get("ocr_conf"),
+                "needs_review": t.get("needs_review"),
+                "crop_b64": t.get("crop_b64") if include_crops else None,
+            }
+        )
+
+    return _v1_ok(
+        {
+            "dxf_path": state.get("dxf_path"),
+            "layer": POLE_STATE.get("layer"),
+            "count": len(output),
+            "poles": output,
+        }
+    )
+
+
+# ── GET /api/v1/equipment ─────────────────────────────────────────────────────
+
+
+@public_api.route("/equipment", methods=["GET"])
+def v1_equipment():
+    """
+    All detected equipment shapes for the currently loaded DXF.
+
+    Query parameters:
+        kind  : "circle"/"square"/"hexagon"/"rectangle"/"triangle"  (omit = all)
+        layer : exact DXF layer name to filter by  (omit = all)
+
+    Shape → Equipment mapping:
+        circle    → 2-Way Tap / Splitter
+        square    → 4-Way Tap
+        hexagon   → 8-Way Tap
+        rectangle → Node or Amplifier  (check layer name to disambiguate)
+        triangle  → Line Extender
+
+    Response data:
+        dxf_path : file path
+        count    : number of shapes returned (after filters)
+        summary  : kind → count for the FULL unfiltered dataset
+        shapes   : list of shape objects, each with:
+            shape_id — stable integer ID for this scan session
+            kind     — "circle" | "square" | "hexagon" | "rectangle" | "triangle"
+            cx / cy  — DXF world coordinates of shape centre
+            bbox     — [minX, minY, maxX, maxY]
+            layer    — source DXF layer
+    """
+    status = SCAN_STATE.get("status", "idle")
+    if status == "idle":
+        return _v1_err("No equipment scan has been started yet.", 404)
+    if status == "processing":
+        return _v1_err("Equipment scan is still running. Poll /api/v1/status.", 202)
+    if status == "error":
+        return _v1_err(f"Equipment scan failed: {SCAN_STATE.get('error')}", 500)
+
+    filter_kind = request.args.get("kind", "").lower()
+    filter_layer = request.args.get("layer", "")
+
+    all_shapes = SCAN_STATE.get("shapes", [])
+
+    # Summary always on the full unfiltered set
+    summary: Dict[str, int] = {}
+    for s in all_shapes:
+        summary[s["kind"]] = summary.get(s["kind"], 0) + 1
+
+    filtered = list(all_shapes)
+    if filter_kind:
+        filtered = [s for s in filtered if s.get("kind") == filter_kind]
+    if filter_layer:
+        filtered = [s for s in filtered if s.get("layer") == filter_layer]
+
+    output = [
+        {
+            "shape_id": s.get("shape_id"),
+            "kind": s.get("kind"),
+            "cx": s.get("cx"),
+            "cy": s.get("cy"),
+            "bbox": s.get("bbox"),
+            "layer": s.get("layer"),
+        }
+        for s in filtered
+    ]
+
+    return _v1_ok(
+        {
+            "dxf_path": state.get("dxf_path"),
+            "count": len(output),
+            "summary": summary,
+            "shapes": output,
+        }
+    )
+
+
+# ── GET /api/v1/cable_spans ───────────────────────────────────────────────────
+
+
+@public_api.route("/cable_spans", methods=["GET"])
+def v1_cable_spans():
+    """
+    All cable spans for the currently loaded DXF, with OCR-matched meter values.
+
+    Query parameters:
+        include_segments : "true"/"false"  (default "false")
+            When true, includes the full segment coordinate list per span.
+            This significantly increases payload size; only enable when needed.
+
+    Response data:
+        dxf_path    : file path
+        cable_layer : name of the detected cable layer, or null
+        count       : number of spans
+        spans       : list of span objects, each with:
+            span_id        — stable integer ID for this session
+            layer          — DXF layer
+            cx / cy        — centre of the span in DXF world coordinates
+            bbox           — [minX, minY, maxX, maxY]
+            total_length   — geometric length of the stroke in DXF units
+            meter_value    — OCR-matched strand value in metres, or null
+            cable_runs     — number of parallel cables (set by user pairing)
+            segment_count  — number of raw line segments in this span
+            from_pole      — connected "from" pole name, or null
+            to_pole        — connected "to" pole name, or null
+            segments       — list of { x1,y1,x2,y2 } or null (see include_segments)
+    """
+    dxf_path = state.get("dxf_path")
+    if not dxf_path:
+        return _v1_err("No DXF has been loaded.", 404)
+
+    include_segs = request.args.get("include_segments", "false").lower() == "true"
+
+    try:
+        doc = ezdxf.readfile(dxf_path)
+        layers = list_layers(dxf_path)
+        cable_layer = find_cable_layer_name(layers)
+
+        if not cable_layer:
+            return _v1_ok(
+                {
+                    "dxf_path": dxf_path,
+                    "cable_layer": None,
+                    "count": 0,
+                    "spans": [],
+                }
+            )
+
+        spans = build_cable_spans(doc, cable_layer, connect_tol=CABLE_CONNECT_TOL)
+        spans = assign_meter_values_to_spans(spans, state.get("results", []))
+
+        output = []
+        for s in spans:
+            output.append(
+                {
+                    "span_id": s["span_id"],
+                    "layer": s.get("layer"),
+                    "cx": s.get("cx"),
+                    "cy": s.get("cy"),
+                    "bbox": s.get("bbox"),
+                    "total_length": s.get("total_length"),
+                    "meter_value": s.get("meter_value"),
+                    "cable_runs": s.get("cable_runs", 1),
+                    "segment_count": s.get("segment_count"),
+                    "from_pole": s.get("from_pole"),
+                    "to_pole": s.get("to_pole"),
+                    "segments": s.get("segments") if include_segs else None,
+                }
+            )
+
+        return _v1_ok(
+            {
+                "dxf_path": dxf_path,
+                "cable_layer": cable_layer,
+                "count": len(output),
+                "spans": output,
+            }
+        )
+
+    except Exception as exc:
+        import traceback
+
+        traceback.print_exc()
+        return _v1_err(str(exc), 500)
+
+
+# ── POST /api/v1/export/ocr ───────────────────────────────────────────────────
+
+
+@public_api.route("/export/ocr", methods=["POST"])
+def v1_export_ocr():
+    """
+    Trigger an Excel export of OCR results and return a download URL.
+
+    Request body (JSON, optional):
+        {
+            "corrections": { "<digit_id>": "<corrected_value>", ... }
+        }
+    Corrections are merged on top of any already stored on the server.
+    Both keys and values must be strings.
+
+    Response data:
+        download_url : "/api/download?file=<filename>"
+        path         : filename of the generated Excel file
+    """
+    if state.get("status") != "done":
+        return _v1_err("OCR must complete before exporting.", 400)
+
+    body = request.get_json(silent=True) or {}
+    corrections = body.get("corrections", {})
+
+    # Apply caller-supplied corrections
+    for r in state.get("results", []):
+        did = str(r["digit_id"])
+        if did in corrections and corrections[did] is not None:
+            r["corrected_value"] = corrections[did]
+
+    path, err = export_excel(state["results"], state["dxf_path"])
+    if err:
+        return _v1_err(err, 500)
+
+    return _v1_ok(
+        {
+            "download_url": f"/api/download?file={path}",
+            "path": path,
+        }
+    )
+
+
+# ── POST /api/v1/export/poles ─────────────────────────────────────────────────
+
+
+@public_api.route("/export/poles", methods=["POST"])
+def v1_export_poles():
+    """
+    Trigger an Excel export of pole IDs and return a download URL.
+
+    Request body (JSON, optional):
+        {
+            "overrides": { "<pole_id>": "<corrected_name>", ... }
+        }
+    Overrides are applied for this export only — server state is not mutated.
+    Both keys and values must be strings.
+
+    Response data:
+        download_url : "/api/download?file=<filename>"
+        path         : filename of the generated Excel file
+    """
+    tags = POLE_STATE.get("tags", [])
+    if not tags:
+        return _v1_err("No pole tags to export. Run a scan first.", 400)
+
+    body = request.get_json(silent=True) or {}
+    overrides = body.get("overrides", {})
+
+    # Apply caller-supplied name overrides without mutating server state
+    export_tags = []
+    for t in tags:
+        pid_str = str(t.get("pole_id", ""))
+        entry = dict(t)
+        if pid_str in overrides:
+            entry["name"] = overrides[pid_str]
+        export_tags.append(entry)
+
+    dxf_path = state.get("dxf_path") or "pole_export"
+    path, err = export_poles_excel(export_tags, dxf_path)
+    if err:
+        return _v1_err(err, 500)
+
+    return _v1_ok(
+        {
+            "download_url": f"/api/download?file={path}",
+            "path": path,
+        }
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
