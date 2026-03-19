@@ -29,7 +29,7 @@ export default function Header({ step, onBack }: Props) {
         </button>
       )}
 
-      <div className="flex items-center gap-2 font-bold text-accent text-[0.95rem]">
+      <div className="flex items-center gap-2 text-accent text-[0.95rem] font-black font-family-sans">
         <svg
           className="w-5 h-5"
           viewBox="0 0 24 24"
@@ -66,7 +66,7 @@ export default function Header({ step, onBack }: Props) {
                   {done ? "✓" : n}
                 </div>
                 <span
-                  className={`text-xs font-medium whitespace-nowrap transition-colors
+                  className={`text-xs font-medium whitespace-nowrap transition-colors font-family-sans
                     ${
                       done
                         ? "text-ok"
