@@ -10,6 +10,7 @@ interface Props {
   setSelectedId: (id: number | null) => void;
   onOpenReviewModal: () => void;
   onExport: () => void;
+  exporting?: boolean;
   fileName: string;
   manualMode: boolean;
   onToggleManual: () => void;
@@ -82,6 +83,7 @@ export default function ReviewSidebar({
   setSelectedId,
   onOpenReviewModal,
   onExport,
+  exporting = false,
   fileName,
   manualMode,
   onToggleManual,
@@ -140,12 +142,31 @@ export default function ReviewSidebar({
         >
           {toReview > 0 ? `⚠ Check ${toReview} Uncertain` : "✓ All confident"}
         </button>
+
         <button
           onClick={onExport}
+          disabled={exporting}
           className="flex-1 py-2 text-xs font-semibold rounded-lg border-[1.5px]
-                        bg-ok-light text-ok border-[#bbf7d0] hover:bg-[#dcfce7] transition-colors"
+                        bg-ok-light text-ok border-[#bbf7d0] hover:bg-[#dcfce7]
+                        disabled:opacity-60 disabled:cursor-not-allowed transition-colors
+                        flex items-center justify-center gap-1.5"
         >
-          ⬇ Save to Excel
+          {exporting ? (
+            <>
+              <svg
+                className="w-3.5 h-3.5 animate-spin"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+              >
+                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+              </svg>
+              Saving…
+            </>
+          ) : (
+            <>⬇ Save to Excel</>
+          )}
         </button>
       </div>
 

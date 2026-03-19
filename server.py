@@ -14,9 +14,11 @@ import io
 import json
 import math
 import os
+import shutil as _shutil
 import subprocess
 import tempfile
 import threading
+import time
 from collections import Counter, defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass
@@ -1737,7 +1739,120 @@ def api_check_model():
     return jsonify({"ok": Path("cad_digit_model.pt").exists()})
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# FILE PLATFORM — persistent index (uploads/index.json)
+# ─────────────────────────────────────────────────────────────────────────────
+
+UPLOADS_DIR = Path("uploads")
+INDEX_FILE = UPLOADS_DIR / "index.json"
+
+
+def _read_index() -> dict:
+    UPLOADS_DIR.mkdir(exist_ok=True)
+    if not INDEX_FILE.exists():
+        return {"folders": [], "files": []}
+    try:
+        return json.loads(INDEX_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return {"folders": [], "files": []}
+
+
+def _write_index(data: dict) -> None:
+    UPLOADS_DIR.mkdir(exist_ok=True)
+    INDEX_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+
+def _sync_index_sizes() -> dict:
+    """Refresh file sizes / existence from disk and return the cleaned index."""
+    data = _read_index()
+    kept = []
+    for f in data["files"]:
+        p = Path(f["path"])
+        if p.exists():
+            f["size"] = p.stat().st_size
+            kept.append(f)
+    data["files"] = kept
+    _write_index(data)
+    return data
+
+
+@app.route("/api/files/list", methods=["GET"])
+def api_files_list():
+    data = _sync_index_sizes()
+    # Build per-folder file counts
+    folder_counts: Dict[str, int] = {f: 0 for f in data["folders"]}
+    for file in data["files"]:
+        folder = file.get("folder", "")
+        if folder and folder in folder_counts:
+            folder_counts[folder] += 1
+    folders_out = [
+        {"name": name, "fileCount": cnt} for name, cnt in folder_counts.items()
+    ]
+    return jsonify({"folders": folders_out, "files": data["files"]})
+
+
+@app.route("/api/files/mkdir", methods=["POST"])
+def api_files_mkdir():
+    body = request.get_json() or {}
+    name = (body.get("name") or "").strip()
+    if not name:
+        return jsonify({"error": "name is required"}), 400
+    data = _read_index()
+    if name not in data["folders"]:
+        data["folders"].append(name)
+        (UPLOADS_DIR / name).mkdir(parents=True, exist_ok=True)
+        _write_index(data)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/files/delete", methods=["POST"])
+def api_files_delete():
+    body = request.get_json() or {}
+    path = (body.get("path") or "").strip()
+    if not path:
+        return jsonify({"error": "path is required"}), 400
+    # Safety: only allow deleting inside the uploads directory
+    try:
+        Path(path).resolve().relative_to(UPLOADS_DIR.resolve())
+    except ValueError:
+        return jsonify({"error": "Invalid path"}), 400
+    Path(path).unlink(missing_ok=True)
+    data = _read_index()
+    data["files"] = [f for f in data["files"] if f["path"] != path]
+    _write_index(data)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/files/rename", methods=["POST"])
+def api_files_rename():
+    body = request.get_json() or {}
+    old_path_str = (body.get("path") or "").strip()
+    new_name = (body.get("new_name") or "").strip()
+    if not old_path_str or not new_name:
+        return jsonify({"error": "path and new_name are required"}), 400
+    old_path = Path(old_path_str)
+    if not old_path.exists():
+        return jsonify({"error": "File not found"}), 404
+    # Preserve the original extension
+    suffix = old_path.suffix or ".dxf"
+    if not new_name.lower().endswith(suffix.lower()):
+        new_name = new_name + suffix
+    new_path = old_path.parent / new_name
+    old_path.rename(new_path)
+    data = _read_index()
+    for f in data["files"]:
+        if f["path"] == old_path_str:
+            f["path"] = str(new_path)
+            f["name"] = new_name
+            break
+    _write_index(data)
+    return jsonify({"ok": True, "path": str(new_path)})
+
+
+# /api/files/upload is an alias of /api/upload so the new LoadScreen
+# can call either endpoint and both work identically.
 @app.route("/api/upload", methods=["POST"])
+@app.route("/api/files/upload", methods=["POST"])
 def api_upload():
     try:
         file = request.files.get("file")
@@ -1745,17 +1860,24 @@ def api_upload():
             return jsonify({"error": "No file provided"}), 400
 
         fname = Path(file.filename).name if file.filename else "uploaded.dxf"
+        folder = (request.form.get("folder") or "").strip()
 
-        uploads_dir = Path("uploads")
-        uploads_dir.mkdir(exist_ok=True)
+        UPLOADS_DIR.mkdir(exist_ok=True)
 
-        save_path = str(uploads_dir / fname)
+        # Place the file inside the chosen sub-folder (or root uploads dir)
+        if folder:
+            dest_dir = UPLOADS_DIR / folder
+            dest_dir.mkdir(parents=True, exist_ok=True)
+        else:
+            dest_dir = UPLOADS_DIR
+
+        save_path = str(dest_dir / fname)
         file.save(save_path)
 
+        # PDF → DXF conversion
         if save_path.lower().endswith(".pdf"):
             try:
-                dxf_path = pdf_to_dxf_autocad(save_path)
-                return jsonify({"path": dxf_path, "converted_from": save_path})
+                dxf_path_str = pdf_to_dxf_autocad(save_path)
             except RuntimeError as e:
                 return jsonify({"error": str(e)}), 400
             except Exception as e:
@@ -1763,8 +1885,29 @@ def api_upload():
 
                 traceback.print_exc()
                 return jsonify({"error": "PDF conversion failed: " + str(e)}), 500
+            # Remove the PDF, keep only the DXF
+            Path(save_path).unlink(missing_ok=True)
+            save_path = dxf_path_str
+            fname = Path(save_path).name
+
+        # Register in the persistent file index
+        p = Path(save_path)
+        data = _read_index()
+        # Remove any stale entry with the same path before re-inserting
+        data["files"] = [f for f in data["files"] if f["path"] != save_path]
+        data["files"].append(
+            {
+                "name": fname,
+                "path": save_path,
+                "size": p.stat().st_size,
+                "modified": int(p.stat().st_mtime),
+                "folder": folder,
+            }
+        )
+        _write_index(data)
 
         return jsonify({"path": save_path})
+
     except Exception as e:
         import traceback
 

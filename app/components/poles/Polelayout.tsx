@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import type { PoleTag } from "../../types";
+import type { FileCache } from "../../hooks/useSessionCache";
 import PolePanel from "./Polepanel";
 
 interface Segment {
@@ -23,6 +24,9 @@ interface Props {
   dxfPath: string;
   allLayers: string[];
   layerSegments: LayerSegs;
+  cachedData: FileCache | null;
+  onCacheUpdate: (data: Partial<FileCache>) => void;
+  isActive: boolean;
 }
 
 function sourceLabel(tag: PoleTag): { text: string; color: string } {
@@ -37,6 +41,9 @@ export default function PoleLayout({
   dxfPath,
   allLayers,
   layerSegments,
+  cachedData,
+  onCacheUpdate,
+  isActive,
 }: Props) {
   // ── Pole scan state ───────────────────────────────────────────────────────
   const [tags, setTags] = useState<PoleTag[]>([]);
@@ -54,7 +61,6 @@ export default function PoleLayout({
   // ── UI state ──────────────────────────────────────────────────────────────
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [showOnMap, setShowOnMap] = useState(true);
-  // per-pole preview rotation (degrees, multiples of 90) — reset on new selection
   const [rotations, setRotations] = useState<Record<number, number>>({});
 
   const cropRotation = selectedId !== null ? (rotations[selectedId] ?? 0) : 0;
@@ -67,7 +73,6 @@ export default function PoleLayout({
     }));
   }
 
-  // Bake current rotation into crop_b64 using an offscreen canvas
   function saveRotation() {
     if (selectedId === null || cropRotation === 0) return;
     const tag = tags.find((t) => t.pole_id === selectedId);
@@ -94,7 +99,6 @@ export default function PoleLayout({
           t.pole_id === selectedId ? { ...t, crop_b64: newB64 } : t,
         ),
       );
-      // Clear the preview rotation for this pole since it's now baked in
       setRotations((prev) => {
         const n = { ...prev };
         delete n[selectedId];
@@ -120,8 +124,6 @@ export default function PoleLayout({
   } | null>(null);
   const hasFittedRef = useRef(false);
 
-  const HIDE_CIRCLES = true;
-
   const tagsRef = useRef(tags);
   const selectedIdRef = useRef(selectedId);
   const showOnMapRef = useRef(showOnMap);
@@ -135,7 +137,6 @@ export default function PoleLayout({
     showOnMapRef.current = showOnMap;
   }, [showOnMap]);
 
-  // Segments for canvas background — use all-layer data once loaded, else fallback prop
   const canvasSegments = useMemo(() => {
     const src = Object.keys(allLayerSegs).length ? allLayerSegs : layerSegments;
     return Object.values(src).flat();
@@ -150,10 +151,21 @@ export default function PoleLayout({
       .then((data) => {
         if (data.segments) setAllLayerSegs(data.segments);
       })
-      .catch(() => {
-        /* silently fall back to prop segments */
-      });
+      .catch(() => {});
   }, [dxfPath]);
+
+  // ── Restore from cache on mount if available, otherwise stay idle ────────
+  useEffect(() => {
+    if (cachedData?.poleDone) {
+      setTags(cachedData.poleTags);
+      setScannedLayer(cachedData.poleLayer);
+      setScanStatus("done");
+      setScanProgress(cachedData.poleTags.length);
+      setScanTotal(cachedData.poleTags.length);
+    }
+    // No cache and no auto-scan — user selects a layer and clicks Scan manually.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Poll while scanning ───────────────────────────────────────────────────
   useEffect(() => {
@@ -163,11 +175,8 @@ export default function PoleLayout({
         const res = await fetch("/api/pole_tags");
         const data = await res.json();
 
-        // Update progress counters during scan
         if (data.progress !== undefined) setScanProgress(data.progress);
         if (data.total !== undefined) setScanTotal(data.total);
-
-        // Stream tags into map as they arrive — don't wait for "done"
         if (data.tags?.length) setTags(data.tags);
 
         if (data.status === "done") {
@@ -175,6 +184,13 @@ export default function PoleLayout({
           setTags(data.tags ?? []);
           setScannedLayer(data.layer);
           clearInterval(timer);
+
+          // Save completed scan to cache
+          onCacheUpdate({
+            poleTags: data.tags ?? [],
+            poleLayer: data.layer,
+            poleDone: true,
+          });
         } else if (data.status === "error") {
           setScanStatus("error");
           setScanError(data.error ?? "Unknown error");
@@ -185,7 +201,7 @@ export default function PoleLayout({
       }
     }, 500);
     return () => clearInterval(timer);
-  }, [scanStatus]);
+  }, [scanStatus, onCacheUpdate]);
 
   // ── Trigger scan ──────────────────────────────────────────────────────────
   const handleScan = useCallback(
@@ -196,6 +212,10 @@ export default function PoleLayout({
       setSelectedId(null);
       setScanProgress(0);
       setScanTotal(0);
+
+      // Clear pole cache for this file so fresh results replace old ones
+      onCacheUpdate({ poleTags: [], poleLayer: null, poleDone: false });
+
       try {
         await fetch("/api/pole_tags/scan", {
           method: "POST",
@@ -207,17 +227,25 @@ export default function PoleLayout({
         setScanError(String(e));
       }
     },
-    [dxfPath],
+    [dxfPath, onCacheUpdate],
   );
 
-  // ── Rename handler (client-side only, no server round-trip) ──────────────
-  const handleRenamePole = useCallback((poleId: number, newName: string) => {
-    setTags((prev) =>
-      prev.map((t) =>
-        t.pole_id === poleId ? { ...t, name: newName, needs_review: false } : t,
-      ),
-    );
-  }, []);
+  // ── Rename handler — also updates cache ───────────────────────────────────
+  const handleRenamePole = useCallback(
+    (poleId: number, newName: string) => {
+      setTags((prev) => {
+        const updated = prev.map((t) =>
+          t.pole_id === poleId
+            ? { ...t, name: newName, needs_review: false }
+            : t,
+        );
+        // Keep cache in sync with renamed tags
+        onCacheUpdate({ poleTags: updated });
+        return updated;
+      });
+    },
+    [onCacheUpdate],
+  );
 
   // ── Canvas redraw ─────────────────────────────────────────────────────────
   const redraw = useCallback(() => {
@@ -232,7 +260,6 @@ export default function PoleLayout({
     ctx.translate(vp.x, vp.y);
     ctx.scale(vp.scale, -vp.scale);
 
-    // All background segments
     ctx.strokeStyle = "rgba(71,85,105,0.18)";
     ctx.lineWidth = 0.8 / vp.scale;
     ctx.beginPath();
@@ -242,7 +269,6 @@ export default function PoleLayout({
     }
     ctx.stroke();
 
-    // Pole markers
     if (showOnMapRef.current) {
       const tags = tagsRef.current;
       const selId = selectedIdRef.current;
@@ -280,7 +306,6 @@ export default function PoleLayout({
     ctx.restore();
   }, [canvasSegments]);
 
-  // ── Fit view to segments ──────────────────────────────────────────────────
   const fitView = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas || !canvasSegments.length) return;
@@ -308,7 +333,6 @@ export default function PoleLayout({
     redraw();
   }, [canvasSegments, redraw]);
 
-  // ── Resize observer ───────────────────────────────────────────────────────
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -326,7 +350,6 @@ export default function PoleLayout({
     return () => ro.disconnect();
   }, [fitView, redraw]);
 
-  // ── Auto-fit when segments first load ─────────────────────────────────────
   useEffect(() => {
     if (canvasSegments.length && !hasFittedRef.current) {
       fitView();
@@ -336,10 +359,23 @@ export default function PoleLayout({
     }
   }, [canvasSegments, fitView, redraw]);
 
-  // ── Redraw when tags / selection / visibility change ──────────────────────
   useEffect(() => {
     redraw();
   }, [tags, selectedId, showOnMap, redraw]);
+
+  // Re-fit the canvas every time this tab becomes visible.
+  // Without this, the viewport stays wherever it was last set (possibly
+  // from a fitView call in the Equipment tab bleeding through).
+  useEffect(() => {
+    if (!isActive) return;
+    // Use a small timeout so the container has finished becoming visible
+    // (the `hidden` class is removed by the parent before this fires)
+    const id = setTimeout(() => {
+      if (canvasSegments.length) fitView();
+      else redraw();
+    }, 30);
+    return () => clearTimeout(id);
+  }, [isActive, fitView, redraw, canvasSegments.length]);
 
   // ── Pan & zoom ────────────────────────────────────────────────────────────
   const handleWheel = useCallback(
@@ -352,9 +388,11 @@ export default function PoleLayout({
       const my = e.clientY - rect.top;
       const vp = vpRef.current;
       const delta = e.deltaY > 0 ? 0.85 : 1 / 0.85;
-      const nx = mx - (mx - vp.x) * delta;
-      const ny = my - (my - vp.y) * delta;
-      vpRef.current = { x: nx, y: ny, scale: vp.scale * delta };
+      vpRef.current = {
+        x: mx - (mx - vp.x) * delta,
+        y: my - (my - vp.y) * delta,
+        scale: vp.scale * delta,
+      };
       redraw();
     },
     [redraw],
@@ -424,7 +462,6 @@ export default function PoleLayout({
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="flex-1 flex overflow-hidden">
-      {/* Left panel */}
       <PolePanel
         dxfPath={dxfPath}
         layers={allLayers}
@@ -442,7 +479,6 @@ export default function PoleLayout({
         onRenamePole={handleRenamePole}
       />
 
-      {/* Map canvas */}
       <div className="flex-1 relative bg-[#f8fafc] overflow-hidden">
         <canvas
           ref={canvasRef}
@@ -455,7 +491,6 @@ export default function PoleLayout({
           onClick={handleCanvasClick}
         />
 
-        {/* Fit button */}
         <button
           onClick={fitView}
           title="Fit to view"
@@ -492,7 +527,6 @@ export default function PoleLayout({
         {/* Selected pole detail panel */}
         {selectedTag && (
           <div className="absolute top-4 right-4 w-72 bg-white border border-border rounded-xl shadow-lg overflow-hidden">
-            {/* Header — name is directly editable */}
             <div className="bg-[#f59e0b] px-3 py-3 flex items-center gap-2">
               <svg
                 className="w-4 h-4 text-white flex-shrink-0"
@@ -540,14 +574,12 @@ export default function PoleLayout({
               />
               <button
                 onClick={() => setSelectedId(null)}
-                className="w-6 h-6 rounded-full bg-white/20 text-white hover:bg-white/35 flex-shrink-0
-                                    flex items-center justify-center text-xs transition-colors"
+                className="w-6 h-6 rounded-full bg-white/20 text-white hover:bg-white/35 flex-shrink-0 flex items-center justify-center text-xs transition-colors"
               >
                 ✕
               </button>
             </div>
 
-            {/* Pole name preview with manual rotation */}
             <div className="bg-white border-b border-border relative flex items-center justify-center p-3 min-h-[120px]">
               {selectedTag.crop_b64 ? (
                 <img
@@ -574,12 +606,10 @@ export default function PoleLayout({
 
               {selectedTag.crop_b64 && (
                 <div className="absolute bottom-1.5 right-1.5 flex gap-1">
-                  {/* Rotate 90° */}
                   <button
                     onClick={rotateCrop}
                     title="Rotate 90°"
-                    className="w-6 h-6 rounded-full bg-[#f59e0b]/90 hover:bg-[#d97706]
-                                            text-white flex items-center justify-center shadow transition-colors"
+                    className="w-6 h-6 rounded-full bg-[#f59e0b]/90 hover:bg-[#d97706] text-white flex items-center justify-center shadow transition-colors"
                   >
                     <svg
                       viewBox="0 0 24 24"
@@ -592,13 +622,11 @@ export default function PoleLayout({
                       <path d="M21 8A9 9 0 1 0 19 19" />
                     </svg>
                   </button>
-                  {/* Save rotation — only shown when rotation is non-zero */}
                   {cropRotation !== 0 && (
                     <button
                       onClick={saveRotation}
                       title="Save rotation"
-                      className="h-6 px-1.5 rounded-full bg-[#16a34a] hover:bg-[#15803d]
-                                                text-white text-[9px] font-bold flex items-center shadow transition-colors"
+                      className="h-6 px-1.5 rounded-full bg-[#16a34a] hover:bg-[#15803d] text-white text-[9px] font-bold flex items-center shadow transition-colors"
                     >
                       Save
                     </button>
@@ -611,7 +639,6 @@ export default function PoleLayout({
               </div>
             </div>
 
-            {/* Info rows */}
             <div className="p-4 flex flex-col gap-3">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] text-muted uppercase tracking-wider font-semibold">
@@ -623,35 +650,31 @@ export default function PoleLayout({
                   {sourceLabel(selectedTag).text}
                 </span>
               </div>
-
               <div className="h-px bg-border" />
-
               <div className="flex flex-col gap-1.5">
                 <span className="text-[10px] text-muted uppercase tracking-wider font-semibold">
                   Coordinates
                 </span>
                 <div className="grid grid-cols-2 gap-2">
-                  <div className="bg-surface-2 rounded-lg px-3 py-2 text-center">
-                    <p className="text-[9px] text-muted uppercase tracking-wider mb-0.5">
-                      X
-                    </p>
-                    <p className="font-mono text-xs font-semibold">
-                      {selectedTag.cx.toFixed(3)}
-                    </p>
-                  </div>
-                  <div className="bg-surface-2 rounded-lg px-3 py-2 text-center">
-                    <p className="text-[9px] text-muted uppercase tracking-wider mb-0.5">
-                      Y
-                    </p>
-                    <p className="font-mono text-xs font-semibold">
-                      {selectedTag.cy.toFixed(3)}
-                    </p>
-                  </div>
+                  {[
+                    { label: "X", val: selectedTag.cx },
+                    { label: "Y", val: selectedTag.cy },
+                  ].map(({ label, val }) => (
+                    <div
+                      key={label}
+                      className="bg-surface-2 rounded-lg px-3 py-2 text-center"
+                    >
+                      <p className="text-[9px] text-muted uppercase tracking-wider mb-0.5">
+                        {label}
+                      </p>
+                      <p className="font-mono text-xs font-semibold">
+                        {val.toFixed(3)}
+                      </p>
+                    </div>
+                  ))}
                 </div>
               </div>
-
               <div className="h-px bg-border" />
-
               <div className="flex items-center justify-between">
                 <span className="text-[10px] text-muted uppercase tracking-wider font-semibold">
                   Layer
@@ -660,7 +683,6 @@ export default function PoleLayout({
                   {selectedTag.layer}
                 </span>
               </div>
-
               <div className="flex items-center justify-between">
                 <span className="text-[10px] text-muted uppercase tracking-wider font-semibold">
                   Index
@@ -669,8 +691,6 @@ export default function PoleLayout({
                   #{selectedTag.pole_id}
                 </span>
               </div>
-
-              {/* OCR confidence — only for STR poles */}
               {selectedTag.ocr_conf !== null &&
                 selectedTag.ocr_conf !== undefined && (
                   <>
@@ -681,13 +701,13 @@ export default function PoleLayout({
                       </span>
                       <span
                         className={`text-[10px] px-2 py-0.5 rounded font-semibold
-                                            ${
-                                              selectedTag.ocr_conf >= 0.8
-                                                ? "bg-[#dcfce7] text-[#15803d]"
-                                                : selectedTag.ocr_conf >= 0.6
-                                                  ? "bg-[#fef9c3] text-[#92400e]"
-                                                  : "bg-[#fee2e2] text-[#b91c1c]"
-                                            }`}
+                      ${
+                        selectedTag.ocr_conf >= 0.8
+                          ? "bg-[#dcfce7] text-[#15803d]"
+                          : selectedTag.ocr_conf >= 0.6
+                            ? "bg-[#fef9c3] text-[#92400e]"
+                            : "bg-[#fee2e2] text-[#b91c1c]"
+                      }`}
                       >
                         {Math.round(selectedTag.ocr_conf * 100)}%
                       </span>
