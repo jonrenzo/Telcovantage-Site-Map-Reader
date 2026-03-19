@@ -120,8 +120,6 @@ export default function PoleLayout({
   } | null>(null);
   const hasFittedRef = useRef(false);
 
-  const HIDE_CIRCLES = true;
-
   const tagsRef = useRef(tags);
   const selectedIdRef = useRef(selectedId);
   const showOnMapRef = useRef(showOnMap);

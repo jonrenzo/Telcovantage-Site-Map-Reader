@@ -653,6 +653,8 @@ def build_cable_spans(doc, cable_layer: str, connect_tol: float = CABLE_CONNECT_
                 "segment_count": len(span_segments),
                 "total_length": total_len,
                 "segments": span_segments,
+                "from_pole": None,
+                "to_pole": None,
             }
         )
 
@@ -676,7 +678,7 @@ def assign_meter_values_to_spans(spans, ocr_results, max_dist=None):
         spans : list of dicts from build_cable_spans()
         ocr_results : list of dicts with 'center_x', 'center_y', 'value', 'corrected_value'
         max_dist : optional max distance (world units) for association.
-                   If None, automatically compute based on DXF scale.
+                    If None, automatically compute based on DXF scale.
 
     Returns:
         spans : list of dicts with new key 'meter_value' added
