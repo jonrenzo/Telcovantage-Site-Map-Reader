@@ -1757,8 +1757,14 @@ def _write_index(data: dict) -> None:
 
 
 def _sync_index_sizes() -> dict:
-    """Refresh file sizes / existence from disk and return the cleaned index."""
+    """
+    Refresh file sizes / existence from disk and return the cleaned index.
+    Also discovers any folders or files on disk that are not yet in the index,
+    so that the file browser is populated on first load without requiring an upload.
+    """
     data = _read_index()
+
+    # ── 1. Drop missing files and refresh sizes ───────────────────────────────
     kept = []
     for f in data["files"]:
         p = Path(f["path"])
@@ -1766,6 +1772,52 @@ def _sync_index_sizes() -> dict:
             f["size"] = p.stat().st_size
             kept.append(f)
     data["files"] = kept
+
+    # ── 2. Discover subdirectories on disk not yet in the index ───────────────
+    UPLOADS_DIR.mkdir(exist_ok=True)
+    known_folders = set(data["folders"])
+    for entry in UPLOADS_DIR.iterdir():
+        if entry.is_dir() and entry.name not in known_folders:
+            data["folders"].append(entry.name)
+            known_folders.add(entry.name)
+
+    # ── 3. Discover files inside known folders that are missing from the index ─
+    indexed_paths = {f["path"] for f in data["files"]}
+    for folder_name in data["folders"]:
+        folder_dir = UPLOADS_DIR / folder_name
+        if not folder_dir.exists():
+            continue
+        for file_entry in folder_dir.iterdir():
+            if file_entry.is_file() and file_entry.suffix.lower() in (".dxf", ".pdf"):
+                path_str = str(file_entry)
+                if path_str not in indexed_paths:
+                    data["files"].append(
+                        {
+                            "name": file_entry.name,
+                            "path": path_str,
+                            "size": file_entry.stat().st_size,
+                            "modified": int(file_entry.stat().st_mtime),
+                            "folder": folder_name,
+                        }
+                    )
+                    indexed_paths.add(path_str)
+
+    # ── 4. Discover root-level files not yet indexed ──────────────────────────
+    for file_entry in UPLOADS_DIR.iterdir():
+        if file_entry.is_file() and file_entry.suffix.lower() in (".dxf", ".pdf"):
+            path_str = str(file_entry)
+            if path_str not in indexed_paths:
+                data["files"].append(
+                    {
+                        "name": file_entry.name,
+                        "path": path_str,
+                        "size": file_entry.stat().st_size,
+                        "modified": int(file_entry.stat().st_mtime),
+                        "folder": "",
+                    }
+                )
+                indexed_paths.add(path_str)
+
     _write_index(data)
     return data
 
@@ -2128,18 +2180,7 @@ def v1_ocr_results():
         dxf_path : file path
         count    : number of results returned
         sum      : integer sum of all final_value fields
-        results  : list of digit objects, each with:
-            digit_id        — stable integer ID for this reading
-            value           — raw OCR prediction
-            corrected_value — user correction, or null
-            final_value     — corrected_value if set, else value  ← USE THIS
-            confidence      — 0.0–1.0 model confidence
-            needs_review    — true if confidence < 0.95
-            center_x        — DXF world X coordinate
-            center_y        — DXF world Y coordinate (negative = higher on drawing)
-            bbox            — [minX, minY, maxX, maxY] in DXF world coordinates
-            manual          — true if added manually by the user
-            crop_b64        — base64 PNG of the OCR crop, or null
+        results  : list of digit objects
     """
     if state.get("status") == "idle":
         return _v1_err("No OCR run has been started yet.", 404)
@@ -2202,12 +2243,6 @@ def v1_ocr_results():
 def v1_ocr_segments():
     """
     Raw DXF stroke segments from the most recent OCR scan.
-    Useful for re-rendering the drawing on the consuming side.
-
-    Response data:
-        dxf_path : file path
-        count    : number of segments
-        segments : list of { x1, y1, x2, y2 }
     """
     raw_segs = state.get("segments", [])
     segments = [{"x1": s.x1, "y1": s.y1, "x2": s.x2, "y2": s.y2} for s in raw_segs]
@@ -2227,31 +2262,6 @@ def v1_ocr_segments():
 def v1_poles():
     """
     All detected pole IDs for the currently loaded DXF.
-
-    Query parameters:
-        needs_review  : "true"/"false"  (omit = return all)
-        source        : "text"/"mtext"/"stroke"  (omit = return all)
-        include_crops : "true"/"false"  (default "false")
-
-    Source values:
-        "text"   — read directly from a CAD TEXT entity (high reliability)
-        "mtext"  — read directly from a CAD MTEXT entity (high reliability)
-        "stroke" — recognised via TrOCR from drawn strokes (may need review)
-
-    Response data:
-        dxf_path : file path
-        layer    : DXF layer that was scanned
-        count    : number of poles returned
-        poles    : list of pole objects, each with:
-            pole_id      — stable integer ID
-            name         — detected or OCR-resolved pole name
-            cx / cy      — DXF world coordinates of pole centre
-            bbox         — [minX, minY, maxX, maxY]
-            layer        — source DXF layer
-            source       — "text" | "mtext" | "stroke"
-            ocr_conf     — confidence 0.0–1.0 (null for text/mtext)
-            needs_review — true if OCR was uncertain
-            crop_b64     — base64 PNG of OCR crop, or null
     """
     status = POLE_STATE.get("status", "idle")
     if status == "idle":
@@ -2309,28 +2319,6 @@ def v1_poles():
 def v1_equipment():
     """
     All detected equipment shapes for the currently loaded DXF.
-
-    Query parameters:
-        kind  : "circle"/"square"/"hexagon"/"rectangle"/"triangle"  (omit = all)
-        layer : exact DXF layer name to filter by  (omit = all)
-
-    Shape → Equipment mapping:
-        circle    → 2-Way Tap / Splitter
-        square    → 4-Way Tap
-        hexagon   → 8-Way Tap
-        rectangle → Node or Amplifier  (check layer name to disambiguate)
-        triangle  → Line Extender
-
-    Response data:
-        dxf_path : file path
-        count    : number of shapes returned (after filters)
-        summary  : kind → count for the FULL unfiltered dataset
-        shapes   : list of shape objects, each with:
-            shape_id — stable integer ID for this scan session
-            kind     — "circle" | "square" | "hexagon" | "rectangle" | "triangle"
-            cx / cy  — DXF world coordinates of shape centre
-            bbox     — [minX, minY, maxX, maxY]
-            layer    — source DXF layer
     """
     status = SCAN_STATE.get("status", "idle")
     if status == "idle":
@@ -2385,28 +2373,6 @@ def v1_equipment():
 def v1_cable_spans():
     """
     All cable spans for the currently loaded DXF, with OCR-matched meter values.
-
-    Query parameters:
-        include_segments : "true"/"false"  (default "false")
-            When true, includes the full segment coordinate list per span.
-            This significantly increases payload size; only enable when needed.
-
-    Response data:
-        dxf_path    : file path
-        cable_layer : name of the detected cable layer, or null
-        count       : number of spans
-        spans       : list of span objects, each with:
-            span_id        — stable integer ID for this session
-            layer          — DXF layer
-            cx / cy        — centre of the span in DXF world coordinates
-            bbox           — [minX, minY, maxX, maxY]
-            total_length   — geometric length of the stroke in DXF units
-            meter_value    — OCR-matched strand value in metres, or null
-            cable_runs     — number of parallel cables (set by user pairing)
-            segment_count  — number of raw line segments in this span
-            from_pole      — connected "from" pole name, or null
-            to_pole        — connected "to" pole name, or null
-            segments       — list of { x1,y1,x2,y2 } or null (see include_segments)
     """
     dxf_path = state.get("dxf_path")
     if not dxf_path:
@@ -2474,17 +2440,6 @@ def v1_cable_spans():
 def v1_export_ocr():
     """
     Trigger an Excel export of OCR results and return a download URL.
-
-    Request body (JSON, optional):
-        {
-            "corrections": { "<digit_id>": "<corrected_value>", ... }
-        }
-    Corrections are merged on top of any already stored on the server.
-    Both keys and values must be strings.
-
-    Response data:
-        download_url : "/api/download?file=<filename>"
-        path         : filename of the generated Excel file
     """
     if state.get("status") != "done":
         return _v1_err("OCR must complete before exporting.", 400)
@@ -2517,17 +2472,6 @@ def v1_export_ocr():
 def v1_export_poles():
     """
     Trigger an Excel export of pole IDs and return a download URL.
-
-    Request body (JSON, optional):
-        {
-            "overrides": { "<pole_id>": "<corrected_name>", ... }
-        }
-    Overrides are applied for this export only — server state is not mutated.
-    Both keys and values must be strings.
-
-    Response data:
-        download_url : "/api/download?file=<filename>"
-        path         : filename of the generated Excel file
     """
     tags = POLE_STATE.get("tags", [])
     if not tags:
