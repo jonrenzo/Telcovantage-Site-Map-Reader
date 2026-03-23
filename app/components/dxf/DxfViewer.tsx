@@ -49,6 +49,13 @@ interface PartialDetail {
 
 type CableRecoveryStatus = "Recovered" | "Partial" | "Missing";
 
+// Interface for storing deleted span data safely
+interface DeletedSpanData {
+  span: CableSpan;
+  status?: CableRecoveryStatus;
+  partialDetail?: PartialDetail;
+}
+
 interface FileDataCache {
   segments: Record<string, RawSegment[]>;
   layers: string[];
@@ -275,6 +282,8 @@ function getStatusStyle(status: CableRecoveryStatus) {
 
 export default function DxfViewer({ dxfPath, ocrResults, isActive }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  // NEW: Ref for the tooltip DOM element to avoid state re-renders
+  const tooltipRef = useRef<HTMLDivElement>(null);
   const vpRef = useRef<Viewport>({ x: 0, y: 0, scale: 1 });
 
   const panRef = useRef({
@@ -301,13 +310,21 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive }: Props) {
   const ocrMeterValuesRef = useRef<{ x: number; y: number; value: number }[]>(
     [],
   );
-  const splitHistoryRef = useRef<{ prev: CableSpan[] }[]>([]);
+  const splitHistoryRef = useRef<
+    { prev: CableSpan[]; prevDeleted?: DeletedSpanData[] }[]
+  >([]);
   const fileCacheRef = useRef<Record<string, FileDataCache>>({});
 
   const nextSpanIdRef = useRef<number>(1);
   const [partialDetails, setPartialDetails] = useState<
     Record<number, PartialDetail>
   >({});
+
+  // Trash/Deleted Spans State
+  const deletedSpansRef = useRef<DeletedSpanData[]>([]);
+  const [deletedSpans, setDeletedSpans] = useState<DeletedSpanData[]>([]);
+  const [spanToDelete, setSpanToDelete] = useState<number | null>(null);
+  const [showTrashPanel, setShowTrashPanel] = useState(false);
 
   // Pairing / Merge State
   const pairingModeRef = useRef(false);
@@ -319,7 +336,7 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive }: Props) {
   const [pairedSpanIds, setPairedSpanIds] = useState<number[]>([]);
   const [confirmPairingOpen, setConfirmPairingOpen] = useState(false);
 
-  // NEW: Multi Action tracking
+  // Multi Action tracking
   const multiActionRef = useRef<"runs" | "merge" | null>(null);
   const [multiAction, setMultiAction] = useState<"runs" | "merge" | null>(null);
 
@@ -734,23 +751,19 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive }: Props) {
   const autoConnectPoles = useCallback(() => {
     if (!polesRef.current.length || !cableSpansRef.current.length) return;
 
-    // Rules logic configs
-    const BUFFER_RADIUS = 30; // Radius for direct proximity hit
-    const RAY_MAX_DIST = 150; // Rule 1: The Sight Limit
-    const RAY_TOLERANCE = 15; // Pixel tolerance for ray-to-pole intersection
+    const BUFFER_RADIUS = 30;
+    const RAY_MAX_DIST = 150;
+    const RAY_TOLERANCE = 15;
 
     const newSpans = cableSpansRef.current.map((span) => {
       if (span.segments.length === 0) return span;
 
-      // Identify endpoints of the cable span
       const firstSeg = span.segments[0];
       const lastSeg = span.segments[span.segments.length - 1];
 
-      // Point A (Start) and the vector point slightly inside the cable
       const ptA = { x: firstSeg.x1, y: firstSeg.y1 };
       const ptA_in = { x: firstSeg.x2, y: firstSeg.y2 };
 
-      // Point B (End) and the vector point slightly inside the cable
       const ptB = { x: lastSeg.x2, y: lastSeg.y2 };
       const ptB_in = { x: lastSeg.x1, y: lastSeg.y1 };
 
@@ -761,7 +774,6 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive }: Props) {
         let closestPole: PoleTag | null = null;
         let minDist = Infinity;
 
-        // STEP 1: The Radial Buffer (Primary Check)
         for (const pole of polesRef.current) {
           const dist = Math.hypot(pole.cx - pt.x, pole.cy - pt.y);
           if (dist < BUFFER_RADIUS && dist < minDist) {
@@ -770,16 +782,11 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive }: Props) {
           }
         }
 
-        // Return immediately if buffer finds a pole
         if (closestPole) return closestPole.name;
 
-        // STEP 2: The Ray Cast Fallback (For missing gaps)
-        if (pt.x === pt_in.x && pt.y === pt_in.y) return null; // Failsafe for zero-length segments
+        if (pt.x === pt_in.x && pt.y === pt_in.y) return null;
 
-        // Calculate outward trajectory from the cable
         const angle = Math.atan2(pt.y - pt_in.y, pt.x - pt_in.x);
-
-        // Rule 1 Application: Limit the ray cast length
         const rayEndX = pt.x + Math.cos(angle) * RAY_MAX_DIST;
         const rayEndY = pt.y + Math.sin(angle) * RAY_MAX_DIST;
 
@@ -787,7 +794,6 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive }: Props) {
         minDist = Infinity;
 
         for (const pole of polesRef.current) {
-          // Does the infinite line hit the pole buffer? (Using segment distance caps it at RAY_MAX_DIST)
           const distToRay = pointToSegmentDistance(
             pole.cx,
             pole.cy,
@@ -796,9 +802,7 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive }: Props) {
             rayEndX,
             rayEndY,
           );
-
           if (distToRay < RAY_TOLERANCE) {
-            // Rule 2 Application: First Hit Rule (Sort by absolute distance from endpoint)
             const distToPole = Math.hypot(pole.cx - pt.x, pole.cy - pt.y);
             if (distToPole < minDist) {
               minDist = distToPole;
@@ -806,24 +810,20 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive }: Props) {
             }
           }
         }
-
         return closestPole ? closestPole.name : undefined;
       };
 
-      // Assign poles to 'From' (Point A) and 'To' (Point B)
       const fromPole = findPoleForEndpoint(ptA, ptA_in) || span.from_pole;
       const toPole = findPoleForEndpoint(ptB, ptB_in) || span.to_pole;
 
-      return {
-        ...span,
-        from_pole: fromPole,
-        to_pole: toPole,
-      };
+      return { ...span, from_pole: fromPole, to_pole: toPole };
     });
 
     splitHistoryRef.current.push({
       prev: cableSpansRef.current.map((s) => ({ ...s })),
+      prevDeleted: deletedSpansRef.current.map((d) => ({ ...d })),
     });
+
     cableSpansRef.current = newSpans;
     setCableSpans(newSpans);
     redraw();
@@ -960,6 +960,112 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive }: Props) {
 
       cableStatusRef.current = next;
       setCableStatuses(next);
+      redraw();
+    },
+    [redraw],
+  );
+
+  // ============================================================================
+  // DELETE & RECOVER CABLE SPAN LOGIC
+  // ============================================================================
+  const confirmDeleteSpan = useCallback(() => {
+    if (spanToDelete === null) return;
+    const spanId = spanToDelete;
+
+    const targetSpan = cableSpansRef.current.find((s) => s.span_id === spanId);
+    if (!targetSpan) {
+      setSpanToDelete(null);
+      return;
+    }
+
+    splitHistoryRef.current.push({
+      prev: cableSpansRef.current.map((s) => ({ ...s })),
+      prevDeleted: deletedSpansRef.current.map((d) => ({ ...d })),
+    });
+
+    const status = cableStatusRef.current[spanId];
+    const partialDetail = partialDetails[spanId];
+
+    const deletedData: DeletedSpanData = {
+      span: targetSpan,
+      status,
+      partialDetail,
+    };
+    deletedSpansRef.current = [...deletedSpansRef.current, deletedData];
+    setDeletedSpans(deletedSpansRef.current);
+
+    const newSpans = cableSpansRef.current.filter((s) => s.span_id !== spanId);
+    cableSpansRef.current = newSpans;
+    setCableSpans(newSpans);
+
+    setCableStatuses((prev) => {
+      const next = { ...prev };
+      delete next[spanId];
+      cableStatusRef.current = next;
+      return next;
+    });
+
+    setPartialDetails((prev) => {
+      const next = { ...prev };
+      delete next[spanId];
+      return next;
+    });
+
+    if (selectedSpanRef.current === spanId) {
+      selectedSpanRef.current = null;
+      setSelectedSpanId(null);
+    }
+    if (hoveredSpanRef.current === spanId) {
+      hoveredSpanRef.current = null;
+      setHoveredSpanId(null);
+    }
+
+    setSpanToDelete(null);
+    redraw();
+  }, [spanToDelete, partialDetails, redraw]);
+
+  const restoreSpan = useCallback(
+    (spanId: number) => {
+      const trashIndex = deletedSpansRef.current.findIndex(
+        (d) => d.span.span_id === spanId,
+      );
+      if (trashIndex === -1) return;
+
+      const dataToRestore = deletedSpansRef.current[trashIndex];
+
+      splitHistoryRef.current.push({
+        prev: cableSpansRef.current.map((s) => ({ ...s })),
+        prevDeleted: deletedSpansRef.current.map((d) => ({ ...d })),
+      });
+
+      const newTrash = [...deletedSpansRef.current];
+      newTrash.splice(trashIndex, 1);
+      deletedSpansRef.current = newTrash;
+      setDeletedSpans(newTrash);
+
+      const newSpans = [...cableSpansRef.current, dataToRestore.span];
+      cableSpansRef.current = newSpans;
+      setCableSpans(newSpans);
+
+      if (dataToRestore.status) {
+        setCableStatuses((prev) => {
+          const next = { ...prev, [spanId]: dataToRestore.status! };
+          cableStatusRef.current = next;
+          return next;
+        });
+      }
+
+      if (dataToRestore.partialDetail) {
+        setPartialDetails((prev) => ({
+          ...prev,
+          [spanId]: dataToRestore.partialDetail!,
+        }));
+      }
+
+      if (newTrash.length === 0) {
+        setShowTrashPanel(false);
+      }
+
       redraw();
     },
     [redraw],
@@ -1111,7 +1217,10 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive }: Props) {
         ...spans.slice(spanIndex + 1),
       ];
 
-      splitHistoryRef.current.push({ prev: spans.map((s) => ({ ...s })) });
+      splitHistoryRef.current.push({
+        prev: spans.map((s) => ({ ...s })),
+        prevDeleted: deletedSpansRef.current.map((d) => ({ ...d })),
+      });
       cableSpansRef.current = newSpans;
       setCableSpans(newSpans);
 
@@ -1286,6 +1395,7 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive }: Props) {
     if (madeCuts) {
       splitHistoryRef.current.push({
         prev: currentSpans.map((s) => ({ ...s })),
+        prevDeleted: deletedSpansRef.current.map((d) => ({ ...d })),
       });
       cableSpansRef.current = newSpans;
       setCableSpans(newSpans);
@@ -1336,6 +1446,7 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive }: Props) {
         if (neighbor) {
           splitHistoryRef.current.push({
             prev: cableSpansRef.current.map((s) => ({ ...s })),
+            prevDeleted: deletedSpansRef.current.map((d) => ({ ...d })),
           });
 
           const newSegments = [...targetSpan.segments, ...neighbor.segments];
@@ -1391,6 +1502,12 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive }: Props) {
 
     cableSpansRef.current = last.prev;
     setCableSpans([...last.prev]);
+
+    if (last.prevDeleted) {
+      deletedSpansRef.current = last.prevDeleted;
+      setDeletedSpans([...last.prevDeleted]);
+    }
+
     selectedSpanRef.current = null;
     setSelectedSpanId(null);
     redraw();
@@ -1502,6 +1619,7 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive }: Props) {
 
     splitHistoryRef.current.push({
       prev: cableSpansRef.current.map((s) => ({ ...s })),
+      prevDeleted: deletedSpansRef.current.map((d) => ({ ...d })),
     });
 
     const pIds = pairedSpanIdsRef.current;
@@ -1517,7 +1635,6 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive }: Props) {
     let mergedSpan: CableSpan;
 
     if (action === "runs") {
-      // 🔗 SELECT CABLE RUNS: Retain length, add cable runs
       const totalRunsToAdd = pairedSpansToMerge.reduce(
         (sum, s) => sum + (s.cable_runs || 1),
         0,
@@ -1531,10 +1648,8 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive }: Props) {
         bbox: m.bbox,
         cx: m.cx,
         cy: m.cy,
-        // Notice we purposely omit m.total_length so the original length is retained
       };
     } else {
-      // ➕ MERGE CABLES: Visually merge spans, but RETAIN main cable's values
       mergedSpan = {
         ...mainSpan,
         segments: newSegments,
@@ -1542,8 +1657,8 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive }: Props) {
         bbox: m.bbox,
         cx: m.cx,
         cy: m.cy,
-        total_length: mainSpan.total_length, // Keeps original main cable length
-        meterValue: mainSpan.meterValue, // Keeps original main cable meter value
+        total_length: mainSpan.total_length,
+        meterValue: mainSpan.meterValue,
       };
     }
 
@@ -1607,6 +1722,8 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive }: Props) {
     cableSpansRef.current = [];
     cableLayerRef.current = null;
     cableStatusRef.current = {};
+    deletedSpansRef.current = [];
+    setDeletedSpans([]);
     setCableLayerName(null);
 
     Promise.all([
@@ -1747,6 +1864,9 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive }: Props) {
     });
   }, [redraw]);
 
+  // ============================================================================
+  // MOUSE & TOOLTIP EVENT LOGIC
+  // ============================================================================
   const onMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return;
     panRef.current = {
@@ -1771,8 +1891,22 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive }: Props) {
 
       vpRef.current.x = panRef.current.vpStart.x + dx;
       vpRef.current.y = panRef.current.vpStart.y + dy;
+
+      // Hide tooltip during pan
+      if (tooltipRef.current) {
+        tooltipRef.current.style.display = "none";
+      }
+
       redraw();
       return;
+    }
+
+    // Smoothly update tooltip position directly in DOM (bypassing React state)
+    if (tooltipRef.current) {
+      tooltipRef.current.style.display =
+        hoveredSpanRef.current !== null ? "flex" : "none";
+      tooltipRef.current.style.left = `${e.clientX + 15}px`;
+      tooltipRef.current.style.top = `${e.clientY + 15}px`;
     }
 
     const { x, y } = screenToWorld(sx, sy);
@@ -1868,6 +2002,11 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive }: Props) {
 
   const onMouseLeave = () => {
     panRef.current.active = false;
+
+    if (tooltipRef.current) {
+      tooltipRef.current.style.display = "none";
+    }
+
     if (hoveredSpanRef.current !== null) {
       hoveredSpanRef.current = null;
       setHoveredSpanId(null);
@@ -2133,6 +2272,14 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive }: Props) {
   const selectedStatus =
     selectedSpanId !== null ? (cableStatuses[selectedSpanId] ?? null) : null;
 
+  // Render Data for Hover Tooltip
+  const hoveredSpanData =
+    hoveredSpanId !== null
+      ? cableSpansRef.current.find((s) => s.span_id === hoveredSpanId)
+      : null;
+  const hoveredSpanStatus =
+    hoveredSpanId !== null ? cableStatuses[hoveredSpanId] : null;
+
   const canvasCursor = panRef.current.active
     ? "grabbing"
     : poleConnectModeRef.current !== "idle"
@@ -2156,6 +2303,73 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive }: Props) {
         <div className="absolute inset-0 flex items-center justify-center z-20">
           <div className="bg-danger-light border border-[#fecaca] text-danger rounded-xl px-6 py-4 text-sm">
             {error}
+          </div>
+        </div>
+      )}
+
+      {/* NEW: Performance-Optimized Hover Tooltip */}
+      {hoveredSpanData && !panRef.current.active && (
+        <div
+          ref={tooltipRef}
+          className="fixed z-50 pointer-events-none bg-slate-900/95 backdrop-blur-md text-slate-200 p-3 rounded-lg shadow-xl text-xs flex flex-col gap-1.5 border border-slate-700/50 min-w-[220px] transition-opacity duration-150"
+          style={{ left: 0, top: 0, display: "none" }}
+        >
+          <div className="font-semibold text-[13px] text-white mb-1 border-b border-slate-700 pb-1.5">
+            Span Details
+          </div>
+          <div className="flex justify-between gap-4">
+            <span className="text-slate-400">ID:</span>
+            <span className="font-mono text-white">
+              {hoveredSpanData.span_id}
+            </span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span className="text-slate-400">Pole Connection:</span>
+            <span className="font-mono text-white">
+              {hoveredSpanData.from_pole || "?"} &rarr;{" "}
+              {hoveredSpanData.to_pole || "?"}
+            </span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span className="text-slate-400">Strand length:</span>
+            <span className="font-mono text-white">
+              {(
+                hoveredSpanData.meterValue ?? hoveredSpanData.total_length
+              ).toFixed(2)}{" "}
+              meters
+            </span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span className="text-slate-400">Cable runs:</span>
+            <span className="font-mono text-white">
+              {hoveredSpanData.cable_runs}
+            </span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span className="text-slate-400">Actual length:</span>
+            <span className="font-mono text-white">
+              {(
+                (hoveredSpanData.meterValue ?? hoveredSpanData.total_length) *
+                (hoveredSpanData.cable_runs || 1)
+              ).toFixed(2)}{" "}
+              meters
+            </span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span className="text-slate-400">Current label:</span>
+            <span
+              className={`font-semibold ${
+                hoveredSpanStatus === "Recovered"
+                  ? "text-green-400"
+                  : hoveredSpanStatus === "Partial"
+                    ? "text-yellow-400"
+                    : hoveredSpanStatus === "Missing"
+                      ? "text-red-400"
+                      : "text-slate-300"
+              }`}
+            >
+              {hoveredSpanStatus ?? "Not labeled"}
+            </span>
           </div>
         </div>
       )}
@@ -2251,6 +2465,44 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive }: Props) {
         </button>
       )}
 
+      {/* Trash / Restore Panel */}
+      {deletedSpans.length > 0 && !loading && !error && (
+        <div className="absolute bottom-6 left-6 z-10 flex flex-col gap-2">
+          {showTrashPanel && (
+            <div className="bg-white/95 backdrop-blur border border-slate-200 shadow-lg rounded-xl p-3 w-64 max-h-[300px] overflow-y-auto mb-2 animate-in fade-in slide-in-from-bottom-2">
+              <h3 className="font-semibold text-xs text-slate-700 mb-2 px-1">
+                Deleted Spans
+              </h3>
+              <div className="flex flex-col gap-1">
+                {deletedSpans.map((ds) => (
+                  <div
+                    key={ds.span.span_id}
+                    className="flex justify-between items-center text-[11px] bg-slate-50 border border-slate-100 rounded px-2 py-1.5"
+                  >
+                    <span className="font-mono text-slate-600">
+                      ID: {ds.span.span_id}
+                    </span>
+                    <button
+                      onClick={() => restoreSpan(ds.span.span_id)}
+                      className="text-blue-600 hover:text-blue-800 font-semibold px-2 py-1 rounded hover:bg-blue-100 transition-colors"
+                    >
+                      Restore
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <button
+            onClick={() => setShowTrashPanel(!showTrashPanel)}
+            className="bg-white/95 backdrop-blur border border-red-200 shadow-lg px-4 py-2.5 rounded-full font-semibold text-sm text-red-600 hover:bg-red-50 transition-all flex items-center gap-2 w-fit"
+          >
+            🗑️ Trash ({deletedSpans.length})
+          </button>
+        </div>
+      )}
+
       {!loading && !error && cableLayerName && (
         <div className="absolute top-4 right-4 z-10 flex flex-col gap-2 items-end">
           <div className="bg-surface/90 border border-border rounded-lg px-3 py-2 text-[11px] text-muted backdrop-blur-sm shadow-sm min-w-[250px]">
@@ -2301,7 +2553,30 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive }: Props) {
           {selectedSpan && (
             <div className="bg-white/95 border border-slate-200 rounded-lg px-3 py-3 text-[11px] text-slate-900 backdrop-blur-sm shadow-sm min-w-[280px]">
               <div className="font-semibold text-[12px] mb-2 flex justify-between items-center">
-                <span>Selected cable span</span>
+                <div className="flex items-center gap-2">
+                  <span>Selected cable span</span>
+                  {/* Delete Trash Icon Button */}
+                  <button
+                    onClick={() => setSpanToDelete(selectedSpan.span_id)}
+                    className="text-slate-400 hover:text-red-600 hover:bg-red-50 p-1 rounded transition-colors"
+                    title="Delete Cable Span"
+                  >
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M3 6h18" />
+                      <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                      <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                    </svg>
+                  </button>
+                </div>
 
                 {pairingMode && (
                   <span
@@ -2540,7 +2815,7 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive }: Props) {
         </div>
       )}
 
-      {/* Confirm Action Modal */}
+      {/* Confirm Action Modal (Multi-Actions) */}
       {confirmPairingOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="bg-white rounded-lg shadow-lg p-6 w-[320px]">
@@ -2571,6 +2846,62 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive }: Props) {
                 onClick={handleConfirmMultiAction}
               >
                 Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm Delete Modal */}
+      {spanToDelete !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-xl p-6 w-[320px] animate-in fade-in zoom-in-95">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="bg-red-100 p-2 rounded-full text-red-600">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="m10.29 3.86 4.64 8M14.5 21H9.5a2 2 0 0 1-2-2V7.5h9V19a2 2 0 0 1-2 2zM5 7.5h14M10 3.5h4a2 2 0 0 1 2 2v2H8v-2a2 2 0 0 1 2-2z" />
+                </svg>
+              </div>
+              <h3 className="font-semibold text-slate-800">
+                Delete Cable Span?
+              </h3>
+            </div>
+
+            <p className="text-xs text-slate-600 mb-6 leading-relaxed">
+              Are you sure you want to delete Span ID{" "}
+              <span className="font-mono bg-slate-100 px-1 rounded">
+                {spanToDelete}
+              </span>
+              ? This will remove it from the map completely.
+              <br />
+              <br />
+              <span className="text-[10px] text-slate-400 font-medium">
+                You can recover it later from the Trash bin.
+              </span>
+            </p>
+
+            <div className="flex justify-end gap-3">
+              <button
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg text-xs transition"
+                onClick={() => setSpanToDelete(null)}
+              >
+                Cancel
+              </button>
+
+              <button
+                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-lg text-xs transition shadow-sm shadow-red-200"
+                onClick={confirmDeleteSpan}
+              >
+                Delete Span
               </button>
             </div>
           </div>
