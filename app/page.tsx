@@ -116,6 +116,8 @@ export default function Home() {
           progress={pipeline.progress}
           total={pipeline.total}
           status={pipeline.status}
+          step={pipeline.step} // NEW
+          stepLabel={pipeline.stepLabel} // NEW
         />
       )}
 

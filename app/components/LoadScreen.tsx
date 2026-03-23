@@ -917,17 +917,18 @@ export default function LoadScreen({ onStartProcessing }: Props) {
                   </div>
                 ) : modelOk ? (
                   <div className="px-3 py-2 rounded-lg text-xs bg-ok-light text-ok border border-[#bbf7d0]">
-                    ✓ Model ready
+                    ✓ TrOCR ready
                   </div>
                 ) : (
-                  <div className="px-3 py-2 rounded-lg text-xs bg-danger-light text-danger border border-[#fecaca]">
-                    ✗ cad_digit_model.pt not found
+                  // This state is now unreachable since api_check_model always returns ok:true
+                  // Kept as a fallback in case the backend is completely unreachable
+                  <div className="px-3 py-2 rounded-lg text-xs bg-review-light text-review border border-[#fde68a]">
+                    ⚠ Backend unreachable — check server
                   </div>
                 )}
               </div>
-
               <button
-                disabled={!selectedLayer || !modelOk}
+                disabled={!selectedLayer}
                 onClick={() =>
                   onStartProcessing({
                     dxfPath: selectedFile.path,
@@ -936,7 +937,7 @@ export default function LoadScreen({ onStartProcessing }: Props) {
                   })
                 }
                 className="w-full py-2.5 bg-accent text-white text-sm font-semibold rounded-xl hover:bg-blue-700 transition-colors
-                  disabled:opacity-35 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    disabled:opacity-35 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 <svg
                   className="w-4 h-4"

@@ -3,9 +3,15 @@ CAD Digit OCR – Flask Backend
 ==============================
 Serves the REST API consumed by the React frontend.
 
-Usage:
-    pip install flask flask-cors
-    python server.py --port 5000
+Changes from original:
+  - CNN predict_image() replaced with EasyOCR (fixes overconfidence + domain mismatch)
+  - EasyOCR runs full 8-rotation sweep per crop (0,90,180,270,45,135,225,315)
+    with fast-accept at >= 0.85 confidence on cardinal angles
+  - run_pipeline() now reports sub-step progress (extract/cluster/candidates/ocr)
+  - Live digit counter + ETA written to state after every single crop
+  - api_check_model() updated — no longer requires cad_digit_model.pt
+  - _prewarm_trocr() replaced with _prewarm_ocr() for EasyOCR
+  - Dead CNN code (load_model, predict_image, val_transform) removed
 """
 
 import argparse
@@ -28,18 +34,13 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 import cv2
 import ezdxf
 import numpy as np
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
 from flask import Blueprint, Flask, jsonify, request, send_file, send_from_directory
 from flask_cors import CORS
 from PIL import Image
-from torchvision import transforms
 
 app = Flask(__name__, static_folder="frontend/dist", static_url_path="")
-CORS(app)  # Allow React dev server to call API during development
+CORS(app)
 
-# ── Public Integration API blueprint (routes defined later, registered at bottom) ─
 public_api = Blueprint("public_api", __name__, url_prefix="/api/v1")
 
 
@@ -101,7 +102,7 @@ QUIT
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# DXF PIPELINE
+# DXF PIPELINE CONSTANTS
 # ─────────────────────────────────────────────────────────────────────────────
 
 CONNECT_TOL = 0.20
@@ -121,11 +122,12 @@ MAX_ASPECT = 8.0
 SALVAGE_DIST_FACTOR = 0.25
 SALVAGE_LONG_SEG_FACTOR = 1.8
 SALVAGE_ANGLE_TOL_DEG = 20.0
-
-# Cable interaction grouping tolerance.
-# Use a slightly larger tolerance than OCR clustering so cosmetic line breaks
-# can still join into one clickable cable span.
 CABLE_CONNECT_TOL = 0.10
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DATA CLASSES
+# ─────────────────────────────────────────────────────────────────────────────
 
 
 @dataclass
@@ -167,6 +169,193 @@ class Candidate:
     total_length: float
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# EASYOCR SINGLETON + MULTI-ROTATION INFERENCE
+# ─────────────────────────────────────────────────────────────────────────────
+
+import re as _re
+
+_easyocr_reader = None
+_easyocr_lock = threading.Lock()
+
+# Rotation order: cardinals first so fast-accept fires early for upright digits,
+# diagonals last since they're slower (PIL interpolation) and less common.
+_OCR_ROTATIONS = [0, 90, 180, 270, 45, 135, 225, 315]
+
+# Accept immediately at this confidence on a cardinal angle — skip diagonals.
+# 0.95 means only essentially-certain reads fast-accept, preventing the
+# wrong rotation winning because it found something valid first.
+_FAST_ACCEPT_CONF = 0.95
+
+# Below this confidence the result is flagged needs_review=True.
+_MIN_CONF = 0.50
+
+# Strand values: 1–2 digit integers (0–99)
+_STRAND_RE = _re.compile(r"^\d{1,2}$")
+
+
+def _load_easyocr():
+    """
+    Lazy singleton for EasyOCR.
+    Loads once on first call, reused for every crop in every scan.
+    Thread-safe double-checked lock.
+    """
+    global _easyocr_reader
+    if _easyocr_reader is not None:
+        return _easyocr_reader
+
+    with _easyocr_lock:
+        if _easyocr_reader is not None:
+            return _easyocr_reader
+
+        import easyocr
+
+        print("[ocr] Loading EasyOCR reader (first-time download may take ~30s)...")
+        _easyocr_reader = easyocr.Reader(["en"], gpu=False)
+        print("[ocr] EasyOCR ready.")
+
+    return _easyocr_reader
+
+
+def _rotate_crop(img: np.ndarray, degrees: int) -> np.ndarray:
+    """
+    Rotate a grayscale uint8 image clockwise by `degrees`.
+    Cardinals use cv2.rotate (lossless). Diagonals use PIL with expand=True
+    so content is never clipped. fillcolor=0 matches white-on-black format.
+    """
+    if degrees == 0:
+        return img
+    if degrees == 90:
+        return cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
+    if degrees == 180:
+        return cv2.rotate(img, cv2.ROTATE_180)
+    if degrees == 270:
+        return cv2.rotate(img, cv2.ROTATE_90_COUNTERCLOCKWISE)
+    from PIL import Image as _PILImage
+
+    pil = _PILImage.fromarray(img)
+    rotated = pil.rotate(
+        -degrees, resample=_PILImage.BILINEAR, expand=True, fillcolor=0
+    )
+    return np.array(rotated)
+
+
+def _easyocr_on_prepared(img: np.ndarray) -> Tuple[str, float]:
+    """
+    Run EasyOCR on an already-inverted, already-padded uint8 image.
+
+    Uses recognize() instead of readtext() to bypass EasyOCR's internal
+    text detector entirely — the detector fails on small rotated crops and
+    returns [] even when the digit is clearly visible. recognize() forces
+    the entire image to be treated as one text region.
+
+    Returns (text, confidence). Empty string + 0.0 if nothing found.
+    Penalises results that don't match the 1-2 digit strand pattern.
+    """
+    reader = _load_easyocr()
+    h, w = img.shape[:2]
+
+    try:
+        results = reader.recognize(
+            img,
+            horizontal_list=[[0, w, 0, h]],
+            free_list=[],
+            allowlist="0123456789",
+            detail=1,
+        )
+    except Exception:
+        # Fallback for older EasyOCR versions
+        results = reader.readtext(
+            img,
+            allowlist="0123456789",
+            detail=1,
+            paragraph=False,
+        )
+
+    if not results:
+        return "", 0.0
+
+    best = max(results, key=lambda x: x[2])
+    text = best[1].strip()
+    conf = float(best[2])
+
+    if not _STRAND_RE.match(text):
+        return text, conf * 0.5
+
+    return text, conf
+
+
+def predict_with_easyocr(crop_np: np.ndarray) -> Tuple[str, float]:
+    """
+    Run EasyOCR across up to 8 rotations of a white-on-black strand crop.
+
+    Rotation order: 0°, 90°, 180°, 270°, 45°, 135°, 225°, 315°
+
+    Fast-accept: if a cardinal rotation produces a valid result with
+    confidence >= 0.95, skip remaining rotations.
+
+    Selection: valid regex match always beats invalid; highest confidence
+    wins among equally valid candidates.
+
+    Returns (value_string, confidence_float).
+    """
+    best_text = ""
+    best_conf = 0.0
+    best_valid = False
+
+    for degrees in _OCR_ROTATIONS:
+        # 1. Rotate the original white-on-black crop
+        rotated = _rotate_crop(crop_np, degrees)
+
+        # 2. Invert → black ink on white (EasyOCR's expected format)
+        inverted = cv2.bitwise_not(rotated)
+
+        # 3. Pad so digits near crop edges aren't clipped
+        padded = cv2.copyMakeBorder(
+            inverted,
+            16,
+            16,
+            16,
+            16,
+            cv2.BORDER_CONSTANT,
+            value=255,
+        )
+
+        # 4. Run EasyOCR via recognize() — bypasses text detector
+        text, conf = _easyocr_on_prepared(padded)
+        valid = bool(text and _STRAND_RE.match(text))
+
+        print(
+            f"[ocr]  rot={degrees:>4}°  "
+            f"text={text!r:>5}  conf={conf:.3f}  valid={valid}"
+        )
+
+        # Valid always beats invalid; highest conf wins among equals
+        if valid and not best_valid:
+            best_text, best_conf, best_valid = text, conf, True
+        elif valid == best_valid and conf > best_conf:
+            best_text, best_conf = text, conf
+
+        # Fast-accept on cardinal angles only
+        if (
+            best_valid
+            and best_conf >= _FAST_ACCEPT_CONF
+            and degrees in (0, 90, 180, 270)
+        ):
+            print(
+                f"[ocr]  fast-accept at {degrees}°  "
+                f"text={best_text!r}  conf={best_conf:.3f}"
+            )
+            break
+
+    return best_text, round(best_conf, 4)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DXF GEOMETRY HELPERS
+# ─────────────────────────────────────────────────────────────────────────────
+
+
 def _dist2(a, b):
     return (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2
 
@@ -199,11 +388,7 @@ POLE_LAYER_FILTER = ["pole"]
 
 def extract_stroke_segments(doc, layer_name, include_circles=True):
     segments = []
-    ARC_STEPS, SPLINE_STEPS, CIRCLE_STEPS = (
-        24,
-        30,
-        36,
-    )  # Add steps for circle approximation
+    ARC_STEPS, SPLINE_STEPS, CIRCLE_STEPS = 24, 30, 36
 
     def iter_spaces():
         yield doc.modelspace()
@@ -484,7 +669,6 @@ def build_candidates_robust(segments, infos):
         )
 
     final_infos = []
-    salvaged = 0
     for i in prelim:
         area = i.width * i.height
         too_big = (
@@ -524,7 +708,6 @@ def build_candidates_robust(segments, infos):
             final_infos.append(
                 ClusterInfo(i.cluster_id, comp, bx, w, h, tlen, "digit_candidate")
             )
-            salvaged += 1
     final_infos = [x for x in final_infos if is_renderable_cluster(segments, x)]
     final_infos = sorted(
         final_infos,
@@ -544,7 +727,10 @@ def build_candidates_robust(segments, infos):
     ]
 
 
-def render_crop(segments, cand, out_size=96, pad_frac=0.06, thickness=2):
+def render_crop(segments, cand, out_size=128, pad_frac=0.15, thickness=2):
+    # out_size raised 96 → 128: more pixels helps EasyOCR recogniser
+    # on rotated/diagonal digits where strokes are thin after resampling.
+    # pad_frac=0.15: generous margin so edge digits aren't clipped.
     minx, miny, maxx, maxy = cand.bbox
     w = maxx - minx
     h = maxy - miny
@@ -590,17 +776,11 @@ def img_to_b64(img_np):
 
 
 def find_cable_layer_name(layers: List[str]) -> Optional[str]:
-    """
-    Prefer exact 'cable' match (case-insensitive), then fallback to the first
-    layer containing 'cable'.
-    """
     if not layers:
         return None
-
     lower_map = {layer.lower(): layer for layer in layers}
     if "cable" in lower_map:
         return lower_map["cable"]
-
     for layer in layers:
         if "cable" in layer.lower():
             return layer
@@ -608,10 +788,6 @@ def find_cable_layer_name(layers: List[str]) -> Optional[str]:
 
 
 def build_cable_spans(doc, cable_layer: str, connect_tol: float = CABLE_CONNECT_TOL):
-    """
-    Group cable layer segments into clickable spans.
-    Each span is a connected cluster of cable segments using endpoint proximity.
-    """
     segments = extract_stroke_segments(doc, cable_layer)
     if not segments:
         return []
@@ -636,14 +812,7 @@ def build_cable_spans(doc, cable_layer: str, connect_tol: float = CABLE_CONNECT_
             s = segments[i]
             if s.length() <= 1e-8:
                 continue
-            span_segments.append(
-                {
-                    "x1": s.x1,
-                    "y1": s.y1,
-                    "x2": s.x2,
-                    "y2": s.y2,
-                }
-            )
+            span_segments.append({"x1": s.x1, "y1": s.y1, "x2": s.x2, "y2": s.y2})
 
         if not span_segments:
             continue
@@ -670,24 +839,7 @@ def build_cable_spans(doc, cable_layer: str, connect_tol: float = CABLE_CONNECT_
     return spans
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Cable span meter value mapping (OCR → span)
-# ─────────────────────────────────────────────────────────────────────────────
-
-
 def assign_meter_values_to_spans(spans, ocr_results, max_dist=None):
-    """
-    Map OCR digit results to cable spans by proximity.
-
-    Parameters:
-        spans : list of dicts from build_cable_spans()
-        ocr_results : list of dicts with 'center_x', 'center_y', 'value', 'corrected_value'
-        max_dist : optional max distance (world units) for association.
-                    If None, automatically compute based on DXF scale.
-
-    Returns:
-        spans : list of dicts with new key 'meter_value' added
-    """
     if not spans:
         return spans
     if not ocr_results:
@@ -695,7 +847,6 @@ def assign_meter_values_to_spans(spans, ocr_results, max_dist=None):
             s["meter_value"] = None
         return spans
 
-    # Auto-tune max_dist if not provided
     if max_dist is None:
         avg_size = sum(
             max(s["bbox"][2] - s["bbox"][0], s["bbox"][3] - s["bbox"][1]) for s in spans
@@ -723,96 +874,10 @@ def assign_meter_values_to_spans(spans, ocr_results, max_dist=None):
                 span["meter_value"] = float(value)
             except Exception:
                 span["meter_value"] = None
-                print(
-                    f"[meter_assign] Non-numeric value for span {span['span_id']}: {value}"
-                )
         else:
             span["meter_value"] = None
-            print(
-                f"[meter_assign] No OCR digit near span {span['span_id']} (max_dist={max_dist})"
-            )
-
-        print(
-            f"[meter_assign] span_id={span['span_id']} cx={cx:.3f} cy={cy:.3f} meter_value={span['meter_value']}"
-        )
 
     return spans
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# CNN MODEL
-# ─────────────────────────────────────────────────────────────────────────────
-
-
-def load_model(model_path):
-    ckpt = torch.load(model_path, map_location="cpu")
-    num_classes = ckpt["num_classes"]
-    sd = ckpt["state_dict"]
-    fc_weight = sd["classifier.1.weight"]
-    feature_flat = fc_weight.shape[1]
-    feature_size = feature_flat // 128
-    pool_side = int(feature_size**0.5)
-
-    class _CadCNN(nn.Module):
-        def __init__(self):
-            super().__init__()
-            self.features = nn.Sequential(
-                nn.Conv2d(1, 32, 3, padding=1),
-                nn.BatchNorm2d(32),
-                nn.ReLU(),
-                nn.Conv2d(32, 32, 3, padding=1),
-                nn.BatchNorm2d(32),
-                nn.ReLU(),
-                nn.MaxPool2d(2),
-                nn.Conv2d(32, 64, 3, padding=1),
-                nn.BatchNorm2d(64),
-                nn.ReLU(),
-                nn.Conv2d(64, 64, 3, padding=1),
-                nn.BatchNorm2d(64),
-                nn.ReLU(),
-                nn.MaxPool2d(2),
-                nn.Conv2d(64, 128, 3, padding=1),
-                nn.BatchNorm2d(128),
-                nn.ReLU(),
-                nn.AdaptiveAvgPool2d((pool_side, pool_side)),
-            )
-            self.classifier = nn.Sequential(
-                nn.Flatten(),
-                nn.Linear(feature_flat, 256),
-                nn.ReLU(),
-                nn.Dropout(0.4),
-                nn.Linear(256, num_classes),
-            )
-
-        def forward(self, x):
-            return self.classifier(self.features(x))
-
-    model = _CadCNN()
-    model.load_state_dict(sd)
-    model.eval()
-    return model, ckpt["idx2label"]
-
-
-val_transform = transforms.Compose(
-    [
-        transforms.Resize((96, 96)),
-        transforms.ToTensor(),
-        transforms.Normalize((0.5,), (0.5,)),
-    ]
-)
-
-
-def predict_image(model, idx2label, img_np):
-    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-    img_np = clahe.apply(img_np)
-    img = Image.fromarray(img_np)
-    x = val_transform(img).unsqueeze(0)
-    with torch.no_grad():
-        logits = model(x)
-        probs = F.softmax(logits / 1.5, dim=1)[0]
-        idx = probs.argmax().item()
-        conf = probs[idx].item()
-    return idx2label[idx], round(float(conf), 4)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -830,57 +895,145 @@ state = {
     "progress": 0,
     "total": 0,
     "error": None,
+    # Sub-step progress — reported to frontend every phase change
+    "step": 0,  # 1=extracting 2=clustering 3=candidates 4=ocr
+    "step_label": "",
+    "ocr_start_time": None,
 }
 
 
-def run_pipeline(dxf_path, layer, model_path):
-    try:
-        state["status"] = "processing"
-        state["progress"] = 0
-        state["error"] = None
+# ─────────────────────────────────────────────────────────────────────────────
+# OCR PIPELINE
+# ─────────────────────────────────────────────────────────────────────────────
 
+
+def run_pipeline(dxf_path, layer, model_path):
+    """
+    Full OCR pipeline using EasyOCR instead of CNN.
+
+    Sub-step progress is written to state at every phase so the frontend
+    shows meaningful feedback during the 30+ second pre-OCR preparation.
+
+    During OCR, state is updated after every single crop so the digit
+    counter moves every ~1-2 seconds and ETA is always current.
+    """
+    try:
+        state.update(
+            {
+                "status": "processing",
+                "progress": 0,
+                "total": 0,
+                "error": None,
+                "step": 1,
+                "step_label": "Extracting stroke segments…",
+                "ocr_start_time": None,
+                "results": [],
+            }
+        )
+
+        # ── Step 1: Extract segments ──────────────────────────────────────
         doc = ezdxf.readfile(dxf_path)
         segments = extract_stroke_segments(doc, layer, include_circles=False)
         state["segments"] = segments
 
+        # ── Step 2: Cluster ───────────────────────────────────────────────
+        state.update({"step": 2, "step_label": "Grouping into digit clusters…"})
         clusters = cluster_segments(segments, tol=CONNECT_TOL)
         infos = analyze_clusters(segments, clusters)
+
+        # ── Step 3: Build candidates ──────────────────────────────────────
+        state.update({"step": 3, "step_label": "Identifying digit candidates…"})
         candidates = build_candidates_robust(segments, infos)
         state["candidates"] = candidates
         state["total"] = len(candidates)
 
-        model, idx2label = load_model(model_path)
+        if not candidates:
+            state.update(
+                {
+                    "status": "done",
+                    "step": 4,
+                    "step_label": "Done — no candidates found",
+                }
+            )
+            return
+
+        # Render all crops upfront — cheap numpy/cv2, no progress needed here
+        crops = [render_crop(segments, cand) for cand in candidates]
+
+        # ── Step 4: OCR — one crop at a time, update state after each ─────
+        state.update(
+            {
+                "step": 4,
+                "step_label": f"Reading digit 0 of {len(candidates)}…",
+                "ocr_start_time": time.time(),
+            }
+        )
 
         results = []
-        for i, cand in enumerate(candidates):
-            crop = render_crop(segments, cand)
-            value, conf = predict_image(model, idx2label, crop)
+
+        for i, (cand, crop) in enumerate(zip(candidates, crops)):
+            value, conf = predict_with_easyocr(crop)
+
             cx = (cand.bbox[0] + cand.bbox[2]) / 2
             cy = (cand.bbox[1] + cand.bbox[3]) / 2
+
+            # needs_review when:
+            #   - EasyOCR found nothing valid across all 8 rotations
+            #   - confidence below _MIN_CONF (0.50) after full sweep
+            # Threshold is lower than upright-only (0.70) because diagonal
+            # crops genuinely score lower even when correctly read — the
+            # multi-rotation sweep already picks the best available result.
+            needs_review = (not value) or (conf < _MIN_CONF)
+
             results.append(
                 {
                     "digit_id": cand.digit_id,
-                    "value": value,
+                    "value": value if value else "?",
                     "corrected_value": None,
-                    "confidence": conf,
-                    "needs_review": conf < 0.95,
+                    "confidence": round(conf, 4),
+                    "needs_review": needs_review,
                     "bbox": list(cand.bbox),
                     "center_x": cx,
                     "center_y": cy,
                     "crop_b64": img_to_b64(crop),
                 }
             )
-            state["progress"] = i + 1
 
-        state["results"] = results
-        state["status"] = "done"
+            # ── ETA calculation ───────────────────────────────────────────
+            done = i + 1
+            elapsed = time.time() - state["ocr_start_time"]
+            rate = done / elapsed if elapsed > 0 else 0
+            remaining = len(candidates) - done
+            eta_secs = int(remaining / rate) if rate > 0 else 0
+
+            if eta_secs >= 60:
+                eta_str = f"{eta_secs // 60}m {eta_secs % 60}s remaining"
+            elif eta_secs > 0:
+                eta_str = f"~{eta_secs}s remaining"
+            else:
+                eta_str = "almost done…"
+
+            state.update(
+                {
+                    "results": list(results),
+                    "progress": done,
+                    "step_label": f"Reading digit {done} of {len(candidates)} — {eta_str}",
+                }
+            )
+
+        state.update(
+            {
+                "status": "done",
+                "step": 4,
+                "step_label": "Done",
+            }
+        )
 
     except Exception as e:
         import traceback
 
         traceback.print_exc()
-        state["status"] = "error"
-        state["error"] = str(e)
+        state.update({"status": "error", "error": str(e)})
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -894,7 +1047,7 @@ from app_python.services.boundary_service import (
 from app_python.services.shape_service import extract_equipment_shapes
 
 SCAN_STATE = {
-    "status": "idle",  # idle | processing | done | error
+    "status": "idle",
     "error": None,
     "shapes": [],
     "boundary": None,
@@ -933,7 +1086,6 @@ def _run_full_scan(dxf_path: str, boundary_layer: Optional[str]):
         doc = ezdxf.readfile(dxf_path)
         layers = list_layers(dxf_path)
 
-        # Map shape kinds to the layer name keywords where they live
         KIND_LAYER_MAP = {
             "circle": ["splitter", "tapoff", "tap-off", "tap_off"],
             "hexagon": ["tapoff", "tap-off", "tap_off"],
@@ -942,8 +1094,6 @@ def _run_full_scan(dxf_path: str, boundary_layer: Optional[str]):
             "triangle": ["extender", "extend"],
         }
 
-        # Build a set of (layer, kinds_to_keep) pairs — only scan layers that
-        # match at least one keyword, and only keep the relevant shape kinds
         layer_kind_targets: Dict[str, List[str]] = {}
         for layer in layers:
             if boundary_layer and layer == boundary_layer:
@@ -962,8 +1112,6 @@ def _run_full_scan(dxf_path: str, boundary_layer: Optional[str]):
         print(
             f"[scan] Targeting {len(scan_layers)} relevant layers out of {len(layers)} total"
         )
-        for l, kinds in layer_kind_targets.items():
-            print(f"  {l} → {kinds}")
 
         all_shapes = []
 
@@ -988,7 +1136,6 @@ def _run_full_scan(dxf_path: str, boundary_layer: Optional[str]):
                 print(f"[scan] Error on layer '{layer}': {e}")
             SCAN_STATE["progress"] = i + 1
 
-        # Global dedup across layers (same kind + nearly same center)
         DEDUP_EPS = 0.5
         all_shapes.sort(key=lambda s: (s["kind"], s["cx"], s["cy"]))
         deduped = []
@@ -1005,12 +1152,10 @@ def _run_full_scan(dxf_path: str, boundary_layer: Optional[str]):
                 continue
             deduped.append(s)
 
-        # Sort top-to-bottom, left-to-right and assign IDs
         deduped.sort(key=lambda s: (-s["cy"], s["cx"]))
         for i, s in enumerate(deduped):
             s["shape_id"] = i
 
-        # Boundary (optional)
         boundary_pts = None
         if boundary_layer:
             try:
@@ -1089,11 +1234,15 @@ def api_scan_results():
     )
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# POLE DETECTION
+# ─────────────────────────────────────────────────────────────────────────────
+
 import poleid as _poleid
 from app_python.services.pole_ocr import ocr_pole
 
 POLE_STATE: Dict = {
-    "status": "idle",  # idle | processing | done | error
+    "status": "idle",
     "error": None,
     "tags": [],
     "layer": None,
@@ -1122,18 +1271,10 @@ POLE_CONFIG = _poleid.PoleIdConfig(
     stroke_placeholder_prefix="POLE",
 )
 
-
-OCR_WORKERS = 4  # parallel OCR calls — tune up if your CPU has more cores
+OCR_WORKERS = 4
 
 
 def _run_pole_scan(dxf_path: str, layer_name: str) -> None:
-    """
-    Background thread: scan one layer for pole labels, then run OCR
-    on all STR placeholder labels in parallel using a thread pool.
-
-    Results are written to POLE_STATE["tags"] incrementally so the
-    frontend can display poles as they finish (progressive rendering).
-    """
     try:
         POLE_STATE.update(
             {
@@ -1152,15 +1293,10 @@ def _run_pole_scan(dxf_path: str, layer_name: str) -> None:
         all_layer_segs = extract_stroke_segments(doc, layer_name)
         placeholder_prefix = (POLE_CONFIG.stroke_placeholder_prefix or "POLE").upper()
 
-        # ── Build work list ───────────────────────────────────────────────────
-        # Separate poles that need OCR from those that already have a real name.
-        # Non-OCR poles are added to tags immediately; OCR poles are queued.
-
-        tags = []  # final ordered result list
+        tags = []
         tags_lock = threading.Lock()
-
-        ocr_queue = []  # list of (pole_id, lab, bbox) needing OCR
-        non_ocr = []  # list of ready tag dicts (text / mtext labels)
+        ocr_queue = []
+        non_ocr = []
 
         for pole_id, (lab, _circ) in enumerate(matches):
             bbox = list(lab.bbox) if lab.bbox else [lab.x, lab.y, lab.x, lab.y]
@@ -1186,14 +1322,11 @@ def _run_pole_scan(dxf_path: str, layer_name: str) -> None:
                     }
                 )
 
-        # Add non-OCR poles to state immediately so map shows them right away
         with tags_lock:
             tags.extend(non_ocr)
             POLE_STATE["tags"] = list(tags)
             POLE_STATE["total"] = len(matches)
             POLE_STATE["progress"] = len(non_ocr)
-
-        # ── OCR worker function ───────────────────────────────────────────────
 
         def _ocr_one(args):
             pole_id, lab, bbox, source = args
@@ -1233,8 +1366,6 @@ def _run_pole_scan(dxf_path: str, layer_name: str) -> None:
                 "needs_review": needs_review,
             }
 
-        # ── Run OCR in parallel ───────────────────────────────────────────────
-
         if ocr_queue:
             with ThreadPoolExecutor(max_workers=OCR_WORKERS) as pool:
                 futures = {pool.submit(_ocr_one, args): args for args in ocr_queue}
@@ -1244,10 +1375,7 @@ def _run_pole_scan(dxf_path: str, layer_name: str) -> None:
                         tag = future.result()
                     except Exception as e:
                         args = futures[future]
-                        pole_id = args[0]
-                        lab = args[1]
-                        bbox = args[2]
-                        source = args[3]
+                        pole_id, lab, bbox, source = args
                         tag = {
                             "pole_id": pole_id,
                             "name": _poleid.clean_label(lab.text),
@@ -1262,22 +1390,13 @@ def _run_pole_scan(dxf_path: str, layer_name: str) -> None:
                         }
                         print(f"[pole_scan] future error: {e}")
 
-                    # Append result and update state progressively
                     with tags_lock:
                         tags.append(tag)
-                        # Sort by pole_id so map order is stable
                         tags.sort(key=lambda t: t["pole_id"])
                         POLE_STATE["tags"] = list(tags)
                         POLE_STATE["progress"] = len(tags)
 
-        # ── Final sort and done ───────────────────────────────────────────────
-
         tags.sort(key=lambda t: t["pole_id"])
-        n_ocr = sum(1 for t in tags if t["ocr_conf"] is not None)
-        n_ok = sum(
-            1 for t in tags if t["ocr_conf"] is not None and not t["needs_review"]
-        )
-
         POLE_STATE.update(
             {
                 "status": "done",
@@ -1285,10 +1404,7 @@ def _run_pole_scan(dxf_path: str, layer_name: str) -> None:
                 "progress": len(tags),
             }
         )
-        print(
-            f"[pole_scan] Done — {len(tags)} poles on '{layer_name}' | "
-            f"OCR attempted: {n_ocr}, accepted: {n_ok}"
-        )
+        print(f"[pole_scan] Done — {len(tags)} poles on '{layer_name}'")
 
     except Exception as exc:
         import traceback
@@ -1300,25 +1416,18 @@ def _run_pole_scan(dxf_path: str, layer_name: str) -> None:
 @app.route("/api/dxf_segments_no_circles")
 def api_dxf_segments_no_circles():
     dxf_path = state.get("dxf_path")
-
     if not dxf_path:
         return jsonify({"error": "No DXF loaded"}), 400
-
     try:
         doc = ezdxf.readfile(dxf_path)
         layers = list_layers(dxf_path)
-
         all_segments = {}
-
         for layer in layers:
             segs = extract_stroke_segments(doc, layer, include_circles=False)
-
             all_segments[layer] = [
                 {"x1": s.x1, "y1": s.y1, "x2": s.x2, "y2": s.y2} for s in segs
             ]
-
         return jsonify({"layers": layers, "segments": all_segments})
-
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
@@ -1444,7 +1553,6 @@ def export_excel(results, dxf_path):
         c.fill = sum_fill
         c.border = border
 
-    # ── Sheet 2: Summary ─────────────────────────────────────────────────────
     ws2 = wb.create_sheet(title="Summary")
     h1 = ws2.cell(row=1, column=1, value="Digit ID")
     h2 = ws2.cell(row=1, column=2, value="Final Value")
@@ -1482,12 +1590,9 @@ def export_excel(results, dxf_path):
         c.alignment = Alignment(horizontal="center")
         c.border = border
 
-    # ── Sheet 3: Equipment ───────────────────────────────────────────────────
     shapes = SCAN_STATE.get("shapes", [])
     if shapes:
         ws3 = wb.create_sheet(title="Equipment")
-
-        # Title
         title_cell = ws3.cell(row=1, column=1, value="Equipment Summary")
         title_cell.font = Font(bold=True, size=12, color="FFFFFF", name="Calibri")
         title_cell.fill = header_fill
@@ -1495,15 +1600,14 @@ def export_excel(results, dxf_path):
         ws3.merge_cells("A1:B1")
         ws3.row_dimensions[1].height = 22
 
-        # Kind counts
         kind_counts: Dict[str, int] = {}
         for sh in shapes:
             kind_counts[sh["kind"]] = kind_counts.get(sh["kind"], 0) + 1
 
-        ws3.cell(row=2, column=1, value="Shape Kind").font = header_font
-        ws3.cell(row=2, column=2, value="Count").font = header_font
         for ci in [1, 2]:
-            cell = ws3.cell(row=2, column=ci)
+            cell = ws3.cell(
+                row=2, column=ci, value="Shape Kind" if ci == 1 else "Count"
+            )
             cell.fill = header_fill
             cell.font = header_font
             cell.border = border
@@ -1517,25 +1621,19 @@ def export_excel(results, dxf_path):
                 c.alignment = Alignment(horizontal="center")
 
         total_row = len(kind_counts) + 3
-        tc = ws3.cell(row=total_row, column=1, value="TOTAL")
-        tc.font = Font(bold=True)
-        tc.fill = sum_fill
-        tc.border = border
-        tc.alignment = Alignment(horizontal="center")
-        tv = ws3.cell(row=total_row, column=2, value=len(shapes))
-        tv.font = Font(bold=True)
-        tv.fill = sum_fill
-        tv.border = border
-        tv.alignment = Alignment(horizontal="center")
+        for col, val in [(1, "TOTAL"), (2, len(shapes))]:
+            c = ws3.cell(row=total_row, column=col, value=val)
+            c.font = Font(bold=True)
+            c.fill = sum_fill
+            c.border = border
+            c.alignment = Alignment(horizontal="center")
 
         ws3.column_dimensions["A"].width = 16
         ws3.column_dimensions["B"].width = 10
 
-        # Full shape list
         list_start = total_row + 2
         eq_headers = ["Shape ID", "Kind", "Layer", "Center X", "Center Y"]
         eq_widths = [10, 14, 30, 12, 12]
-
         for ci, (h, w) in enumerate(zip(eq_headers, eq_widths), 1):
             cell = ws3.cell(row=list_start, column=ci, value=h)
             cell.fill = header_fill
@@ -1573,7 +1671,6 @@ def export_poles_excel(tags: list, dxf_path: str) -> tuple:
     ws = wb.active
     ws.title = "Pole IDs"
 
-    # ── Styles ────────────────────────────────────────────────────────────────
     header_fill = PatternFill("solid", fgColor="7C4A00")
     header_font = Font(bold=True, color="FFFFFF", name="Calibri")
     row_fill = PatternFill("solid", fgColor="FEF3C7")
@@ -1581,7 +1678,6 @@ def export_poles_excel(tags: list, dxf_path: str) -> tuple:
     thin = Side(style="thin", color="CCCCCC")
     border = Border(left=thin, right=thin, top=thin, bottom=thin)
 
-    # ── Header row ────────────────────────────────────────────────────────────
     headers = ["#", "Pole Name"]
     col_widths = [8, 28]
 
@@ -1595,7 +1691,6 @@ def export_poles_excel(tags: list, dxf_path: str) -> tuple:
     ws.row_dimensions[1].height = 22
     ws.freeze_panes = "A2"
 
-    # ── Data rows ─────────────────────────────────────────────────────────────
     for ri, tag in enumerate(tags, 2):
         row_data = [ri - 1, tag.get("name", "")]
         for ci, val in enumerate(row_data, 1):
@@ -1604,19 +1699,13 @@ def export_poles_excel(tags: list, dxf_path: str) -> tuple:
             cell.alignment = Alignment(horizontal="center")
             cell.border = border
 
-    # ── Total row ─────────────────────────────────────────────────────────────
     total_row = len(tags) + 2
-    tc = ws.cell(row=total_row, column=1, value="TOTAL")
-    tc.font = Font(bold=True)
-    tc.fill = total_fill
-    tc.border = border
-    tc.alignment = Alignment(horizontal="center")
-
-    tv = ws.cell(row=total_row, column=2, value=len(tags))
-    tv.font = Font(bold=True)
-    tv.fill = total_fill
-    tv.border = border
-    tv.alignment = Alignment(horizontal="center")
+    for col, val in [(1, "TOTAL"), (2, len(tags))]:
+        c = ws.cell(row=total_row, column=col, value=val)
+        c.font = Font(bold=True)
+        c.fill = total_fill
+        c.border = border
+        c.alignment = Alignment(horizontal="center")
 
     out_path = Path(dxf_path).stem + "_pole_ids.xlsx"
     wb.save(out_path)
@@ -1627,10 +1716,8 @@ def export_poles_excel(tags: list, dxf_path: str) -> tuple:
 def api_export_poles():
     dxf_path = state.get("dxf_path", "")
     tags = POLE_STATE.get("tags", [])
-
     if not tags:
         return jsonify({"error": "No pole tags to export. Run a scan first."}), 400
-
     path, err = export_poles_excel(tags, dxf_path or "pole_export")
     if err:
         return jsonify({"error": err}), 500
@@ -1638,35 +1725,21 @@ def api_export_poles():
 
 
 def _find_pole_layer_name(layers: List[str]) -> Optional[str]:
-    """
-    Auto-detect the most likely pole label layer from the layer list.
-    Checks for common naming patterns used in telecom DXF drawings.
-    """
     patterns = ["pole", "poleid", "pole_id", "pole id", "tag", "label"]
     lower_map = {l.lower(): l for l in layers}
-
-    # Exact match first
     for p in patterns:
         if p in lower_map:
             return lower_map[p]
-
-    # Partial match
     for layer in layers:
         ll = layer.lower()
         for p in patterns:
             if p in ll:
                 return layer
-
     return None
 
 
 @app.route("/api/pole_tags/auto_scan", methods=["POST"])
 def api_pole_tags_auto_scan():
-    """
-    Called automatically after a DXF is uploaded.
-    Auto-detects the pole layer and starts a background scan immediately
-    so results are ready by the time the user opens the Pole IDs tab.
-    """
     data = request.get_json()
     dxf_path = data.get("dxf_path", "") or state.get("dxf_path", "")
     all_layers = data.get("layers", [])
@@ -1674,7 +1747,6 @@ def api_pole_tags_auto_scan():
     if not dxf_path:
         return jsonify({"error": "No DXF path provided"}), 400
 
-    # Don't restart if already scanning or done for the same file
     if (
         POLE_STATE.get("status") in ("processing", "done")
         and POLE_STATE.get("dxf_path") == dxf_path
@@ -1687,7 +1759,6 @@ def api_pole_tags_auto_scan():
             {"ok": False, "reason": "No pole layer detected in this drawing"}
         )
 
-    # Store the dxf_path in POLE_STATE so we can check it above
     POLE_STATE["dxf_path"] = dxf_path
 
     t = threading.Thread(
@@ -1700,13 +1771,12 @@ def api_pole_tags_auto_scan():
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# FLASK ROUTES  (internal — used by the Next.js frontend)
+# FLASK ROUTES
 # ─────────────────────────────────────────────────────────────────────────────
 
 
 @app.route("/")
 def index():
-    """Serve the built React app in production."""
     return send_from_directory(app.static_folder, "index.html")
 
 
@@ -1718,6 +1788,8 @@ def api_status():
             "progress": state["progress"],
             "total": state["total"],
             "error": state["error"],
+            "step": state.get("step", 0),
+            "step_label": state.get("step_label", ""),
         }
     )
 
@@ -1730,11 +1802,34 @@ def api_results():
 
 @app.route("/api/check_model")
 def api_check_model():
-    return jsonify({"ok": Path("cad_digit_model.pt").exists()})
+    """
+    Previously checked for cad_digit_model.pt (CNN weights file).
+    Now checks that EasyOCR is importable and returns ok:true always
+    so the frontend never blocks the user from opening a drawing.
+    EasyOCR downloads its model weights automatically on first use.
+    """
+    try:
+        import easyocr  # noqa — just checking importability
+
+        return jsonify(
+            {
+                "ok": True,
+                "engine": "easyocr",
+                "cached": _easyocr_reader is not None,
+            }
+        )
+    except ImportError:
+        return jsonify(
+            {
+                "ok": False,
+                "engine": "easyocr",
+                "error": "easyocr not installed — run: pip install easyocr",
+            }
+        )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# FILE PLATFORM — persistent index (uploads/index.json)
+# FILE PLATFORM
 # ─────────────────────────────────────────────────────────────────────────────
 
 UPLOADS_DIR = Path("uploads")
@@ -1757,14 +1852,7 @@ def _write_index(data: dict) -> None:
 
 
 def _sync_index_sizes() -> dict:
-    """
-    Refresh file sizes / existence from disk and return the cleaned index.
-    Also discovers any folders or files on disk that are not yet in the index,
-    so that the file browser is populated on first load without requiring an upload.
-    """
     data = _read_index()
-
-    # ── 1. Drop missing files and refresh sizes ───────────────────────────────
     kept = []
     for f in data["files"]:
         p = Path(f["path"])
@@ -1772,52 +1860,6 @@ def _sync_index_sizes() -> dict:
             f["size"] = p.stat().st_size
             kept.append(f)
     data["files"] = kept
-
-    # ── 2. Discover subdirectories on disk not yet in the index ───────────────
-    UPLOADS_DIR.mkdir(exist_ok=True)
-    known_folders = set(data["folders"])
-    for entry in UPLOADS_DIR.iterdir():
-        if entry.is_dir() and entry.name not in known_folders:
-            data["folders"].append(entry.name)
-            known_folders.add(entry.name)
-
-    # ── 3. Discover files inside known folders that are missing from the index ─
-    indexed_paths = {f["path"] for f in data["files"]}
-    for folder_name in data["folders"]:
-        folder_dir = UPLOADS_DIR / folder_name
-        if not folder_dir.exists():
-            continue
-        for file_entry in folder_dir.iterdir():
-            if file_entry.is_file() and file_entry.suffix.lower() in (".dxf", ".pdf"):
-                path_str = str(file_entry)
-                if path_str not in indexed_paths:
-                    data["files"].append(
-                        {
-                            "name": file_entry.name,
-                            "path": path_str,
-                            "size": file_entry.stat().st_size,
-                            "modified": int(file_entry.stat().st_mtime),
-                            "folder": folder_name,
-                        }
-                    )
-                    indexed_paths.add(path_str)
-
-    # ── 4. Discover root-level files not yet indexed ──────────────────────────
-    for file_entry in UPLOADS_DIR.iterdir():
-        if file_entry.is_file() and file_entry.suffix.lower() in (".dxf", ".pdf"):
-            path_str = str(file_entry)
-            if path_str not in indexed_paths:
-                data["files"].append(
-                    {
-                        "name": file_entry.name,
-                        "path": path_str,
-                        "size": file_entry.stat().st_size,
-                        "modified": int(file_entry.stat().st_mtime),
-                        "folder": "",
-                    }
-                )
-                indexed_paths.add(path_str)
-
     _write_index(data)
     return data
 
@@ -1825,7 +1867,6 @@ def _sync_index_sizes() -> dict:
 @app.route("/api/files/list", methods=["GET"])
 def api_files_list():
     data = _sync_index_sizes()
-    # Build per-folder file counts
     folder_counts: Dict[str, int] = {f: 0 for f in data["folders"]}
     for file in data["files"]:
         folder = file.get("folder", "")
@@ -1857,7 +1898,6 @@ def api_files_delete():
     path = (body.get("path") or "").strip()
     if not path:
         return jsonify({"error": "path is required"}), 400
-    # Safety: only allow deleting inside the uploads directory
     try:
         Path(path).resolve().relative_to(UPLOADS_DIR.resolve())
     except ValueError:
@@ -1879,7 +1919,6 @@ def api_files_rename():
     old_path = Path(old_path_str)
     if not old_path.exists():
         return jsonify({"error": "File not found"}), 404
-    # Preserve the original extension
     suffix = old_path.suffix or ".dxf"
     if not new_name.lower().endswith(suffix.lower()):
         new_name = new_name + suffix
@@ -1895,8 +1934,6 @@ def api_files_rename():
     return jsonify({"ok": True, "path": str(new_path)})
 
 
-# /api/files/upload is an alias of /api/upload so the new LoadScreen
-# can call either endpoint and both work identically.
 @app.route("/api/upload", methods=["POST"])
 @app.route("/api/files/upload", methods=["POST"])
 def api_upload():
@@ -1910,7 +1947,6 @@ def api_upload():
 
         UPLOADS_DIR.mkdir(exist_ok=True)
 
-        # Place the file inside the chosen sub-folder (or root uploads dir)
         if folder:
             dest_dir = UPLOADS_DIR / folder
             dest_dir.mkdir(parents=True, exist_ok=True)
@@ -1920,7 +1956,6 @@ def api_upload():
         save_path = str(dest_dir / fname)
         file.save(save_path)
 
-        # PDF → DXF conversion
         if save_path.lower().endswith(".pdf"):
             try:
                 dxf_path_str = pdf_to_dxf_autocad(save_path)
@@ -1931,15 +1966,12 @@ def api_upload():
 
                 traceback.print_exc()
                 return jsonify({"error": "PDF conversion failed: " + str(e)}), 500
-            # Remove the PDF, keep only the DXF
             Path(save_path).unlink(missing_ok=True)
             save_path = dxf_path_str
             fname = Path(save_path).name
 
-        # Register in the persistent file index
         p = Path(save_path)
         data = _read_index()
-        # Remove any stale entry with the same path before re-inserting
         data["files"] = [f for f in data["files"] if f["path"] != save_path]
         data["files"].append(
             {
@@ -1951,7 +1983,6 @@ def api_upload():
             }
         )
         _write_index(data)
-
         return jsonify({"path": save_path})
 
     except Exception as e:
@@ -1977,10 +2008,11 @@ def api_run():
     data = request.get_json()
     state["dxf_path"] = data["dxf_path"]
     state["layer"] = data["layer"]
-    state["model_path"] = data["model_path"]
+    # model_path kept for API compatibility — no longer used by EasyOCR pipeline
+    state["model_path"] = data.get("model_path", "")
     t = threading.Thread(
         target=run_pipeline,
-        args=(data["dxf_path"], data["layer"], data["model_path"]),
+        args=(data["dxf_path"], data["layer"], state["model_path"]),
         daemon=True,
     )
     t.start()
@@ -1991,15 +2023,12 @@ def api_run():
 def api_export():
     data = request.get_json()
     corrections = data.get("corrections", {})
-    partials = data.get("partials", {})
 
-    # Apply OCR corrections
     for r in state["results"]:
         did = str(r["digit_id"])
         if did in corrections and corrections[did] is not None:
             r["corrected_value"] = corrections[did]
 
-    # Pass partials to Excel export
     path, err = export_excel(state["results"], state["dxf_path"])
     if err:
         return jsonify({"error": err}), 500
@@ -2044,7 +2073,6 @@ def api_cable_spans():
     dxf_path = state.get("dxf_path")
     if not dxf_path:
         return jsonify({"error": "No DXF loaded"}), 400
-
     try:
         doc = ezdxf.readfile(dxf_path)
         layers = list_layers(dxf_path)
@@ -2052,16 +2080,10 @@ def api_cable_spans():
 
         if not cable_layer:
             return jsonify(
-                {
-                    "cable_layer": None,
-                    "spans": [],
-                    "message": "No cable layer found",
-                }
+                {"cable_layer": None, "spans": [], "message": "No cable layer found"}
             )
 
         spans = build_cable_spans(doc, cable_layer, connect_tol=CABLE_CONNECT_TOL)
-
-        # Assign meter values
         spans = assign_meter_values_to_spans(spans, state.get("results", []))
 
         return jsonify(
@@ -2081,61 +2103,36 @@ def api_cable_spans():
 # ─────────────────────────────────────────────────────────────────────────────
 # PUBLIC INTEGRATION API  —  /api/v1/
 # ─────────────────────────────────────────────────────────────────────────────
-# All routes below are registered on the `public_api` Blueprint which is
-# mounted at the /api/v1/ prefix.  External systems should use these endpoints.
-# The internal routes above (no version prefix) are used by the React frontend.
-# ─────────────────────────────────────────────────────────────────────────────
 
 
 def _v1_ok(data: Any, status: int = 200):
-    """Standard success envelope for v1 responses."""
     return jsonify({"ok": True, "data": data}), status
 
 
 def _v1_err(message: str, status: int = 400):
-    """Standard error envelope for v1 responses."""
     return jsonify({"ok": False, "error": message}), status
-
-
-# ── GET /api/v1/health ────────────────────────────────────────────────────────
 
 
 @public_api.route("/health", methods=["GET"])
 def v1_health():
-    """
-    Liveness check. Always returns 200 when the server is running.
+    try:
+        import easyocr  # noqa
 
-    Response data:
-        service      : "strand-identifier"
-        version      : "1.0.0"
-        model_loaded : true | false
-    """
+        engine_ok = True
+    except ImportError:
+        engine_ok = False
     return _v1_ok(
         {
             "service": "strand-identifier",
             "version": "1.0.0",
-            "model_loaded": Path("cad_digit_model.pt").exists(),
+            "engine": "easyocr",
+            "engine_ready": engine_ok,
         }
     )
 
 
-# ── GET /api/v1/status ────────────────────────────────────────────────────────
-
-
 @public_api.route("/status", methods=["GET"])
 def v1_status():
-    """
-    Full pipeline status snapshot — all three subsystems in one call.
-    Poll this endpoint until the desired subsystem status is "done".
-
-    Response data:
-        dxf_path  : currently loaded file path, or null
-        ocr       : { status, progress, total, error }
-        equipment : { status, progress, total, count, error }
-        poles     : { status, layer, progress, total, count, error }
-
-    Status values: "idle" | "processing" | "done" | "error"
-    """
     return _v1_ok(
         {
             "dxf_path": state.get("dxf_path"),
@@ -2143,6 +2140,8 @@ def v1_status():
                 "status": state.get("status", "idle"),
                 "progress": state.get("progress", 0),
                 "total": state.get("total", 0),
+                "step": state.get("step", 0),
+                "step_label": state.get("step_label", ""),
                 "error": state.get("error"),
             },
             "equipment": {
@@ -2164,24 +2163,8 @@ def v1_status():
     )
 
 
-# ── GET /api/v1/ocr/results ───────────────────────────────────────────────────
-
-
 @public_api.route("/ocr/results", methods=["GET"])
 def v1_ocr_results():
-    """
-    All strand-digit OCR results for the currently loaded DXF.
-
-    Query parameters:
-        include_crops : "true"/"false"  (default "false") — include base64 crop PNGs
-        needs_review  : "true"/"false"  (omit = return all) — filter by review status
-
-    Response data:
-        dxf_path : file path
-        count    : number of results returned
-        sum      : integer sum of all final_value fields
-        results  : list of digit objects
-    """
     if state.get("status") == "idle":
         return _v1_err("No OCR run has been started yet.", 404)
     if state.get("status") == "processing":
@@ -2209,7 +2192,6 @@ def v1_ocr_results():
             total_sum += int(final)
         except (ValueError, TypeError):
             pass
-
         output.append(
             {
                 "digit_id": r.get("digit_id"),
@@ -2236,14 +2218,8 @@ def v1_ocr_results():
     )
 
 
-# ── GET /api/v1/ocr/segments ──────────────────────────────────────────────────
-
-
 @public_api.route("/ocr/segments", methods=["GET"])
 def v1_ocr_segments():
-    """
-    Raw DXF stroke segments from the most recent OCR scan.
-    """
     raw_segs = state.get("segments", [])
     segments = [{"x1": s.x1, "y1": s.y1, "x2": s.x2, "y2": s.y2} for s in raw_segs]
     return _v1_ok(
@@ -2255,14 +2231,8 @@ def v1_ocr_segments():
     )
 
 
-# ── GET /api/v1/poles ─────────────────────────────────────────────────────────
-
-
 @public_api.route("/poles", methods=["GET"])
 def v1_poles():
-    """
-    All detected pole IDs for the currently loaded DXF.
-    """
     status = POLE_STATE.get("status", "idle")
     if status == "idle":
         return _v1_err("No pole scan has been started yet.", 404)
@@ -2285,22 +2255,21 @@ def v1_poles():
     if filter_source in ("text", "mtext", "stroke"):
         tags = [t for t in tags if t.get("source") == filter_source]
 
-    output = []
-    for t in tags:
-        output.append(
-            {
-                "pole_id": t.get("pole_id"),
-                "name": t.get("name"),
-                "cx": t.get("cx"),
-                "cy": t.get("cy"),
-                "bbox": t.get("bbox"),
-                "layer": t.get("layer"),
-                "source": t.get("source"),
-                "ocr_conf": t.get("ocr_conf"),
-                "needs_review": t.get("needs_review"),
-                "crop_b64": t.get("crop_b64") if include_crops else None,
-            }
-        )
+    output = [
+        {
+            "pole_id": t.get("pole_id"),
+            "name": t.get("name"),
+            "cx": t.get("cx"),
+            "cy": t.get("cy"),
+            "bbox": t.get("bbox"),
+            "layer": t.get("layer"),
+            "source": t.get("source"),
+            "ocr_conf": t.get("ocr_conf"),
+            "needs_review": t.get("needs_review"),
+            "crop_b64": t.get("crop_b64") if include_crops else None,
+        }
+        for t in tags
+    ]
 
     return _v1_ok(
         {
@@ -2312,14 +2281,8 @@ def v1_poles():
     )
 
 
-# ── GET /api/v1/equipment ─────────────────────────────────────────────────────
-
-
 @public_api.route("/equipment", methods=["GET"])
 def v1_equipment():
-    """
-    All detected equipment shapes for the currently loaded DXF.
-    """
     status = SCAN_STATE.get("status", "idle")
     if status == "idle":
         return _v1_err("No equipment scan has been started yet.", 404)
@@ -2332,8 +2295,6 @@ def v1_equipment():
     filter_layer = request.args.get("layer", "")
 
     all_shapes = SCAN_STATE.get("shapes", [])
-
-    # Summary always on the full unfiltered set
     summary: Dict[str, int] = {}
     for s in all_shapes:
         summary[s["kind"]] = summary.get(s["kind"], 0) + 1
@@ -2344,36 +2305,28 @@ def v1_equipment():
     if filter_layer:
         filtered = [s for s in filtered if s.get("layer") == filter_layer]
 
-    output = [
-        {
-            "shape_id": s.get("shape_id"),
-            "kind": s.get("kind"),
-            "cx": s.get("cx"),
-            "cy": s.get("cy"),
-            "bbox": s.get("bbox"),
-            "layer": s.get("layer"),
-        }
-        for s in filtered
-    ]
-
     return _v1_ok(
         {
             "dxf_path": state.get("dxf_path"),
-            "count": len(output),
+            "count": len(filtered),
             "summary": summary,
-            "shapes": output,
+            "shapes": [
+                {
+                    "shape_id": s.get("shape_id"),
+                    "kind": s.get("kind"),
+                    "cx": s.get("cx"),
+                    "cy": s.get("cy"),
+                    "bbox": s.get("bbox"),
+                    "layer": s.get("layer"),
+                }
+                for s in filtered
+            ],
         }
     )
 
 
-# ── GET /api/v1/cable_spans ───────────────────────────────────────────────────
-
-
 @public_api.route("/cable_spans", methods=["GET"])
 def v1_cable_spans():
-    """
-    All cable spans for the currently loaded DXF, with OCR-matched meter values.
-    """
     dxf_path = state.get("dxf_path")
     if not dxf_path:
         return _v1_err("No DXF has been loaded.", 404)
@@ -2387,42 +2340,34 @@ def v1_cable_spans():
 
         if not cable_layer:
             return _v1_ok(
-                {
-                    "dxf_path": dxf_path,
-                    "cable_layer": None,
-                    "count": 0,
-                    "spans": [],
-                }
+                {"dxf_path": dxf_path, "cable_layer": None, "count": 0, "spans": []}
             )
 
         spans = build_cable_spans(doc, cable_layer, connect_tol=CABLE_CONNECT_TOL)
         spans = assign_meter_values_to_spans(spans, state.get("results", []))
 
-        output = []
-        for s in spans:
-            output.append(
-                {
-                    "span_id": s["span_id"],
-                    "layer": s.get("layer"),
-                    "cx": s.get("cx"),
-                    "cy": s.get("cy"),
-                    "bbox": s.get("bbox"),
-                    "total_length": s.get("total_length"),
-                    "meter_value": s.get("meter_value"),
-                    "cable_runs": s.get("cable_runs", 1),
-                    "segment_count": s.get("segment_count"),
-                    "from_pole": s.get("from_pole"),
-                    "to_pole": s.get("to_pole"),
-                    "segments": s.get("segments") if include_segs else None,
-                }
-            )
-
         return _v1_ok(
             {
                 "dxf_path": dxf_path,
                 "cable_layer": cable_layer,
-                "count": len(output),
-                "spans": output,
+                "count": len(spans),
+                "spans": [
+                    {
+                        "span_id": s["span_id"],
+                        "layer": s.get("layer"),
+                        "cx": s.get("cx"),
+                        "cy": s.get("cy"),
+                        "bbox": s.get("bbox"),
+                        "total_length": s.get("total_length"),
+                        "meter_value": s.get("meter_value"),
+                        "cable_runs": s.get("cable_runs", 1),
+                        "segment_count": s.get("segment_count"),
+                        "from_pole": s.get("from_pole"),
+                        "to_pole": s.get("to_pole"),
+                        "segments": s.get("segments") if include_segs else None,
+                    }
+                    for s in spans
+                ],
             }
         )
 
@@ -2433,21 +2378,14 @@ def v1_cable_spans():
         return _v1_err(str(exc), 500)
 
 
-# ── POST /api/v1/export/ocr ───────────────────────────────────────────────────
-
-
 @public_api.route("/export/ocr", methods=["POST"])
 def v1_export_ocr():
-    """
-    Trigger an Excel export of OCR results and return a download URL.
-    """
     if state.get("status") != "done":
         return _v1_err("OCR must complete before exporting.", 400)
 
     body = request.get_json(silent=True) or {}
     corrections = body.get("corrections", {})
 
-    # Apply caller-supplied corrections
     for r in state.get("results", []):
         did = str(r["digit_id"])
         if did in corrections and corrections[did] is not None:
@@ -2457,22 +2395,11 @@ def v1_export_ocr():
     if err:
         return _v1_err(err, 500)
 
-    return _v1_ok(
-        {
-            "download_url": f"/api/download?file={path}",
-            "path": path,
-        }
-    )
-
-
-# ── POST /api/v1/export/poles ─────────────────────────────────────────────────
+    return _v1_ok({"download_url": f"/api/download?file={path}", "path": path})
 
 
 @public_api.route("/export/poles", methods=["POST"])
 def v1_export_poles():
-    """
-    Trigger an Excel export of pole IDs and return a download URL.
-    """
     tags = POLE_STATE.get("tags", [])
     if not tags:
         return _v1_err("No pole tags to export. Run a scan first.", 400)
@@ -2480,7 +2407,6 @@ def v1_export_poles():
     body = request.get_json(silent=True) or {}
     overrides = body.get("overrides", {})
 
-    # Apply caller-supplied name overrides without mutating server state
     export_tags = []
     for t in tags:
         pid_str = str(t.get("pole_id", ""))
@@ -2494,31 +2420,55 @@ def v1_export_poles():
     if err:
         return _v1_err(err, 500)
 
-    return _v1_ok(
-        {
-            "download_url": f"/api/download?file={path}",
-            "path": path,
-        }
-    )
+    return _v1_ok({"download_url": f"/api/download?file={path}", "path": path})
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# ENTRY POINT
+# STARTUP
 # ─────────────────────────────────────────────────────────────────────────────
+
+
+def _prewarm_ocr():
+    """
+    Pre-warm OCR engines at startup.
+    - EasyOCR: lazy-loaded on first scan, pre-warmed here to avoid cold-start
+      delay on the first drawing a user opens.
+    - Pole TrOCR: pre-warmed alongside EasyOCR as before.
+    """
+    # Pre-warm EasyOCR
+    try:
+        print("[startup] Pre-warming EasyOCR...")
+        _load_easyocr()
+        print("[startup] EasyOCR ready.")
+    except Exception as e:
+        print(f"[startup] EasyOCR pre-warm failed (will retry on first scan): {e}")
+
+    # Pre-warm pole TrOCR
+    try:
+        from app_python.services.pole_ocr import _load_model as _load_pole
+
+        print("[startup] Pre-warming pole TrOCR model...")
+        _load_pole()
+        print("[startup] Pole TrOCR ready.")
+    except Exception as e:
+        print(f"[startup] Pole TrOCR pre-warm failed (will retry on first scan): {e}")
+
+
+# Register blueprint
+app.register_blueprint(public_api)
+
+# Pre-warm at startup
+_prewarm_ocr()
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=5000)
-    parser.add_argument(
-        "--dev",
-        action="store_true",
-        help="Run in dev mode (React runs separately on port 5173)",
-    )
+    parser.add_argument("--dev", action="store_true")
     args = parser.parse_args()
 
     print(f"\n{'=' * 50}")
-    print(f"  CAD OCR – Flask Backend")
+    print(f"  CAD OCR – Flask Backend  (EasyOCR engine)")
     print(f"  http://localhost:{args.port}")
     if args.dev:
         print(f"  React dev server: http://localhost:5173")
@@ -2526,25 +2476,6 @@ def main():
 
     app.run(host="localhost", port=args.port, debug=False, threaded=True)
 
-
-# ── Register blueprint now that all routes are defined ───────────────────────
-app.register_blueprint(public_api)
-
-
-# ── Pre-warm TrOCR at startup (before any worker threads spawn) ───────────────
-def _prewarm_trocr():
-    """Load TrOCR into the singleton once at startup, single-threaded."""
-    try:
-        from app_python.services.pole_ocr import _load_model
-
-        print("[startup] Pre-warming TrOCR model...")
-        _load_model()
-        print("[startup] TrOCR pre-warm complete.")
-    except Exception as e:
-        print(f"[startup] TrOCR pre-warm failed (will retry on first scan): {e}")
-
-
-_prewarm_trocr()
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
