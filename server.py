@@ -178,20 +178,57 @@ import re as _re
 _easyocr_reader = None
 _easyocr_lock = threading.Lock()
 
-# Rotation order: cardinals first so fast-accept fires early for upright digits,
-# diagonals last since they're slower (PIL interpolation) and less common.
-_OCR_ROTATIONS = [0, 90, 180, 270, 45, 135, 225, 315]
+# Full 15° sweep — empirically confirmed to give best results on this drawing type.
+# Cardinals (0,90,180,270) use lossless cv2.rotate.
+# Non-cardinals use PIL BICUBIC interpolation (cleaner edges than BILINEAR
+# on small crops, reduces the interpolation artefacts that caused fake
+# 1.000 confidence reads at certain angles).
+# Order: cardinals first so fast-accept fires early for clean upright digits,
+# non-cardinals after so they only run when cardinals didn't fast-accept.
+# Rotation pairs: each tuple is (θ, θ+180°).
+# Cardinals first for fast-accept, then 15° increments.
+# A digit drawn at angle θ reads correctly at θ and as a mirror at θ+180°.
+# By always evaluating both angles in a pair and keeping only the winner,
+# we guarantee the mirror rotation never competes against the correct one.
+_OCR_ROTATION_PAIRS = [
+    (0, 180),
+    (90, 270),
+    (15, 195),
+    (30, 210),
+    (45, 225),
+    (60, 240),
+    (75, 255),
+    (105, 285),
+    (120, 300),
+    (135, 315),
+    (150, 330),
+    (165, 345),
+]
 
-# Accept immediately at this confidence on a cardinal angle — skip diagonals.
-# 0.95 means only essentially-certain reads fast-accept, preventing the
-# wrong rotation winning because it found something valid first.
+# Fast-accept threshold — two-digit result at this confidence skips
+# remaining rotations. Set at 0.95 so only genuinely clean reads fast-accept.
 _FAST_ACCEPT_CONF = 0.95
 
 # Below this confidence the result is flagged needs_review=True.
 _MIN_CONF = 0.50
 
-# Strand values: 1–2 digit integers (0–99)
+# Maximum plausible strand value in these drawings.
+# Dataset max is 72; we use 75 as a safe ceiling.
+# Any read above this is a misread (e.g. 83, 89, 97 are rotated/mirrored reads).
+_MAX_STRAND_VALUE = 75
+
+# Strand values: 1–2 digit integers within domain range
 _STRAND_RE = _re.compile(r"^\d{1,2}$")
+
+
+def _is_valid_strand(text: str) -> bool:
+    """True if text matches strand regex AND is within the domain value range."""
+    if not text or not _STRAND_RE.match(text):
+        return False
+    try:
+        return int(text) <= _MAX_STRAND_VALUE
+    except ValueError:
+        return False
 
 
 def _load_easyocr():
@@ -220,8 +257,15 @@ def _load_easyocr():
 def _rotate_crop(img: np.ndarray, degrees: int) -> np.ndarray:
     """
     Rotate a grayscale uint8 image clockwise by `degrees`.
-    Cardinals use cv2.rotate (lossless). Diagonals use PIL with expand=True
-    so content is never clipped. fillcolor=0 matches white-on-black format.
+
+    Cardinals (0/90/180/270): cv2.rotate — lossless, no interpolation.
+    Non-cardinals: PIL BICUBIC with expand=True so content is never clipped,
+    then resized back to the original square size so all crops fed to
+    EasyOCR are the same dimensions regardless of rotation angle.
+
+    BICUBIC is used instead of BILINEAR because it produces sharper edges
+    on small crops, reducing the interpolation artefacts that caused
+    fake high-confidence reads at certain angles with BILINEAR.
     """
     if degrees == 0:
         return img
@@ -231,12 +275,16 @@ def _rotate_crop(img: np.ndarray, degrees: int) -> np.ndarray:
         return cv2.rotate(img, cv2.ROTATE_180)
     if degrees == 270:
         return cv2.rotate(img, cv2.ROTATE_90_COUNTERCLOCKWISE)
+
     from PIL import Image as _PILImage
 
+    orig_h, orig_w = img.shape[:2]
     pil = _PILImage.fromarray(img)
-    rotated = pil.rotate(
-        -degrees, resample=_PILImage.BILINEAR, expand=True, fillcolor=0
-    )
+    # PIL rotates counter-clockwise; negate for clockwise convention
+    # expand=True prevents clipping at non-cardinal angles
+    rotated = pil.rotate(-degrees, resample=_PILImage.BICUBIC, expand=True, fillcolor=0)
+    # Resize back to original square dimensions so all crops are uniform
+    rotated = rotated.resize((orig_w, orig_h), _PILImage.BICUBIC)
     return np.array(rotated)
 
 
@@ -279,7 +327,7 @@ def _easyocr_on_prepared(img: np.ndarray) -> Tuple[str, float]:
     text = best[1].strip()
     conf = float(best[2])
 
-    if not _STRAND_RE.match(text):
+    if not _is_valid_strand(text):
         return text, conf * 0.5
 
     return text, conf
@@ -287,66 +335,88 @@ def _easyocr_on_prepared(img: np.ndarray) -> Tuple[str, float]:
 
 def predict_with_easyocr(crop_np: np.ndarray) -> Tuple[str, float]:
     """
-    Run EasyOCR across up to 8 rotations of a white-on-black strand crop.
+    Run EasyOCR using paired rotations (θ and θ+180° evaluated together).
 
-    Rotation order: 0°, 90°, 180°, 270°, 45°, 135°, 225°, 315°
+    For each pair both angles are tried; the higher-confidence valid result
+    is kept as the pair winner. Pair winners compete globally with a
+    confidence gap threshold to prevent minor noise from causing upsets.
 
-    Fast-accept: if a cardinal rotation produces a valid result with
-    confidence >= 0.95, skip remaining rotations.
-
-    Selection: valid regex match always beats invalid; highest confidence
-    wins among equally valid candidates.
+    render_crop() now horizontally flips the output to correct the Y-axis
+    mirror from the DXF→image coordinate transform, so digits are correctly
+    oriented before any rotation is applied here.
 
     Returns (value_string, confidence_float).
     """
+    CONF_GAP_THRESHOLD = 0.08
+    STRONG_PAIR_CONF = 0.80
+
     best_text = ""
     best_conf = 0.0
     best_valid = False
+    strong_winners: List[Tuple[str, float]] = []
 
-    for degrees in _OCR_ROTATIONS:
-        # 1. Rotate the original white-on-black crop
+    def _run_angle(degrees: int) -> Tuple[str, float, bool]:
         rotated = _rotate_crop(crop_np, degrees)
-
-        # 2. Invert → black ink on white (EasyOCR's expected format)
         inverted = cv2.bitwise_not(rotated)
-
-        # 3. Pad so digits near crop edges aren't clipped
         padded = cv2.copyMakeBorder(
-            inverted,
-            16,
-            16,
-            16,
-            16,
-            cv2.BORDER_CONSTANT,
-            value=255,
+            inverted, 16, 16, 16, 16, cv2.BORDER_CONSTANT, value=255
         )
-
-        # 4. Run EasyOCR via recognize() — bypasses text detector
         text, conf = _easyocr_on_prepared(padded)
-        valid = bool(text and _STRAND_RE.match(text))
+        valid = _is_valid_strand(text)
+        return text, conf, valid
 
+    def _better(t1, c1, v1, t2, c2, v2) -> bool:
+        if v2 and not v1:
+            return True
+        if not v2:
+            return False
+        if len(t2) == 2 and len(t1) != 2:
+            return True
+        if len(t2) != 2 and len(t1) == 2:
+            return False
+        return c2 > c1
+
+    for deg_a, deg_b in _OCR_ROTATION_PAIRS:
+        ta, ca, va = _run_angle(deg_a)
+        tb, cb, vb = _run_angle(deg_b)
         print(
-            f"[ocr]  rot={degrees:>4}°  "
-            f"text={text!r:>5}  conf={conf:.3f}  valid={valid}"
+            f"[ocr]  pair ({deg_a:>3}°,{deg_b:>3}°)  "
+            f"A={ta!r:>5}({ca:.3f})  B={tb!r:>5}({cb:.3f})"
         )
 
-        # Valid always beats invalid; highest conf wins among equals
-        if valid and not best_valid:
-            best_text, best_conf, best_valid = text, conf, True
-        elif valid == best_valid and conf > best_conf:
-            best_text, best_conf = text, conf
+        pt, pc, pv = (tb, cb, vb) if _better(ta, ca, va, tb, cb, vb) else (ta, ca, va)
+        if not pv:
+            continue
 
-        # Fast-accept on cardinal angles only
-        if (
-            best_valid
-            and best_conf >= _FAST_ACCEPT_CONF
-            and degrees in (0, 90, 180, 270)
-        ):
-            print(
-                f"[ocr]  fast-accept at {degrees}°  "
-                f"text={best_text!r}  conf={best_conf:.3f}"
-            )
+        print(f"[ocr]    winner: {pt!r}({pc:.3f})")
+
+        if len(pt) == 2 and pc >= STRONG_PAIR_CONF:
+            strong_winners.append((pt, pc))
+
+        if not best_valid:
+            best_text, best_conf, best_valid = pt, pc, True
+        else:
+            if _better(best_text, best_conf, True, pt, pc, True):
+                # Only upgrade if gap is meaningful
+                if len(pt) == 2 and len(best_text) != 2:
+                    best_text, best_conf = pt, pc
+                    print(f"[ocr]    two-digit upgrade → {pt!r}({pc:.3f})")
+                elif len(pt) == len(best_text) and pc > best_conf + CONF_GAP_THRESHOLD:
+                    print(
+                        f"[ocr]    conf-gap upgrade: {best_text!r}({best_conf:.3f}) → {pt!r}({pc:.3f})"
+                    )
+                    best_text, best_conf = pt, pc
+
+        if best_valid and len(best_text) == 2 and best_conf >= _FAST_ACCEPT_CONF:
+            print(f"[ocr]  fast-accept: {best_text!r}({best_conf:.3f})")
             break
+
+    # Ambiguity: multiple conflicting strong reads → flag for review
+    if len(strong_winners) >= 2:
+        unique_vals = set(t for t, _ in strong_winners)
+        if len(unique_vals) > 1:
+            print(f"[ocr]  AMBIGUOUS: {unique_vals} → penalise to 0.40")
+            best_conf = min(best_conf, 0.40)
 
     return best_text, round(best_conf, 4)
 
@@ -644,6 +714,98 @@ def salvage_remove_dominant_line(
     return subclusters if subclusters else [idxs]
 
 
+def _split_by_gap(segments, info, med_w, med_h):
+    """
+    Detect and split candidates that contain multiple numbers merged into
+    one cluster. Works by finding the largest spatial gap between segment
+    groups along both the X and Y axes.
+
+    A cluster is a merged multi-number if its bbox is:
+      - More than 1.5× median height tall (two rows stacked), OR
+      - More than 3× median width wide (two numbers side by side with gap)
+
+    Split strategy:
+      1. Project segment midpoints onto the relevant axis
+      2. Find the largest gap in that distribution
+      3. If gap > 20% of dimension, split there and return two halves
+
+    Returns list of ClusterInfo — length 1 means no split was done.
+    """
+    # Collect midpoints
+    mids_x = []
+    mids_y = []
+    for i in info.seg_indices:
+        s = segments[i]
+        mids_x.append((s.x1 + s.x2) / 2.0)
+        mids_y.append((s.y1 + s.y2) / 2.0)
+
+    if len(mids_x) < 4:
+        return [info]
+
+    def find_best_gap(values, total_dim):
+        sv = sorted(values)
+        best_gap = -1.0
+        best_split = None
+        for k in range(1, len(sv)):
+            gap = sv[k] - sv[k - 1]
+            if gap > best_gap:
+                best_gap = gap
+                best_split = (sv[k] + sv[k - 1]) / 2.0
+        # Gap must be at least 20% of total dimension to be meaningful
+        if best_split is None or best_gap < total_dim * 0.20:
+            return None, -1.0
+        return best_split, best_gap
+
+    def do_split(axis_values, axis, threshold):
+        """Split segment indices into two halves along axis at threshold."""
+        a_idxs, b_idxs = [], []
+        for k, i in enumerate(info.seg_indices):
+            if axis_values[k] < threshold:
+                a_idxs.append(i)
+            else:
+                b_idxs.append(i)
+        results = []
+        for half in (a_idxs, b_idxs):
+            if len(half) < 2:
+                continue
+            bx = _bbox_from_segments(segments, half)
+            w = bx[2] - bx[0]
+            h = bx[3] - bx[1]
+            tlen = sum(segments[j].length() for j in half)
+            if tlen < MIN_TOTAL_LENGTH or w < 1e-9 or h < 1e-9:
+                continue
+            results.append(
+                ClusterInfo(info.cluster_id, half, bx, w, h, tlen, "digit_candidate")
+            )
+        return results if len(results) == 2 else [info]
+
+    # Try Y split first (stacked rows) — most common case
+    if info.height > med_h * 1.5:
+        split_y, gap_y = find_best_gap(mids_y, info.height)
+        if split_y is not None:
+            result = do_split(mids_y, "y", split_y)
+            if len(result) == 2:
+                print(
+                    f"[split] Y-split at {split_y:.3f} (gap={gap_y:.3f}) "
+                    f"→ {len(info.seg_indices)} segs → {[len(r.seg_indices) for r in result]}"
+                )
+                return result
+
+    # Try X split (side-by-side with gap)
+    if info.width > med_w * 3.0:
+        split_x, gap_x = find_best_gap(mids_x, info.width)
+        if split_x is not None:
+            result = do_split(mids_x, "x", split_x)
+            if len(result) == 2:
+                print(
+                    f"[split] X-split at {split_x:.3f} (gap={gap_x:.3f}) "
+                    f"→ {len(info.seg_indices)} segs → {[len(r.seg_indices) for r in result]}"
+                )
+                return result
+
+    return [info]
+
+
 def build_candidates_robust(segments, infos):
     prelim = [
         i
@@ -679,7 +841,9 @@ def build_candidates_robust(segments, infos):
             or not aspect_ok(i.width, i.height)
         )
         if not too_big:
-            final_infos.append(i)
+            # Even within-size candidates: split if suspiciously tall
+            for split in _split_by_gap(segments, i, med_w, med_h):
+                final_infos.append(split)
             continue
         subclusters = salvage_remove_dominant_line(
             segments,
@@ -705,9 +869,14 @@ def build_candidates_robust(segments, infos):
                 continue
             if not aspect_ok(w, h):
                 continue
-            final_infos.append(
-                ClusterInfo(i.cluster_id, comp, bx, w, h, tlen, "digit_candidate")
-            )
+            # Split salvaged pieces too if still tall
+            for split in _split_by_gap(
+                segments,
+                ClusterInfo(i.cluster_id, comp, bx, w, h, tlen, "digit_candidate"),
+                med_w,
+                med_h,
+            ):
+                final_infos.append(split)
     final_infos = [x for x in final_infos if is_renderable_cluster(segments, x)]
     final_infos = sorted(
         final_infos,
@@ -903,6 +1072,95 @@ state = {
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# POST-OCR VALIDATION
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def _post_ocr_validate(results: list) -> list:
+    """
+    Apply drawing-level statistical validation after all OCR reads complete.
+
+    EasyOCR confidence scores alone are unreliable — a wrong answer and a
+    right answer can both return 99%+ confidence. This function uses the
+    drawing's own internal consistency as a second signal.
+
+    Rules applied (never change values, only set needs_review=True):
+
+    Rule 1 — Lone single-digit suspicion:
+        Single-digit values (1-9) that appear only ONCE in the drawing
+        are flagged. Your drawings use mostly 2-digit values (30-50 range)
+        that repeat many times. A single "8" is almost always a misread
+        of a two-digit number ("38", "48", "8" from "38" split).
+        Exception: single-digit values appearing 3+ times are real.
+
+    Rule 2 — Low-frequency low-confidence outlier:
+        Values appearing exactly once in the entire drawing with
+        confidence < 0.80 are flagged. In a drawing where "37" appears
+        15 times, a single "71" at 0.65 confidence is almost certainly
+        a wrong read at an unusual rotation.
+
+    Rule 3 — Suspiciously round single digits from high-confidence read:
+        If 0° read was a single digit at high confidence but 90° also
+        fired at high confidence with a two-digit number, the result is
+        already the two-digit (from rotation logic). This rule catches
+        the remaining cases where 0° single digit fast-accepted wrongly —
+        any single digit (1-9) with confidence < 0.90 gets flagged since
+        genuine single-digit strand values are rare.
+    """
+    from collections import Counter
+
+    # Build frequency table of final values across this drawing
+    value_counts = Counter(
+        r.get("corrected_value") or r.get("value", "") for r in results
+    )
+
+    flagged = 0
+    for r in results:
+        if r.get("needs_review"):
+            continue  # already flagged, skip
+
+        val = r.get("corrected_value") or r.get("value", "")
+        conf = r.get("confidence", 0.0)
+        freq = value_counts.get(val, 0)
+
+        # Rule 1: lone single-digit
+        is_single_digit = val.isdigit() and len(val) == 1 and val != "0"
+        if is_single_digit and freq < 3:
+            r["needs_review"] = True
+            flagged += 1
+            print(
+                f"[validate] Rule1 lone-single-digit: "
+                f"id={r['digit_id']} val={val!r} freq={freq} conf={conf:.3f}"
+            )
+            continue
+
+        # Rule 2: low-frequency low-confidence outlier
+        if freq == 1 and conf < 0.80:
+            r["needs_review"] = True
+            flagged += 1
+            print(
+                f"[validate] Rule2 low-freq-low-conf: "
+                f"id={r['digit_id']} val={val!r} freq={freq} conf={conf:.3f}"
+            )
+            continue
+
+        # Rule 3: single digit below confidence threshold
+        if is_single_digit and conf < 0.90:
+            r["needs_review"] = True
+            flagged += 1
+            print(
+                f"[validate] Rule3 low-conf-single: "
+                f"id={r['digit_id']} val={val!r} conf={conf:.3f}"
+            )
+
+    print(
+        f"[validate] Flagged {flagged} additional results for review "
+        f"(total candidates: {len(results)})"
+    )
+    return results
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # OCR PIPELINE
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -1021,11 +1279,35 @@ def run_pipeline(dxf_path, layer, model_path):
                 }
             )
 
+        # ── Post-OCR validation pass ──────────────────────────────────────
+        # Now that all crops have been read, use drawing-level statistics
+        # to flag results that are likely misreads.
+        #
+        # Two rules applied:
+        #
+        # Rule 1 — Single-digit suspicion:
+        #   Single digit values (1-9) that appear only ONCE in the drawing
+        #   are flagged for review. Your drawings repeat values many times,
+        #   so a lone single-digit is almost always a misread of a two-digit
+        #   number (e.g. "8" read instead of "38" or "48").
+        #   Exception: if single-digit values appear 3+ times they're real.
+        #
+        # Rule 2 — Frequency outlier suspicion:
+        #   Any value that appears exactly once AND has confidence < 0.85
+        #   is flagged. In a drawing where "37" appears 15 times, a single
+        #   occurrence of "71" at 0.75 confidence is almost certainly wrong.
+        #
+        # These rules never change the value — only set needs_review=True
+        # so the user sees it in the review queue.
+
+        results = _post_ocr_validate(results)
+
         state.update(
             {
                 "status": "done",
                 "step": 4,
                 "step_label": "Done",
+                "results": results,
             }
         )
 
