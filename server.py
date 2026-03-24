@@ -12,6 +12,7 @@ Changes from original:
   - api_check_model() updated — no longer requires cad_digit_model.pt
   - _prewarm_trocr() replaced with _prewarm_ocr() for EasyOCR
   - Dead CNN code (load_model, predict_image, val_transform) removed
+  - UPDATED: Arrays support for multi-layer OCR processing and multi-layer Cable span building
 """
 
 import argparse
@@ -178,18 +179,6 @@ import re as _re
 _easyocr_reader = None
 _easyocr_lock = threading.Lock()
 
-# Full 15° sweep — empirically confirmed to give best results on this drawing type.
-# Cardinals (0,90,180,270) use lossless cv2.rotate.
-# Non-cardinals use PIL BICUBIC interpolation (cleaner edges than BILINEAR
-# on small crops, reduces the interpolation artefacts that caused fake
-# 1.000 confidence reads at certain angles).
-# Order: cardinals first so fast-accept fires early for clean upright digits,
-# non-cardinals after so they only run when cardinals didn't fast-accept.
-# Rotation pairs: each tuple is (θ, θ+180°).
-# Cardinals first for fast-accept, then 15° increments.
-# A digit drawn at angle θ reads correctly at θ and as a mirror at θ+180°.
-# By always evaluating both angles in a pair and keeping only the winner,
-# we guarantee the mirror rotation never competes against the correct one.
 _OCR_ROTATION_PAIRS = [
     (0, 180),
     (90, 270),
@@ -205,24 +194,13 @@ _OCR_ROTATION_PAIRS = [
     (165, 345),
 ]
 
-# Fast-accept threshold — two-digit result at this confidence skips
-# remaining rotations. Set at 0.95 so only genuinely clean reads fast-accept.
 _FAST_ACCEPT_CONF = 0.95
-
-# Below this confidence the result is flagged needs_review=True.
 _MIN_CONF = 0.50
-
-# Maximum plausible strand value in these drawings.
-# Dataset max is 72; we use 75 as a safe ceiling.
-# Any read above this is a misread (e.g. 83, 89, 97 are rotated/mirrored reads).
 _MAX_STRAND_VALUE = 75
-
-# Strand values: 1–2 digit integers within domain range
 _STRAND_RE = _re.compile(r"^\d{1,2}$")
 
 
 def _is_valid_strand(text: str) -> bool:
-    """True if text matches strand regex AND is within the domain value range."""
     if not text or not _STRAND_RE.match(text):
         return False
     try:
@@ -232,11 +210,6 @@ def _is_valid_strand(text: str) -> bool:
 
 
 def _load_easyocr():
-    """
-    Lazy singleton for EasyOCR.
-    Loads once on first call, reused for every crop in every scan.
-    Thread-safe double-checked lock.
-    """
     global _easyocr_reader
     if _easyocr_reader is not None:
         return _easyocr_reader
@@ -255,18 +228,6 @@ def _load_easyocr():
 
 
 def _rotate_crop(img: np.ndarray, degrees: int) -> np.ndarray:
-    """
-    Rotate a grayscale uint8 image clockwise by `degrees`.
-
-    Cardinals (0/90/180/270): cv2.rotate — lossless, no interpolation.
-    Non-cardinals: PIL BICUBIC with expand=True so content is never clipped,
-    then resized back to the original square size so all crops fed to
-    EasyOCR are the same dimensions regardless of rotation angle.
-
-    BICUBIC is used instead of BILINEAR because it produces sharper edges
-    on small crops, reducing the interpolation artefacts that caused
-    fake high-confidence reads at certain angles with BILINEAR.
-    """
     if degrees == 0:
         return img
     if degrees == 90:
@@ -280,26 +241,12 @@ def _rotate_crop(img: np.ndarray, degrees: int) -> np.ndarray:
 
     orig_h, orig_w = img.shape[:2]
     pil = _PILImage.fromarray(img)
-    # PIL rotates counter-clockwise; negate for clockwise convention
-    # expand=True prevents clipping at non-cardinal angles
     rotated = pil.rotate(-degrees, resample=_PILImage.BICUBIC, expand=True, fillcolor=0)
-    # Resize back to original square dimensions so all crops are uniform
     rotated = rotated.resize((orig_w, orig_h), _PILImage.BICUBIC)
     return np.array(rotated)
 
 
 def _easyocr_on_prepared(img: np.ndarray) -> Tuple[str, float]:
-    """
-    Run EasyOCR on an already-inverted, already-padded uint8 image.
-
-    Uses recognize() instead of readtext() to bypass EasyOCR's internal
-    text detector entirely — the detector fails on small rotated crops and
-    returns [] even when the digit is clearly visible. recognize() forces
-    the entire image to be treated as one text region.
-
-    Returns (text, confidence). Empty string + 0.0 if nothing found.
-    Penalises results that don't match the 1-2 digit strand pattern.
-    """
     reader = _load_easyocr()
     h, w = img.shape[:2]
 
@@ -312,7 +259,6 @@ def _easyocr_on_prepared(img: np.ndarray) -> Tuple[str, float]:
             detail=1,
         )
     except Exception:
-        # Fallback for older EasyOCR versions
         results = reader.readtext(
             img,
             allowlist="0123456789",
@@ -334,19 +280,6 @@ def _easyocr_on_prepared(img: np.ndarray) -> Tuple[str, float]:
 
 
 def predict_with_easyocr(crop_np: np.ndarray) -> Tuple[str, float]:
-    """
-    Run EasyOCR using paired rotations (θ and θ+180° evaluated together).
-
-    For each pair both angles are tried; the higher-confidence valid result
-    is kept as the pair winner. Pair winners compete globally with a
-    confidence gap threshold to prevent minor noise from causing upsets.
-
-    render_crop() now horizontally flips the output to correct the Y-axis
-    mirror from the DXF→image coordinate transform, so digits are correctly
-    oriented before any rotation is applied here.
-
-    Returns (value_string, confidence_float).
-    """
     CONF_GAP_THRESHOLD = 0.08
     STRONG_PAIR_CONF = 0.80
 
@@ -379,16 +312,10 @@ def predict_with_easyocr(crop_np: np.ndarray) -> Tuple[str, float]:
     for deg_a, deg_b in _OCR_ROTATION_PAIRS:
         ta, ca, va = _run_angle(deg_a)
         tb, cb, vb = _run_angle(deg_b)
-        print(
-            f"[ocr]  pair ({deg_a:>3}°,{deg_b:>3}°)  "
-            f"A={ta!r:>5}({ca:.3f})  B={tb!r:>5}({cb:.3f})"
-        )
 
         pt, pc, pv = (tb, cb, vb) if _better(ta, ca, va, tb, cb, vb) else (ta, ca, va)
         if not pv:
             continue
-
-        print(f"[ocr]    winner: {pt!r}({pc:.3f})")
 
         if len(pt) == 2 and pc >= STRONG_PAIR_CONF:
             strong_winners.append((pt, pc))
@@ -397,25 +324,17 @@ def predict_with_easyocr(crop_np: np.ndarray) -> Tuple[str, float]:
             best_text, best_conf, best_valid = pt, pc, True
         else:
             if _better(best_text, best_conf, True, pt, pc, True):
-                # Only upgrade if gap is meaningful
                 if len(pt) == 2 and len(best_text) != 2:
                     best_text, best_conf = pt, pc
-                    print(f"[ocr]    two-digit upgrade → {pt!r}({pc:.3f})")
                 elif len(pt) == len(best_text) and pc > best_conf + CONF_GAP_THRESHOLD:
-                    print(
-                        f"[ocr]    conf-gap upgrade: {best_text!r}({best_conf:.3f}) → {pt!r}({pc:.3f})"
-                    )
                     best_text, best_conf = pt, pc
 
         if best_valid and len(best_text) == 2 and best_conf >= _FAST_ACCEPT_CONF:
-            print(f"[ocr]  fast-accept: {best_text!r}({best_conf:.3f})")
             break
 
-    # Ambiguity: multiple conflicting strong reads → flag for review
     if len(strong_winners) >= 2:
         unique_vals = set(t for t, _ in strong_winners)
         if len(unique_vals) > 1:
-            print(f"[ocr]  AMBIGUOUS: {unique_vals} → penalise to 0.40")
             best_conf = min(best_conf, 0.40)
 
     return best_text, round(best_conf, 4)
@@ -715,23 +634,6 @@ def salvage_remove_dominant_line(
 
 
 def _split_by_gap(segments, info, med_w, med_h):
-    """
-    Detect and split candidates that contain multiple numbers merged into
-    one cluster. Works by finding the largest spatial gap between segment
-    groups along both the X and Y axes.
-
-    A cluster is a merged multi-number if its bbox is:
-      - More than 1.5× median height tall (two rows stacked), OR
-      - More than 3× median width wide (two numbers side by side with gap)
-
-    Split strategy:
-      1. Project segment midpoints onto the relevant axis
-      2. Find the largest gap in that distribution
-      3. If gap > 20% of dimension, split there and return two halves
-
-    Returns list of ClusterInfo — length 1 means no split was done.
-    """
-    # Collect midpoints
     mids_x = []
     mids_y = []
     for i in info.seg_indices:
@@ -751,13 +653,11 @@ def _split_by_gap(segments, info, med_w, med_h):
             if gap > best_gap:
                 best_gap = gap
                 best_split = (sv[k] + sv[k - 1]) / 2.0
-        # Gap must be at least 20% of total dimension to be meaningful
         if best_split is None or best_gap < total_dim * 0.20:
             return None, -1.0
         return best_split, best_gap
 
     def do_split(axis_values, axis, threshold):
-        """Split segment indices into two halves along axis at threshold."""
         a_idxs, b_idxs = [], []
         for k, i in enumerate(info.seg_indices):
             if axis_values[k] < threshold:
@@ -779,28 +679,18 @@ def _split_by_gap(segments, info, med_w, med_h):
             )
         return results if len(results) == 2 else [info]
 
-    # Try Y split first (stacked rows) — most common case
     if info.height > med_h * 1.5:
         split_y, gap_y = find_best_gap(mids_y, info.height)
         if split_y is not None:
             result = do_split(mids_y, "y", split_y)
             if len(result) == 2:
-                print(
-                    f"[split] Y-split at {split_y:.3f} (gap={gap_y:.3f}) "
-                    f"→ {len(info.seg_indices)} segs → {[len(r.seg_indices) for r in result]}"
-                )
                 return result
 
-    # Try X split (side-by-side with gap)
     if info.width > med_w * 3.0:
         split_x, gap_x = find_best_gap(mids_x, info.width)
         if split_x is not None:
             result = do_split(mids_x, "x", split_x)
             if len(result) == 2:
-                print(
-                    f"[split] X-split at {split_x:.3f} (gap={gap_x:.3f}) "
-                    f"→ {len(info.seg_indices)} segs → {[len(r.seg_indices) for r in result]}"
-                )
                 return result
 
     return [info]
@@ -841,7 +731,6 @@ def build_candidates_robust(segments, infos):
             or not aspect_ok(i.width, i.height)
         )
         if not too_big:
-            # Even within-size candidates: split if suspiciously tall
             for split in _split_by_gap(segments, i, med_w, med_h):
                 final_infos.append(split)
             continue
@@ -869,7 +758,6 @@ def build_candidates_robust(segments, infos):
                 continue
             if not aspect_ok(w, h):
                 continue
-            # Split salvaged pieces too if still tall
             for split in _split_by_gap(
                 segments,
                 ClusterInfo(i.cluster_id, comp, bx, w, h, tlen, "digit_candidate"),
@@ -897,9 +785,6 @@ def build_candidates_robust(segments, infos):
 
 
 def render_crop(segments, cand, out_size=128, pad_frac=0.15, thickness=2):
-    # out_size raised 96 → 128: more pixels helps EasyOCR recogniser
-    # on rotated/diagonal digits where strokes are thin after resampling.
-    # pad_frac=0.15: generous margin so edge digits aren't clipped.
     minx, miny, maxx, maxy = cand.bbox
     w = maxx - minx
     h = maxy - miny
@@ -944,62 +829,68 @@ def img_to_b64(img_np):
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def find_cable_layer_name(layers: List[str]) -> Optional[str]:
+def find_cable_layer_names(layers: List[str]) -> List[str]:
+    """Finds and returns ALL layers that contain 'cable' in their name."""
     if not layers:
-        return None
-    lower_map = {layer.lower(): layer for layer in layers}
-    if "cable" in lower_map:
-        return lower_map["cable"]
+        return []
+    matched = []
     for layer in layers:
         if "cable" in layer.lower():
-            return layer
-    return None
+            matched.append(layer)
+    return matched
 
 
-def build_cable_spans(doc, cable_layer: str, connect_tol: float = CABLE_CONNECT_TOL):
-    segments = extract_stroke_segments(doc, cable_layer)
-    if not segments:
-        return []
-
-    clusters = cluster_segments(segments, tol=connect_tol)
+def build_cable_spans(
+    doc, cable_layers: List[str], connect_tol: float = CABLE_CONNECT_TOL
+):
+    """Build spans across MULTIPLE cable layers."""
     spans = []
+    global_span_id = 0
 
-    for span_id, idxs in enumerate(clusters):
-        if not idxs:
+    for cable_layer in cable_layers:
+        segments = extract_stroke_segments(doc, cable_layer)
+        if not segments:
             continue
-        total_len = sum(segments[i].length() for i in idxs)
-        if total_len <= 1e-8:
-            continue
 
-        bbox = _bbox_from_segments(segments, idxs)
-        minx, miny, maxx, maxy = bbox
-        cx = (minx + maxx) / 2.0
-        cy = (miny + maxy) / 2.0
+        clusters = cluster_segments(segments, tol=connect_tol)
 
-        span_segments = []
-        for i in idxs:
-            s = segments[i]
-            if s.length() <= 1e-8:
+        for idxs in clusters:
+            if not idxs:
                 continue
-            span_segments.append({"x1": s.x1, "y1": s.y1, "x2": s.x2, "y2": s.y2})
+            total_len = sum(segments[i].length() for i in idxs)
+            if total_len <= 1e-8:
+                continue
 
-        if not span_segments:
-            continue
+            bbox = _bbox_from_segments(segments, idxs)
+            minx, miny, maxx, maxy = bbox
+            cx = (minx + maxx) / 2.0
+            cy = (miny + maxy) / 2.0
 
-        spans.append(
-            {
-                "span_id": span_id,
-                "layer": cable_layer,
-                "bbox": [minx, miny, maxx, maxy],
-                "cx": cx,
-                "cy": cy,
-                "segment_count": len(span_segments),
-                "total_length": total_len,
-                "segments": span_segments,
-                "from_pole": None,
-                "to_pole": None,
-            }
-        )
+            span_segments = []
+            for i in idxs:
+                s = segments[i]
+                if s.length() <= 1e-8:
+                    continue
+                span_segments.append({"x1": s.x1, "y1": s.y1, "x2": s.x2, "y2": s.y2})
+
+            if not span_segments:
+                continue
+
+            spans.append(
+                {
+                    "span_id": global_span_id,
+                    "layer": cable_layer,
+                    "bbox": [minx, miny, maxx, maxy],
+                    "cx": cx,
+                    "cy": cy,
+                    "segment_count": len(span_segments),
+                    "total_length": total_len,
+                    "segments": span_segments,
+                    "from_pole": None,
+                    "to_pole": None,
+                }
+            )
+            global_span_id += 1
 
     spans.sort(key=lambda s: (-s["cy"], s["cx"]))
     for i, s in enumerate(spans):
@@ -1021,7 +912,6 @@ def assign_meter_values_to_spans(spans, ocr_results, max_dist=None):
             max(s["bbox"][2] - s["bbox"][0], s["bbox"][3] - s["bbox"][1]) for s in spans
         ) / len(spans)
         max_dist = avg_size * 0.5
-        print(f"[meter_assign] Auto max_dist={max_dist:.4f}")
 
     for span in spans:
         cx, cy = span["cx"], span["cy"]
@@ -1056,7 +946,7 @@ def assign_meter_values_to_spans(spans, ocr_results, max_dist=None):
 state = {
     "dxf_path": None,
     "model_path": None,
-    "layer": None,
+    "layers": [],
     "segments": [],
     "candidates": [],
     "results": [],
@@ -1064,8 +954,7 @@ state = {
     "progress": 0,
     "total": 0,
     "error": None,
-    # Sub-step progress — reported to frontend every phase change
-    "step": 0,  # 1=extracting 2=clustering 3=candidates 4=ocr
+    "step": 0,
     "step_label": "",
     "ocr_start_time": None,
 }
@@ -1077,39 +966,8 @@ state = {
 
 
 def _post_ocr_validate(results: list) -> list:
-    """
-    Apply drawing-level statistical validation after all OCR reads complete.
-
-    EasyOCR confidence scores alone are unreliable — a wrong answer and a
-    right answer can both return 99%+ confidence. This function uses the
-    drawing's own internal consistency as a second signal.
-
-    Rules applied (never change values, only set needs_review=True):
-
-    Rule 1 — Lone single-digit suspicion:
-        Single-digit values (1-9) that appear only ONCE in the drawing
-        are flagged. Your drawings use mostly 2-digit values (30-50 range)
-        that repeat many times. A single "8" is almost always a misread
-        of a two-digit number ("38", "48", "8" from "38" split).
-        Exception: single-digit values appearing 3+ times are real.
-
-    Rule 2 — Low-frequency low-confidence outlier:
-        Values appearing exactly once in the entire drawing with
-        confidence < 0.80 are flagged. In a drawing where "37" appears
-        15 times, a single "71" at 0.65 confidence is almost certainly
-        a wrong read at an unusual rotation.
-
-    Rule 3 — Suspiciously round single digits from high-confidence read:
-        If 0° read was a single digit at high confidence but 90° also
-        fired at high confidence with a two-digit number, the result is
-        already the two-digit (from rotation logic). This rule catches
-        the remaining cases where 0° single digit fast-accepted wrongly —
-        any single digit (1-9) with confidence < 0.90 gets flagged since
-        genuine single-digit strand values are rare.
-    """
     from collections import Counter
 
-    # Build frequency table of final values across this drawing
     value_counts = Counter(
         r.get("corrected_value") or r.get("value", "") for r in results
     )
@@ -1117,46 +975,27 @@ def _post_ocr_validate(results: list) -> list:
     flagged = 0
     for r in results:
         if r.get("needs_review"):
-            continue  # already flagged, skip
+            continue
 
         val = r.get("corrected_value") or r.get("value", "")
         conf = r.get("confidence", 0.0)
         freq = value_counts.get(val, 0)
 
-        # Rule 1: lone single-digit
         is_single_digit = val.isdigit() and len(val) == 1 and val != "0"
         if is_single_digit and freq < 3:
             r["needs_review"] = True
             flagged += 1
-            print(
-                f"[validate] Rule1 lone-single-digit: "
-                f"id={r['digit_id']} val={val!r} freq={freq} conf={conf:.3f}"
-            )
             continue
 
-        # Rule 2: low-frequency low-confidence outlier
         if freq == 1 and conf < 0.80:
             r["needs_review"] = True
             flagged += 1
-            print(
-                f"[validate] Rule2 low-freq-low-conf: "
-                f"id={r['digit_id']} val={val!r} freq={freq} conf={conf:.3f}"
-            )
             continue
 
-        # Rule 3: single digit below confidence threshold
         if is_single_digit and conf < 0.90:
             r["needs_review"] = True
             flagged += 1
-            print(
-                f"[validate] Rule3 low-conf-single: "
-                f"id={r['digit_id']} val={val!r} conf={conf:.3f}"
-            )
 
-    print(
-        f"[validate] Flagged {flagged} additional results for review "
-        f"(total candidates: {len(results)})"
-    )
     return results
 
 
@@ -1165,16 +1004,7 @@ def _post_ocr_validate(results: list) -> list:
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def run_pipeline(dxf_path, layer, model_path):
-    """
-    Full OCR pipeline using EasyOCR instead of CNN.
-
-    Sub-step progress is written to state at every phase so the frontend
-    shows meaningful feedback during the 30+ second pre-OCR preparation.
-
-    During OCR, state is updated after every single crop so the digit
-    counter moves every ~1-2 seconds and ETA is always current.
-    """
+def run_pipeline(dxf_path, layers, model_path):
     try:
         state.update(
             {
@@ -1189,19 +1019,23 @@ def run_pipeline(dxf_path, layer, model_path):
             }
         )
 
-        # ── Step 1: Extract segments ──────────────────────────────────────
+        # ── Step 1: Extract segments from ALL chosen layers ────────────────
         doc = ezdxf.readfile(dxf_path)
-        segments = extract_stroke_segments(doc, layer, include_circles=False)
-        state["segments"] = segments
+        all_segments = []
+        for lyr in layers:
+            segs = extract_stroke_segments(doc, lyr, include_circles=False)
+            all_segments.extend(segs)
+
+        state["segments"] = all_segments
 
         # ── Step 2: Cluster ───────────────────────────────────────────────
         state.update({"step": 2, "step_label": "Grouping into digit clusters…"})
-        clusters = cluster_segments(segments, tol=CONNECT_TOL)
-        infos = analyze_clusters(segments, clusters)
+        clusters = cluster_segments(all_segments, tol=CONNECT_TOL)
+        infos = analyze_clusters(all_segments, clusters)
 
         # ── Step 3: Build candidates ──────────────────────────────────────
         state.update({"step": 3, "step_label": "Identifying digit candidates…"})
-        candidates = build_candidates_robust(segments, infos)
+        candidates = build_candidates_robust(all_segments, infos)
         state["candidates"] = candidates
         state["total"] = len(candidates)
 
@@ -1215,10 +1049,9 @@ def run_pipeline(dxf_path, layer, model_path):
             )
             return
 
-        # Render all crops upfront — cheap numpy/cv2, no progress needed here
-        crops = [render_crop(segments, cand) for cand in candidates]
+        crops = [render_crop(all_segments, cand) for cand in candidates]
 
-        # ── Step 4: OCR — one crop at a time, update state after each ─────
+        # ── Step 4: OCR ───────────────────────────────────────────────────
         state.update(
             {
                 "step": 4,
@@ -1235,12 +1068,6 @@ def run_pipeline(dxf_path, layer, model_path):
             cx = (cand.bbox[0] + cand.bbox[2]) / 2
             cy = (cand.bbox[1] + cand.bbox[3]) / 2
 
-            # needs_review when:
-            #   - EasyOCR found nothing valid across all 8 rotations
-            #   - confidence below _MIN_CONF (0.50) after full sweep
-            # Threshold is lower than upright-only (0.70) because diagonal
-            # crops genuinely score lower even when correctly read — the
-            # multi-rotation sweep already picks the best available result.
             needs_review = (not value) or (conf < _MIN_CONF)
 
             results.append(
@@ -1257,7 +1084,6 @@ def run_pipeline(dxf_path, layer, model_path):
                 }
             )
 
-            # ── ETA calculation ───────────────────────────────────────────
             done = i + 1
             elapsed = time.time() - state["ocr_start_time"]
             rate = done / elapsed if elapsed > 0 else 0
@@ -1278,27 +1104,6 @@ def run_pipeline(dxf_path, layer, model_path):
                     "step_label": f"Reading digit {done} of {len(candidates)} — {eta_str}",
                 }
             )
-
-        # ── Post-OCR validation pass ──────────────────────────────────────
-        # Now that all crops have been read, use drawing-level statistics
-        # to flag results that are likely misreads.
-        #
-        # Two rules applied:
-        #
-        # Rule 1 — Single-digit suspicion:
-        #   Single digit values (1-9) that appear only ONCE in the drawing
-        #   are flagged for review. Your drawings repeat values many times,
-        #   so a lone single-digit is almost always a misread of a two-digit
-        #   number (e.g. "8" read instead of "38" or "48").
-        #   Exception: if single-digit values appear 3+ times they're real.
-        #
-        # Rule 2 — Frequency outlier suspicion:
-        #   Any value that appears exactly once AND has confidence < 0.85
-        #   is flagged. In a drawing where "37" appears 15 times, a single
-        #   occurrence of "71" at 0.75 confidence is almost certainly wrong.
-        #
-        # These rules never change the value — only set needs_review=True
-        # so the user sees it in the review queue.
 
         results = _post_ocr_validate(results)
 
@@ -1391,12 +1196,7 @@ def _run_full_scan(dxf_path: str, boundary_layer: Optional[str]):
         scan_layers = list(layer_kind_targets.keys())
         SCAN_STATE["total"] = len(scan_layers)
 
-        print(
-            f"[scan] Targeting {len(scan_layers)} relevant layers out of {len(layers)} total"
-        )
-
         all_shapes = []
-
         for i, layer in enumerate(scan_layers):
             allowed_kinds = set(layer_kind_targets[layer])
             try:
@@ -1415,7 +1215,7 @@ def _run_full_scan(dxf_path: str, boundary_layer: Optional[str]):
                         }
                     )
             except Exception as e:
-                print(f"[scan] Error on layer '{layer}': {e}")
+                pass
             SCAN_STATE["progress"] = i + 1
 
         DEDUP_EPS = 0.5
@@ -1446,16 +1246,8 @@ def _run_full_scan(dxf_path: str, boundary_layer: Optional[str]):
                 )
                 if boundary:
                     boundary_pts = [{"x": p[0], "y": p[1]} for p in boundary.pts]
-                    print(
-                        f"[boundary] OK — {len(boundary.pts)} pts, area={boundary.area:.2f}"
-                    )
-                else:
-                    print(f"[boundary] returned None for layer '{boundary_layer}'")
             except Exception as e:
-                import traceback
-
-                traceback.print_exc()
-                print(f"[boundary] ERROR: {e}")
+                pass
 
         SCAN_STATE.update(
             {
@@ -1464,7 +1256,6 @@ def _run_full_scan(dxf_path: str, boundary_layer: Optional[str]):
                 "boundary": boundary_pts,
             }
         )
-        print(f"[scan] Done — {len(deduped)} shapes across {len(scan_layers)} layers")
 
     except Exception as e:
         import traceback
@@ -1519,7 +1310,6 @@ def api_scan_results():
 # ─────────────────────────────────────────────────────────────────────────────
 # POLE DETECTION
 # ─────────────────────────────────────────────────────────────────────────────
-
 import poleid as _poleid
 from app_python.services.pole_ocr import ocr_pole
 
@@ -1571,7 +1361,6 @@ def _run_pole_scan(dxf_path: str, layer_name: str) -> None:
 
         doc = ezdxf.readfile(dxf_path)
         matches = _poleid.find_pole_labels(doc, layer_name, config=POLE_CONFIG)
-
         all_layer_segs = extract_stroke_segments(doc, layer_name)
         placeholder_prefix = (POLE_CONFIG.stroke_placeholder_prefix or "POLE").upper()
 
@@ -1620,7 +1409,6 @@ def _run_pole_scan(dxf_path: str, layer_name: str) -> None:
             try:
                 label_segs = getattr(lab, "segments", None) or all_layer_segs
                 result = ocr_pole(label_segs, tuple(bbox))
-
                 if result.crop_png:
                     crop_b64 = base64.b64encode(result.crop_png).decode("ascii")
                 ocr_conf = result.confidence
@@ -1631,9 +1419,8 @@ def _run_pole_scan(dxf_path: str, layer_name: str) -> None:
                 else:
                     needs_review = True
 
-            except Exception as ocr_err:
+            except Exception:
                 needs_review = True
-                print(f"[pole_ocr] POLE_{pole_id:03d} error: {ocr_err}")
 
             return {
                 "pole_id": pole_id,
@@ -1651,27 +1438,23 @@ def _run_pole_scan(dxf_path: str, layer_name: str) -> None:
         if ocr_queue:
             with ThreadPoolExecutor(max_workers=OCR_WORKERS) as pool:
                 futures = {pool.submit(_ocr_one, args): args for args in ocr_queue}
-
                 for future in as_completed(futures):
                     try:
                         tag = future.result()
-                    except Exception as e:
+                    except Exception:
                         args = futures[future]
-                        pole_id, lab, bbox, source = args
                         tag = {
-                            "pole_id": pole_id,
-                            "name": _poleid.clean_label(lab.text),
-                            "cx": round(lab.x, 4),
-                            "cy": round(lab.y, 4),
-                            "bbox": [round(v, 4) for v in bbox],
+                            "pole_id": args[0],
+                            "name": _poleid.clean_label(args[1].text),
+                            "cx": round(args[1].x, 4),
+                            "cy": round(args[1].y, 4),
+                            "bbox": [round(v, 4) for v in args[2]],
                             "layer": layer_name,
-                            "source": source,
+                            "source": args[3],
                             "crop_b64": None,
                             "ocr_conf": None,
                             "needs_review": True,
                         }
-                        print(f"[pole_scan] future error: {e}")
-
                     with tags_lock:
                         tags.append(tag)
                         tags.sort(key=lambda t: t["pole_id"])
@@ -1686,7 +1469,6 @@ def _run_pole_scan(dxf_path: str, layer_name: str) -> None:
                 "progress": len(tags),
             }
         )
-        print(f"[pole_scan] Done — {len(tags)} poles on '{layer_name}'")
 
     except Exception as exc:
         import traceback
@@ -1755,7 +1537,6 @@ def api_pole_tags_scan():
 
 
 def kind_to_equipment_name(kind: str, layer: str = "") -> str:
-    """Convert shape kind + layer to human-readable equipment name."""
     if kind == "circle":
         return "2-Way Tap"
     if kind == "square":
@@ -1774,13 +1555,7 @@ def kind_to_equipment_name(kind: str, layer: str = "") -> str:
     return kind.capitalize()
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# EXPORT TO EXCEL
-# ─────────────────────────────────────────────────────────────────────────────
-
-
 def _make_excel_styles():
-    """Return a dict of openpyxl style objects used across all export functions."""
     import openpyxl
     from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 
@@ -1831,19 +1606,16 @@ def _write_footer_row(ws, row_num, cols, styles):
 def export_excel(results, dxf_path):
     try:
         import openpyxl
+        from openpyxl.styles import Alignment
     except ImportError:
-        return None, "openpyxl not installed. Run: pip install openpyxl"
-
-    from openpyxl.styles import Alignment
+        return None, "openpyxl not installed."
 
     styles = _make_excel_styles()
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Digit Results"
-
     border = _make_border(styles)
     dxf_name = Path(dxf_path).name
-
     headers = [
         "Digit ID",
         "Predicted Value",
@@ -1867,7 +1639,6 @@ def export_excel(results, dxf_path):
             total_sum += int(final_val)
         except Exception:
             pass
-
         row_data = [
             r["digit_id"],
             r["value"],
@@ -1894,36 +1665,17 @@ def export_excel(results, dxf_path):
         c = ws.cell(row=sum_row, column=ci)
         c.fill = styles["sum_fill"]
         c.border = border
-
-    ws2 = wb.create_sheet(title="Summary")
-    _write_header_row(ws2, ["Digit ID", "Final Value"], [12, 16], styles)
-
-    for ri, r in enumerate(results, 2):
-        final_val = (
-            r["corrected_value"] if r["corrected_value"] is not None else r["value"]
-        )
-        c1 = ws2.cell(row=ri, column=1, value=r["digit_id"])
-        c2 = ws2.cell(row=ri, column=2, value=final_val)
-        for c in (c1, c2):
-            c.alignment = Alignment(horizontal="center")
-            c.border = border
-
-    tr = len(results) + 2
-    _write_footer_row(ws2, tr, [(1, "TOTAL"), (2, total_sum)], styles)
-
     out_path = Path(dxf_path).stem + "_results.xlsx"
     wb.save(out_path)
     return out_path, None
 
 
 def export_equipment_excel(shapes: list, dxf_path: str) -> tuple:
-    """Export equipment shapes to a standalone Excel workbook."""
     try:
         import openpyxl
+        from openpyxl.styles import Alignment
     except ImportError:
-        return None, "openpyxl not installed. Run: pip install openpyxl"
-
-    from openpyxl.styles import Alignment
+        return None, "openpyxl not installed."
 
     styles = _make_excel_styles()
     border = _make_border(styles)
@@ -1998,20 +1750,18 @@ def export_equipment_excel(shapes: list, dxf_path: str) -> tuple:
 def export_all_excel(
     results: list, shapes: list, poles: list, cable_spans: list, dxf_path: str
 ) -> tuple:
-    """Export all data (OCR, Equipment, Poles, Cable Spans) to a single Excel workbook."""
     try:
         import openpyxl
+        from openpyxl.styles import Alignment
     except ImportError:
-        return None, "openpyxl not installed. Run: pip install openpyxl"
-
-    from openpyxl.styles import Alignment
+        return None, "openpyxl not installed."
 
     styles = _make_excel_styles()
     border = _make_border(styles)
     wb = openpyxl.Workbook()
     dxf_name = Path(dxf_path).stem
 
-    # ── Sheet 1: OCR Results ──────────────────────────────────────────────────
+    # ── Sheet 1: OCR Results
     ws1 = wb.active
     ws1.title = "OCR Results"
     _write_header_row(
@@ -2029,7 +1779,6 @@ def export_all_excel(
         [10, 16, 16, 14, 14, 14, 12, 12],
         styles,
     )
-
     total_sum = 0
     for ri, r in enumerate(results, 2):
         final_val = (
@@ -2037,7 +1786,7 @@ def export_all_excel(
         )
         try:
             total_sum += int(final_val)
-        except Exception:
+        except:
             pass
         row_data = [
             r["digit_id"],
@@ -2055,7 +1804,6 @@ def export_all_excel(
             cell.fill = fill
             cell.alignment = Alignment(horizontal="center")
             cell.border = border
-
     sum_row = len(results) + 2
     _write_footer_row(
         ws1,
@@ -2064,7 +1812,7 @@ def export_all_excel(
         styles,
     )
 
-    # ── Sheet 2: Equipment ────────────────────────────────────────────────────
+    # ── Sheet 2: Equipment
     if shapes:
         ws2 = wb.create_sheet(title="Equipment")
         title_cell = ws2.cell(row=1, column=1, value="Equipment Summary")
@@ -2125,9 +1873,11 @@ def export_all_excel(
                 cell.border = border
                 cell.alignment = Alignment(horizontal="center")
 
-    # ── Sheet 3: Poles ───────────────────────────────────────────────────────
+    # ── Sheet 3: Poles
     if poles:
         ws3 = wb.create_sheet(title="Poles")
+        import openpyxl
+
         pole_fill = openpyxl.styles.PatternFill("solid", fgColor="FEF3C7")
         _write_header_row(
             ws3,
@@ -2154,11 +1904,10 @@ def export_all_excel(
                 cell.fill = pole_fill
                 cell.alignment = Alignment(horizontal="center")
                 cell.border = border
-
         pole_total_row = len(poles) + 2
         _write_footer_row(ws3, pole_total_row, [(1, "TOTAL"), (2, len(poles))], styles)
 
-    # ── Sheet 4: Cable Spans ─────────────────────────────────────────────────
+    # ── Sheet 4: Cable Spans
     if cable_spans:
         ws4 = wb.create_sheet(title="Cable Spans")
         _write_header_row(
@@ -2176,7 +1925,6 @@ def export_all_excel(
             [10, 12, 12, 20, 12, 14, 12, 12],
             styles,
         )
-
         for ri, span in enumerate(cable_spans, 2):
             row_data = [
                 span.get("span_id", ri - 2) + 1,
@@ -2192,7 +1940,6 @@ def export_all_excel(
                 cell = ws4.cell(row=ri, column=ci, value=val)
                 cell.alignment = Alignment(horizontal="center")
                 cell.border = border
-
         span_total_row = len(cable_spans) + 2
         _write_footer_row(
             ws4,
@@ -2211,7 +1958,7 @@ def export_poles_excel(tags: list, dxf_path: str) -> tuple:
         import openpyxl
         from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
     except ImportError:
-        return None, "openpyxl not installed. Run: pip install openpyxl"
+        return None, "openpyxl not installed."
 
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -2256,18 +2003,6 @@ def export_poles_excel(tags: list, dxf_path: str) -> tuple:
     out_path = Path(dxf_path).stem + "_pole_ids.xlsx"
     wb.save(out_path)
     return out_path, None
-
-
-@app.route("/api/pole_tags/export", methods=["POST"])
-def api_export_poles():
-    dxf_path = state.get("dxf_path", "")
-    tags = POLE_STATE.get("tags", [])
-    if not tags:
-        return jsonify({"error": "No pole tags to export. Run a scan first."}), 400
-    path, err = export_poles_excel(tags, dxf_path or "pole_export")
-    if err:
-        return jsonify({"error": err}), 500
-    return jsonify({"path": path})
 
 
 def _find_pole_layer_name(layers: List[str]) -> Optional[str]:
@@ -2348,29 +2083,15 @@ def api_results():
 
 @app.route("/api/check_model")
 def api_check_model():
-    """
-    Previously checked for cad_digit_model.pt (CNN weights file).
-    Now checks that EasyOCR is importable and returns ok:true always
-    so the frontend never blocks the user from opening a drawing.
-    EasyOCR downloads its model weights automatically on first use.
-    """
     try:
-        import easyocr  # noqa — just checking importability
+        import easyocr
 
         return jsonify(
-            {
-                "ok": True,
-                "engine": "easyocr",
-                "cached": _easyocr_reader is not None,
-            }
+            {"ok": True, "engine": "easyocr", "cached": _easyocr_reader is not None}
         )
     except ImportError:
         return jsonify(
-            {
-                "ok": False,
-                "engine": "easyocr",
-                "error": "easyocr not installed — run: pip install easyocr",
-            }
+            {"ok": False, "engine": "easyocr", "error": "easyocr not installed"}
         )
 
 
@@ -2549,16 +2270,21 @@ def api_layers():
         return jsonify({"error": str(e)}), 400
 
 
+# <-- UPDATED TO ACCEPT 'LAYERS' LIST -->
 @app.route("/api/run", methods=["POST"])
 def api_run():
     data = request.get_json()
     state["dxf_path"] = data["dxf_path"]
-    state["layer"] = data["layer"]
-    # model_path kept for API compatibility — no longer used by EasyOCR pipeline
+
+    layers = data.get("layers", [])
+    if not layers and "layer" in data:
+        layers = [data["layer"]]
+
+    state["layers"] = layers
     state["model_path"] = data.get("model_path", "")
     t = threading.Thread(
         target=run_pipeline,
-        args=(data["dxf_path"], data["layer"], state["model_path"]),
+        args=(data["dxf_path"], state["layers"], state["model_path"]),
         daemon=True,
     )
     t.start()
@@ -2569,12 +2295,10 @@ def api_run():
 def api_export():
     data = request.get_json() or {}
     corrections = data.get("corrections", {})
-
     for r in state["results"]:
         did = str(r["digit_id"])
         if did in corrections and corrections[did] is not None:
             r["corrected_value"] = corrections[did]
-
     path, err = export_excel(state["results"], state["dxf_path"])
     if err:
         return jsonify({"error": err}), 500
@@ -2583,7 +2307,6 @@ def api_export():
 
 @app.route("/api/export/equipment", methods=["POST"])
 def api_export_equipment():
-    """Export equipment shapes to a standalone Excel file."""
     shapes = SCAN_STATE.get("shapes", [])
     if not shapes:
         return jsonify({"error": "No equipment found. Run a scan first."}), 400
@@ -2597,18 +2320,14 @@ def api_export_equipment():
 
 @app.route("/api/export/all", methods=["POST"])
 def api_export_all():
-    """Export all data (OCR, Equipment, Poles, Cable Spans) to a single Excel file."""
     data = request.get_json() or {}
-
     corrections = data.get("corrections", {})
     for r in state["results"]:
         did = str(r["digit_id"])
         if did in corrections and corrections[did] is not None:
             r["corrected_value"] = corrections[did]
-
     shapes = SCAN_STATE.get("shapes", [])
     poles = POLE_STATE.get("tags", [])
-
     cable_spans = data.get("cable_spans", [])
     path, err = export_all_excel(
         state["results"],
@@ -2655,6 +2374,7 @@ def api_dxf_segments():
         return jsonify({"error": str(e)}), 400
 
 
+# <-- UPDATED TO SUPPORT MULTIPLE CABLE LAYERS -->
 @app.route("/api/cable_spans")
 def api_cable_spans():
     dxf_path = state.get("dxf_path")
@@ -2663,19 +2383,19 @@ def api_cable_spans():
     try:
         doc = ezdxf.readfile(dxf_path)
         layers = list_layers(dxf_path)
-        cable_layer = find_cable_layer_name(layers)
+        cable_layers = find_cable_layer_names(layers)
 
-        if not cable_layer:
+        if not cable_layers:
             return jsonify(
-                {"cable_layer": None, "spans": [], "message": "No cable layer found"}
+                {"cable_layers": [], "spans": [], "message": "No cable layers found"}
             )
 
-        spans = build_cable_spans(doc, cable_layer, connect_tol=CABLE_CONNECT_TOL)
+        spans = build_cable_spans(doc, cable_layers, connect_tol=CABLE_CONNECT_TOL)
         spans = assign_meter_values_to_spans(spans, state.get("results", []))
 
         return jsonify(
             {
-                "cable_layer": cable_layer,
+                "cable_layers": cable_layers,
                 "count": len(spans),
                 "spans": spans,
             }
@@ -2763,7 +2483,6 @@ def v1_ocr_results():
 
     include_crops = request.args.get("include_crops", "false").lower() == "true"
     filter_review = request.args.get("needs_review", "").lower()
-
     raw_results = list(state.get("results", []))
 
     if filter_review == "true":
@@ -2838,7 +2557,6 @@ def v1_poles():
         tags = [t for t in tags if t.get("needs_review")]
     elif filter_review == "false":
         tags = [t for t in tags if not t.get("needs_review")]
-
     if filter_source in ("text", "mtext", "stroke"):
         tags = [t for t in tags if t.get("source") == filter_source]
 
@@ -2912,6 +2630,7 @@ def v1_equipment():
     )
 
 
+# <-- UPDATED TO SUPPORT MULTIPLE CABLE LAYERS -->
 @public_api.route("/cable_spans", methods=["GET"])
 def v1_cable_spans():
     dxf_path = state.get("dxf_path")
@@ -2923,20 +2642,20 @@ def v1_cable_spans():
     try:
         doc = ezdxf.readfile(dxf_path)
         layers = list_layers(dxf_path)
-        cable_layer = find_cable_layer_name(layers)
+        cable_layers = find_cable_layer_names(layers)
 
-        if not cable_layer:
+        if not cable_layers:
             return _v1_ok(
-                {"dxf_path": dxf_path, "cable_layer": None, "count": 0, "spans": []}
+                {"dxf_path": dxf_path, "cable_layers": [], "count": 0, "spans": []}
             )
 
-        spans = build_cable_spans(doc, cable_layer, connect_tol=CABLE_CONNECT_TOL)
+        spans = build_cable_spans(doc, cable_layers, connect_tol=CABLE_CONNECT_TOL)
         spans = assign_meter_values_to_spans(spans, state.get("results", []))
 
         return _v1_ok(
             {
                 "dxf_path": dxf_path,
-                "cable_layer": cable_layer,
+                "cable_layers": cable_layers,
                 "count": len(spans),
                 "spans": [
                     {
@@ -2969,19 +2688,15 @@ def v1_cable_spans():
 def v1_export_ocr():
     if state.get("status") != "done":
         return _v1_err("OCR must complete before exporting.", 400)
-
     body = request.get_json(silent=True) or {}
     corrections = body.get("corrections", {})
-
     for r in state.get("results", []):
         did = str(r["digit_id"])
         if did in corrections and corrections[did] is not None:
             r["corrected_value"] = corrections[did]
-
     path, err = export_excel(state["results"], state["dxf_path"])
     if err:
         return _v1_err(err, 500)
-
     return _v1_ok({"download_url": f"/api/download?file={path}", "path": path})
 
 
@@ -2990,10 +2705,8 @@ def v1_export_poles():
     tags = POLE_STATE.get("tags", [])
     if not tags:
         return _v1_err("No pole tags to export. Run a scan first.", 400)
-
     body = request.get_json(silent=True) or {}
     overrides = body.get("overrides", {})
-
     export_tags = []
     for t in tags:
         pid_str = str(t.get("pole_id", ""))
@@ -3001,12 +2714,10 @@ def v1_export_poles():
         if pid_str in overrides:
             entry["name"] = overrides[pid_str]
         export_tags.append(entry)
-
     dxf_path = state.get("dxf_path") or "pole_export"
     path, err = export_poles_excel(export_tags, dxf_path)
     if err:
         return _v1_err(err, 500)
-
     return _v1_ok({"download_url": f"/api/download?file={path}", "path": path})
 
 
@@ -3016,21 +2727,13 @@ def v1_export_poles():
 
 
 def _prewarm_ocr():
-    """
-    Pre-warm OCR engines at startup.
-    - EasyOCR: lazy-loaded on first scan, pre-warmed here to avoid cold-start
-      delay on the first drawing a user opens.
-    - Pole TrOCR: pre-warmed alongside EasyOCR as before.
-    """
-    # Pre-warm EasyOCR
     try:
         print("[startup] Pre-warming EasyOCR...")
         _load_easyocr()
         print("[startup] EasyOCR ready.")
     except Exception as e:
-        print(f"[startup] EasyOCR pre-warm failed (will retry on first scan): {e}")
+        print(f"[startup] EasyOCR pre-warm failed: {e}")
 
-    # Pre-warm pole TrOCR
     try:
         from app_python.services.pole_ocr import _load_model as _load_pole
 
@@ -3038,13 +2741,10 @@ def _prewarm_ocr():
         _load_pole()
         print("[startup] Pole TrOCR ready.")
     except Exception as e:
-        print(f"[startup] Pole TrOCR pre-warm failed (will retry on first scan): {e}")
+        print(f"[startup] Pole TrOCR pre-warm failed: {e}")
 
 
-# Register blueprint
 app.register_blueprint(public_api)
-
-# Pre-warm at startup
 _prewarm_ocr()
 
 

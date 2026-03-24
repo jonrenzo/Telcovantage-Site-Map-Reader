@@ -12,19 +12,17 @@ import DxfViewer from "./components/dxf/DxfViewer";
 import EquipmentLayout from "./components/equipment/EquipmentLayout";
 import PoleLayout from "./components/poles/Polelayout";
 
-// --- NEW: Add a type for the Boundary Point ---
 interface BoundaryPoint {
   x: number;
   y: number;
 }
 
-// --- NEW: The Ray-Casting Math Utility ---
 export function isPointInPolygon(
   px: number,
   py: number,
   polygon: BoundaryPoint[] | null,
 ): boolean {
-  if (!polygon || polygon.length < 3) return true; // If no valid polygon, assume everything is "inside"
+  if (!polygon || polygon.length < 3) return true;
 
   let isInside = false;
   for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
@@ -52,7 +50,6 @@ export default function Home() {
   const [mapTab, setMapTab] = useState<MapTab>("review");
   const [exporting, setExporting] = useState<ExportType | null>(null);
 
-  // --- NEW: Global Boundary State ---
   const [globalBoundary, setGlobalBoundary] = useState<BoundaryPoint[] | null>(
     null,
   );
@@ -63,7 +60,6 @@ export default function Home() {
   const pipeline = usePipeline();
   const { getCache, setCache } = useSessionCache();
 
-  // --- NEW: Intercept cache updates to grab the boundary when EquipmentLayout finds it ---
   const handleCacheUpdate = useCallback(
     (path: string, data: any) => {
       setCache(path, data);
@@ -75,18 +71,21 @@ export default function Home() {
   );
 
   const handleStartProcessing = useCallback(
-    async (opts: { dxfPath: string; layer: string; allLayers: string[] }) => {
+    // --- CHANGED: Expecting 'layers: string[]' instead of 'layer: string' ---
+    async (opts: {
+      dxfPath: string;
+      layers: string[];
+      allLayers: string[];
+    }) => {
       const cached = getCache(opts.dxfPath);
 
       setDxfPath(opts.dxfPath);
       setLayers(opts.allLayers);
 
       if (cached && cached.results.length > 0) {
-        // Restore from cache
         setResults(cached.results);
         setSegments(cached.segments);
 
-        // --- NEW: Restore boundary from cache if it exists ---
         if (cached.boundary) {
           setGlobalBoundary(cached.boundary);
         }
@@ -101,7 +100,6 @@ export default function Home() {
     [pipeline, getCache],
   );
 
-  // ... (Keep your existing useEffects for pipeline and results caching here) ...
   useEffect(() => {
     if (
       step === 2 &&
@@ -139,7 +137,6 @@ export default function Home() {
     }
   }, [results, step, dxfPath, setCache]);
 
-  // ... (Keep your handleExport here) ...
   const handleExport = useCallback(
     async (type: ExportType) => {
       if (exporting) return;
@@ -154,7 +151,6 @@ export default function Home() {
 
         const corrections: Record<number, string | null> = {};
 
-        // --- NEW: Filter exports to only include items inside the active boundary! ---
         const activeResults =
           isMaskEnabled && globalBoundary
             ? results.filter((r) =>
@@ -214,7 +210,6 @@ export default function Home() {
     setSegments([]);
     setMapTab("review");
     setExporting(null);
-    // --- NEW: Clear boundary on reset ---
     setGlobalBoundary(null);
     setIsMaskEnabled(true);
   }, [pipeline]);
@@ -249,7 +244,6 @@ export default function Home() {
 
       {step === 3 && (
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Tab bar with Global Toggle */}
           <div className="flex items-center justify-between px-4 pt-2 bg-surface border-b border-border flex-shrink-0">
             <div className="flex items-center gap-1">
               {TABS.map(({ key, label, icon }) => (
@@ -269,7 +263,6 @@ export default function Home() {
               ))}
             </div>
 
-            {/* --- NEW: The Boundary Toggle UI --- */}
             {globalBoundary && (
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-xs font-semibold text-muted">
@@ -294,20 +287,17 @@ export default function Home() {
             )}
           </div>
 
-          {/* Tab content */}
           <div className="flex-1 flex overflow-hidden">
             <div
               className={`flex-1 flex overflow-hidden ${mapTab === "review" ? "" : "hidden"}`}
             >
-              {/* We will pass the boundary props down to ReviewLayout next!
-               */}
               <ReviewLayout
                 dxfPath={dxfPath}
                 results={results}
                 setResults={setResults}
                 segments={segments}
-                boundary={globalBoundary} // NEW
-                isMaskEnabled={isMaskEnabled} // NEW
+                boundary={globalBoundary}
+                isMaskEnabled={isMaskEnabled}
               />
             </div>
 
@@ -327,7 +317,6 @@ export default function Home() {
             <div
               className={`flex-1 flex overflow-hidden ${mapTab === "equipment" ? "" : "hidden"}`}
             >
-              {/* Notice we use handleCacheUpdate here now */}
               <EquipmentLayout
                 dxfPath={dxfPath}
                 layers={layers}
@@ -335,7 +324,6 @@ export default function Home() {
                 cachedData={getCache(dxfPath)}
                 onCacheUpdate={(data) => handleCacheUpdate(dxfPath, data)}
                 isActive={mapTab === "equipment"}
-                // ADD THESE TWO LINES:
                 boundary={globalBoundary}
                 isMaskEnabled={isMaskEnabled}
               />

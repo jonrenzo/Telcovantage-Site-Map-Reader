@@ -4,11 +4,8 @@ import { useRef, useEffect, useCallback, useState } from "react";
 import type { DxfLayerData, EquipmentShape } from "../../types";
 import DxfToolbar from "./DxfToolbar";
 import DxfLayerPanel from "./DxfLayerPanel";
-
-// --- NEW: Import the Math Utility ---
 import { isPointInPolygon } from "../../page";
 
-// --- NEW: Define BoundaryPoint so TypeScript is happy ---
 interface BoundaryPoint {
   x: number;
   y: number;
@@ -51,7 +48,6 @@ interface Props {
   ocrResults: any[];
   isActive: boolean;
   onExportPdfRef?: React.MutableRefObject<(() => void) | null>;
-  // --- NEW: Boundary Props ---
   boundary: BoundaryPoint[] | null;
   isMaskEnabled: boolean;
 }
@@ -72,7 +68,7 @@ interface FileDataCache {
   segments: Record<string, RawSegment[]>;
   layers: string[];
   bounds: { minx: number; miny: number; maxx: number; maxy: number };
-  cableLayer: string | null;
+  cableLayers: string[];
   spans: CableSpan[];
 }
 
@@ -281,8 +277,8 @@ export default function DxfViewer({
   ocrResults,
   isActive,
   onExportPdfRef,
-  boundary, // NEW
-  isMaskEnabled, // NEW
+  boundary,
+  isMaskEnabled,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
@@ -302,7 +298,6 @@ export default function DxfViewer({
     maxy: number;
   } | null>(null);
 
-  // --- NEW: Keep Refs for Boundary to avoid dependency cycles inside renderScene ---
   const boundaryRef = useRef(boundary);
   const maskEnabledRef = useRef(isMaskEnabled);
   useEffect(() => {
@@ -315,7 +310,10 @@ export default function DxfViewer({
   const segmentsRef = useRef<Record<string, RawSegment[]>>({});
   const layersRef = useRef<DxfLayerData[]>([]);
   const cableSpansRef = useRef<CableSpan[]>([]);
-  const cableLayerRef = useRef<string | null>(null);
+
+  // UPDATED TO ARRAY FOR MULTIPLE LAYERS
+  const cableLayersRef = useRef<string[]>([]);
+
   const hoveredSpanRef = useRef<number | null>(null);
   const selectedSpanRef = useRef<number | null>(null);
   const cableStatusRef = useRef<Record<number, CableRecoveryStatus>>({});
@@ -378,12 +376,20 @@ export default function DxfViewer({
   const [error, setError] = useState<string | null>(null);
   const [hoveredSpanId, setHoveredSpanId] = useState<number | null>(null);
   const [selectedSpanId, setSelectedSpanId] = useState<number | null>(null);
-  const [cableLayerName, setCableLayerName] = useState<string | null>(null);
+
+  // UPDATED TO ARRAY FOR MULTIPLE LAYERS
+  const [cableLayerNames, setCableLayerNames] = useState<string[]>([]);
+
   const [cableStatuses, setCableStatuses] = useState<
     Record<number, CableRecoveryStatus>
   >({});
 
-  // --- NEW: Compute Totals Respecting Boundary Mask ---
+  const isLayerVisible = useCallback((name: string | null) => {
+    if (!name) return false;
+    return !!layersRef.current.find((l) => l.name === name)?.visible;
+  }, []);
+
+  // Compute Totals Respecting Boundary Mask AND Visibility
   const computeCableLengthSummary = () => {
     let totalRecovered = 0,
       totalUnrecovered = 0,
@@ -392,7 +398,8 @@ export default function DxfViewer({
       totalStrandLength = 0;
 
     for (const span of cableSpansRef.current) {
-      // SKIP IF MASK ENABLED AND OUTSIDE BOUNDARY
+      if (!isLayerVisible(span.layer)) continue;
+
       if (
         isMaskEnabled &&
         boundary &&
@@ -436,11 +443,6 @@ export default function DxfViewer({
     totalLength,
     totalStrandLength,
   } = computeCableLengthSummary();
-
-  const isLayerVisible = useCallback((name: string | null) => {
-    if (!name) return false;
-    return !!layersRef.current.find((l) => l.name === name)?.visible;
-  }, []);
 
   const screenToWorld = useCallback((sx: number, sy: number) => {
     const vp = vpRef.current;
@@ -490,10 +492,10 @@ export default function DxfViewer({
         ctx.stroke();
       }
 
-      // --- NEW: Draw the Boundary Polygon ---
+      // Draw the Boundary Polygon
       if (isMaskOn && currentBoundary && currentBoundary.length > 2) {
         ctx.save();
-        ctx.strokeStyle = "rgba(16, 185, 129, 0.8)"; // Emerald 500
+        ctx.strokeStyle = "rgba(16, 185, 129, 0.8)";
         ctx.lineWidth = 2.5 / vp.scale;
         ctx.setLineDash([15 / vp.scale, 10 / vp.scale]);
 
@@ -511,8 +513,7 @@ export default function DxfViewer({
       }
 
       // 2. Draw active cable spans highlights
-      const cableLayer = cableLayerRef.current;
-      if (cableLayer && isLayerVisible(cableLayer)) {
+      if (cableLayersRef.current.length > 0) {
         const spans = cableSpansRef.current;
         const spanMap = new Map(spans.map((s) => [s.span_id, s]));
         const statusEntries = Object.entries(cableStatusRef.current);
@@ -529,7 +530,7 @@ export default function DxfViewer({
         for (const [idStr, status] of statusEntries) {
           const spanId = Number(idStr);
           const span = spanMap.get(spanId);
-          if (!span) continue;
+          if (!span || !isLayerVisible(span.layer)) continue;
 
           // SKIP IF OUTSIDE BOUNDARY
           if (
@@ -567,6 +568,7 @@ export default function DxfViewer({
           const span = spanMap.get(selectedSpanRef.current);
           if (
             span &&
+            isLayerVisible(span.layer) &&
             !(
               isMaskOn &&
               currentBoundary &&
@@ -603,14 +605,15 @@ export default function DxfViewer({
             ctx.restore();
           }
         }
-        // --- RESTORED: Pairing / Merge mode highlights ---
+
+        // Pairing / Merge mode highlights
         if (opts.showHover && pairingModeRef.current) {
           for (const pid of pairedSpanIdsRef.current) {
             const span = spanMap.get(pid);
 
-            // Make sure we don't highlight something outside the boundary!
             if (
               span &&
+              isLayerVisible(span.layer) &&
               !(
                 isMaskOn &&
                 currentBoundary &&
@@ -622,7 +625,6 @@ export default function DxfViewer({
               ctx.lineJoin = "round";
 
               if (multiActionRef.current === "runs") {
-                // Purple glow for "Runs"
                 ctx.strokeStyle = "rgba(168, 85, 247, 0.6)";
                 ctx.lineWidth = 10 / vp.scale;
                 drawSpanPath(span);
@@ -633,7 +635,6 @@ export default function DxfViewer({
                 drawSpanPath(span);
                 ctx.stroke();
               } else {
-                // Blue glow for "Merge"
                 ctx.strokeStyle = "rgba(59, 130, 246, 0.6)";
                 ctx.lineWidth = 10 / vp.scale;
                 drawSpanPath(span);
@@ -649,6 +650,7 @@ export default function DxfViewer({
             }
           }
         }
+
         // Hover Effect
         if (
           opts.showHover &&
@@ -659,6 +661,7 @@ export default function DxfViewer({
           const span = spanMap.get(hoveredSpanRef.current);
           if (
             span &&
+            isLayerVisible(span.layer) &&
             !(
               isMaskOn &&
               currentBoundary &&
@@ -681,6 +684,8 @@ export default function DxfViewer({
       if (opts.showActives) {
         ctx.save();
         for (const shape of activeShapesRef.current) {
+          if (!isLayerVisible(shape.layer)) continue;
+
           // SKIP IF OUTSIDE BOUNDARY
           if (
             isMaskOn &&
@@ -733,6 +738,8 @@ export default function DxfViewer({
         ctx.save();
         const r = 12 / vp.scale;
         for (const pole of polesRef.current) {
+          if (!isLayerVisible(pole.layer)) continue;
+
           // SKIP IF OUTSIDE BOUNDARY
           if (
             isMaskOn &&
@@ -766,8 +773,10 @@ export default function DxfViewer({
       ctx.restore();
 
       // 5. Draw Chips (Screen space)
-      if (opts.showChips && cableLayer && isLayerVisible(cableLayer)) {
+      if (opts.showChips) {
         for (const span of cableSpansRef.current) {
+          if (!isLayerVisible(span.layer)) continue;
+
           // SKIP IF OUTSIDE BOUNDARY
           if (
             isMaskOn &&
@@ -1110,17 +1119,17 @@ export default function DxfViewer({
     [redraw],
   );
 
-  // --- NEW: Block hover logic if span is outside the boundary ---
   const findNearestCableSpan = useCallback(
     (worldX: number, worldY: number): number | null => {
-      const cableLayer = cableLayerRef.current;
-      if (!cableLayer || !isLayerVisible(cableLayer)) return null;
+      if (cableLayersRef.current.length === 0) return null;
 
       let bestId: number | null = null,
         bestDist = Infinity;
       const hoverTolWorld = 8 / Math.max(vpRef.current.scale, 1e-9);
 
       for (const span of cableSpansRef.current) {
+        if (!isLayerVisible(span.layer)) continue;
+
         if (
           maskEnabledRef.current &&
           boundaryRef.current &&
@@ -1670,11 +1679,11 @@ export default function DxfViewer({
     hoveredSpanRef.current = null;
     selectedSpanRef.current = null;
     cableSpansRef.current = [];
-    cableLayerRef.current = null;
+    cableLayersRef.current = [];
     cableStatusRef.current = {};
     deletedSpansRef.current = [];
     setDeletedSpans([]);
-    setCableLayerName(null);
+    setCableLayerNames([]);
     Promise.all([
       fetch("/api/dxf_segments").then((r) => r.json()),
       fetch("/api/cable_spans").then((r) => r.json()),
@@ -1722,8 +1731,8 @@ export default function DxfViewer({
         nextSpanIdRef.current = maxId + 1;
         cableSpansRef.current = spans;
         setCableSpans(spans);
-        cableLayerRef.current = cableData.cable_layer ?? null;
-        setCableLayerName(cableData.cable_layer ?? null);
+        cableLayersRef.current = cableData.cable_layers ?? [];
+        setCableLayerNames(cableData.cable_layers ?? []);
         setCableDataVersion((v) => v + 1);
         setLoading(false);
         setTimeout(fitView, 50);
@@ -1755,8 +1764,8 @@ export default function DxfViewer({
           l.name === name ? { ...l, visible: !l.visible } : l,
         );
         layersRef.current = next;
-        const cableLayer = cableLayerRef.current;
-        if (cableLayer === name) {
+        const cableLayers = cableLayersRef.current;
+        if (cableLayers.includes(name)) {
           const visible = next.find((l) => l.name === name)?.visible ?? false;
           if (!visible) {
             hoveredSpanRef.current = null;
@@ -1781,6 +1790,7 @@ export default function DxfViewer({
       return next;
     });
   }, [redraw]);
+
   const hideAll = useCallback(() => {
     setLayers((prev) => {
       const next = prev.map((l) => ({ ...l, visible: false }));
@@ -1855,6 +1865,7 @@ export default function DxfViewer({
       let clickedPole = null;
       let bestDist = Infinity;
       for (const p of polesRef.current) {
+        if (!isLayerVisible(p.layer)) continue;
         if (
           maskEnabledRef.current &&
           boundaryRef.current &&
@@ -1931,7 +1942,6 @@ export default function DxfViewer({
     redraw();
   };
 
-  // --- NEW: Export PDF respects boundary filtering ---
   const exportToPdf = useCallback(() => {
     exportPdfFnRef.current = exportToPdf;
     if (!boundsRef.current) return;
@@ -1960,7 +1970,9 @@ export default function DxfViewer({
 
     const imageData = offCanvas.toDataURL("image/png");
     const statuses = cableStatusRef.current;
-    const layerName = cableLayerRef.current ?? "—";
+    const layerName = cableLayersRef.current.length
+      ? cableLayersRef.current.join(", ")
+      : "—";
     const dateStr = new Date().toLocaleString();
 
     let pdfTotalRecovered = 0,
@@ -1973,7 +1985,7 @@ export default function DxfViewer({
     Object.entries(statuses).forEach(([id, status]) => {
       const spanId = +id;
       const span = cableSpansRef.current.find((s) => s.span_id === spanId);
-      if (!span) return;
+      if (!span || !isLayerVisible(span.layer)) return;
 
       if (
         maskEnabledRef.current &&
@@ -2006,7 +2018,7 @@ export default function DxfViewer({
         const span = cableSpansRef.current.find(
           (s) => s.span_id === Number(id),
         );
-        if (!span) return false;
+        if (!span || !isLayerVisible(span.layer)) return false;
         if (
           maskEnabledRef.current &&
           boundaryRef.current &&
@@ -2087,7 +2099,7 @@ export default function DxfViewer({
 <body>
   <div class="header-section">
     <h1>Cable Recovery Status Report</h1>
-    <div class="subtitle">Generated: ${dateStr} &nbsp;|&nbsp; Layer: ${layerName} &nbsp;|&nbsp; Total spans: ${spanCount.toLocaleString()} &nbsp;|&nbsp; Tagged: ${Object.keys(statuses).length}</div>
+    <div class="subtitle">Generated: ${dateStr} &nbsp;|&nbsp; Layers: ${layerName} &nbsp;|&nbsp; Total spans: ${spanCount.toLocaleString()} &nbsp;|&nbsp; Tagged: ${Object.keys(statuses).length}</div>
 
     <div class="summary">
       <span class="chip chip-green">✓ Recovered: ${pdfTotalRecovered.toFixed(2)} m</span>
@@ -2151,7 +2163,7 @@ export default function DxfViewer({
     } else {
       doPrint();
     }
-  }, [cableStatuses, partialDetails, renderScene]);
+  }, [cableStatuses, partialDetails, renderScene, isLayerVisible]);
 
   const visibleCount = layers.filter((l) => l.visible).length;
   const selectedSpan =
@@ -2204,6 +2216,12 @@ export default function DxfViewer({
             <span className="text-slate-400">ID:</span>
             <span className="font-mono text-white">
               {hoveredSpanData.span_id}
+            </span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span className="text-slate-400">Layer:</span>
+            <span className="font-mono text-white truncate max-w-[120px]">
+              {hoveredSpanData.layer}
             </span>
           </div>
           <div className="flex justify-between gap-4">
@@ -2369,14 +2387,15 @@ export default function DxfViewer({
         </div>
       )}
 
-      {!loading && !error && cableLayerName && (
+      {!loading && !error && cableLayerNames.length > 0 && (
         <div className="absolute top-4 right-4 z-10 flex flex-col gap-2 items-end">
           <div className="bg-surface/90 border border-border rounded-lg px-3 py-2 text-[11px] text-muted backdrop-blur-sm shadow-sm min-w-[250px]">
             <div className="font-semibold text-[#1e293b]">
               Cable interaction
             </div>
             <div>
-              Layer: <span className="font-mono">{cableLayerName}</span>
+              {/*Layers:{" "}
+              <span className="font-mono">{cableLayerNames.join(", ")}</span>*/}
             </div>
             <div className="text-[#166534]">
               Recovered: {totalRecovered.toFixed(2)} m
@@ -2446,6 +2465,7 @@ export default function DxfViewer({
                 )}
               </div>
               <div>ID: {selectedSpan.span_id}</div>
+              <div>Layer: {selectedSpan.layer}</div>
               <div>
                 Strand length:{" "}
                 {selectedSpan.meterValue?.toFixed(2) ??
