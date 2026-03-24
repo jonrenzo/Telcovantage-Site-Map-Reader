@@ -29,7 +29,7 @@ type SortKey = "name" | "modified" | "size";
 interface Props {
   onStartProcessing: (opts: {
     dxfPath: string;
-    layer: string;
+    layers: string[]; // Accepts multiple layers
     allLayers: string[];
   }) => void;
 }
@@ -133,9 +133,9 @@ export default function LoadScreen({ onStartProcessing }: Props) {
 
   // Open file / layer picking
   const [openingFile, setOpeningFile] = useState(false);
-  const [layers, setLayers] = useState<string[]>([]);
-  const [selectedLayer, setSelectedLayer] = useState("");
-  const [suggestedLayer, setSuggestedLayer] = useState("");
+  const [allDxfLayers, setAllDxfLayers] = useState<string[]>([]);
+  const [ocrLayers, setOcrLayers] = useState<string[]>([]); // Layers shown in UI
+  const [selectedLayers, setSelectedLayers] = useState<string[]>([]); // User's checks
   const [modelOk, setModelOk] = useState<boolean | null>(null);
   const [showLayerPicker, setShowLayerPicker] = useState(false);
 
@@ -224,7 +224,6 @@ export default function LoadScreen({ onStartProcessing }: Props) {
         setUploadState("done");
         await fetchFiles();
 
-        // Auto-select the new file
         setTimeout(() => {
           setUploadState("idle");
           setUploadProgress(0);
@@ -253,7 +252,9 @@ export default function LoadScreen({ onStartProcessing }: Props) {
     setSelectedFile(file);
     setOpeningFile(true);
     setShowLayerPicker(false);
-    setLayers([]);
+    setAllDxfLayers([]);
+    setOcrLayers([]);
+    setSelectedLayers([]);
     setModelOk(null);
 
     try {
@@ -275,15 +276,32 @@ export default function LoadScreen({ onStartProcessing }: Props) {
         return;
       }
 
-      setLayers(lData.layers);
-      const suggested =
-        lData.layers.find(
-          (l: string) =>
-            l.toLowerCase().includes("strand") ||
-            l.toLowerCase().includes("sttext"),
-        ) ?? "";
-      setSuggestedLayer(suggested);
-      setSelectedLayer(suggested || lData.layers[0] || "");
+      const allLayers = lData.layers as string[];
+      setAllDxfLayers(allLayers);
+
+      // Filter out 'cable' layers entirely from the UI, keep only text/strand candidates
+      const filteredOcrCandidates = allLayers.filter((l: string) => {
+        const lower = l.toLowerCase();
+        // Skip cables
+        if (lower.includes("cable")) return false;
+        // Keep strands and text
+        return (
+          lower.includes("strand") ||
+          lower.includes("text") ||
+          lower.includes("sttext") ||
+          lower.includes("ocr")
+        );
+      });
+
+      // If strict filter found nothing, fallback to showing all non-cable layers so user isn't stuck
+      const displayLayers =
+        filteredOcrCandidates.length > 0
+          ? filteredOcrCandidates
+          : allLayers.filter((l: string) => !l.toLowerCase().includes("cable"));
+
+      setOcrLayers(displayLayers);
+      setSelectedLayers(displayLayers); // Auto-check all of them by default
+
       setModelOk(mData.ok);
       setShowLayerPicker(true);
     } catch (e) {
@@ -890,22 +908,44 @@ export default function LoadScreen({ onStartProcessing }: Props) {
             <div className="p-4 flex flex-col gap-3 flex-1 overflow-y-auto">
               <div>
                 <label className="block text-[10px] font-semibold text-muted uppercase tracking-wider mb-1.5">
-                  Strand Layer
+                  Select Strand Layers for OCR
                 </label>
-                <select
-                  value={selectedLayer}
-                  onChange={(e) => setSelectedLayer(e.target.value)}
-                  className="w-full bg-surface-2 border border-border rounded-lg px-2.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-accent/20 cursor-pointer"
-                >
-                  {layers.map((l) => (
-                    <option key={l} value={l}>
-                      {l}
-                    </option>
+
+                {/* CLEANED UP MULTI-SELECT ONLY SHOWING OCR STRANDS */}
+                <div className="flex flex-col gap-2 max-h-48 overflow-y-auto bg-surface-2 p-2 rounded-lg border border-border">
+                  {ocrLayers.map((l) => (
+                    <label
+                      key={l}
+                      className="flex items-center gap-2 text-xs cursor-pointer hover:bg-slate-100 p-1 rounded transition-colors"
+                    >
+                      <input
+                        type="checkbox"
+                        className="rounded border-slate-300 text-accent focus:ring-accent"
+                        checked={selectedLayers.includes(l)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedLayers((prev) => [...prev, l]);
+                          } else {
+                            setSelectedLayers((prev) =>
+                              prev.filter((layer) => layer !== l),
+                            );
+                          }
+                        }}
+                      />
+                      <span className="truncate">{l}</span>
+                    </label>
                   ))}
-                </select>
-                {suggestedLayer && (
-                  <p className="text-[10px] text-ok font-semibold mt-1">
-                    ✓ Auto-detected: {suggestedLayer}
+                  {ocrLayers.length === 0 && (
+                    <span className="text-xs text-muted-2 text-center py-2">
+                      No text layers detected.
+                    </span>
+                  )}
+                </div>
+
+                {ocrLayers.length > 0 && (
+                  <p className="text-[9px] text-muted-2 mt-1.5 leading-tight">
+                    Cable layers are hidden here to prevent OCR errors, but will
+                    load automatically in the viewer.
                   </p>
                 )}
               </div>
@@ -920,20 +960,18 @@ export default function LoadScreen({ onStartProcessing }: Props) {
                     ✓ TrOCR ready
                   </div>
                 ) : (
-                  // This state is now unreachable since api_check_model always returns ok:true
-                  // Kept as a fallback in case the backend is completely unreachable
                   <div className="px-3 py-2 rounded-lg text-xs bg-review-light text-review border border-[#fde68a]">
                     ⚠ Backend unreachable — check server
                   </div>
                 )}
               </div>
               <button
-                disabled={!selectedLayer}
+                disabled={selectedLayers.length === 0}
                 onClick={() =>
                   onStartProcessing({
                     dxfPath: selectedFile.path,
-                    layer: selectedLayer,
-                    allLayers: layers,
+                    layers: selectedLayers,
+                    allLayers: allDxfLayers,
                   })
                 }
                 className="w-full py-2.5 bg-accent text-white text-sm font-semibold rounded-xl hover:bg-blue-700 transition-colors
@@ -957,7 +995,7 @@ export default function LoadScreen({ onStartProcessing }: Props) {
 
               <button
                 onClick={() => setShowLayerPicker(false)}
-                className="text-xs text-muted hover:text-[#1e293b] transition-colors text-center"
+                className="text-xs text-muted hover:text-[#1e293b] transition-colors text-center mt-2"
               >
                 ← Back
               </button>
