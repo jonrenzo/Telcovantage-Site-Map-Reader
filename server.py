@@ -39,6 +39,9 @@ from flask import Blueprint, Flask, jsonify, request, send_file, send_from_direc
 from flask_cors import CORS
 from PIL import Image
 
+from app_python.planner_config import ENABLE_PLANNER_INTEGRATION, DEFAULT_PROJECT_ID
+from app_python.services.planner_auth import auth
+
 app = Flask(__name__, static_folder="frontend/dist", static_url_path="")
 CORS(app)
 
@@ -937,6 +940,127 @@ def assign_meter_values_to_spans(spans, ocr_results, max_dist=None):
             span["meter_value"] = None
 
     return spans
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PLANNER INTEGRATION
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def push_to_planner(
+    dxf_path: str,
+    poles: list,
+    spans: list,
+    equipment: list,
+    ocr_results: list,
+    project_id: int,
+) -> dict:
+    """
+    Push processed CAD data to TelcoVantage Planner API.
+
+    Creates a single node (derived from drawing name), poles, and pole-spans.
+
+    Args:
+        dxf_path: Path to the DXF file
+        poles: List of pole data from POLE_STATE
+        spans: List of cable spans from build_cable_spans
+        equipment: List of equipment shapes from SCAN_STATE
+        ocr_results: OCR results for meter values
+
+    Returns:
+        Dict with success status and any errors
+    """
+    if not ENABLE_PLANNER_INTEGRATION:
+        print("[planner] Integration disabled, skipping push.")
+        return {"skipped": True, "reason": "Planner integration disabled"}
+
+    try:
+        print(f"[planner] Starting push for {dxf_path}")
+
+        # Derive node ID from drawing name (e.g., "TY-2026" from filename)
+        dxf_name = Path(dxf_path).stem
+        node_id = (
+            dxf_name.split("_")[0] if "_" in dxf_name else dxf_name
+        )  # Simple derivation
+        if not node_id:
+            node_id = "CAD_NODE"
+
+        # Aggregate equipment counts for node
+        equipment_counts = {}
+        for shape in equipment:
+            kind = shape.get("kind", "")
+            if kind == "circle":
+                equipment_counts["amplifier"] = equipment_counts.get("amplifier", 0) + 1
+            elif kind == "rectangle":
+                equipment_counts["amplifier"] = equipment_counts.get("amplifier", 0) + 1
+            elif kind == "triangle":
+                equipment_counts["extender"] = equipment_counts.get("extender", 0) + 1
+            # Add more mappings as needed
+
+        # Create node
+        node_data = {
+            "project_id": project_id,  # From parameter
+            "node_id": node_id,
+            "node_name": f"CAD Import - {dxf_name}",
+            "total_strand_length": sum(s.get("total_length", 0) for s in spans),
+            "expected_cable": sum(s.get("total_length", 0) for s in spans),
+            "amplifier": equipment_counts.get("amplifier", 0),
+            "extender": equipment_counts.get("extender", 0),
+            "node_count": 1,
+        }
+        print(f"[planner] Creating node: {node_data}")
+        node_response = auth.make_request("POST", "/nodes", node_data)
+        node_id_created = node_response["id"]
+        print(f"[planner] Node created with ID: {node_id_created}")
+
+        # Create poles
+        pole_id_map = {}  # Map pole names to created IDs
+        for pole in poles:
+            pole_data = {
+                "node_id": node_id_created,
+                "pole_code": pole.get("name", f"POLE_{pole.get('pole_id', 0)}"),
+                "pole_name": pole.get("name", ""),
+                "map_latitude": pole.get("cy", 0),
+                "map_longitude": pole.get("cx", 0),
+            }
+            print(f"[planner] Creating pole: {pole_data}")
+            pole_response = auth.make_request("POST", "/poles", pole_data)
+            pole_id_map[pole_data["pole_code"]] = pole_response["id"]
+
+        print(f"[planner] Created {len(pole_id_map)} poles")
+
+        # Create pole spans
+        spans_created = 0
+        for span in spans:
+            from_pole_name = span.get("from_pole")
+            to_pole_name = span.get("to_pole")
+            if from_pole_name in pole_id_map and to_pole_name in pole_id_map:
+                span_data = {
+                    "node_id": node_id_created,
+                    "from_pole_id": pole_id_map[from_pole_name],
+                    "to_pole_id": pole_id_map[to_pole_name],
+                    "pole_span_code": f"{node_id}-{from_pole_name}-{to_pole_name}",
+                    "length_meters": span.get("total_length", 0),
+                    "runs": span.get("cable_runs", 1),
+                    "expected_cable": span.get("total_length", 0),
+                    "expected_amplifier": 0,  # Could derive from equipment proximity
+                    "expected_extender": 0,
+                }
+                print(f"[planner] Creating span: {span_data}")
+                auth.make_request("POST", "/pole-spans", span_data)
+                spans_created += 1
+
+        print(f"[planner] Push completed successfully: {spans_created} spans created")
+        return {
+            "success": True,
+            "node_id": node_id_created,
+            "poles_created": len(pole_id_map),
+            "spans_created": spans_created,
+        }
+
+    except Exception as e:
+        print(f"[planner] Push failed: {e}")
+        return {"success": False, "error": str(e)}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -2338,6 +2462,23 @@ def api_export_all():
     )
     if err:
         return jsonify({"error": err}), 500
+
+    # Push to Planner API if enabled and project_id provided
+    project_id = data.get("project_id")
+    if ENABLE_PLANNER_INTEGRATION and project_id is not None:
+        try:
+            push_result = push_to_planner(
+                state.get("dxf_path"),
+                poles,
+                cable_spans,
+                shapes,
+                state.get("results", []),
+                int(project_id),
+            )
+            return jsonify({"path": path, "planner_push": push_result})
+        except Exception as e:
+            return jsonify({"path": path, "planner_push": {"error": str(e)}})
+
     return jsonify({"path": path})
 
 
@@ -2405,6 +2546,18 @@ def api_cable_spans():
 
         traceback.print_exc()
         return jsonify({"error": str(e)}), 400
+
+
+@app.route("/api/planner/projects")
+def api_planner_projects():
+    """Fetch list of projects from Planner API."""
+    try:
+        from app_python.services.planner_auth import get_projects
+
+        projects = get_projects()
+        return jsonify({"projects": projects})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 # ─────────────────────────────────────────────────────────────────────────────
