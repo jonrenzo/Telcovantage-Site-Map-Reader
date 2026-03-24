@@ -1,12 +1,20 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import type { DigitResult, Segment, FilterMode } from "../types";
 import ReviewSidebar from "./ReviewSidebar";
 import MapCanvas from "./MapCanvas";
 import type { LabelMode } from "./MapCanvas";
 import DetailPanel from "./DetailPanel";
 import ReviewModal from "./ReviewModal";
+
+// --- NEW: Import the math utility from page.tsx ---
+import { isPointInPolygon } from "../page";
+
+interface BoundaryPoint {
+  x: number;
+  y: number;
+}
 
 export type ColorTheme = "default" | "contrast" | "neon" | "pastel";
 
@@ -45,6 +53,9 @@ interface Props {
   results: DigitResult[];
   setResults: React.Dispatch<React.SetStateAction<DigitResult[]>>;
   segments: Segment[];
+  // --- NEW: Add the boundary props ---
+  boundary: BoundaryPoint[] | null;
+  isMaskEnabled: boolean;
 }
 
 export default function ReviewLayout({
@@ -52,6 +63,8 @@ export default function ReviewLayout({
   results,
   setResults,
   segments,
+  boundary, // NEW
+  isMaskEnabled, // NEW
 }: Props) {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [filterMode, setFilterMode] = useState<FilterMode>("all");
@@ -187,6 +200,16 @@ export default function ReviewLayout({
 
   const selectedResult = results.find((r) => r.digit_id === selectedId) ?? null;
 
+  // --- NEW: Calculate visible results for the sidebar/modal ---
+  const visibleResults = useMemo(() => {
+    if (isMaskEnabled && boundary && boundary.length > 2) {
+      return results.filter((r) =>
+        isPointInPolygon(r.center_x, r.center_y, boundary),
+      );
+    }
+    return results;
+  }, [results, isMaskEnabled, boundary]);
+
   return (
     <div className="flex-1 flex overflow-hidden">
       {/* ── Sidebar ── */}
@@ -197,7 +220,8 @@ export default function ReviewLayout({
           className={`absolute inset-0 transition-opacity duration-300 ${sidebarOpen ? "opacity-100" : "opacity-0 pointer-events-none"}`}
         >
           <ReviewSidebar
-            results={results}
+            // --- CHANGE: Pass visibleResults instead of raw results ---
+            results={visibleResults}
             filterMode={filterMode}
             setFilterMode={setFilterMode}
             selectedId={selectedId}
@@ -218,7 +242,7 @@ export default function ReviewLayout({
       <div className="flex-1 relative overflow-hidden bg-[#e8edf5]">
         <MapCanvas
           segments={segments}
-          results={results}
+          results={results} // Pass FULL results (MapCanvas does its own filtering)
           filterMode={filterMode}
           selectedId={selectedId}
           onSelectDigit={manualMode ? () => {} : setSelectedId}
@@ -226,6 +250,9 @@ export default function ReviewLayout({
           manualMode={manualMode}
           onManualPlace={handleManualPlace}
           labelMode={labelMode}
+          // --- NEW: Pass boundary props down to MapCanvas ---
+          boundary={boundary}
+          isMaskEnabled={isMaskEnabled}
         />
 
         {selectedResult && !manualMode && (
@@ -334,7 +361,8 @@ export default function ReviewLayout({
 
       {reviewOpen && (
         <ReviewModal
-          results={results}
+          // --- CHANGE: Pass visibleResults to modal as well! ---
+          results={visibleResults}
           onCorrect={handleCorrection}
           onClose={() => setReviewOpen(false)}
         />

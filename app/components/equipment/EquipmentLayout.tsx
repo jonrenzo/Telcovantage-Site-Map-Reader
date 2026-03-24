@@ -13,6 +13,9 @@ interface Props {
   cachedData: FileCache | null;
   onCacheUpdate: (data: Partial<FileCache>) => void;
   isActive: boolean;
+  // --- NEW: Boundary Props ---
+  boundary: BoundaryPoint[] | null;
+  isMaskEnabled: boolean;
 }
 
 type ScanStatus = "idle" | "processing" | "done" | "error";
@@ -24,9 +27,11 @@ export default function EquipmentLayout({
   cachedData,
   onCacheUpdate,
   isActive,
+  boundary, // NEW
+  isMaskEnabled, // NEW
 }: Props) {
   const [shapes, setShapes] = useState<EquipmentShape[]>([]);
-  const [boundary, setBoundary] = useState<BoundaryPoint[] | null>(null);
+  // NOTE: Removed local boundary state. We use the prop from page.tsx now!
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [status, setStatus] = useState<ScanStatus>("idle");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -43,7 +48,6 @@ export default function EquipmentLayout({
       if (pollRef.current) clearInterval(pollRef.current);
       setStatus("processing");
       setShapes([]);
-      setBoundary(null);
       setSelectedId(null);
       setErrorMsg(null);
       setProgress(0);
@@ -79,7 +83,6 @@ export default function EquipmentLayout({
             const fetchedBoundary = rdata.boundary ?? null;
 
             setShapes(fetched);
-            setBoundary(fetchedBoundary);
             setStatus("done");
 
             const kinds = new Set(
@@ -89,7 +92,7 @@ export default function EquipmentLayout({
             setVisibleKinds(kinds);
             setVisibleLayers(layerSet);
 
-            // Save to cache
+            // Save to cache AND push boundary up to page.tsx
             onCacheUpdate({
               shapes: fetched,
               boundary: fetchedBoundary,
@@ -108,23 +111,19 @@ export default function EquipmentLayout({
 
   const [fitTrigger, setFitTrigger] = useState(0);
 
-  // Re-fit the canvas whenever this tab becomes active
   useEffect(() => {
     if (!isActive) return;
     const id = setTimeout(() => setFitTrigger((n) => n + 1), 30);
     return () => clearTimeout(id);
   }, [isActive]);
-  // Never auto-scan — user must click "Re-scan" to trigger a fresh scan.
+
   useEffect(() => {
     if (hasScanned.current) return;
     hasScanned.current = true;
 
     if (cachedData?.equipmentDone) {
-      // Restore from cache — covers both "found shapes" and "no shapes on this file"
       const fetched = cachedData.shapes;
-      const fetchedBoundary = cachedData.boundary;
       setShapes(fetched);
-      setBoundary(fetchedBoundary);
       setStatus("done");
       setVisibleKinds(
         new Set(fetched.map((s) => getDisplayKind(s.kind, s.layer))),
@@ -132,7 +131,6 @@ export default function EquipmentLayout({
       setVisibleLayers(new Set(fetched.map((s) => s.layer)));
     }
 
-    // No cache — leave status as "idle". User clicks Re-scan to start.
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
@@ -142,7 +140,7 @@ export default function EquipmentLayout({
   return (
     <div className="flex-1 flex overflow-hidden">
       <EquipmentPanel
-        shapes={shapes}
+        shapes={shapes} // If you want to filter counts in the panel, filter this array first!
         selectedId={selectedId}
         setSelectedId={setSelectedId}
         visibleKinds={visibleKinds}
@@ -187,12 +185,14 @@ export default function EquipmentLayout({
         <EquipmentCanvas
           segments={segments}
           shapes={shapes}
-          boundary={boundary}
           selectedId={selectedId}
           visibleKinds={visibleKinds}
           visibleLayers={visibleLayers}
           onSelectShape={setSelectedId}
           fitTrigger={fitTrigger}
+          // --- NEW: Pass boundary and mask state down ---
+          boundary={boundary}
+          isMaskEnabled={isMaskEnabled}
         />
       </div>
     </div>

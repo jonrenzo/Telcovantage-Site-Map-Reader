@@ -12,6 +12,34 @@ import DxfViewer from "./components/dxf/DxfViewer";
 import EquipmentLayout from "./components/equipment/EquipmentLayout";
 import PoleLayout from "./components/poles/Polelayout";
 
+// --- NEW: Add a type for the Boundary Point ---
+interface BoundaryPoint {
+  x: number;
+  y: number;
+}
+
+// --- NEW: The Ray-Casting Math Utility ---
+export function isPointInPolygon(
+  px: number,
+  py: number,
+  polygon: BoundaryPoint[] | null,
+): boolean {
+  if (!polygon || polygon.length < 3) return true; // If no valid polygon, assume everything is "inside"
+
+  let isInside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = polygon[i].x,
+      yi = polygon[i].y;
+    const xj = polygon[j].x,
+      yj = polygon[j].y;
+
+    const intersect =
+      yi > py !== yj > py && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi;
+    if (intersect) isInside = !isInside;
+  }
+  return isInside;
+}
+
 type MapTab = "review" | "dxf" | "equipment" | "pole";
 export type ExportType = "all" | "ocr" | "equipment" | "poles" | "pdf";
 
@@ -22,13 +50,29 @@ export default function Home() {
   const [results, setResults] = useState<DigitResult[]>([]);
   const [segments, setSegments] = useState<Segment[]>([]);
   const [mapTab, setMapTab] = useState<MapTab>("review");
-
   const [exporting, setExporting] = useState<ExportType | null>(null);
+
+  // --- NEW: Global Boundary State ---
+  const [globalBoundary, setGlobalBoundary] = useState<BoundaryPoint[] | null>(
+    null,
+  );
+  const [isMaskEnabled, setIsMaskEnabled] = useState<boolean>(true);
 
   const pdfExportRef = useRef<(() => void) | null>(null);
 
   const pipeline = usePipeline();
   const { getCache, setCache } = useSessionCache();
+
+  // --- NEW: Intercept cache updates to grab the boundary when EquipmentLayout finds it ---
+  const handleCacheUpdate = useCallback(
+    (path: string, data: any) => {
+      setCache(path, data);
+      if (data.boundary !== undefined) {
+        setGlobalBoundary(data.boundary);
+      }
+    },
+    [setCache],
+  );
 
   const handleStartProcessing = useCallback(
     async (opts: { dxfPath: string; layer: string; allLayers: string[] }) => {
@@ -38,21 +82,26 @@ export default function Home() {
       setLayers(opts.allLayers);
 
       if (cached && cached.results.length > 0) {
-        // ── Restore from cache — skip the OCR pipeline entirely ──────────────
+        // Restore from cache
         setResults(cached.results);
         setSegments(cached.segments);
+
+        // --- NEW: Restore boundary from cache if it exists ---
+        if (cached.boundary) {
+          setGlobalBoundary(cached.boundary);
+        }
+
         setStep(3);
         return;
       }
 
-      // ── Fresh file — run the full pipeline ───────────────────────────────
       setStep(2);
       await pipeline.run(opts);
     },
     [pipeline, getCache],
   );
 
-  // When the pipeline finishes, save results to cache and advance to step 3
+  // ... (Keep your existing useEffects for pipeline and results caching here) ...
   useEffect(() => {
     if (
       step === 2 &&
@@ -62,7 +111,6 @@ export default function Home() {
       setResults(pipeline.results);
       setSegments(pipeline.segments);
 
-      // Persist OCR results so re-opening this file skips re-processing
       if (dxfPath) {
         setCache(dxfPath, {
           results: pipeline.results,
@@ -85,13 +133,13 @@ export default function Home() {
     setCache,
   ]);
 
-  // Keep cache up to date whenever the user edits OCR results
   useEffect(() => {
     if (step === 3 && dxfPath && results.length > 0) {
       setCache(dxfPath, { results });
     }
   }, [results, step, dxfPath, setCache]);
 
+  // ... (Keep your handleExport here) ...
   const handleExport = useCallback(
     async (type: ExportType) => {
       if (exporting) return;
@@ -105,7 +153,16 @@ export default function Home() {
         }
 
         const corrections: Record<number, string | null> = {};
-        results.forEach((r) => {
+
+        // --- NEW: Filter exports to only include items inside the active boundary! ---
+        const activeResults =
+          isMaskEnabled && globalBoundary
+            ? results.filter((r) =>
+                isPointInPolygon(r.center_x, r.center_y, globalBoundary),
+              )
+            : results;
+
+        activeResults.forEach((r) => {
           corrections[r.digit_id] = r.corrected_value;
         });
 
@@ -139,12 +196,13 @@ export default function Home() {
           alert("Export failed: " + data.error);
           return;
         }
-        window.location.href = "/api/download?file=" + encodeURIComponent(data.path);
+        window.location.href =
+          "/api/download?file=" + encodeURIComponent(data.path);
       } finally {
         setExporting(null);
       }
     },
-    [exporting, results],
+    [exporting, results, isMaskEnabled, globalBoundary],
   );
 
   const handleStartOver = useCallback(() => {
@@ -156,6 +214,9 @@ export default function Home() {
     setSegments([]);
     setMapTab("review");
     setExporting(null);
+    // --- NEW: Clear boundary on reset ---
+    setGlobalBoundary(null);
+    setIsMaskEnabled(true);
   }, [pipeline]);
 
   const TABS = [
@@ -181,30 +242,56 @@ export default function Home() {
           progress={pipeline.progress}
           total={pipeline.total}
           status={pipeline.status}
-          step={pipeline.step} // NEW
-          stepLabel={pipeline.stepLabel} // NEW
+          step={pipeline.step}
+          stepLabel={pipeline.stepLabel}
         />
       )}
 
       {step === 3 && (
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Tab bar */}
-          <div className="flex items-center gap-1 px-4 pt-2 bg-surface border-b border-border flex-shrink-0">
-            {TABS.map(({ key, label, icon }) => (
-              <button
-                key={key}
-                onClick={() => setMapTab(key)}
-                className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold rounded-t-lg border-b-2 transition-all
-                        ${
-                          mapTab === key
-                            ? "text-accent border-accent bg-accent-light"
-                            : "text-muted border-transparent hover:text-[#1e293b] hover:bg-surface-2"
-                        }`}
-              >
-                <span>{icon}</span>
-                {label}
-              </button>
-            ))}
+          {/* Tab bar with Global Toggle */}
+          <div className="flex items-center justify-between px-4 pt-2 bg-surface border-b border-border flex-shrink-0">
+            <div className="flex items-center gap-1">
+              {TABS.map(({ key, label, icon }) => (
+                <button
+                  key={key}
+                  onClick={() => setMapTab(key)}
+                  className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold rounded-t-lg border-b-2 transition-all
+                          ${
+                            mapTab === key
+                              ? "text-accent border-accent bg-accent-light"
+                              : "text-muted border-transparent hover:text-[#1e293b] hover:bg-surface-2"
+                          }`}
+                >
+                  <span>{icon}</span>
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* --- NEW: The Boundary Toggle UI --- */}
+            {globalBoundary && (
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-xs font-semibold text-muted">
+                  Boundary Mask:
+                </span>
+                <button
+                  onClick={() => setIsMaskEnabled(!isMaskEnabled)}
+                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 ${
+                    isMaskEnabled ? "bg-green-500" : "bg-slate-300"
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                      isMaskEnabled ? "translate-x-4.5" : "translate-x-1"
+                    }`}
+                  />
+                </button>
+                <span className="text-[10px] font-mono text-muted w-8">
+                  {isMaskEnabled ? "ON" : "OFF"}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Tab content */}
@@ -212,13 +299,18 @@ export default function Home() {
             <div
               className={`flex-1 flex overflow-hidden ${mapTab === "review" ? "" : "hidden"}`}
             >
+              {/* We will pass the boundary props down to ReviewLayout next!
+               */}
               <ReviewLayout
                 dxfPath={dxfPath}
                 results={results}
                 setResults={setResults}
                 segments={segments}
+                boundary={globalBoundary} // NEW
+                isMaskEnabled={isMaskEnabled} // NEW
               />
             </div>
+
             <div
               className={`flex-1 flex overflow-hidden ${mapTab === "dxf" ? "" : "hidden"}`}
             >
@@ -227,20 +319,28 @@ export default function Home() {
                 ocrResults={results}
                 isActive={mapTab === "dxf"}
                 onExportPdfRef={pdfExportRef}
+                boundary={globalBoundary}
+                isMaskEnabled={isMaskEnabled}
               />
             </div>
+
             <div
               className={`flex-1 flex overflow-hidden ${mapTab === "equipment" ? "" : "hidden"}`}
             >
+              {/* Notice we use handleCacheUpdate here now */}
               <EquipmentLayout
                 dxfPath={dxfPath}
                 layers={layers}
                 segments={segments}
                 cachedData={getCache(dxfPath)}
-                onCacheUpdate={(data) => setCache(dxfPath, data)}
+                onCacheUpdate={(data) => handleCacheUpdate(dxfPath, data)}
                 isActive={mapTab === "equipment"}
+                // ADD THESE TWO LINES:
+                boundary={globalBoundary}
+                isMaskEnabled={isMaskEnabled}
               />
             </div>
+
             <div
               className={`flex-1 flex overflow-hidden ${mapTab === "pole" ? "" : "hidden"}`}
             >
@@ -249,8 +349,10 @@ export default function Home() {
                 allLayers={layers}
                 layerSegments={{ all: segments }}
                 cachedData={getCache(dxfPath)}
-                onCacheUpdate={(data) => setCache(dxfPath, data)}
+                onCacheUpdate={(data) => handleCacheUpdate(dxfPath, data)}
                 isActive={mapTab === "pole"}
+                boundary={globalBoundary}
+                isMaskEnabled={isMaskEnabled}
               />
             </div>
           </div>

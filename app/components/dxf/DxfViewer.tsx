@@ -5,6 +5,15 @@ import type { DxfLayerData, EquipmentShape } from "../../types";
 import DxfToolbar from "./DxfToolbar";
 import DxfLayerPanel from "./DxfLayerPanel";
 
+// --- NEW: Import the Math Utility ---
+import { isPointInPolygon } from "../../page";
+
+// --- NEW: Define BoundaryPoint so TypeScript is happy ---
+interface BoundaryPoint {
+  x: number;
+  y: number;
+}
+
 interface RawSegment {
   x1: number;
   y1: number;
@@ -42,6 +51,9 @@ interface Props {
   ocrResults: any[];
   isActive: boolean;
   onExportPdfRef?: React.MutableRefObject<(() => void) | null>;
+  // --- NEW: Boundary Props ---
+  boundary: BoundaryPoint[] | null;
+  isMaskEnabled: boolean;
 }
 
 interface PartialDetail {
@@ -50,7 +62,6 @@ interface PartialDetail {
 
 type CableRecoveryStatus = "Recovered" | "Partial" | "Missing";
 
-// Interface for storing deleted span data safely
 interface DeletedSpanData {
   span: CableSpan;
   status?: CableRecoveryStatus;
@@ -78,11 +89,9 @@ function layerColor(name: string): string {
     "#ea580c",
     "#0284c7",
   ];
-
   let hash = 0;
   for (let i = 0; i < name.length; i++)
     hash = name.charCodeAt(i) + ((hash << 5) - hash);
-
   return palette[Math.abs(hash) % palette.length];
 }
 
@@ -97,11 +106,9 @@ function computeSpanMetrics(segments: RawSegment[]) {
     miny = Infinity,
     maxx = -Infinity,
     maxy = -Infinity;
-
   let sumX = 0,
     sumY = 0,
     count = 0;
-
   let length = 0;
 
   for (const s of segments) {
@@ -109,11 +116,9 @@ function computeSpanMetrics(segments: RawSegment[]) {
     miny = Math.min(miny, s.y1, s.y2);
     maxx = Math.max(maxx, s.x1, s.x2);
     maxy = Math.max(maxy, s.y1, s.y2);
-
     sumX += s.x1 + s.x2;
     sumY += s.y1 + s.y2;
     count += 2;
-
     length += Math.hypot(s.x2 - s.x1, s.y2 - s.y1);
   }
 
@@ -145,10 +150,8 @@ function pointToSegmentDistance(
 
   let t = ((px - x1) * dx + (py - y1) * dy) / len2;
   t = Math.max(0, Math.min(1, t));
-
   const cx = x1 + t * dx;
   const cy = y1 + t * dy;
-
   return Math.hypot(px - cx, py - cy);
 }
 
@@ -181,17 +184,13 @@ function findSafeCutIndex(
   ) {
     startIdx--;
   }
-
   while (
     endIdx < segs.length - 1 &&
     areSegmentsConnected(segs[endIdx], segs[endIdx + 1], tol)
   ) {
     endIdx++;
   }
-
-  if (startIdx === 0 && endIdx === segs.length - 1) {
-    return clickedIndex;
-  }
+  if (startIdx === 0 && endIdx === segs.length - 1) return clickedIndex;
 
   const sStart = segs[startIdx];
   const sEnd = segs[endIdx];
@@ -227,7 +226,6 @@ function drawRoundedRect(
   r: number,
 ) {
   const rr = Math.min(r, w / 2, h / 2);
-
   ctx.beginPath();
   ctx.moveTo(x + rr, y);
   ctx.lineTo(x + w - rr, y);
@@ -251,7 +249,6 @@ function getStatusStyle(status: CableRecoveryStatus) {
         chipBorder: "rgba(134, 239, 172, 1)",
         chipText: "#166534",
       };
-
     case "Partial":
       return {
         marker: "rgba(250, 204, 21, 0.24)",
@@ -260,7 +257,6 @@ function getStatusStyle(status: CableRecoveryStatus) {
         chipBorder: "rgba(253, 224, 71, 1)",
         chipText: "#92400e",
       };
-
     case "Missing":
       return {
         marker: "rgba(248, 113, 113, 0.22)",
@@ -269,7 +265,6 @@ function getStatusStyle(status: CableRecoveryStatus) {
         chipBorder: "rgba(252, 165, 165, 1)",
         chipText: "#991b1b",
       };
-
     default:
       return {
         marker: "rgba(59, 130, 246, 0.18)",
@@ -281,9 +276,15 @@ function getStatusStyle(status: CableRecoveryStatus) {
   }
 }
 
-export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRef }: Props) {
+export default function DxfViewer({
+  dxfPath,
+  ocrResults,
+  isActive,
+  onExportPdfRef,
+  boundary, // NEW
+  isMaskEnabled, // NEW
+}: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  // NEW: Ref for the tooltip DOM element to avoid state re-renders
   const tooltipRef = useRef<HTMLDivElement>(null);
   const vpRef = useRef<Viewport>({ x: 0, y: 0, scale: 1 });
 
@@ -301,6 +302,16 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
     maxy: number;
   } | null>(null);
 
+  // --- NEW: Keep Refs for Boundary to avoid dependency cycles inside renderScene ---
+  const boundaryRef = useRef(boundary);
+  const maskEnabledRef = useRef(isMaskEnabled);
+  useEffect(() => {
+    boundaryRef.current = boundary;
+  }, [boundary]);
+  useEffect(() => {
+    maskEnabledRef.current = isMaskEnabled;
+  }, [isMaskEnabled]);
+
   const segmentsRef = useRef<Record<string, RawSegment[]>>({});
   const layersRef = useRef<DxfLayerData[]>([]);
   const cableSpansRef = useRef<CableSpan[]>([]);
@@ -315,7 +326,6 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
     { prev: CableSpan[]; prevDeleted?: DeletedSpanData[] }[]
   >([]);
   const fileCacheRef = useRef<Record<string, FileDataCache>>({});
-
   const nextSpanIdRef = useRef<number>(1);
   const exportPdfFnRef = useRef<(() => void) | null>(null);
 
@@ -328,14 +338,11 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
   const [partialDetails, setPartialDetails] = useState<
     Record<number, PartialDetail>
   >({});
-
-  // Trash/Deleted Spans State
   const deletedSpansRef = useRef<DeletedSpanData[]>([]);
   const [deletedSpans, setDeletedSpans] = useState<DeletedSpanData[]>([]);
   const [spanToDelete, setSpanToDelete] = useState<number | null>(null);
   const [showTrashPanel, setShowTrashPanel] = useState(false);
 
-  // Pairing / Merge State
   const pairingModeRef = useRef(false);
   const pairedSpanIdsRef = useRef<number[]>([]);
   const [pairingMode, setPairingMode] = useState(false);
@@ -344,23 +351,15 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
   );
   const [pairedSpanIds, setPairedSpanIds] = useState<number[]>([]);
   const [confirmPairingOpen, setConfirmPairingOpen] = useState(false);
-
-  // Multi Action tracking
   const multiActionRef = useRef<"runs" | "merge" | null>(null);
   const [multiAction, setMultiAction] = useState<"runs" | "merge" | null>(null);
-
-  // Chips Toggle State
   const [showChips, setShowChips] = useState(true);
   const showChipsRef = useRef(true);
-
-  // Actives Toggle State
   const [showActives, setShowActives] = useState(false);
   const [activesLoading, setActivesLoading] = useState(false);
   const showActivesRef = useRef(false);
   const activeShapesRef = useRef<any[]>([]);
   const activesPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // Poles Toggle & Connect State
   const [showPoles, setShowPoles] = useState(false);
   const showPolesRef = useRef(false);
   const [poles, setPoles] = useState<PoleTag[]>([]);
@@ -384,14 +383,23 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
     Record<number, CableRecoveryStatus>
   >({});
 
+  // --- NEW: Compute Totals Respecting Boundary Mask ---
   const computeCableLengthSummary = () => {
-    let totalRecovered = 0;
-    let totalUnrecovered = 0;
-    let totalMissing = 0;
-    let totalLength = 0;
-    let totalStrandLength = 0;
+    let totalRecovered = 0,
+      totalUnrecovered = 0,
+      totalMissing = 0,
+      totalLength = 0,
+      totalStrandLength = 0;
 
     for (const span of cableSpansRef.current) {
+      // SKIP IF MASK ENABLED AND OUTSIDE BOUNDARY
+      if (
+        isMaskEnabled &&
+        boundary &&
+        !isPointInPolygon(span.cx, span.cy, boundary)
+      )
+        continue;
+
       const runs = span.cable_runs || 1;
       const strandLength = span.meterValue ?? span.total_length ?? 0;
       const actualLength = strandLength * runs;
@@ -408,7 +416,6 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
         const detail = partialDetails[span.span_id] ?? { recovered: 0 };
         const safeRecovered = Math.min(detail.recovered ?? 0, strandLength);
         const calcUnrecovered = strandLength - safeRecovered;
-
         totalRecovered += safeRecovered * runs;
         totalUnrecovered += calcUnrecovered * runs;
       }
@@ -432,16 +439,12 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
 
   const isLayerVisible = useCallback((name: string | null) => {
     if (!name) return false;
-    const layer = layersRef.current.find((l) => l.name === name);
-    return !!layer?.visible;
+    return !!layersRef.current.find((l) => l.name === name)?.visible;
   }, []);
 
   const screenToWorld = useCallback((sx: number, sy: number) => {
     const vp = vpRef.current;
-    return {
-      x: (sx - vp.x) / vp.scale,
-      y: -(sy - vp.y) / vp.scale,
-    };
+    return { x: (sx - vp.x) / vp.scale, y: -(sy - vp.y) / vp.scale };
   }, []);
 
   const renderScene = useCallback(
@@ -464,11 +467,14 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
         y: -wy * vp.scale + vp.y,
       });
 
+      const isMaskOn = maskEnabledRef.current;
+      const currentBoundary = boundaryRef.current;
+
       ctx.save();
       ctx.translate(vp.x, vp.y);
       ctx.scale(vp.scale, -vp.scale);
 
-      // 1. Draw base DXF layers
+      // 1. Draw base DXF layers (We don't mask raw geometry, only the entities)
       for (const layer of layersRef.current) {
         if (!layer.visible) continue;
         const segs = segmentsRef.current[layer.name] ?? [];
@@ -482,6 +488,26 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
           ctx.lineTo(s.x2, s.y2);
         }
         ctx.stroke();
+      }
+
+      // --- NEW: Draw the Boundary Polygon ---
+      if (isMaskOn && currentBoundary && currentBoundary.length > 2) {
+        ctx.save();
+        ctx.strokeStyle = "rgba(16, 185, 129, 0.8)"; // Emerald 500
+        ctx.lineWidth = 2.5 / vp.scale;
+        ctx.setLineDash([15 / vp.scale, 10 / vp.scale]);
+
+        ctx.beginPath();
+        ctx.moveTo(currentBoundary[0].x, currentBoundary[0].y);
+        for (let i = 1; i < currentBoundary.length; i++) {
+          ctx.lineTo(currentBoundary[i].x, currentBoundary[i].y);
+        }
+        ctx.closePath();
+        ctx.stroke();
+
+        ctx.fillStyle = "rgba(16, 185, 129, 0.02)";
+        ctx.fill();
+        ctx.restore();
       }
 
       // 2. Draw active cable spans highlights
@@ -504,6 +530,14 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
           const spanId = Number(idStr);
           const span = spanMap.get(spanId);
           if (!span) continue;
+
+          // SKIP IF OUTSIDE BOUNDARY
+          if (
+            isMaskOn &&
+            currentBoundary &&
+            !isPointInPolygon(span.cx, span.cy, currentBoundary)
+          )
+            continue;
 
           const style = getStatusStyle(status);
           const runs = span.cable_runs || 1;
@@ -531,10 +565,16 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
         // Selected Span Emphasis
         if (opts.showHover && selectedSpanRef.current !== null) {
           const span = spanMap.get(selectedSpanRef.current);
-          if (span) {
+          if (
+            span &&
+            !(
+              isMaskOn &&
+              currentBoundary &&
+              !isPointInPolygon(span.cx, span.cy, currentBoundary)
+            )
+          ) {
             const selectedStatus =
               cableStatusRef.current[selectedSpanRef.current];
-
             const style = selectedStatus
               ? getStatusStyle(selectedStatus)
               : {
@@ -563,17 +603,26 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
             ctx.restore();
           }
         }
-
-        // Pairing / Merge mode highlights
+        // --- RESTORED: Pairing / Merge mode highlights ---
         if (opts.showHover && pairingModeRef.current) {
           for (const pid of pairedSpanIdsRef.current) {
             const span = spanMap.get(pid);
-            if (span) {
+
+            // Make sure we don't highlight something outside the boundary!
+            if (
+              span &&
+              !(
+                isMaskOn &&
+                currentBoundary &&
+                !isPointInPolygon(span.cx, span.cy, currentBoundary)
+              )
+            ) {
               ctx.save();
               ctx.lineCap = "round";
               ctx.lineJoin = "round";
 
               if (multiActionRef.current === "runs") {
+                // Purple glow for "Runs"
                 ctx.strokeStyle = "rgba(168, 85, 247, 0.6)";
                 ctx.lineWidth = 10 / vp.scale;
                 drawSpanPath(span);
@@ -584,6 +633,7 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
                 drawSpanPath(span);
                 ctx.stroke();
               } else {
+                // Blue glow for "Merge"
                 ctx.strokeStyle = "rgba(59, 130, 246, 0.6)";
                 ctx.lineWidth = 10 / vp.scale;
                 drawSpanPath(span);
@@ -599,7 +649,6 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
             }
           }
         }
-
         // Hover Effect
         if (
           opts.showHover &&
@@ -608,13 +657,19 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
           !pairedSpanIdsRef.current.includes(hoveredSpanRef.current)
         ) {
           const span = spanMap.get(hoveredSpanRef.current);
-          if (span) {
+          if (
+            span &&
+            !(
+              isMaskOn &&
+              currentBoundary &&
+              !isPointInPolygon(span.cx, span.cy, currentBoundary)
+            )
+          ) {
             ctx.save();
             ctx.lineCap = "round";
             ctx.lineJoin = "round";
             ctx.strokeStyle = "rgba(245, 158, 11, 0.95)";
-            const runs = span.cable_runs || 1;
-            ctx.lineWidth = (2.4 + (runs - 1) * 4) / vp.scale;
+            ctx.lineWidth = (2.4 + ((span.cable_runs || 1) - 1) * 4) / vp.scale;
             drawSpanPath(span);
             ctx.stroke();
             ctx.restore();
@@ -622,15 +677,25 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
         }
       }
 
-      // 3. Draw Equipment Actives if toggled on
+      // 3. Draw Equipment Actives
       if (opts.showActives) {
         ctx.save();
-
         for (const shape of activeShapesRef.current) {
-          const str = `${shape.kind} ${shape.layer}`.toLowerCase();
-          let fillColor = "rgba(156, 163, 175, 0.4)";
-          let strokeColor = "rgba(100, 116, 139, 0.9)";
+          // SKIP IF OUTSIDE BOUNDARY
+          if (
+            isMaskOn &&
+            currentBoundary &&
+            !isPointInPolygon(
+              shape.cx ?? shape.bbox[0],
+              shape.cy ?? shape.bbox[1],
+              currentBoundary,
+            )
+          )
+            continue;
 
+          const str = `${shape.kind} ${shape.layer}`.toLowerCase();
+          let fillColor = "rgba(156, 163, 175, 0.4)",
+            strokeColor = "rgba(100, 116, 139, 0.9)";
           if (str.includes("extender")) {
             fillColor = "rgba(239, 68, 68, 0.4)";
             strokeColor = "rgba(220, 38, 38, 0.9)";
@@ -641,6 +706,7 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
             fillColor = "rgba(59, 130, 246, 0.4)";
             strokeColor = "rgba(37, 99, 235, 0.9)";
           }
+
           ctx.fillStyle = fillColor;
           ctx.strokeStyle = strokeColor;
           ctx.lineWidth = 2.5 / vp.scale;
@@ -648,9 +714,8 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
           if (shape.points?.length > 0) {
             ctx.beginPath();
             ctx.moveTo(shape.points[0][0], shape.points[0][1]);
-            for (let i = 1; i < shape.points.length; i++) {
+            for (let i = 1; i < shape.points.length; i++)
               ctx.lineTo(shape.points[i][0], shape.points[i][1]);
-            }
             ctx.closePath();
             ctx.fill();
             ctx.stroke();
@@ -663,21 +728,27 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
         ctx.restore();
       }
 
-      // 4. Draw Poles if toggled on
+      // 4. Draw Poles
       if (opts.showPoles) {
         ctx.save();
         const r = 12 / vp.scale;
-
         for (const pole of polesRef.current) {
+          // SKIP IF OUTSIDE BOUNDARY
+          if (
+            isMaskOn &&
+            currentBoundary &&
+            !isPointInPolygon(pole.cx, pole.cy, currentBoundary)
+          )
+            continue;
+
           ctx.beginPath();
           ctx.arc(pole.cx, pole.cy, r, 0, 2 * Math.PI);
-          ctx.fillStyle = "rgba(245, 158, 11, 0.85)"; // Amber
+          ctx.fillStyle = "rgba(245, 158, 11, 0.85)";
           ctx.fill();
           ctx.strokeStyle = "#fff";
           ctx.lineWidth = 2 / vp.scale;
           ctx.stroke();
 
-          // Label
           if (vp.scale > 0.8) {
             ctx.save();
             ctx.translate(pole.cx, pole.cy + r * 1.2);
@@ -692,35 +763,41 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
         }
         ctx.restore();
       }
-
       ctx.restore();
 
       // 5. Draw Chips (Screen space)
       if (opts.showChips && cableLayer && isLayerVisible(cableLayer)) {
-        const spans = cableSpansRef.current;
+        for (const span of cableSpansRef.current) {
+          // SKIP IF OUTSIDE BOUNDARY
+          if (
+            isMaskOn &&
+            currentBoundary &&
+            !isPointInPolygon(span.cx, span.cy, currentBoundary)
+          )
+            continue;
 
-        for (const span of spans) {
           const status = cableStatusRef.current[span.span_id];
           if (!status) continue;
 
           const style = getStatusStyle(status);
           const anchor = worldToScreenLocal(span.cx, span.cy);
-          let text = status;
-          const paddingX = 8;
-          const paddingY = 5;
-          const fontSize = 11;
+          const paddingX = 8,
+            paddingY = 5,
+            fontSize = 11;
 
           ctx.save();
           ctx.font = `600 ${fontSize}px Inter, Arial, sans-serif`;
-
-          const textWidth = ctx.measureText(text).width;
-          const chipW = textWidth + paddingX * 2;
-          const chipH = fontSize + paddingY * 2;
-          let chipX = anchor.x - chipW / 2;
-          let chipY = anchor.y - chipH - 8;
-
-          chipX = Math.max(8, Math.min(chipX, width - chipW - 8));
-          chipY = Math.max(8, Math.min(chipY, height - chipH - 8));
+          const textWidth = ctx.measureText(status).width;
+          const chipW = textWidth + paddingX * 2,
+            chipH = fontSize + paddingY * 2;
+          let chipX = Math.max(
+            8,
+            Math.min(anchor.x - chipW / 2, width - chipW - 8),
+          );
+          let chipY = Math.max(
+            8,
+            Math.min(anchor.y - chipH - 8, height - chipH - 8),
+          );
 
           ctx.fillStyle = style.chipFill;
           ctx.strokeStyle = style.chipBorder;
@@ -728,10 +805,9 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
           drawRoundedRect(ctx, chipX, chipY, chipW, chipH, 8);
           ctx.fill();
           ctx.stroke();
-
           ctx.fillStyle = style.chipText;
           ctx.textBaseline = "middle";
-          ctx.fillText(text, chipX + paddingX, chipY + chipH / 2);
+          ctx.fillText(status, chipX + paddingX, chipY + chipH / 2);
           ctx.restore();
         }
       }
@@ -742,10 +818,8 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
   const redraw = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-
     renderScene(ctx, vpRef.current, canvas.width, canvas.height, {
       showChips: showChipsRef.current,
       showHover: true,
@@ -754,55 +828,56 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
     });
   }, [renderScene]);
 
-  // ============================================================================
-  // HYBRID PIPELINE: Auto-Connect Cables using Buffer + Ray Casting
-  // ============================================================================
   const autoConnectPoles = useCallback(() => {
     if (!polesRef.current.length || !cableSpansRef.current.length) return;
-
-    const BUFFER_RADIUS = 30;
-    const RAY_MAX_DIST = 150;
-    const RAY_TOLERANCE = 15;
+    const BUFFER_RADIUS = 30,
+      RAY_MAX_DIST = 150,
+      RAY_TOLERANCE = 15;
 
     const newSpans = cableSpansRef.current.map((span) => {
       if (span.segments.length === 0) return span;
-
-      const firstSeg = span.segments[0];
-      const lastSeg = span.segments[span.segments.length - 1];
-
-      const ptA = { x: firstSeg.x1, y: firstSeg.y1 };
-      const ptA_in = { x: firstSeg.x2, y: firstSeg.y2 };
-
-      const ptB = { x: lastSeg.x2, y: lastSeg.y2 };
-      const ptB_in = { x: lastSeg.x1, y: lastSeg.y1 };
+      const firstSeg = span.segments[0],
+        lastSeg = span.segments[span.segments.length - 1];
+      const ptA = { x: firstSeg.x1, y: firstSeg.y1 },
+        ptA_in = { x: firstSeg.x2, y: firstSeg.y2 };
+      const ptB = { x: lastSeg.x2, y: lastSeg.y2 },
+        ptB_in = { x: lastSeg.x1, y: lastSeg.y1 };
 
       const findPoleForEndpoint = (
         pt: { x: number; y: number },
         pt_in: { x: number; y: number },
       ) => {
-        let closestPole: PoleTag | null = null;
-        let minDist = Infinity;
-
+        let closestPole: PoleTag | null = null,
+          minDist = Infinity;
         for (const pole of polesRef.current) {
+          if (
+            maskEnabledRef.current &&
+            boundaryRef.current &&
+            !isPointInPolygon(pole.cx, pole.cy, boundaryRef.current)
+          )
+            continue;
           const dist = Math.hypot(pole.cx - pt.x, pole.cy - pt.y);
           if (dist < BUFFER_RADIUS && dist < minDist) {
             minDist = dist;
             closestPole = pole;
           }
         }
-
         if (closestPole) return closestPole.name;
-
         if (pt.x === pt_in.x && pt.y === pt_in.y) return null;
 
         const angle = Math.atan2(pt.y - pt_in.y, pt.x - pt_in.x);
-        const rayEndX = pt.x + Math.cos(angle) * RAY_MAX_DIST;
-        const rayEndY = pt.y + Math.sin(angle) * RAY_MAX_DIST;
-
+        const rayEndX = pt.x + Math.cos(angle) * RAY_MAX_DIST,
+          rayEndY = pt.y + Math.sin(angle) * RAY_MAX_DIST;
         closestPole = null;
         minDist = Infinity;
 
         for (const pole of polesRef.current) {
+          if (
+            maskEnabledRef.current &&
+            boundaryRef.current &&
+            !isPointInPolygon(pole.cx, pole.cy, boundaryRef.current)
+          )
+            continue;
           const distToRay = pointToSegmentDistance(
             pole.cx,
             pole.cy,
@@ -822,17 +897,17 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
         return closestPole ? closestPole.name : undefined;
       };
 
-      const fromPole = findPoleForEndpoint(ptA, ptA_in) || span.from_pole;
-      const toPole = findPoleForEndpoint(ptB, ptB_in) || span.to_pole;
-
-      return { ...span, from_pole: fromPole, to_pole: toPole };
+      return {
+        ...span,
+        from_pole: findPoleForEndpoint(ptA, ptA_in) || span.from_pole,
+        to_pole: findPoleForEndpoint(ptB, ptB_in) || span.to_pole,
+      };
     });
 
     splitHistoryRef.current.push({
       prev: cableSpansRef.current.map((s) => ({ ...s })),
       prevDeleted: deletedSpansRef.current.map((d) => ({ ...d })),
     });
-
     cableSpansRef.current = newSpans;
     setCableSpans(newSpans);
     redraw();
@@ -845,7 +920,6 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
       redraw();
       return;
     }
-
     if (activeShapesRef.current.length > 0) {
       setShowActives(true);
       showActivesRef.current = true;
@@ -854,14 +928,12 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
     }
 
     setActivesLoading(true);
-
     try {
       const res = await fetch("/api/scan_equipment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ dxf_path: dxfPath, boundary_layer: null }),
       });
-
       const data = await res.json();
       if (data.error) throw new Error(data.error);
 
@@ -869,14 +941,11 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
         try {
           const sres = await fetch("/api/scan_status");
           const sdata = await sres.json();
-
           if (sdata.status === "done") {
             clearInterval(poll);
             const rres = await fetch("/api/scan_results");
             const rdata = await rres.json();
-            const fetched: any[] = rdata.shapes ?? [];
-
-            const actives = fetched.filter((s) => {
+            activeShapesRef.current = (rdata.shapes ?? []).filter((s: any) => {
               const str = `${s.kind} ${s.layer}`.toLowerCase();
               return (
                 str.includes("amp") ||
@@ -884,8 +953,6 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
                 str.includes("extender")
               );
             });
-
-            activeShapesRef.current = actives;
             setActivesLoading(false);
             setShowActives(true);
             showActivesRef.current = true;
@@ -895,9 +962,7 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
             setActivesLoading(false);
             console.error(sdata.error);
           }
-        } catch (e) {
-          // Ignore network hiccups
-        }
+        } catch (e) {}
       }, 600);
       activesPollRef.current = poll;
     } catch (err) {
@@ -917,21 +982,14 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
       try {
         const res = await fetch("/api/pole_tags");
         const data = await res.json();
-
-        if (data.status) {
-          setPoleScanStatus(data.status);
-        }
-
+        if (data.status) setPoleScanStatus(data.status);
         if (data.status === "done" && data.tags) {
           polesRef.current = data.tags;
           setPoles(data.tags);
           if (showPolesRef.current) redraw();
         }
-      } catch (e) {
-        // Ignore network errors
-      }
+      } catch (e) {}
     }, 2000);
-
     return () => clearInterval(poll);
   }, [redraw]);
 
@@ -944,19 +1002,13 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
 
   const setCableStatus = useCallback(
     (spanId: number, status: CableRecoveryStatus) => {
-      cableStatusRef.current = {
-        ...cableStatusRef.current,
-        [spanId]: status,
-      };
-
+      cableStatusRef.current = { ...cableStatusRef.current, [spanId]: status };
       setCableStatuses(cableStatusRef.current);
-
-      if (status === "Partial") {
+      if (status === "Partial")
         setPartialDetails((prev) => {
           if (prev[spanId]) return prev;
           return { ...prev, [spanId]: { recovered: 0 } };
         });
-      }
       redraw();
     },
     [redraw],
@@ -966,7 +1018,6 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
     (spanId: number) => {
       const next = { ...cableStatusRef.current };
       delete next[spanId];
-
       cableStatusRef.current = next;
       setCableStatuses(next);
       redraw();
@@ -974,61 +1025,52 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
     [redraw],
   );
 
-  // ============================================================================
-  // DELETE & RECOVER CABLE SPAN LOGIC
-  // ============================================================================
   const confirmDeleteSpan = useCallback(() => {
     if (spanToDelete === null) return;
-    const spanId = spanToDelete;
-
-    const targetSpan = cableSpansRef.current.find((s) => s.span_id === spanId);
+    const targetSpan = cableSpansRef.current.find(
+      (s) => s.span_id === spanToDelete,
+    );
     if (!targetSpan) {
       setSpanToDelete(null);
       return;
     }
-
     splitHistoryRef.current.push({
       prev: cableSpansRef.current.map((s) => ({ ...s })),
       prevDeleted: deletedSpansRef.current.map((d) => ({ ...d })),
     });
-
-    const status = cableStatusRef.current[spanId];
-    const partialDetail = partialDetails[spanId];
-
-    const deletedData: DeletedSpanData = {
-      span: targetSpan,
-      status,
-      partialDetail,
-    };
-    deletedSpansRef.current = [...deletedSpansRef.current, deletedData];
+    deletedSpansRef.current = [
+      ...deletedSpansRef.current,
+      {
+        span: targetSpan,
+        status: cableStatusRef.current[spanToDelete],
+        partialDetail: partialDetails[spanToDelete],
+      },
+    ];
     setDeletedSpans(deletedSpansRef.current);
-
-    const newSpans = cableSpansRef.current.filter((s) => s.span_id !== spanId);
+    const newSpans = cableSpansRef.current.filter(
+      (s) => s.span_id !== spanToDelete,
+    );
     cableSpansRef.current = newSpans;
     setCableSpans(newSpans);
-
     setCableStatuses((prev) => {
       const next = { ...prev };
-      delete next[spanId];
+      delete next[spanToDelete];
       cableStatusRef.current = next;
       return next;
     });
-
     setPartialDetails((prev) => {
       const next = { ...prev };
-      delete next[spanId];
+      delete next[spanToDelete];
       return next;
     });
-
-    if (selectedSpanRef.current === spanId) {
+    if (selectedSpanRef.current === spanToDelete) {
       selectedSpanRef.current = null;
       setSelectedSpanId(null);
     }
-    if (hoveredSpanRef.current === spanId) {
+    if (hoveredSpanRef.current === spanToDelete) {
       hoveredSpanRef.current = null;
       setHoveredSpanId(null);
     }
-
     setSpanToDelete(null);
     redraw();
   }, [spanToDelete, partialDetails, redraw]);
@@ -1039,61 +1081,53 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
         (d) => d.span.span_id === spanId,
       );
       if (trashIndex === -1) return;
-
       const dataToRestore = deletedSpansRef.current[trashIndex];
-
       splitHistoryRef.current.push({
         prev: cableSpansRef.current.map((s) => ({ ...s })),
         prevDeleted: deletedSpansRef.current.map((d) => ({ ...d })),
       });
-
       const newTrash = [...deletedSpansRef.current];
       newTrash.splice(trashIndex, 1);
       deletedSpansRef.current = newTrash;
       setDeletedSpans(newTrash);
-
       const newSpans = [...cableSpansRef.current, dataToRestore.span];
       cableSpansRef.current = newSpans;
       setCableSpans(newSpans);
-
-      if (dataToRestore.status) {
+      if (dataToRestore.status)
         setCableStatuses((prev) => {
           const next = { ...prev, [spanId]: dataToRestore.status! };
           cableStatusRef.current = next;
           return next;
         });
-      }
-
-      if (dataToRestore.partialDetail) {
+      if (dataToRestore.partialDetail)
         setPartialDetails((prev) => ({
           ...prev,
           [spanId]: dataToRestore.partialDetail!,
         }));
-      }
-
-      if (newTrash.length === 0) {
-        setShowTrashPanel(false);
-      }
-
+      if (newTrash.length === 0) setShowTrashPanel(false);
       redraw();
     },
     [redraw],
   );
 
+  // --- NEW: Block hover logic if span is outside the boundary ---
   const findNearestCableSpan = useCallback(
     (worldX: number, worldY: number): number | null => {
       const cableLayer = cableLayerRef.current;
       if (!cableLayer || !isLayerVisible(cableLayer)) return null;
 
-      const spans = cableSpansRef.current;
-      if (!spans.length) return null;
-
+      let bestId: number | null = null,
+        bestDist = Infinity;
       const hoverTolWorld = 8 / Math.max(vpRef.current.scale, 1e-9);
 
-      let bestId: number | null = null;
-      let bestDist = Infinity;
+      for (const span of cableSpansRef.current) {
+        if (
+          maskEnabledRef.current &&
+          boundaryRef.current &&
+          !isPointInPolygon(span.cx, span.cy, boundaryRef.current)
+        )
+          continue;
 
-      for (const span of spans) {
         const [mnx, mny, mxx, mxy] = span.bbox;
         if (
           worldX < mnx - hoverTolWorld ||
@@ -1112,16 +1146,13 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
             s.x2,
             s.y2,
           );
-
           if (d < bestDist) {
             bestDist = d;
             bestId = span.span_id;
           }
         }
       }
-
-      if (bestDist <= hoverTolWorld) return bestId;
-      return null;
+      return bestDist <= hoverTolWorld ? bestId : null;
     },
     [isLayerVisible],
   );
@@ -1131,11 +1162,9 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
       const spans = cableSpansRef.current;
       const spanIndex = spans.findIndex((s) => s.span_id === spanId);
       if (spanIndex === -1) return;
-
       const span = spans[spanIndex];
       const segs = span.segments;
       if (segs.length < 2) return;
-
       let splitIndex: number | null = Math.floor(segs.length / 2);
 
       if (cursorWorld) {
@@ -1156,7 +1185,6 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
             closestIdx = i;
           }
         }
-
         splitIndex = findSafeCutIndex(
           segs,
           closestIdx,
@@ -1164,14 +1192,12 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
           cursorWorld.y,
         );
       }
-
       if (
         splitIndex === null ||
         splitIndex < 0 ||
         splitIndex >= segs.length - 1
-      ) {
+      )
         return;
-      }
 
       const firstHalf = segs.slice(0, splitIndex + 1);
       const secondHalf = segs.slice(splitIndex + 1);
@@ -1181,7 +1207,6 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
       const getNearestMeterValue = (cx: number, cy: number) => {
         let nearest: { x: number; y: number; value: number } | null = null;
         let minDist = Infinity;
-
         for (const v of ocrMeterValuesRef.current) {
           const dist = Math.hypot(cx - v.x, cy - v.y);
           if (dist < minDist) {
@@ -1194,25 +1219,21 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
 
       const m1 = computeSpanMetrics(firstHalf);
       const m2 = computeSpanMetrics(secondHalf);
-
       const newSpan1: CableSpan = {
         ...span,
         span_id: newId1,
         segments: firstHalf,
         segment_count: firstHalf.length,
-        cable_runs: span.cable_runs,
         from_pole: span.from_pole,
         to_pole: undefined,
         ...m1,
         meterValue: getNearestMeterValue(m1.cx, m1.cy),
       };
-
       const newSpan2: CableSpan = {
         ...span,
         span_id: newId2,
         segments: secondHalf,
         segment_count: secondHalf.length,
-        cable_runs: span.cable_runs,
         from_pole: undefined,
         to_pole: span.to_pole,
         ...m2,
@@ -1225,7 +1246,6 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
         newSpan2,
         ...spans.slice(spanIndex + 1),
       ];
-
       splitHistoryRef.current.push({
         prev: spans.map((s) => ({ ...s })),
         prevDeleted: deletedSpansRef.current.map((d) => ({ ...d })),
@@ -1234,23 +1254,19 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
       setCableSpans(newSpans);
 
       const prevStatus = cableStatusRef.current[spanId];
-
       if (prevStatus) {
         setCableStatuses((prev) => {
           const next = { ...prev, [newId1]: prevStatus, [newId2]: prevStatus };
           cableStatusRef.current = next;
           return next;
         });
-
-        if (prevStatus === "Partial" && partialDetails[spanId]) {
+        if (prevStatus === "Partial" && partialDetails[spanId])
           setPartialDetails((prev) => ({
             ...prev,
             [newId1]: { ...prev[spanId] },
             [newId2]: { ...prev[spanId] },
           }));
-        }
       }
-
       selectedSpanRef.current = newId1;
       setSelectedSpanId(newId1);
       hoveredSpanRef.current = null;
@@ -1263,25 +1279,20 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
   const cutAdjacentSpans = useCallback(() => {
     const targetId = selectedSpanRef.current;
     if (targetId === null) return;
-
     const currentSpans = cableSpansRef.current;
     const refSpan = currentSpans.find((s) => s.span_id === targetId);
-
     if (!refSpan || refSpan.segments.length < 2) return;
 
     const segs = refSpan.segments;
     const ptA = { x: segs[0].x1, y: segs[0].y1 };
     const ptB = { x: segs[segs.length - 1].x2, y: segs[segs.length - 1].y2 };
-
     const searchTol = 50 / Math.max(vpRef.current.scale, 1e-9);
     let newSpans = [...currentSpans];
-
     let madeCuts = false;
 
     const getNearestMeterValue = (cx: number, cy: number) => {
       let nearest: { x: number; y: number; value: number } | null = null;
       let minDist = Infinity;
-
       for (const v of ocrMeterValuesRef.current) {
         const dist = Math.hypot(cx - v.x, cy - v.y);
         if (dist < minDist) {
@@ -1294,16 +1305,13 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
 
     const trySplitAtPoint = (targetPt: { x: number; y: number }) => {
       const resultSpans: CableSpan[] = [];
-
       for (const span of newSpans) {
         if (span.span_id === refSpan.span_id) {
           resultSpans.push(span);
           continue;
         }
-
         let minDist = Infinity;
         let splitIdx = -1;
-
         for (let i = 0; i < span.segments.length; i++) {
           const s = span.segments[i];
           const d = pointToSegmentDistance(
@@ -1314,13 +1322,11 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
             s.x2,
             s.y2,
           );
-
           if (d < minDist) {
             minDist = d;
             splitIdx = i;
           }
         }
-
         if (minDist < searchTol) {
           const safeIdx = findSafeCutIndex(
             span.segments,
@@ -1328,7 +1334,6 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
             targetPt.x,
             targetPt.y,
           );
-
           if (
             safeIdx !== null &&
             safeIdx >= 0 &&
@@ -1337,36 +1342,29 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
             madeCuts = true;
             const firstHalf = span.segments.slice(0, safeIdx + 1);
             const secondHalf = span.segments.slice(safeIdx + 1);
-
             const m1 = computeSpanMetrics(firstHalf);
             const m2 = computeSpanMetrics(secondHalf);
-
             const span1: CableSpan = {
               ...span,
               span_id: nextSpanIdRef.current++,
               segments: firstHalf,
               segment_count: firstHalf.length,
-              cable_runs: span.cable_runs,
               from_pole: span.from_pole,
               to_pole: undefined,
               ...m1,
               meterValue: getNearestMeterValue(m1.cx, m1.cy),
             };
-
             const span2: CableSpan = {
               ...span,
               span_id: nextSpanIdRef.current++,
               segments: secondHalf,
               segment_count: secondHalf.length,
-              cable_runs: span.cable_runs,
               from_pole: undefined,
               to_pole: span.to_pole,
               ...m2,
               meterValue: getNearestMeterValue(m2.cx, m2.cy),
             };
-
             resultSpans.push(span1, span2);
-
             const prevStatus = cableStatusRef.current[span.span_id];
             if (prevStatus) {
               setCableStatuses((prev) => {
@@ -1378,14 +1376,12 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
                 cableStatusRef.current = next;
                 return next;
               });
-
-              if (prevStatus === "Partial" && partialDetails[span.span_id]) {
+              if (prevStatus === "Partial" && partialDetails[span.span_id])
                 setPartialDetails((prev) => ({
                   ...prev,
                   [span1.span_id]: { ...prev[span.span_id] },
                   [span2.span_id]: { ...prev[span.span_id] },
                 }));
-              }
             }
           } else {
             resultSpans.push(span);
@@ -1394,13 +1390,10 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
           resultSpans.push(span);
         }
       }
-
       newSpans = resultSpans;
     };
-
     trySplitAtPoint(ptA);
     trySplitAtPoint(ptB);
-
     if (madeCuts) {
       splitHistoryRef.current.push({
         prev: currentSpans.map((s) => ({ ...s })),
@@ -1415,57 +1408,42 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
   const onDoubleClick = (e: React.MouseEvent) => {
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
-
     const sx = e.clientX - rect.left;
     const sy = e.clientY - rect.top;
     const { x, y } = screenToWorld(sx, sy);
     const hitId = findNearestCableSpan(x, y);
-
     if (hitId === null) return;
-
     const targetSpan = cableSpansRef.current.find((s) => s.span_id === hitId);
-
     if (targetSpan && targetSpan.segments.length > 0) {
       const searchTol = 30 / Math.max(vpRef.current.scale, 1e-9);
       const firstSeg = targetSpan.segments[0];
       const lastSeg = targetSpan.segments[targetSpan.segments.length - 1];
-
       const nearStart =
         Math.hypot(x - firstSeg.x1, y - firstSeg.y1) < searchTol;
       const nearEnd = Math.hypot(x - lastSeg.x2, y - lastSeg.y2) < searchTol;
-
       if (nearStart || nearEnd) {
         const neighbor = cableSpansRef.current.find((s) => {
           if (s.span_id === hitId || s.segments.length === 0) return false;
-
           const nFirst = s.segments[0];
           const nLast = s.segments[s.segments.length - 1];
-
           const distToStart = nearStart
             ? Math.hypot(firstSeg.x1 - nLast.x2, firstSeg.y1 - nLast.y2)
             : Math.hypot(lastSeg.x2 - nFirst.x1, lastSeg.y2 - nFirst.y1);
-
           const distToEnd = nearStart
             ? Math.hypot(firstSeg.x1 - nFirst.x1, firstSeg.y1 - nFirst.y1)
             : Math.hypot(lastSeg.x2 - nLast.x2, lastSeg.y2 - nLast.y2);
-
           return distToStart < searchTol || distToEnd < searchTol;
         });
-
         if (neighbor) {
           splitHistoryRef.current.push({
             prev: cableSpansRef.current.map((s) => ({ ...s })),
             prevDeleted: deletedSpansRef.current.map((d) => ({ ...d })),
           });
-
           const newSegments = [...targetSpan.segments, ...neighbor.segments];
           const nextId = nextSpanIdRef.current++;
-
           const m = computeSpanMetrics(newSegments);
-
           let nearestOcr = null;
           let minDist = Infinity;
-
           for (const v of ocrMeterValuesRef.current) {
             const dist = Math.hypot(m.cx - v.x, m.cy - v.y);
             if (dist < minDist) {
@@ -1473,23 +1451,19 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
               nearestOcr = v.value;
             }
           }
-
           const mergedSpan: CableSpan = {
             ...targetSpan,
             span_id: nextId,
             segments: newSegments,
             segment_count: newSegments.length,
-            cable_runs: targetSpan.cable_runs,
             from_pole: targetSpan.from_pole || neighbor.from_pole,
             to_pole: targetSpan.to_pole || neighbor.to_pole,
             ...m,
             meterValue: nearestOcr ?? undefined,
           };
-
           const newSpans = cableSpansRef.current.filter(
             (s) => s.span_id !== hitId && s.span_id !== neighbor.span_id,
           );
-
           newSpans.push(mergedSpan);
           cableSpansRef.current = newSpans;
           setCableSpans(newSpans);
@@ -1505,18 +1479,14 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
   const undoSplit = useCallback(() => {
     const history = splitHistoryRef.current;
     if (!history.length) return;
-
     const last = history.pop();
     if (!last) return;
-
     cableSpansRef.current = last.prev;
     setCableSpans([...last.prev]);
-
     if (last.prevDeleted) {
       deletedSpansRef.current = last.prevDeleted;
       setDeletedSpans([...last.prevDeleted]);
     }
-
     selectedSpanRef.current = null;
     setSelectedSpanId(null);
     redraw();
@@ -1530,12 +1500,10 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
         e.preventDefault();
         undoSplit();
       }
-
       if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "z") {
         e.preventDefault();
         redoSplit();
       }
-
       if (pairingModeRef.current && e.key === "Enter") {
         e.preventDefault();
         if (pairedSpanIdsRef.current.length > 0) {
@@ -1545,45 +1513,35 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
         }
       }
     };
-
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [undoSplit, redoSplit]);
 
   useEffect(() => {
     if (!cableSpansRef.current.length) return;
-
     const safeOcr = ocrResults || [];
     ocrMeterValuesRef.current = safeOcr.map((r) => ({
       x: r.center_x,
       y: r.center_y,
       value: parseFloat(r.corrected_value ?? r.value) || 0,
     }));
-
     cableSpansRef.current = cableSpansRef.current.map((span) => {
       const status = cableStatusRef.current[span.span_id];
       if (
         status === "Partial" &&
         span.meterValue !== undefined &&
         span.meterValue !== null
-      ) {
+      )
         return span;
-      }
-
       let nearest = null;
       let nearestDist = Infinity;
-
       for (const r of safeOcr) {
-        const dx = span.cx - r.center_x;
-        const dy = span.cy - r.center_y;
-        const dist = Math.hypot(dx, dy);
-
+        const dist = Math.hypot(span.cx - r.center_x, span.cy - r.center_y);
         if (dist < nearestDist) {
           nearestDist = dist;
           nearest = r;
         }
       }
-
       return {
         ...span,
         meterValue: nearest
@@ -1591,7 +1549,6 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
           : null,
       };
     });
-
     setCableSpans([...cableSpansRef.current]);
     redraw();
   }, [ocrResults, cableDataVersion, redraw]);
@@ -1607,7 +1564,6 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
     setMultiAction(action);
     redraw();
   };
-
   const promptFinishMultiAction = () => {
     if (pairedSpanIdsRef.current.length === 0) {
       cancelMultiAction();
@@ -1619,36 +1575,27 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
   const handleConfirmMultiAction = () => {
     if (mainPairingSpanId === null) return;
     const action = multiActionRef.current;
-
     const mainSpan = cableSpansRef.current.find(
       (s) => s.span_id === mainPairingSpanId,
     );
-
     if (!mainSpan) return;
-
     splitHistoryRef.current.push({
       prev: cableSpansRef.current.map((s) => ({ ...s })),
       prevDeleted: deletedSpansRef.current.map((d) => ({ ...d })),
     });
-
     const pIds = pairedSpanIdsRef.current;
     const pairedSpansToMerge = cableSpansRef.current.filter((s) =>
       pIds.includes(s.span_id),
     );
-
     const newSegments = [...mainSpan.segments];
     pairedSpansToMerge.forEach((ps) => newSegments.push(...ps.segments));
-
     const m = computeSpanMetrics(newSegments);
-
     let mergedSpan: CableSpan;
-
     if (action === "runs") {
       const totalRunsToAdd = pairedSpansToMerge.reduce(
         (sum, s) => sum + (s.cable_runs || 1),
         0,
       );
-
       mergedSpan = {
         ...mainSpan,
         segments: newSegments,
@@ -1670,11 +1617,9 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
         meterValue: mainSpan.meterValue,
       };
     }
-
     const newSpans = cableSpansRef.current.filter(
       (s) => s.span_id !== mainSpan.span_id && !pIds.includes(s.span_id),
     );
-
     newSpans.push(mergedSpan);
     cableSpansRef.current = newSpans;
     setCableSpans(newSpans);
@@ -1696,15 +1641,12 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
   const fitView = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas || !boundsRef.current) return;
-
     const { minx, miny, maxx, maxy } = boundsRef.current;
     const W = canvas.width,
       H = canvas.height;
     const dw = maxx - minx,
       dh = maxy - miny;
-
     if (dw < 1e-9 || dh < 1e-9) return;
-
     const vp = vpRef.current;
     vp.scale = Math.min(W / dw, H / dh) * 0.88;
     vp.x = W / 2 - ((minx + maxx) / 2) * vp.scale;
@@ -1720,7 +1662,6 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
 
   useEffect(() => {
     if (!dxfPath) return;
-
     setLoading(true);
     setError(null);
     setHoveredSpanId(null);
@@ -1734,7 +1675,6 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
     deletedSpansRef.current = [];
     setDeletedSpans([]);
     setCableLayerName(null);
-
     Promise.all([
       fetch("/api/dxf_segments").then((r) => r.json()),
       fetch("/api/cable_spans").then((r) => r.json()),
@@ -1745,20 +1685,16 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
           setLoading(false);
           return;
         }
-
         if (cableData.error) {
           setError(cableData.error);
           setLoading(false);
           return;
         }
-
         segmentsRef.current = segData.segments;
-
         let minx = Infinity,
           miny = Infinity,
           maxx = -Infinity,
           maxy = -Infinity;
-
         for (const segs of Object.values(segData.segments) as RawSegment[][]) {
           for (const s of segs) {
             minx = Math.min(minx, s.x1, s.x2);
@@ -1767,9 +1703,7 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
             maxy = Math.max(maxy, s.y1, s.y2);
           }
         }
-
         boundsRef.current = { minx, miny, maxx, maxy };
-
         const layerData: DxfLayerData[] = segData.layers.map(
           (name: string) => ({
             name,
@@ -1778,26 +1712,20 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
             segmentCount: (segData.segments[name] ?? []).length,
           }),
         );
-
         layersRef.current = layerData;
         setLayers(layerData);
-
         const spans: CableSpan[] = (cableData.spans ?? []).map((s: any) => ({
           ...s,
           cable_runs: s.cable_runs || 1,
         }));
-
         const maxId = spans.reduce((max, s) => Math.max(max, s.span_id), 0);
         nextSpanIdRef.current = maxId + 1;
-
         cableSpansRef.current = spans;
         setCableSpans(spans);
-
         cableLayerRef.current = cableData.cable_layer ?? null;
         setCableLayerName(cableData.cable_layer ?? null);
         setCableDataVersion((v) => v + 1);
         setLoading(false);
-
         setTimeout(fitView, 50);
       })
       .catch((e) => {
@@ -1809,17 +1737,14 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-
     const ro = new ResizeObserver(() => {
       canvas.width = canvas.parentElement?.clientWidth ?? 0;
       canvas.height = canvas.parentElement?.clientHeight ?? 0;
       redraw();
     });
-
     ro.observe(canvas.parentElement!);
     canvas.width = canvas.parentElement?.clientWidth ?? 0;
     canvas.height = canvas.parentElement?.clientHeight ?? 0;
-
     return () => ro.disconnect();
   }, [redraw]);
 
@@ -1829,9 +1754,7 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
         const next = prev.map((l) =>
           l.name === name ? { ...l, visible: !l.visible } : l,
         );
-
         layersRef.current = next;
-
         const cableLayer = cableLayerRef.current;
         if (cableLayer === name) {
           const visible = next.find((l) => l.name === name)?.visible ?? false;
@@ -1858,7 +1781,6 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
       return next;
     });
   }, [redraw]);
-
   const hideAll = useCallback(() => {
     setLayers((prev) => {
       const next = prev.map((l) => ({ ...l, visible: false }));
@@ -1873,9 +1795,6 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
     });
   }, [redraw]);
 
-  // ============================================================================
-  // MOUSE & TOOLTIP EVENT LOGIC
-  // ============================================================================
   const onMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return;
     panRef.current = {
@@ -1889,38 +1808,26 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
   const onMouseMove = (e: React.MouseEvent) => {
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
-
     const sx = e.clientX - rect.left;
     const sy = e.clientY - rect.top;
-
     if (panRef.current.active) {
       const dx = e.clientX - panRef.current.start.x;
       const dy = e.clientY - panRef.current.start.y;
       if (Math.abs(dx) > 2 || Math.abs(dy) > 2) panRef.current.moved = true;
-
       vpRef.current.x = panRef.current.vpStart.x + dx;
       vpRef.current.y = panRef.current.vpStart.y + dy;
-
-      // Hide tooltip during pan
-      if (tooltipRef.current) {
-        tooltipRef.current.style.display = "none";
-      }
-
+      if (tooltipRef.current) tooltipRef.current.style.display = "none";
       redraw();
       return;
     }
-
-    // Smoothly update tooltip position directly in DOM (bypassing React state)
     if (tooltipRef.current) {
       tooltipRef.current.style.display =
         hoveredSpanRef.current !== null ? "flex" : "none";
       tooltipRef.current.style.left = `${e.clientX + 15}px`;
       tooltipRef.current.style.top = `${e.clientY + 15}px`;
     }
-
     const { x, y } = screenToWorld(sx, sy);
     const hitId = findNearestCableSpan(x, y);
-
     if (hitId !== hoveredSpanRef.current) {
       hoveredSpanRef.current = hitId;
       setHoveredSpanId(hitId);
@@ -1931,13 +1838,10 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
   const onMouseUp = (e: React.MouseEvent) => {
     const didMove = panRef.current.moved;
     panRef.current.active = false;
-
     if (e.button !== 0) return;
     if (didMove) return;
-
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
-
     const sx = e.clientX - rect.left;
     const sy = e.clientY - rect.top;
     const { x, y } = screenToWorld(sx, sy);
@@ -1950,45 +1854,43 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
       const r = 20 / vpRef.current.scale;
       let clickedPole = null;
       let bestDist = Infinity;
-
       for (const p of polesRef.current) {
+        if (
+          maskEnabledRef.current &&
+          boundaryRef.current &&
+          !isPointInPolygon(p.cx, p.cy, boundaryRef.current)
+        )
+          continue;
         const dist = Math.hypot(p.cx - x, p.cy - y);
         if (dist < r && dist < bestDist) {
           bestDist = dist;
           clickedPole = p;
         }
       }
-
       if (clickedPole) {
         const spanId = selectedSpanRef.current;
         const mode = poleConnectModeRef.current;
-
         const newSpans = cableSpansRef.current.map((s) => {
-          if (s.span_id === spanId) {
+          if (s.span_id === spanId)
             return {
               ...s,
               ...(mode === "from"
                 ? { from_pole: clickedPole.name }
                 : { to_pole: clickedPole.name }),
             };
-          }
           return s;
         });
-
         cableSpansRef.current = newSpans;
         setCableSpans(newSpans);
-
         const nextMode = mode === "from" ? "to" : "idle";
         poleConnectModeRef.current = nextMode;
         setPoleConnectMode(nextMode);
-
         redraw();
         return;
       }
     }
 
     const hitId = hoveredSpanRef.current;
-
     if (pairingModeRef.current) {
       if (hitId !== null && hitId !== mainPairingSpanId) {
         const current = pairedSpanIdsRef.current;
@@ -2011,11 +1913,7 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
 
   const onMouseLeave = () => {
     panRef.current.active = false;
-
-    if (tooltipRef.current) {
-      tooltipRef.current.style.display = "none";
-    }
-
+    if (tooltipRef.current) tooltipRef.current.style.display = "none";
     if (hoveredSpanRef.current !== null) {
       hoveredSpanRef.current = null;
       setHoveredSpanId(null);
@@ -2027,33 +1925,27 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
     e.preventDefault();
     const f = e.deltaY < 0 ? 1.12 : 1 / 1.12;
     const vp = vpRef.current;
-
     vp.x = e.nativeEvent.offsetX - f * (e.nativeEvent.offsetX - vp.x);
     vp.y = e.nativeEvent.offsetY - f * (e.nativeEvent.offsetY - vp.y);
     vp.scale *= f;
-
     redraw();
   };
 
+  // --- NEW: Export PDF respects boundary filtering ---
   const exportToPdf = useCallback(() => {
     exportPdfFnRef.current = exportToPdf;
     if (!boundsRef.current) return;
     const { minx, miny, maxx, maxy } = boundsRef.current;
-
     const dw = maxx - minx;
     const dh = maxy - miny;
     if (dw <= 0 || dh <= 0) return;
-
     const W = 4500;
     const H = (dh / dw) * W;
-
     const offCanvas = document.createElement("canvas");
     offCanvas.width = W;
     offCanvas.height = H;
-
     const ctx = offCanvas.getContext("2d");
     if (!ctx) return;
-
     const exportVp = { x: 0, y: 0, scale: 1 };
     exportVp.scale = Math.min(W / dw, H / dh) * 0.96;
     exportVp.x = W / 2 - ((minx + maxx) / 2) * exportVp.scale;
@@ -2068,42 +1960,61 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
 
     const imageData = offCanvas.toDataURL("image/png");
     const statuses = cableStatusRef.current;
-    const spanCount = cableSpansRef.current.length;
     const layerName = cableLayerRef.current ?? "—";
     const dateStr = new Date().toLocaleString();
 
-    let totalRecovered = 0;
-    let totalUnrecovered = 0;
-    let totalMissing = 0;
-    let pdfTotalStrandLength = 0;
-    let pdfTotalLength = 0;
+    let pdfTotalRecovered = 0,
+      pdfTotalUnrecovered = 0,
+      pdfTotalMissing = 0,
+      pdfTotalStrandLength = 0,
+      pdfTotalLength = 0;
+    let spanCount = 0;
 
     Object.entries(statuses).forEach(([id, status]) => {
       const spanId = +id;
       const span = cableSpansRef.current.find((s) => s.span_id === spanId);
       if (!span) return;
 
+      if (
+        maskEnabledRef.current &&
+        boundaryRef.current &&
+        !isPointInPolygon(span.cx, span.cy, boundaryRef.current)
+      )
+        return;
+
+      spanCount++;
       const runs = span.cable_runs || 1;
       const strandLen = span.meterValue ?? span.total_length ?? 0;
-
       pdfTotalStrandLength += strandLen;
       pdfTotalLength += strandLen * runs;
 
       if (status === "Recovered") {
-        totalRecovered += strandLen * runs;
+        pdfTotalRecovered += strandLen * runs;
       } else if (status === "Missing") {
-        totalMissing += strandLen * runs;
+        pdfTotalMissing += strandLen * runs;
       } else if (status === "Partial") {
         const detail = partialDetails[spanId] ?? { recovered: 0 };
         const safeRecovered = Math.min(detail.recovered ?? 0, strandLen);
         const calcUnrecovered = strandLen - safeRecovered;
-
-        totalRecovered += safeRecovered * runs;
-        totalUnrecovered += calcUnrecovered * runs;
+        pdfTotalRecovered += safeRecovered * runs;
+        pdfTotalUnrecovered += calcUnrecovered * runs;
       }
     });
 
     const spanRows = Object.entries(statuses)
+      .filter(([id]) => {
+        const span = cableSpansRef.current.find(
+          (s) => s.span_id === Number(id),
+        );
+        if (!span) return false;
+        if (
+          maskEnabledRef.current &&
+          boundaryRef.current &&
+          !isPointInPolygon(span.cx, span.cy, boundaryRef.current)
+        )
+          return false;
+        return true;
+      })
       .sort((a, b) => Number(a[0]) - Number(b[0]))
       .map(([id, status]) => {
         const span = cableSpansRef.current.find(
@@ -2119,13 +2030,11 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
           Partial: "#fef9c3",
           Missing: "#fee2e2",
         };
-
         const strandLen = span?.meterValue ?? span?.total_length ?? 0;
         const runs = span?.cable_runs || 1;
         const actualLen = strandLen * runs;
         const fromPole = span?.from_pole || "—";
         const toPole = span?.to_pole || "—";
-
         let lengthText = strandLen.toFixed(2);
         if (status === "Partial" && span) {
           const detail = partialDetails[span.span_id] ?? { recovered: 0 };
@@ -2154,11 +2063,8 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: Inter, Arial, sans-serif; color: #1e293b; background: #fff; }
-
   @page { size: A3 landscape; margin: 15mm; }
-
   .page-break { break-before: page; page-break-before: always; }
-
   .header-section { margin-bottom: 20px; }
   h1  { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
   .subtitle { font-size: 14px; color: #64748b; margin-bottom: 20px; }
@@ -2168,17 +2074,13 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
   .chip-yellow { background:#fef9c3; color:#92400e; border-color:#fde047; }
   .chip-red    { background:#fee2e2; color:#991b1b; border-color:#fca5a5; }
   .chip-slate  { background:#f1f5f9; color:#334155; border-color:#cbd5e1; }
-
   .legend-box { display: flex; align-items: center; gap: 20px; background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 14px; }
   .legend-item { display: flex; align-items: center; gap: 8px; color: #334155; font-weight: 500; }
   .legend-line { width: 32px; height: 6px; border-radius: 3px; display: inline-block; }
-
   .image-container { width: 100%; height: 70vh; display: flex; justify-content: center; align-items: center; overflow: hidden; }
   img { max-width: 100%; max-height: 100%; object-fit: contain; border: 1px solid #e2e8f0; border-radius: 8px; }
-
   table { width: 100%; border-collapse: collapse; font-size: 14px; }
   th { background: #f8fafc; padding: 10px 12px; border: 1px solid #e2e8f0; text-align: left; font-weight: 600; color: #475569; }
-
   h2 { font-size: 20px; margin-bottom: 16px; }
 </style>
 </head>
@@ -2188,36 +2090,24 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
     <div class="subtitle">Generated: ${dateStr} &nbsp;|&nbsp; Layer: ${layerName} &nbsp;|&nbsp; Total spans: ${spanCount.toLocaleString()} &nbsp;|&nbsp; Tagged: ${Object.keys(statuses).length}</div>
 
     <div class="summary">
-      <span class="chip chip-green">✓ Recovered: ${totalRecovered.toFixed(2)} m</span>
-      <span class="chip chip-yellow">⚠ Partial: ${totalUnrecovered.toFixed(2)} m</span>
-      <span class="chip chip-red">✕ Missing: ${totalMissing.toFixed(2)} m</span>
+      <span class="chip chip-green">✓ Recovered: ${pdfTotalRecovered.toFixed(2)} m</span>
+      <span class="chip chip-yellow">⚠ Partial: ${pdfTotalUnrecovered.toFixed(2)} m</span>
+      <span class="chip chip-red">✕ Missing: ${pdfTotalMissing.toFixed(2)} m</span>
       <span class="chip chip-slate">Total Strand: ${pdfTotalStrandLength.toFixed(2)} m</span>
       <span class="chip chip-slate">Total Actual: ${pdfTotalLength.toFixed(2)} m</span>
     </div>
 
     <div class="legend-box">
       <strong style="color: #0f172a;">Drawing Legend:</strong>
-      <div class="legend-item">
-        <span class="legend-line" style="background: rgba(22, 163, 74, 0.95); box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.22);"></span> Recovered
-      </div>
-      <div class="legend-item">
-        <span class="legend-line" style="background: rgba(217, 119, 6, 0.95); box-shadow: 0 0 0 4px rgba(250, 204, 21, 0.24);"></span> Partial
-      </div>
-      <div class="legend-item">
-        <span class="legend-line" style="background: rgba(220, 38, 38, 0.95); box-shadow: 0 0 0 4px rgba(248, 113, 113, 0.22);"></span> Missing
-      </div>
+      <div class="legend-item"><span class="legend-line" style="background: rgba(22, 163, 74, 0.95); box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.22);"></span> Recovered</div>
+      <div class="legend-item"><span class="legend-line" style="background: rgba(217, 119, 6, 0.95); box-shadow: 0 0 0 4px rgba(250, 204, 21, 0.24);"></span> Partial</div>
+      <div class="legend-item"><span class="legend-line" style="background: rgba(220, 38, 38, 0.95); box-shadow: 0 0 0 4px rgba(248, 113, 113, 0.22);"></span> Missing</div>
       ${
         showActivesRef.current
           ? `
-      <div class="legend-item">
-        <span class="legend-line" style="background: rgba(249, 115, 22, 0.4); border: 2px solid rgba(234, 88, 12, 0.9); height: 12px; border-radius: 2px;"></span> Amplifier
-      </div>
-      <div class="legend-item">
-        <span class="legend-line" style="background: rgba(59, 130, 246, 0.4); border: 2px solid rgba(37, 99, 235, 0.9); height: 12px; border-radius: 2px;"></span> Node
-      </div>
-      <div class="legend-item">
-        <span class="legend-line" style="background: rgba(239, 68, 68, 0.4); border: 2px solid rgba(220, 38, 38, 0.9); height: 12px; border-radius: 2px;"></span> Extender
-      </div>
+      <div class="legend-item"><span class="legend-line" style="background: rgba(249, 115, 22, 0.4); border: 2px solid rgba(234, 88, 12, 0.9); height: 12px; border-radius: 2px;"></span> Amplifier</div>
+      <div class="legend-item"><span class="legend-line" style="background: rgba(59, 130, 246, 0.4); border: 2px solid rgba(37, 99, 235, 0.9); height: 12px; border-radius: 2px;"></span> Node</div>
+      <div class="legend-item"><span class="legend-line" style="background: rgba(239, 68, 68, 0.4); border: 2px solid rgba(220, 38, 38, 0.9); height: 12px; border-radius: 2px;"></span> Extender</div>
       `
           : ""
       }
@@ -2230,16 +2120,7 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
 
   <div class="page-break">
     <h2>Span Data Details</h2>
-    ${
-      spanRows
-        ? `<table>
-      <thead><tr>
-        <th>Span ID</th><th>Status</th><th>Strand Length</th><th>Runs</th><th>Actual Length</th><th>Poles (From -> To)</th><th>Segments</th>
-      </tr></thead>
-      <tbody>${spanRows}</tbody>
-    </table>`
-        : "<p style='color:#64748b;font-size:14px'>No spans have been tagged yet.</p>"
-    }
+    ${spanRows ? `<table><thead><tr><th>Span ID</th><th>Status</th><th>Strand Length</th><th>Runs</th><th>Actual Length</th><th>Poles (From -> To)</th><th>Segments</th></tr></thead><tbody>${spanRows}</tbody></table>` : "<p style='color:#64748b;font-size:14px'>No spans have been tagged yet.</p>"}
   </div>
 </body>
 </html>`;
@@ -2248,17 +2129,14 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
     iframe.style.cssText =
       "position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;border:none;";
     document.body.appendChild(iframe);
-
     const doc = iframe.contentDocument;
     if (!doc) {
       document.body.removeChild(iframe);
       return;
     }
-
     doc.open();
     doc.write(html);
     doc.close();
-
     const imgEl = doc.querySelector("img");
     const doPrint = () => {
       iframe.contentWindow?.focus();
@@ -2267,7 +2145,6 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
         if (document.body.contains(iframe)) document.body.removeChild(iframe);
       }, 2000);
     };
-
     if (imgEl) {
       imgEl.onload = doPrint;
       if (imgEl.complete) doPrint();
@@ -2281,8 +2158,6 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
     cableSpansRef.current.find((s) => s.span_id === selectedSpanId) ?? null;
   const selectedStatus =
     selectedSpanId !== null ? (cableStatuses[selectedSpanId] ?? null) : null;
-
-  // Render Data for Hover Tooltip
   const hoveredSpanData =
     hoveredSpanId !== null
       ? cableSpansRef.current.find((s) => s.span_id === hoveredSpanId)
@@ -2308,7 +2183,6 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
           <p className="text-sm text-muted">Loading DXF layers…</p>
         </div>
       )}
-
       {error && (
         <div className="absolute inset-0 flex items-center justify-center z-20">
           <div className="bg-danger-light border border-[#fecaca] text-danger rounded-xl px-6 py-4 text-sm">
@@ -2317,7 +2191,6 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
         </div>
       )}
 
-      {/* NEW: Performance-Optimized Hover Tooltip */}
       {hoveredSpanData && !panRef.current.active && (
         <div
           ref={tooltipRef}
@@ -2368,15 +2241,7 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
           <div className="flex justify-between gap-4">
             <span className="text-slate-400">Current label:</span>
             <span
-              className={`font-semibold ${
-                hoveredSpanStatus === "Recovered"
-                  ? "text-green-400"
-                  : hoveredSpanStatus === "Partial"
-                    ? "text-yellow-400"
-                    : hoveredSpanStatus === "Missing"
-                      ? "text-red-400"
-                      : "text-slate-300"
-              }`}
+              className={`font-semibold ${hoveredSpanStatus === "Recovered" ? "text-green-400" : hoveredSpanStatus === "Partial" ? "text-yellow-400" : hoveredSpanStatus === "Missing" ? "text-red-400" : "text-slate-300"}`}
             >
               {hoveredSpanStatus ?? "Not labeled"}
             </span>
@@ -2424,7 +2289,6 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
         />
       )}
 
-      {/* Auto-Connect Poles Button */}
       {!loading && !error && poleScanStatus === "done" && (
         <button
           onClick={autoConnectPoles}
@@ -2434,16 +2298,11 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
         </button>
       )}
 
-      {/* Poles Toggle Button */}
       {!loading && !error && (
         <button
           onClick={togglePoles}
           disabled={poleScanStatus !== "done"}
-          className={`absolute bottom-[4.5rem] right-6 z-10 bg-white/95 backdrop-blur border border-slate-200 shadow-lg px-5 py-2.5 rounded-full font-semibold text-sm flex items-center gap-2 transition-all ${
-            poleScanStatus !== "done"
-              ? "opacity-50 cursor-not-allowed"
-              : "text-slate-700 hover:bg-slate-50"
-          }`}
+          className={`absolute bottom-[4.5rem] right-6 z-10 bg-white/95 backdrop-blur border border-slate-200 shadow-lg px-5 py-2.5 rounded-full font-semibold text-sm flex items-center gap-2 transition-all ${poleScanStatus !== "done" ? "opacity-50 cursor-not-allowed" : "text-slate-700 hover:bg-slate-50"}`}
         >
           {poleScanStatus === "processing" ? (
             <>
@@ -2458,7 +2317,6 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
         </button>
       )}
 
-      {/* Actives Toggle Button */}
       {!loading && !error && (
         <button
           onClick={toggleActives}
@@ -2475,7 +2333,6 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
         </button>
       )}
 
-      {/* Trash / Restore Panel */}
       {deletedSpans.length > 0 && !loading && !error && (
         <div className="absolute bottom-6 left-6 z-10 flex flex-col gap-2">
           {showTrashPanel && (
@@ -2503,7 +2360,6 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
               </div>
             </div>
           )}
-
           <button
             onClick={() => setShowTrashPanel(!showTrashPanel)}
             className="bg-white/95 backdrop-blur border border-red-200 shadow-lg px-4 py-2.5 rounded-full font-semibold text-sm text-red-600 hover:bg-red-50 transition-all flex items-center gap-2 w-fit"
@@ -2519,27 +2375,21 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
             <div className="font-semibold text-[#1e293b]">
               Cable interaction
             </div>
-
             <div>
               Layer: <span className="font-mono">{cableLayerName}</span>
             </div>
-
             <div className="text-[#166534]">
               Recovered: {totalRecovered.toFixed(2)} m
             </div>
-
             <div className="text-[#92400e]">
               Unrecovered/Partial: {totalUnrecovered.toFixed(2)} m
             </div>
-
             <div className="text-[#991b1b]">
               Missing: {totalMissing.toFixed(2)} m
             </div>
-
             <div className="text-[#64748b]">
               Total Strand length: {totalStrandLength.toFixed(2)} m
             </div>
-
             <div className="text-[#64748b]">
               Total Cables: {totalLength.toFixed(2)} m
             </div>
@@ -2555,7 +2405,6 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
                   redraw();
                 }}
               />
-
               <span className="font-medium">Show Status Labels</span>
             </label>
           </div>
@@ -2565,7 +2414,6 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
               <div className="font-semibold text-[12px] mb-2 flex justify-between items-center">
                 <div className="flex items-center gap-2">
                   <span>Selected cable span</span>
-                  {/* Delete Trash Icon Button */}
                   <button
                     onClick={() => setSpanToDelete(selectedSpan.span_id)}
                     className="text-slate-400 hover:text-red-600 hover:bg-red-50 p-1 rounded transition-colors"
@@ -2587,14 +2435,9 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
                     </svg>
                   </button>
                 </div>
-
                 {pairingMode && (
                   <span
-                    className={`text-[10px] font-normal px-1.5 py-0.5 rounded ${
-                      multiAction === "runs"
-                        ? "bg-purple-100 text-purple-700"
-                        : "bg-blue-100 text-blue-700"
-                    }`}
+                    className={`text-[10px] font-normal px-1.5 py-0.5 rounded ${multiAction === "runs" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"}`}
                   >
                     {multiAction === "runs"
                       ? "Selecting Runs Active"
@@ -2602,18 +2445,14 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
                   </span>
                 )}
               </div>
-
               <div>ID: {selectedSpan.span_id}</div>
-
               <div>
                 Strand length:{" "}
                 {selectedSpan.meterValue?.toFixed(2) ??
                   selectedSpan.total_length.toFixed(2)}{" "}
                 meters
               </div>
-
               <div>Cable runs: {selectedSpan.cable_runs}</div>
-
               <div className="font-semibold text-slate-700 mt-1">
                 Actual Cable length:{" "}
                 {(
@@ -2622,14 +2461,12 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
                 ).toFixed(2)}{" "}
                 meters
               </div>
-
               <div className="mt-2">
                 Current label:{" "}
                 <span className="font-semibold">
                   {selectedStatus ?? "Not labeled"}
                 </span>
               </div>
-
               {selectedStatus === "Partial" && (
                 <div className="mt-1 text-[11px]">
                   R:{" "}
@@ -2652,7 +2489,6 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
                     <label className="text-[10px] font-semibold text-slate-500 uppercase">
                       Recovered (m) <span className="text-red-500">*</span>
                     </label>
-
                     <input
                       type="number"
                       min={0}
@@ -2668,12 +2504,10 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
                       onChange={(e) => {
                         const strandLen =
                           selectedSpan.meterValue ?? selectedSpan.total_length;
-
                         let val = parseFloat(e.target.value);
                         if (isNaN(val)) val = 0;
                         if (val > strandLen) val = strandLen;
                         if (val < 0) val = 0;
-
                         setPartialDetails((prev) => ({
                           ...prev,
                           [selectedSpan.span_id]: { recovered: val },
@@ -2685,7 +2519,6 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
                     <label className="text-[10px] font-semibold text-slate-500 uppercase">
                       Unrecovered (m)
                     </label>
-
                     <span className="text-[11px] font-mono font-medium text-slate-700 bg-slate-200/50 px-2 py-1 rounded">
                       {Math.max(
                         0,
@@ -2698,48 +2531,37 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
                 </div>
               )}
 
-              {/* ── Pole Connections ── */}
               <div className="mt-2 bg-slate-50 p-2.5 rounded border border-slate-200 flex flex-col gap-2">
                 <div className="flex justify-between items-center">
                   <label className="text-[10px] font-semibold text-slate-500 uppercase">
                     Pole Connection
                   </label>
-
                   {poleConnectMode !== "idle" && (
                     <span className="text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded animate-pulse">
                       Select '{poleConnectMode}' pole...
                     </span>
                   )}
                 </div>
-
                 <div className="flex gap-2">
                   <div className="flex-1 bg-white border px-2 py-1.5 rounded text-[10px] flex flex-col overflow-hidden">
                     <span className="text-slate-400 font-semibold mb-0.5">
                       FROM
                     </span>
-
                     <span className="font-mono text-slate-700 truncate">
                       {selectedSpan.from_pole || "—"}
                     </span>
                   </div>
-
                   <div className="flex-1 bg-white border px-2 py-1.5 rounded text-[10px] flex flex-col overflow-hidden">
                     <span className="text-slate-400 font-semibold mb-0.5">
                       TO
                     </span>
-
                     <span className="font-mono text-slate-700 truncate">
                       {selectedSpan.to_pole || "—"}
                     </span>
                   </div>
                 </div>
-
                 <button
-                  className={`w-full py-1.5 rounded text-[11px] font-medium border transition-colors ${
-                    poleConnectMode !== "idle"
-                      ? "bg-blue-500 hover:bg-blue-600 text-white border-blue-600 shadow-sm"
-                      : "bg-white hover:bg-slate-100 text-slate-700 border-slate-200"
-                  }`}
+                  className={`w-full py-1.5 rounded text-[11px] font-medium border transition-colors ${poleConnectMode !== "idle" ? "bg-blue-500 hover:bg-blue-600 text-white border-blue-600 shadow-sm" : "bg-white hover:bg-slate-100 text-slate-700 border-slate-200"}`}
                   onClick={() => {
                     const nextMode =
                       poleConnectMode === "idle" ? "from" : "idle";
@@ -2752,7 +2574,6 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
                     : "🔌 Connect Poles Manually"}
                 </button>
               </div>
-              {/* ── End Pole Connections ── */}
 
               <div className="mt-3 flex flex-col gap-2">
                 {!pairingMode ? (
@@ -2772,11 +2593,7 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
                   </div>
                 ) : (
                   <button
-                    className={`w-full px-2.5 py-1.5 rounded-md border transition font-medium flex justify-center items-center shadow-sm text-white ${
-                      multiAction === "runs"
-                        ? "border-purple-300 bg-purple-500 hover:bg-purple-600"
-                        : "border-blue-300 bg-blue-500 hover:bg-blue-600"
-                    }`}
+                    className={`w-full px-2.5 py-1.5 rounded-md border transition font-medium flex justify-center items-center shadow-sm text-white ${multiAction === "runs" ? "border-purple-300 bg-purple-500 hover:bg-purple-600" : "border-blue-300 bg-blue-500 hover:bg-blue-600"}`}
                     onClick={promptFinishMultiAction}
                   >
                     {multiAction === "runs"
@@ -2784,7 +2601,6 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
                       : "Finish Merging (Enter)"}
                   </button>
                 )}
-
                 {!pairingMode && (
                   <div className="flex flex-wrap gap-2 mt-1">
                     <button
@@ -2825,20 +2641,17 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
         </div>
       )}
 
-      {/* Confirm Action Modal (Multi-Actions) */}
       {confirmPairingOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="bg-white rounded-lg shadow-lg p-6 w-[320px]">
             <h3 className="font-semibold mb-3 text-sm">
               {multiAction === "runs" ? "Confirm Cable Runs" : "Confirm Merge"}
             </h3>
-
             <p className="text-xs text-slate-600 mb-4">
               {multiAction === "runs"
                 ? `Are you sure you want to pair ${pairedSpanIds.length} span(s) to the main cable ID ${mainPairingSpanId}? They will share the same ID and retain the main cable's length.`
                 : `Are you sure you want to merge ${pairedSpanIds.length} span(s) into the main cable ID ${mainPairingSpanId}? This will physically combine them and sum their lengths.`}
             </p>
-
             <div className="flex justify-end gap-2">
               <button
                 className="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 rounded text-sm transition"
@@ -2846,13 +2659,8 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
               >
                 Cancel
               </button>
-
               <button
-                className={`px-3 py-1.5 text-white rounded text-sm transition ${
-                  multiAction === "runs"
-                    ? "bg-purple-500 hover:bg-purple-600"
-                    : "bg-blue-500 hover:bg-blue-600"
-                }`}
+                className={`px-3 py-1.5 text-white rounded text-sm transition ${multiAction === "runs" ? "bg-purple-500 hover:bg-purple-600" : "bg-blue-500 hover:bg-blue-600"}`}
                 onClick={handleConfirmMultiAction}
               >
                 Confirm
@@ -2862,7 +2670,6 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
         </div>
       )}
 
-      {/* Confirm Delete Modal */}
       {spanToDelete !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="bg-white rounded-xl shadow-xl p-6 w-[320px] animate-in fade-in zoom-in-95">
@@ -2885,7 +2692,6 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
                 Delete Cable Span?
               </h3>
             </div>
-
             <p className="text-xs text-slate-600 mb-6 leading-relaxed">
               Are you sure you want to delete Span ID{" "}
               <span className="font-mono bg-slate-100 px-1 rounded">
@@ -2898,7 +2704,6 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
                 You can recover it later from the Trash bin.
               </span>
             </p>
-
             <div className="flex justify-end gap-3">
               <button
                 className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg text-xs transition"
@@ -2906,7 +2711,6 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRe
               >
                 Cancel
               </button>
-
               <button
                 className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-lg text-xs transition shadow-sm shadow-red-200"
                 onClick={confirmDeleteSpan}
