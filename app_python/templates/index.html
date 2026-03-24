@@ -60,6 +60,21 @@
 
         <h3 id="gridTitle" style="display: none;">Candidate Grid</h3>
         <img id="gridImage" src="" alt="Candidate Grid Plot" style="display: none;">
+
+        <h3>Export Options</h3>
+        <div class="form-group">
+            <label>
+                <input type="checkbox" id="enablePlanner"> Enable Planner Integration
+            </label>
+        </div>
+        <div class="form-group" id="projectGroup" style="display: none;">
+            <label for="projectSelect">Select Project:</label>
+            <select id="projectSelect">
+                <option value="">Loading projects...</option>
+            </select>
+        </div>
+        <button id="exportBtn" type="button">Export All to Excel</button>
+        <div id="exportStatus" style="margin-top: 1rem; font-weight: bold;"></div>
     </div>
 
     <script>
@@ -116,50 +131,142 @@
             }
         });
 
-        // --- EXISTING: Process the form submission ---
-        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
+        // --- NEW: Handle Planner checkbox ---
+        document.getElementById('enablePlanner').addEventListener('change', async (e) => {
+            const checked = e.target.checked;
+            const projectGroup = document.getElementById('projectGroup');
+            const projectSelect = document.getElementById('projectSelect');
             
-            const form = e.target;
-            const formData = new FormData(form);
+            if (checked) {
+                projectGroup.style.display = 'block';
+                projectSelect.innerHTML = '<option>Loading projects...</option>';
+                try {
+                    const response = await fetch('/api/planner/projects');
+                    if (!response.ok) throw new Error('Failed to load projects');
+                    const data = await response.json();
+                    if (data.projects && data.projects.length > 0) {
+                        projectSelect.innerHTML = '<option value="">Select a project...</option>';
+                        data.projects.forEach(project => {
+                            const option = document.createElement('option');
+                            option.value = project.id;
+                            option.textContent = `${project.project_name} (${project.project_code})`;
+                            projectSelect.appendChild(option);
+                        });
+                    } else {
+                        projectSelect.innerHTML = '<option value="">No projects available</option>';
+                    }
+                } catch (error) {
+                    alert('Error loading projects: ' + error.message);
+                    projectSelect.innerHTML = '<option value="">Error loading projects</option>';
+                }
+            } else {
+                projectGroup.style.display = 'none';
+                projectSelect.value = '';
+            }
+        });
+
+        // --- NEW: Export All handler ---
+        document.getElementById('exportBtn').addEventListener('click', async () => {
+            const exportBtn = document.getElementById('exportBtn');
+            const exportStatus = document.getElementById('exportStatus');
+            const enablePlanner = document.getElementById('enablePlanner').checked;
+            const projectSelect = document.getElementById('projectSelect');
             
-            document.getElementById('loading').style.display = 'block';
-            document.getElementById('results').style.display = 'none';
-            document.getElementById('gridImage').style.display = 'none';
-            document.getElementById('gridTitle').style.display = 'none';
-            document.getElementById('submitBtn').disabled = true;
+            exportBtn.disabled = true;
+            exportStatus.textContent = 'Fetching cable spans...';
+            exportStatus.style.color = 'blue';
 
             try {
-                const response = await fetch('/api/process-dxf', {
+                // Fetch cable spans
+                const spansResponse = await fetch('/api/cable_spans');
+                if (!spansResponse.ok) {
+                    throw new Error('Failed to fetch cable spans');
+                }
+                const spansData = await spansResponse.json();
+                const cableSpans = spansData.spans || [];
+
+                // Prepare export data
+                const exportData = {
+                    cable_spans: cableSpans,
+                    corrections: {}  // Add corrections if needed later
+                };
+
+                // Add project_id if Planner enabled and selected
+                if (enablePlanner) {
+                    if (!projectSelect.value) {
+                        throw new Error('Please select a project for Planner integration');
+                    }
+                    exportData.project_id = parseInt(projectSelect.value);
+                }
+
+                // Export all
+                const exportResponse = await fetch('/api/export/all', {
                     method: 'POST',
-                    body: formData
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(exportData)
                 });
 
-                const data = await response.json();
+                const exportResult = await exportResponse.json();
+
+                if (!exportResponse.ok) {
+                    throw new Error(exportResult.error || 'Export failed');
+                }
+
+                let statusMsg = `Excel exported successfully: <a href="/api/download?file=${exportResult.path}" target="_blank">Download</a>`;
                 
-                if (!response.ok) {
-                    throw new Error(data.error || 'Something went wrong');
+                if (exportResult.planner_push) {
+                    if (exportResult.planner_push.error) {
+                        statusMsg += `<br>Planner push failed: ${exportResult.planner_push.error}`;
+                        exportStatus.style.color = 'red';
+                    } else {
+                        statusMsg += '<br>Planner push successful.';
+                        exportStatus.style.color = 'green';
+                    }
+                } else if (enablePlanner) {
+                    statusMsg += '<br>Planner integration not enabled.';
+                    exportStatus.style.color = 'orange';
                 }
 
-                document.getElementById('jsonOutput').textContent = JSON.stringify(data.counts, null, 2);
-
-                if (data.image_map) {
-                    document.getElementById('mapImage').src = 'data:image/png;base64,' + data.image_map;
-                }
-                
-                if (data.image_grid) {
-                    document.getElementById('gridImage').src = 'data:image/png;base64,' + data.image_grid;
-                    document.getElementById('gridImage').style.display = 'block';
-                    document.getElementById('gridTitle').style.display = 'block';
-                }
-
-                document.getElementById('results').style.display = 'block';
+                exportStatus.innerHTML = statusMsg;
 
             } catch (error) {
-                alert('Error: ' + error.message);
+                exportStatus.textContent = 'Error: ' + error.message;
+                exportStatus.style.color = 'red';
             } finally {
-                document.getElementById('loading').style.display = 'none';
-                document.getElementById('submitBtn').disabled = false;
+                exportBtn.disabled = false;
+            }
+        });
+
+                const exportData = await exportResponse.json();
+
+                if (!exportResponse.ok) {
+                    throw new Error(exportData.error || 'Export failed');
+                }
+
+                let statusMsg = `Excel exported successfully: <a href="/api/download?file=${exportData.path}" target="_blank">Download</a>`;
+                
+                if (exportData.planner_push) {
+                    if (exportData.planner_push.error) {
+                        statusMsg += `<br>Planner push failed: ${exportData.planner_push.error}`;
+                        exportStatus.style.color = 'red';
+                    } else {
+                        statusMsg += '<br>Planner push successful.';
+                        exportStatus.style.color = 'green';
+                    }
+                } else if (enablePlanner) {
+                    statusMsg += '<br>Planner integration not enabled.';
+                    exportStatus.style.color = 'orange';
+                }
+
+                exportStatus.innerHTML = statusMsg;
+
+            } catch (error) {
+                exportStatus.textContent = 'Error: ' + error.message;
+                exportStatus.style.color = 'red';
+            } finally {
+                exportBtn.disabled = false;
             }
         });
     </script>
