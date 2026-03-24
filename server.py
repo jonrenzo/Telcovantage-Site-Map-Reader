@@ -1750,28 +1750,99 @@ def api_pole_tags_scan():
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# EQUIPMENT KIND → NAME MAPPING
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def kind_to_equipment_name(kind: str, layer: str = "") -> str:
+    """Convert shape kind + layer to human-readable equipment name."""
+    if kind == "circle":
+        return "2-Way Tap"
+    if kind == "square":
+        return "4-Way Tap"
+    if kind == "hexagon":
+        return "8-Way Tap"
+    if kind == "triangle":
+        return "Line Extender"
+    if kind == "rectangle":
+        l = layer.lower()
+        if "node" in l:
+            return "Node"
+        if "amp" in l or "amplifier" in l:
+            return "Amplifier"
+        return "Node/Amplifier"
+    return kind.capitalize()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # EXPORT TO EXCEL
 # ─────────────────────────────────────────────────────────────────────────────
+
+
+def _make_excel_styles():
+    """Return a dict of openpyxl style objects used across all export functions."""
+    import openpyxl
+    from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+
+    return {
+        "header_fill": PatternFill("solid", fgColor="1A3A5C"),
+        "header_font": Font(bold=True, color="FFFFFF", name="Calibri"),
+        "review_fill": PatternFill("solid", fgColor="FFF3CD"),
+        "ok_fill": PatternFill("solid", fgColor="D4EDDA"),
+        "sum_fill": PatternFill("solid", fgColor="E8EAF6"),
+        "thin": Side(style="thin", color="CCCCCC"),
+    }
+
+
+def _make_border(styles):
+    b = styles["thin"]
+    from openpyxl.styles import Border
+
+    return Border(left=b, right=b, top=b, bottom=b)
+
+
+def _write_header_row(ws, headers, col_widths, styles):
+    from openpyxl.styles import Alignment
+
+    border = _make_border(styles)
+    for ci, (h, w) in enumerate(zip(headers, col_widths), 1):
+        cell = ws.cell(row=1, column=ci, value=h)
+        cell.fill = styles["header_fill"]
+        cell.font = styles["header_font"]
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+        cell.border = border
+        ws.column_dimensions[cell.column_letter].width = w
+    ws.row_dimensions[1].height = 22
+
+
+def _write_footer_row(ws, row_num, cols, styles):
+    from openpyxl.styles import Alignment, Font
+
+    border = _make_border(styles)
+    for col, val in cols:
+        c = ws.cell(row=row_num, column=col, value=val)
+        c.font = Font(bold=True)
+        c.fill = styles["sum_fill"]
+        c.border = border
+        c.alignment = Alignment(horizontal="center")
+    return c
 
 
 def export_excel(results, dxf_path):
     try:
         import openpyxl
-        from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
     except ImportError:
         return None, "openpyxl not installed. Run: pip install openpyxl"
 
+    from openpyxl.styles import Alignment
+
+    styles = _make_excel_styles()
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Digit Results"
 
-    header_fill = PatternFill("solid", fgColor="1A3A5C")
-    header_font = Font(bold=True, color="FFFFFF", name="Calibri")
-    review_fill = PatternFill("solid", fgColor="FFF3CD")
-    ok_fill = PatternFill("solid", fgColor="D4EDDA")
-    sum_fill = PatternFill("solid", fgColor="E8EAF6")
-    thin = Side(style="thin", color="CCCCCC")
-    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+    border = _make_border(styles)
+    dxf_name = Path(dxf_path).name
 
     headers = [
         "Digit ID",
@@ -1785,28 +1856,17 @@ def export_excel(results, dxf_path):
         "DXF File",
     ]
     col_widths = [10, 16, 16, 14, 14, 14, 12, 12, 30]
+    _write_header_row(ws, headers, col_widths, styles)
 
-    for ci, (h, w) in enumerate(zip(headers, col_widths), 1):
-        cell = ws.cell(row=1, column=ci, value=h)
-        cell.fill = header_fill
-        cell.font = header_font
-        cell.alignment = Alignment(horizontal="center", vertical="center")
-        cell.border = border
-        ws.column_dimensions[cell.column_letter].width = w
-
-    ws.row_dimensions[1].height = 22
-    dxf_name = Path(dxf_path).name
     total_sum = 0
-
     for ri, r in enumerate(results, 2):
         final_val = (
             r["corrected_value"] if r["corrected_value"] is not None else r["value"]
         )
         try:
-            numeric = int(final_val)
-            total_sum += numeric
-        except:
-            numeric = final_val
+            total_sum += int(final_val)
+        except Exception:
+            pass
 
         row_data = [
             r["digit_id"],
@@ -1819,7 +1879,7 @@ def export_excel(results, dxf_path):
             round(r["center_y"], 4),
             dxf_name,
         ]
-        fill = review_fill if r["needs_review"] else ok_fill
+        fill = styles["review_fill"] if r["needs_review"] else styles["ok_fill"]
         for ci, val in enumerate(row_data, 1):
             cell = ws.cell(row=ri, column=ci, value=val)
             cell.fill = fill
@@ -1827,35 +1887,21 @@ def export_excel(results, dxf_path):
             cell.border = border
 
     sum_row = len(results) + 2
-    ws.cell(row=sum_row, column=1, value="TOTAL").font = Font(bold=True)
+    ws.cell(row=sum_row, column=1, value="TOTAL").font = styles["header_font"]
     sum_cell = ws.cell(row=sum_row, column=4, value=total_sum)
-    sum_cell.font = Font(bold=True)
+    sum_cell.font = styles["header_font"]
     for ci in range(1, len(headers) + 1):
         c = ws.cell(row=sum_row, column=ci)
-        c.fill = sum_fill
+        c.fill = styles["sum_fill"]
         c.border = border
 
     ws2 = wb.create_sheet(title="Summary")
-    h1 = ws2.cell(row=1, column=1, value="Digit ID")
-    h2 = ws2.cell(row=1, column=2, value="Final Value")
-    for cell in (h1, h2):
-        cell.fill = header_fill
-        cell.font = header_font
-        cell.alignment = Alignment(horizontal="center", vertical="center")
-        cell.border = border
-    ws2.column_dimensions["A"].width = 12
-    ws2.column_dimensions["B"].width = 16
-    ws2.row_dimensions[1].height = 22
+    _write_header_row(ws2, ["Digit ID", "Final Value"], [12, 16], styles)
 
-    sum2 = 0
     for ri, r in enumerate(results, 2):
         final_val = (
             r["corrected_value"] if r["corrected_value"] is not None else r["value"]
         )
-        try:
-            sum2 += int(final_val)
-        except:
-            pass
         c1 = ws2.cell(row=ri, column=1, value=r["digit_id"])
         c2 = ws2.cell(row=ri, column=2, value=final_val)
         for c in (c1, c2):
@@ -1863,81 +1909,299 @@ def export_excel(results, dxf_path):
             c.border = border
 
     tr = len(results) + 2
-    for c in (
-        ws2.cell(row=tr, column=1, value="TOTAL"),
-        ws2.cell(row=tr, column=2, value=sum2),
-    ):
-        c.fill = sum_fill
-        c.font = Font(bold=True)
-        c.alignment = Alignment(horizontal="center")
-        c.border = border
+    _write_footer_row(ws2, tr, [(1, "TOTAL"), (2, total_sum)], styles)
 
-    shapes = SCAN_STATE.get("shapes", [])
-    if shapes:
-        ws3 = wb.create_sheet(title="Equipment")
-        title_cell = ws3.cell(row=1, column=1, value="Equipment Summary")
-        title_cell.font = Font(bold=True, size=12, color="FFFFFF", name="Calibri")
-        title_cell.fill = header_fill
-        title_cell.alignment = Alignment(horizontal="center", vertical="center")
-        ws3.merge_cells("A1:B1")
-        ws3.row_dimensions[1].height = 22
+    out_path = Path(dxf_path).stem + "_results.xlsx"
+    wb.save(out_path)
+    return out_path, None
 
-        kind_counts: Dict[str, int] = {}
-        for sh in shapes:
-            kind_counts[sh["kind"]] = kind_counts.get(sh["kind"], 0) + 1
 
-        for ci in [1, 2]:
-            cell = ws3.cell(
-                row=2, column=ci, value="Shape Kind" if ci == 1 else "Count"
-            )
-            cell.fill = header_fill
-            cell.font = header_font
+def export_equipment_excel(shapes: list, dxf_path: str) -> tuple:
+    """Export equipment shapes to a standalone Excel workbook."""
+    try:
+        import openpyxl
+    except ImportError:
+        return None, "openpyxl not installed. Run: pip install openpyxl"
+
+    from openpyxl.styles import Alignment
+
+    styles = _make_excel_styles()
+    border = _make_border(styles)
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Equipment"
+
+    title_cell = ws.cell(row=1, column=1, value="Equipment Summary")
+    title_cell.font = styles["header_font"]
+    title_cell.fill = styles["header_fill"]
+    title_cell.alignment = Alignment(horizontal="center", vertical="center")
+    ws.merge_cells("A1:B1")
+    ws.row_dimensions[1].height = 22
+
+    kind_counts: Dict[str, int] = {}
+    for sh in shapes:
+        ek = kind_to_equipment_name(sh["kind"], sh.get("layer", ""))
+        kind_counts[ek] = kind_counts.get(ek, 0) + 1
+
+    ws.cell(row=2, column=1, value="Equipment").fill = styles["header_fill"]
+    ws.cell(row=2, column=1, value="Equipment").font = styles["header_font"]
+    ws.cell(row=2, column=1).border = border
+    ws.cell(row=2, column=1).alignment = Alignment(horizontal="center")
+    ws.cell(row=2, column=2, value="Count").fill = styles["header_fill"]
+    ws.cell(row=2, column=2, value="Count").font = styles["header_font"]
+    ws.cell(row=2, column=2).border = border
+    ws.cell(row=2, column=2).alignment = Alignment(horizontal="center")
+
+    for ri, (ek, count) in enumerate(sorted(kind_counts.items()), 3):
+        c1 = ws.cell(row=ri, column=1, value=ek)
+        c2 = ws.cell(row=ri, column=2, value=count)
+        for c in (c1, c2):
+            c.border = border
+            c.alignment = Alignment(horizontal="center")
+
+    total_row = len(kind_counts) + 3
+    _write_footer_row(ws, total_row, [(1, "TOTAL"), (2, len(shapes))], styles)
+
+    ws.column_dimensions["A"].width = 20
+    ws.column_dimensions["B"].width = 10
+
+    list_start = total_row + 2
+    eq_headers = ["#", "Equipment", "Shape", "Layer", "Center X", "Center Y"]
+    eq_widths = [8, 18, 12, 30, 12, 12]
+    for ci, (h, w) in enumerate(zip(eq_headers, eq_widths), 1):
+        cell = ws.cell(row=list_start, column=ci, value=h)
+        cell.fill = styles["header_fill"]
+        cell.font = styles["header_font"]
+        cell.border = border
+        cell.alignment = Alignment(horizontal="center")
+        ws.column_dimensions[cell.column_letter].width = w
+
+    for ri, sh in enumerate(shapes, list_start + 1):
+        row_data = [
+            sh["shape_id"] + 1,
+            kind_to_equipment_name(sh["kind"], sh.get("layer", "")),
+            sh["kind"].capitalize(),
+            sh.get("layer", ""),
+            round(sh["cx"], 4),
+            round(sh["cy"], 4),
+        ]
+        for ci, val in enumerate(row_data, 1):
+            cell = ws.cell(row=ri, column=ci, value=val)
             cell.border = border
             cell.alignment = Alignment(horizontal="center")
 
-        for ri, (kind, count) in enumerate(sorted(kind_counts.items()), 3):
-            c1 = ws3.cell(row=ri, column=1, value=kind.capitalize())
-            c2 = ws3.cell(row=ri, column=2, value=count)
+    out_path = Path(dxf_path).stem + "_equipment.xlsx"
+    wb.save(out_path)
+    return out_path, None
+
+
+def export_all_excel(
+    results: list, shapes: list, poles: list, cable_spans: list, dxf_path: str
+) -> tuple:
+    """Export all data (OCR, Equipment, Poles, Cable Spans) to a single Excel workbook."""
+    try:
+        import openpyxl
+    except ImportError:
+        return None, "openpyxl not installed. Run: pip install openpyxl"
+
+    from openpyxl.styles import Alignment
+
+    styles = _make_excel_styles()
+    border = _make_border(styles)
+    wb = openpyxl.Workbook()
+    dxf_name = Path(dxf_path).stem
+
+    # ── Sheet 1: OCR Results ──────────────────────────────────────────────────
+    ws1 = wb.active
+    ws1.title = "OCR Results"
+    _write_header_row(
+        ws1,
+        [
+            "Digit ID",
+            "Predicted Value",
+            "Corrected Value",
+            "Final Value",
+            "Confidence %",
+            "Needs Review",
+            "Center X",
+            "Center Y",
+        ],
+        [10, 16, 16, 14, 14, 14, 12, 12],
+        styles,
+    )
+
+    total_sum = 0
+    for ri, r in enumerate(results, 2):
+        final_val = (
+            r["corrected_value"] if r["corrected_value"] is not None else r["value"]
+        )
+        try:
+            total_sum += int(final_val)
+        except Exception:
+            pass
+        row_data = [
+            r["digit_id"],
+            r["value"],
+            r["corrected_value"] or "",
+            final_val,
+            round(r["confidence"] * 100, 1),
+            "Yes" if r["needs_review"] else "No",
+            round(r["center_x"], 4),
+            round(r["center_y"], 4),
+        ]
+        fill = styles["review_fill"] if r["needs_review"] else styles["ok_fill"]
+        for ci, val in enumerate(row_data, 1):
+            cell = ws1.cell(row=ri, column=ci, value=val)
+            cell.fill = fill
+            cell.alignment = Alignment(horizontal="center")
+            cell.border = border
+
+    sum_row = len(results) + 2
+    _write_footer_row(
+        ws1,
+        sum_row,
+        [(1, "TOTAL"), (4, total_sum), (8, dxf_name + "_results.xlsx")],
+        styles,
+    )
+
+    # ── Sheet 2: Equipment ────────────────────────────────────────────────────
+    if shapes:
+        ws2 = wb.create_sheet(title="Equipment")
+        title_cell = ws2.cell(row=1, column=1, value="Equipment Summary")
+        title_cell.font = styles["header_font"]
+        title_cell.fill = styles["header_fill"]
+        title_cell.alignment = Alignment(horizontal="center", vertical="center")
+        ws2.merge_cells("A1:B1")
+        ws2.row_dimensions[1].height = 22
+
+        kind_counts: Dict[str, int] = {}
+        for sh in shapes:
+            ek = kind_to_equipment_name(sh["kind"], sh.get("layer", ""))
+            kind_counts[ek] = kind_counts.get(ek, 0) + 1
+
+        ws2.cell(row=2, column=1, value="Equipment").fill = styles["header_fill"]
+        ws2.cell(row=2, column=1, value="Equipment").font = styles["header_font"]
+        ws2.cell(row=2, column=1).border = border
+        ws2.cell(row=2, column=1).alignment = Alignment(horizontal="center")
+        ws2.cell(row=2, column=2, value="Count").fill = styles["header_fill"]
+        ws2.cell(row=2, column=2, value="Count").font = styles["header_font"]
+        ws2.cell(row=2, column=2).border = border
+        ws2.cell(row=2, column=2).alignment = Alignment(horizontal="center")
+
+        for ri, (ek, count) in enumerate(sorted(kind_counts.items()), 3):
+            c1 = ws2.cell(row=ri, column=1, value=ek)
+            c2 = ws2.cell(row=ri, column=2, value=count)
             for c in (c1, c2):
                 c.border = border
                 c.alignment = Alignment(horizontal="center")
 
-        total_row = len(kind_counts) + 3
-        for col, val in [(1, "TOTAL"), (2, len(shapes))]:
-            c = ws3.cell(row=total_row, column=col, value=val)
-            c.font = Font(bold=True)
-            c.fill = sum_fill
-            c.border = border
-            c.alignment = Alignment(horizontal="center")
+        eq_total_row = len(kind_counts) + 3
+        _write_footer_row(ws2, eq_total_row, [(1, "TOTAL"), (2, len(shapes))], styles)
+        ws2.column_dimensions["A"].width = 20
+        ws2.column_dimensions["B"].width = 10
 
-        ws3.column_dimensions["A"].width = 16
-        ws3.column_dimensions["B"].width = 10
-
-        list_start = total_row + 2
-        eq_headers = ["Shape ID", "Kind", "Layer", "Center X", "Center Y"]
-        eq_widths = [10, 14, 30, 12, 12]
+        list_start = eq_total_row + 2
+        eq_headers = ["#", "Equipment", "Shape", "Layer", "Center X", "Center Y"]
+        eq_widths = [8, 18, 12, 30, 12, 12]
         for ci, (h, w) in enumerate(zip(eq_headers, eq_widths), 1):
-            cell = ws3.cell(row=list_start, column=ci, value=h)
-            cell.fill = header_fill
-            cell.font = header_font
+            cell = ws2.cell(row=list_start, column=ci, value=h)
+            cell.fill = styles["header_fill"]
+            cell.font = styles["header_font"]
             cell.border = border
             cell.alignment = Alignment(horizontal="center")
-            ws3.column_dimensions[cell.column_letter].width = w
+            ws2.column_dimensions[cell.column_letter].width = w
 
         for ri, sh in enumerate(shapes, list_start + 1):
             row_data = [
                 sh["shape_id"] + 1,
+                kind_to_equipment_name(sh["kind"], sh.get("layer", "")),
                 sh["kind"].capitalize(),
-                sh["layer"],
+                sh.get("layer", ""),
                 round(sh["cx"], 4),
                 round(sh["cy"], 4),
             ]
             for ci, val in enumerate(row_data, 1):
-                cell = ws3.cell(row=ri, column=ci, value=val)
+                cell = ws2.cell(row=ri, column=ci, value=val)
                 cell.border = border
                 cell.alignment = Alignment(horizontal="center")
 
-    out_path = Path(dxf_path).stem + "_results.xlsx"
+    # ── Sheet 3: Poles ───────────────────────────────────────────────────────
+    if poles:
+        ws3 = wb.create_sheet(title="Poles")
+        pole_fill = openpyxl.styles.PatternFill("solid", fgColor="FEF3C7")
+        _write_header_row(
+            ws3,
+            ["#", "Pole Name", "Layer", "Source", "Confidence", "X", "Y"],
+            [8, 28, 20, 10, 12, 12, 12],
+            styles,
+        )
+        ws3.freeze_panes = "A2"
+
+        for ri, tag in enumerate(poles, 2):
+            row_data = [
+                ri - 1,
+                tag.get("name", ""),
+                tag.get("layer", ""),
+                tag.get("source", ""),
+                f"{round(tag.get('ocr_conf', 0) * 100, 1)}%"
+                if tag.get("ocr_conf") is not None
+                else "—",
+                round(tag.get("cx", 0), 4),
+                round(tag.get("cy", 0), 4),
+            ]
+            for ci, val in enumerate(row_data, 1):
+                cell = ws3.cell(row=ri, column=ci, value=val)
+                cell.fill = pole_fill
+                cell.alignment = Alignment(horizontal="center")
+                cell.border = border
+
+        pole_total_row = len(poles) + 2
+        _write_footer_row(ws3, pole_total_row, [(1, "TOTAL"), (2, len(poles))], styles)
+
+    # ── Sheet 4: Cable Spans ─────────────────────────────────────────────────
+    if cable_spans:
+        ws4 = wb.create_sheet(title="Cable Spans")
+        _write_header_row(
+            ws4,
+            [
+                "Span #",
+                "From Pole",
+                "To Pole",
+                "Layer",
+                "Length",
+                "Meter Value",
+                "Center X",
+                "Center Y",
+            ],
+            [10, 12, 12, 20, 12, 14, 12, 12],
+            styles,
+        )
+
+        for ri, span in enumerate(cable_spans, 2):
+            row_data = [
+                span.get("span_id", ri - 2) + 1,
+                span.get("from_pole", ""),
+                span.get("to_pole", ""),
+                span.get("layer", ""),
+                round(span.get("total_length", 0), 4),
+                span.get("meter_value") if span.get("meter_value") is not None else "—",
+                round(span.get("cx", 0), 4),
+                round(span.get("cy", 0), 4),
+            ]
+            for ci, val in enumerate(row_data, 1):
+                cell = ws4.cell(row=ri, column=ci, value=val)
+                cell.alignment = Alignment(horizontal="center")
+                cell.border = border
+
+        span_total_row = len(cable_spans) + 2
+        _write_footer_row(
+            ws4,
+            span_total_row,
+            [(1, "TOTAL"), (5, sum(s.get("total_length", 0) for s in cable_spans))],
+            styles,
+        )
+
+    out_path = dxf_name + "_full_report.xlsx"
     wb.save(out_path)
     return out_path, None
 
@@ -2303,7 +2567,7 @@ def api_run():
 
 @app.route("/api/export", methods=["POST"])
 def api_export():
-    data = request.get_json()
+    data = request.get_json() or {}
     corrections = data.get("corrections", {})
 
     for r in state["results"]:
@@ -2312,6 +2576,47 @@ def api_export():
             r["corrected_value"] = corrections[did]
 
     path, err = export_excel(state["results"], state["dxf_path"])
+    if err:
+        return jsonify({"error": err}), 500
+    return jsonify({"path": path})
+
+
+@app.route("/api/export/equipment", methods=["POST"])
+def api_export_equipment():
+    """Export equipment shapes to a standalone Excel file."""
+    shapes = SCAN_STATE.get("shapes", [])
+    if not shapes:
+        return jsonify({"error": "No equipment found. Run a scan first."}), 400
+    path, err = export_equipment_excel(
+        shapes, state.get("dxf_path") or "equipment_export"
+    )
+    if err:
+        return jsonify({"error": err}), 500
+    return jsonify({"path": path})
+
+
+@app.route("/api/export/all", methods=["POST"])
+def api_export_all():
+    """Export all data (OCR, Equipment, Poles, Cable Spans) to a single Excel file."""
+    data = request.get_json() or {}
+
+    corrections = data.get("corrections", {})
+    for r in state["results"]:
+        did = str(r["digit_id"])
+        if did in corrections and corrections[did] is not None:
+            r["corrected_value"] = corrections[did]
+
+    shapes = SCAN_STATE.get("shapes", [])
+    poles = POLE_STATE.get("tags", [])
+
+    cable_spans = data.get("cable_spans", [])
+    path, err = export_all_excel(
+        state["results"],
+        shapes,
+        poles,
+        cable_spans,
+        state.get("dxf_path") or "full_report",
+    )
     if err:
         return jsonify({"error": err}), 500
     return jsonify({"path": path})

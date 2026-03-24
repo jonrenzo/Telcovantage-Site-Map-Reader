@@ -51,7 +51,6 @@ export default function PolePanel({
   const [selectedLayer, setSelectedLayer] = useState<string>("");
   const [search, setSearch] = useState("");
   const [sortMode, setSortMode] = useState<SortMode>("position");
-  const [exporting, setExporting] = useState(false);
 
   // per-row edit draft (only one active at a time)
   const [editId, setEditId] = useState<number | null>(null);
@@ -71,27 +70,6 @@ export default function PolePanel({
   useEffect(() => {
     if (editId !== null) editRef.current?.focus();
   }, [editId]);
-
-  // ── Export handler ────────────────────────────────────────────────────────
-  const handleExport = async () => {
-    if (!tags.length || exporting) return;
-    setExporting(true);
-    try {
-      const res = await fetch("/api/pole_tags/export", { method: "POST" });
-      const data = await res.json();
-      if (data.error) {
-        alert("Export failed: " + data.error);
-        return;
-      }
-      // Trigger download via the existing /api/download endpoint
-      window.location.href =
-        "/api/download?file=" + encodeURIComponent(data.path);
-    } catch (e) {
-      alert("Export failed: " + String(e));
-    } finally {
-      setExporting(false);
-    }
-  };
 
   const filtered = tags.filter(
     (t) => !search || t.name.toLowerCase().includes(search.toLowerCase()),
@@ -271,50 +249,6 @@ export default function PolePanel({
               </p>
             )}
           </div>
-        )}
-
-        {/* ── Export to Excel button ── */}
-        {tags.length > 0 && (
-          <button
-            onClick={handleExport}
-            disabled={exporting || isScanning}
-            className="mt-3 w-full flex items-center justify-center gap-2 py-2 text-xs font-semibold
-                            rounded-lg border-[1.5px] transition-colors
-                            bg-ok-light text-ok border-[#bbf7d0] hover:bg-[#dcfce7]
-                            disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {exporting ? (
-              <>
-                <svg
-                  className="w-3.5 h-3.5 animate-spin"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                >
-                  <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
-                </svg>
-                Exporting…
-              </>
-            ) : (
-              <>
-                <svg
-                  className="w-3.5 h-3.5"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                  <polyline points="14 2 14 8 20 8" />
-                  <line x1="12" y1="18" x2="12" y2="12" />
-                  <line x1="9" y1="15" x2="15" y2="15" />
-                </svg>
-                ⬇ Export {tags.length} Pole{tags.length !== 1 ? "s" : ""} to
-                Excel
-              </>
-            )}
-          </button>
         )}
       </div>
 

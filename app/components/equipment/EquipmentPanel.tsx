@@ -375,6 +375,39 @@ export default function EquipmentPanel({
           </span>
         </div>
       )}
+
+      {/* Export button */}
+      {scanStatus === "done" && shapes.length > 0 && (
+        <div className="px-3 py-2 border-t border-border flex-shrink-0">
+          <button
+            onClick={async () => {
+              const res = await fetch("/api/export/equipment", { method: "POST" });
+              const data = await res.json();
+              if (data.error) {
+                alert("Export failed: " + data.error);
+                return;
+              }
+              window.location.href = "/api/download?file=" + encodeURIComponent(data.path);
+            }}
+            className="w-full flex items-center justify-center gap-2 py-2 text-xs font-semibold rounded-lg
+                         bg-ok-light text-ok border border-[#bbf7d0] hover:bg-[#dcfce7] transition-colors"
+          >
+            <svg
+              className="w-3.5 h-3.5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="12" y1="18" x2="12" y2="12" />
+              <line x1="9" y1="15" x2="15" y2="15" />
+            </svg>
+            Export Equipment
+          </button>
+        </div>
+      )}
     </aside>
   );
 }

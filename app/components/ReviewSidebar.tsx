@@ -9,9 +9,6 @@ interface Props {
   selectedId: number | null;
   setSelectedId: (id: number | null) => void;
   onOpenReviewModal: () => void;
-  onExport: () => void;
-  exporting?: boolean;
-  fileName: string;
   manualMode: boolean;
   onToggleManual: () => void;
 }
@@ -82,9 +79,6 @@ export default function ReviewSidebar({
   selectedId,
   setSelectedId,
   onOpenReviewModal,
-  onExport,
-  exporting = false,
-  fileName,
   manualMode,
   onToggleManual,
 }: Props) {
@@ -109,7 +103,7 @@ export default function ReviewSidebar({
       {/* ── Header ── */}
       <div className="px-5 py-4 border-b border-border flex-shrink-0">
         <h2 className="text-[0.95rem] font-bold">Drawing Results</h2>
-        <p className="text-xs text-muted mt-0.5">{fileName}</p>
+        <p className="text-xs text-muted mt-0.5">Review and correct OCR results</p>
       </div>
 
       {/* ── Stats ── */}
@@ -136,37 +130,11 @@ export default function ReviewSidebar({
         <button
           disabled={toReview === 0}
           onClick={onOpenReviewModal}
-          className="flex-1 py-2 text-xs font-semibold rounded-lg border-[1.5px]
+          className="w-full py-2 text-xs font-semibold rounded-lg border-[1.5px]
                         bg-review-light text-review border-[#fde68a]
                         hover:bg-[#fef3c7] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           {toReview > 0 ? `⚠ Check ${toReview} Uncertain` : "✓ All confident"}
-        </button>
-
-        <button
-          onClick={onExport}
-          disabled={exporting}
-          className="flex-1 py-2 text-xs font-semibold rounded-lg border-[1.5px]
-                        bg-ok-light text-ok border-[#bbf7d0] hover:bg-[#dcfce7]
-                        disabled:opacity-60 disabled:cursor-not-allowed transition-colors
-                        flex items-center justify-center gap-1.5"
-        >
-          {exporting ? (
-            <>
-              <svg
-                className="w-3.5 h-3.5 animate-spin"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-              >
-                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
-              </svg>
-              Saving…
-            </>
-          ) : (
-            <>⬇ Save to Excel</>
-          )}
         </button>
       </div>
 

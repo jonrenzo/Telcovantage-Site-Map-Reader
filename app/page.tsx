@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import type { DigitResult, Segment, Step } from "./types";
 import { usePipeline } from "./hooks/usePipeline";
 import { useSessionCache } from "./hooks/useSessionCache";
@@ -13,6 +13,7 @@ import EquipmentLayout from "./components/equipment/EquipmentLayout";
 import PoleLayout from "./components/poles/Polelayout";
 
 type MapTab = "review" | "dxf" | "equipment" | "pole";
+export type ExportType = "all" | "ocr" | "equipment" | "poles" | "pdf";
 
 export default function Home() {
   const [step, setStep] = useState<Step>(1);
@@ -21,6 +22,10 @@ export default function Home() {
   const [results, setResults] = useState<DigitResult[]>([]);
   const [segments, setSegments] = useState<Segment[]>([]);
   const [mapTab, setMapTab] = useState<MapTab>("review");
+
+  const [exporting, setExporting] = useState<ExportType | null>(null);
+
+  const pdfExportRef = useRef<(() => void) | null>(null);
 
   const pipeline = usePipeline();
   const { getCache, setCache } = useSessionCache();
@@ -87,8 +92,62 @@ export default function Home() {
     }
   }, [results, step, dxfPath, setCache]);
 
+  const handleExport = useCallback(
+    async (type: ExportType) => {
+      if (exporting) return;
+      setExporting(type);
+
+      try {
+        if (type === "pdf") {
+          pdfExportRef.current?.();
+          setExporting(null);
+          return;
+        }
+
+        const corrections: Record<number, string | null> = {};
+        results.forEach((r) => {
+          corrections[r.digit_id] = r.corrected_value;
+        });
+
+        let endpoint = "";
+        let body: Record<string, unknown> = {};
+
+        switch (type) {
+          case "all":
+            endpoint = "/api/export/all";
+            body = { corrections };
+            break;
+          case "ocr":
+            endpoint = "/api/export";
+            body = { corrections };
+            break;
+          case "equipment":
+            endpoint = "/api/export/equipment";
+            break;
+          case "poles":
+            endpoint = "/api/pole_tags/export";
+            break;
+        }
+
+        const res = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json();
+        if (data.error) {
+          alert("Export failed: " + data.error);
+          return;
+        }
+        window.location.href = "/api/download?file=" + encodeURIComponent(data.path);
+      } finally {
+        setExporting(null);
+      }
+    },
+    [exporting, results],
+  );
+
   const handleStartOver = useCallback(() => {
-    // Do NOT wipe the cache — that's the whole point
     pipeline.reset();
     setStep(1);
     setDxfPath("");
@@ -96,6 +155,7 @@ export default function Home() {
     setResults([]);
     setSegments([]);
     setMapTab("review");
+    setExporting(null);
   }, [pipeline]);
 
   const TABS = [
@@ -107,7 +167,12 @@ export default function Home() {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
-      <Header step={step} onBack={step === 3 ? handleStartOver : undefined} />
+      <Header
+        step={step}
+        onBack={step === 3 ? handleStartOver : undefined}
+        exporting={exporting}
+        onExport={handleExport}
+      />
 
       {step === 1 && <LoadScreen onStartProcessing={handleStartProcessing} />}
 
@@ -161,6 +226,7 @@ export default function Home() {
                 dxfPath={dxfPath}
                 ocrResults={results}
                 isActive={mapTab === "dxf"}
+                onExportPdfRef={pdfExportRef}
               />
             </div>
             <div

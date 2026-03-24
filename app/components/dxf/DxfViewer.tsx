@@ -41,6 +41,7 @@ interface Props {
   dxfPath: string;
   ocrResults: any[];
   isActive: boolean;
+  onExportPdfRef?: React.MutableRefObject<(() => void) | null>;
 }
 
 interface PartialDetail {
@@ -280,7 +281,7 @@ function getStatusStyle(status: CableRecoveryStatus) {
   }
 }
 
-export default function DxfViewer({ dxfPath, ocrResults, isActive }: Props) {
+export default function DxfViewer({ dxfPath, ocrResults, isActive, onExportPdfRef }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   // NEW: Ref for the tooltip DOM element to avoid state re-renders
   const tooltipRef = useRef<HTMLDivElement>(null);
@@ -316,6 +317,14 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive }: Props) {
   const fileCacheRef = useRef<Record<string, FileDataCache>>({});
 
   const nextSpanIdRef = useRef<number>(1);
+  const exportPdfFnRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    if (onExportPdfRef) {
+      onExportPdfRef.current = () => exportPdfFnRef.current?.();
+    }
+  }, [onExportPdfRef]);
+
   const [partialDetails, setPartialDetails] = useState<
     Record<number, PartialDetail>
   >({});
@@ -2027,6 +2036,7 @@ export default function DxfViewer({ dxfPath, ocrResults, isActive }: Props) {
   };
 
   const exportToPdf = useCallback(() => {
+    exportPdfFnRef.current = exportToPdf;
     if (!boundsRef.current) return;
     const { minx, miny, maxx, maxy } = boundsRef.current;
 

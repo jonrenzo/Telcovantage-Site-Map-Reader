@@ -59,7 +59,6 @@ export default function ReviewLayout({
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [theme, setTheme] = useState<ColorTheme>("default");
   const [labelMode, setLabelMode] = useState<LabelMode>("strand");
-  const [exporting, setExporting] = useState(false);
 
   // Manual placement state
   const [manualMode, setManualMode] = useState(false);
@@ -89,33 +88,6 @@ export default function ReviewLayout({
     },
     [setResults],
   );
-
-  // Export just triggers the download — no page navigation
-  const handleExport = useCallback(async () => {
-    if (exporting) return;
-    setExporting(true);
-    try {
-      const corrections: Record<number, string | null> = {};
-      results.forEach((r) => {
-        corrections[r.digit_id] = r.corrected_value;
-      });
-      const res = await fetch("/api/export", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ corrections }),
-      });
-      const data = await res.json();
-      if (data.error) {
-        alert("Could not save: " + data.error);
-        return;
-      }
-      // Trigger browser download — user stays on the current page
-      window.location.href =
-        "/api/download?file=" + encodeURIComponent(data.path);
-    } finally {
-      setExporting(false);
-    }
-  }, [results, exporting]);
 
   const handleManualPlace = useCallback((cx: number, cy: number) => {
     setManualPending({ cx, cy });
@@ -214,7 +186,6 @@ export default function ReviewLayout({
   }, []);
 
   const selectedResult = results.find((r) => r.digit_id === selectedId) ?? null;
-  const fileName = dxfPath.split(/[\\\/]/).pop() ?? "";
 
   return (
     <div className="flex-1 flex overflow-hidden">
@@ -232,9 +203,6 @@ export default function ReviewLayout({
             selectedId={selectedId}
             setSelectedId={setSelectedId}
             onOpenReviewModal={() => setReviewOpen(true)}
-            onExport={handleExport}
-            exporting={exporting}
-            fileName={fileName}
             manualMode={manualMode}
             onToggleManual={() => {
               setManualMode((m) => !m);
