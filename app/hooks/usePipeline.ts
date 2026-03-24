@@ -1,10 +1,12 @@
 import { useState, useRef, useCallback } from "react";
 import type { DigitResult, Segment, PipelineStatus } from "../types";
 
+// --- CHANGED: Now expects an array of layers instead of a single string ---
 interface RunOptions {
   dxfPath: string;
-  layer: string;
+  layers: string[];
 }
+
 interface PipelineState {
   status: PipelineStatus;
   progress: number;
@@ -12,8 +14,8 @@ interface PipelineState {
   error: string | null;
   results: DigitResult[];
   segments: Segment[];
-  step: number; // NEW
-  stepLabel: string; // NEW
+  step: number;
+  stepLabel: string;
 }
 
 export function usePipeline() {
@@ -24,8 +26,8 @@ export function usePipeline() {
     error: null,
     results: [],
     segments: [],
-    step: 0, // NEW
-    stepLabel: "", // NEW
+    step: 0,
+    stepLabel: "",
   });
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -53,7 +55,7 @@ export function usePipeline() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           dxf_path: options.dxfPath,
-          layer: options.layer,
+          layers: options.layers, // --- CHANGED: Sending the array to the backend ---
           model_path: "cad_digit_model.pt",
         }),
       });
@@ -69,8 +71,8 @@ export function usePipeline() {
             progress: data.progress,
             total: data.total,
             error: data.error ?? null,
-            step: data.step ?? 0, // NEW
-            stepLabel: data.step_label ?? "", // NEW
+            step: data.step ?? 0,
+            stepLabel: data.step_label ?? "",
           }));
 
           if (data.status === "done") {
