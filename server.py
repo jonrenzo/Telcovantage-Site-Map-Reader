@@ -1118,7 +1118,8 @@ def push_to_planner(
             "extender": equipment_counts.get("extender", 0),
             "node_count": 1,
         }
-        print(f"[planner] Creating node: {node_data}")
+        print(f"[planner] Node data: {node_data}")
+        print(f"[planner] Spans count: {len(spans)}, equipment count: {len(equipment)}")
         node_response = auth.make_request("POST", "/nodes", node_data)
         node_id_created = node_response["id"]
         print(f"[planner] Node created with ID: {node_id_created}")
@@ -1126,16 +1127,23 @@ def push_to_planner(
         # Create poles
         pole_id_map = {}  # Map pole names to created IDs
         for pole in poles:
+            pole_code = pole.get("name", f"POLE_{pole.get('pole_id', 0)}").strip()
+            if not pole_code or pole_code in pole_id_map:
+                continue  # Skip duplicates or empty
             pole_data = {
                 "node_id": node_id_created,
-                "pole_code": pole.get("name", f"POLE_{pole.get('pole_id', 0)}"),
+                "pole_code": pole_code,
                 "pole_name": pole.get("name", ""),
                 "map_latitude": pole.get("cy", 0),
                 "map_longitude": pole.get("cx", 0),
             }
             print(f"[planner] Creating pole: {pole_data}")
-            pole_response = auth.make_request("POST", "/poles", pole_data)
-            pole_id_map[pole_data["pole_code"]] = pole_response["id"]
+            try:
+                pole_response = auth.make_request("POST", "/poles", pole_data)
+                pole_id_map[pole_code] = pole_response["id"]
+            except Exception as e:
+                print(f"[planner] Failed to create pole {pole_code}: {e}")
+                continue
 
         print(f"[planner] Created {len(pole_id_map)} poles")
 
@@ -2035,7 +2043,7 @@ def export_excel(results, dxf_path):
     tr = len(results) + 2
     _write_footer_row(ws2, tr, [(1, "TOTAL"), (2, total_sum)], styles)
 
-    out_path = Path(dxf_path).stem + "_results.xlsx"
+    out_path = os.path.join(os.getcwd(), Path(dxf_path).stem + "_results.xlsx")
     wb.save(out_path)
     return out_path, None
 
@@ -2114,7 +2122,7 @@ def export_equipment_excel(shapes: list, dxf_path: str) -> tuple:
             cell.border = border
             cell.alignment = Alignment(horizontal="center")
 
-    out_path = Path(dxf_path).stem + "_equipment.xlsx"
+    out_path = os.path.join(os.getcwd(), Path(dxf_path).stem + "_equipment.xlsx")
     wb.save(out_path)
     return out_path, None
 
@@ -2325,8 +2333,9 @@ def export_all_excel(
             styles,
         )
 
-    out_path = dxf_name + "_full_report.xlsx"
+    out_path = os.path.join(os.getcwd(), dxf_name + "_full_report.xlsx")
     wb.save(out_path)
+    print(f"[export] Excel saved to {out_path}")
     return out_path, None
 
 
@@ -2377,7 +2386,7 @@ def export_poles_excel(tags: list, dxf_path: str) -> tuple:
         c.border = border
         c.alignment = Alignment(horizontal="center")
 
-    out_path = Path(dxf_path).stem + "_pole_ids.xlsx"
+    out_path = os.path.join(os.getcwd(), Path(dxf_path).stem + "_pole_ids.xlsx")
     wb.save(out_path)
     return out_path, None
 
@@ -2746,6 +2755,12 @@ def api_export_all():
 
     # Push to Planner API if enabled and project_id provided
     project_id = data.get("project_id")
+    print(
+        f"[export] ENABLE_PLANNER_INTEGRATION: {ENABLE_PLANNER_INTEGRATION}, project_id: {project_id}"
+    )
+    if ENABLE_PLANNER_INTEGRATION and project_id is None:
+        project_id = DEFAULT_PROJECT_ID
+        print(f"[export] Using default project_id: {project_id}")
     if ENABLE_PLANNER_INTEGRATION and project_id is not None:
         try:
             push_result = push_to_planner(
@@ -3214,7 +3229,7 @@ def main():
         print(f"  React dev server: http://localhost:5173")
     print(f"{'=' * 50}\n")
 
-    app.run(host="localhost", port=args.port, debug=False, threaded=True)
+    app.run(host="localhost", port=args.port, debug=True, threaded=True)
 
 
 if __name__ == "__main__":
