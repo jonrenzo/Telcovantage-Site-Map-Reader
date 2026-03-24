@@ -5,6 +5,14 @@ import type { PoleTag } from "../../types";
 import type { FileCache } from "../../hooks/useSessionCache";
 import PolePanel from "./Polepanel";
 
+// --- NEW 1: Import the Math Utility ---
+import { isPointInPolygon } from "../../page";
+
+interface BoundaryPoint {
+  x: number;
+  y: number;
+}
+
 interface Segment {
   x1: number;
   y1: number;
@@ -27,6 +35,9 @@ interface Props {
   cachedData: FileCache | null;
   onCacheUpdate: (data: Partial<FileCache>) => void;
   isActive: boolean;
+  // --- NEW 2: Boundary Props ---
+  boundary: BoundaryPoint[] | null;
+  isMaskEnabled: boolean;
 }
 
 function sourceLabel(tag: PoleTag): { text: string; color: string } {
@@ -44,6 +55,8 @@ export default function PoleLayout({
   cachedData,
   onCacheUpdate,
   isActive,
+  boundary, // NEW
+  isMaskEnabled, // NEW
 }: Props) {
   // ── Pole scan state ───────────────────────────────────────────────────────
   const [tags, setTags] = useState<PoleTag[]>([]);
@@ -108,6 +121,14 @@ export default function PoleLayout({
     img.src = `data:image/png;base64,${tag.crop_b64}`;
   }
 
+  // --- NEW 3: Calculate Visible Tags based on Boundary ---
+  const visibleTags = useMemo(() => {
+    if (isMaskEnabled && boundary && boundary.length > 2) {
+      return tags.filter((t) => isPointInPolygon(t.cx, t.cy, boundary));
+    }
+    return tags;
+  }, [tags, isMaskEnabled, boundary]);
+
   // ── Canvas ────────────────────────────────────────────────────────────────
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const vpRef = useRef<Viewport>({ x: 0, y: 0, scale: 1 });
@@ -124,18 +145,28 @@ export default function PoleLayout({
   } | null>(null);
   const hasFittedRef = useRef(false);
 
-  const tagsRef = useRef(tags);
+  // Use visibleTagsRef so the hit-tester only targets rendered poles
+  const visibleTagsRef = useRef(visibleTags);
   const selectedIdRef = useRef(selectedId);
   const showOnMapRef = useRef(showOnMap);
+  const boundaryRef = useRef(boundary);
+  const maskEnabledRef = useRef(isMaskEnabled);
+
   useEffect(() => {
-    tagsRef.current = tags;
-  }, [tags]);
+    visibleTagsRef.current = visibleTags;
+  }, [visibleTags]);
   useEffect(() => {
     selectedIdRef.current = selectedId;
   }, [selectedId]);
   useEffect(() => {
     showOnMapRef.current = showOnMap;
   }, [showOnMap]);
+  useEffect(() => {
+    boundaryRef.current = boundary;
+  }, [boundary]);
+  useEffect(() => {
+    maskEnabledRef.current = isMaskEnabled;
+  }, [isMaskEnabled]);
 
   const canvasSegments = useMemo(() => {
     const src = Object.keys(allLayerSegs).length ? allLayerSegs : layerSegments;
@@ -163,7 +194,6 @@ export default function PoleLayout({
       setScanProgress(cachedData.poleTags.length);
       setScanTotal(cachedData.poleTags.length);
     }
-    // No cache and no auto-scan — user selects a layer and clicks Scan manually.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -254,12 +284,15 @@ export default function PoleLayout({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     const vp = vpRef.current;
+    const currentBoundary = boundaryRef.current;
+    const isMaskOn = maskEnabledRef.current;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.save();
     ctx.translate(vp.x, vp.y);
     ctx.scale(vp.scale, -vp.scale);
 
+    // Draw base segments
     ctx.strokeStyle = "rgba(71,85,105,0.18)";
     ctx.lineWidth = 0.8 / vp.scale;
     ctx.beginPath();
@@ -269,12 +302,33 @@ export default function PoleLayout({
     }
     ctx.stroke();
 
+    // --- NEW 4: Draw the Boundary Polygon ---
+    if (isMaskOn && currentBoundary && currentBoundary.length > 2) {
+      ctx.save();
+      ctx.strokeStyle = "rgba(16, 185, 129, 0.8)"; // Emerald 500
+      ctx.lineWidth = 2.5 / vp.scale;
+      ctx.setLineDash([15 / vp.scale, 10 / vp.scale]);
+
+      ctx.beginPath();
+      ctx.moveTo(currentBoundary[0].x, currentBoundary[0].y);
+      for (let i = 1; i < currentBoundary.length; i++) {
+        ctx.lineTo(currentBoundary[i].x, currentBoundary[i].y);
+      }
+      ctx.closePath();
+      ctx.stroke();
+
+      ctx.fillStyle = "rgba(16, 185, 129, 0.02)";
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // Draw Poles (Only drawing visibleTags)
     if (showOnMapRef.current) {
-      const tags = tagsRef.current;
+      const vTags = visibleTagsRef.current;
       const selId = selectedIdRef.current;
       const r = 12 / vp.scale;
 
-      for (const tag of tags) {
+      for (const tag of vTags) {
         const isSel = tag.pole_id === selId;
         const color = isSel ? "#d97706" : "#f59e0b";
 
@@ -359,17 +413,13 @@ export default function PoleLayout({
     }
   }, [canvasSegments, fitView, redraw]);
 
+  // Make sure changing mask state directly triggers redraw
   useEffect(() => {
     redraw();
-  }, [tags, selectedId, showOnMap, redraw]);
+  }, [visibleTags, selectedId, showOnMap, redraw, boundary, isMaskEnabled]);
 
-  // Re-fit the canvas every time this tab becomes visible.
-  // Without this, the viewport stays wherever it was last set (possibly
-  // from a fitView call in the Equipment tab bleeding through).
   useEffect(() => {
     if (!isActive) return;
-    // Use a small timeout so the container has finished becoming visible
-    // (the `hidden` class is removed by the parent before this fires)
     const id = setTimeout(() => {
       if (canvasSegments.length) fitView();
       else redraw();
@@ -445,7 +495,8 @@ export default function PoleLayout({
 
       let closest: PoleTag | null = null;
       let bestD = Infinity;
-      for (const tag of tagsRef.current) {
+      // --- NEW 5: Hit test against visibleTags instead of all tags ---
+      for (const tag of visibleTagsRef.current) {
         const d = Math.hypot(tag.cx - wx, tag.cy - wy);
         if (d < r && d < bestD) {
           bestD = d;
@@ -457,7 +508,8 @@ export default function PoleLayout({
     [],
   );
 
-  const selectedTag = tags.find((t) => t.pole_id === selectedId) ?? null;
+  // Safely grab the selected tag from the filtered array
+  const selectedTag = visibleTags.find((t) => t.pole_id === selectedId) ?? null;
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -465,7 +517,8 @@ export default function PoleLayout({
       <PolePanel
         dxfPath={dxfPath}
         layers={allLayers}
-        tags={tags}
+        // --- NEW 6: Pass visibleTags to the Sidebar Panel ---
+        tags={visibleTags}
         status={scanStatus}
         error={scanError}
         scannedLayer={scannedLayer}
@@ -495,7 +548,7 @@ export default function PoleLayout({
           onClick={fitView}
           title="Fit to view"
           className="absolute bottom-4 right-4 w-8 h-8 bg-white border border-border rounded-lg shadow-sm
-                        flex items-center justify-center text-muted hover:text-text hover:shadow-md transition-all"
+                       flex items-center justify-center text-muted hover:text-text hover:shadow-md transition-all"
         >
           <svg
             viewBox="0 0 24 24"
