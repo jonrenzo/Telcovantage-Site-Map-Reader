@@ -24,6 +24,7 @@ Endpoints
   GET  /api/v1/cable_spans
   POST /api/v1/export/ocr
   POST /api/v1/export/poles
+  POST /api/v1/bulk               ← Bulk upload poles & spans to Planner API
 """
 
 from __future__ import annotations
@@ -740,3 +741,260 @@ def export_poles():
             "path": path,
         }
     )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# POST /api/v1/bulk
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@public_api.route("/bulk", methods=["POST"])
+def bulk_post():
+    """
+    Bulk upload poles and spans from current session to TelcoVantage Planner API.
+
+    This endpoint collects poles and cable spans from the current scan session,
+    transforms them into the Planner API format, and uploads them as a single
+    bulk request to the ngrok-exposed Planner API.
+
+    Request Body (JSON)
+    -------------------
+    {
+        "project_id": 1,                      # Required - Planner project ID
+        "node": {                             # Required - Node configuration
+            "node_id": "TY-5232",             # Required - Unique node identifier
+            "node_name": "Taytay Area 1",     # Optional
+            "city": "Taytay",                 # Optional
+            "province": "Rizal",              # Optional
+            "team": "Team Alpha",             # Optional
+            "date_start": "2026-03-24",       # Optional (YYYY-MM-DD)
+            "due_date": "2026-04-30"          # Optional (YYYY-MM-DD)
+        },
+        "compress": false                     # Optional - gzip compress upload
+    }
+
+    Poles and cable spans are automatically taken from the current scan session
+    (POLE_STATE and cable span data). Equipment counts (amplifier, extender, tsc)
+    are derived from SCAN_STATE.
+
+    Response (201 Created)
+    ----------------------
+    {
+        "ok": true,
+        "data": {
+            "message": "Bulk upload successful.",
+            "node": { "id": 10, "node_id": "TY-5232", "action": "created" },
+            "poles": [
+                { "pole_code": "001", "id": 55, "action": "created" },
+                ...
+            ],
+            "pole_spans": [
+                { "pole_span_code": "TY-5232-001-002", "id": 200, "action": "created" },
+                ...
+            ],
+            "summary": {
+                "poles_count": 15,
+                "pole_spans_count": 12
+            }
+        }
+    }
+
+    Error Responses
+    ---------------
+    400: Missing required fields or no session data
+    500: Planner API error or server misconfiguration
+    """
+    import ezdxf as _ezdxf
+
+    from app_python.services.planner_auth import auth
+    from app_python.planner_config import ENABLE_PLANNER_INTEGRATION
+
+    # ── Validate request body ─────────────────────────────────────────────────
+    body = request.get_json(silent=True)
+    if not body:
+        return _err("Request body must be JSON", 400)
+
+    project_id = body.get("project_id")
+    if not project_id:
+        return _err("project_id is required", 400)
+
+    node_config = body.get("node")
+    if not node_config or not node_config.get("node_id"):
+        return _err("node.node_id is required", 400)
+
+    node_id = node_config["node_id"]
+    compress = body.get("compress", False)
+
+    # ── Check Planner integration is enabled ──────────────────────────────────
+    if not ENABLE_PLANNER_INTEGRATION:
+        return _err("Planner API integration is disabled", 400)
+
+    # ── Get session state ─────────────────────────────────────────────────────
+    pole_state = _get_pole_state()
+    scan_state = _get_scan_state()
+    pipeline_state = _get_state()
+
+    # Check pole scan has completed
+    pole_status = pole_state.get("status", "idle")
+    if pole_status == "idle":
+        return _err("No pole scan has been started. Run pole scan first.", 400)
+    if pole_status == "processing":
+        return _err("Pole scan is still running. Wait for completion.", 400)
+    if pole_status == "error":
+        return _err(f"Pole scan failed: {pole_state.get('error')}", 400)
+
+    tags = pole_state.get("tags", [])
+    if not tags:
+        return _err("No poles found in session. Run pole scan first.", 400)
+
+    # ── Build poles list with sequential codes ────────────────────────────────
+    poles = []
+    pole_code_map = {}  # pole_name -> pole_code (e.g., "NPT1" -> "001")
+    pole_code_counter = 1
+
+    for tag in tags:
+        pole_name = tag.get("corrected_name") or tag.get("name")
+        if not pole_name:
+            continue
+        # Skip duplicates (use first occurrence)
+        if pole_name in pole_code_map:
+            continue
+
+        pole_code = f"{pole_code_counter:03d}"
+        pole_code_map[pole_name] = pole_code
+        pole_code_counter += 1
+
+        poles.append(
+            {
+                "pole_code": pole_code,
+                "pole_name": pole_name,
+                "map_latitude": tag.get("cy"),
+                "map_longitude": tag.get("cx"),
+            }
+        )
+
+    if not poles:
+        return _err("No valid poles found in session.", 400)
+
+    # ── Build cable spans (pole_spans) ────────────────────────────────────────
+    pole_spans = []
+    dxf_path = pipeline_state.get("dxf_path")
+
+    if dxf_path:
+        try:
+            # Get helper functions from app config
+            build_fn = current_app.config.get("FN_BUILD_CABLE_SPANS")
+            assign_fn = current_app.config.get("FN_ASSIGN_METER_VALUES")
+            layers_fn = current_app.config.get("FN_LIST_LAYERS")
+            find_layer_fn = current_app.config.get("FN_FIND_CABLE_LAYER")
+
+            if all([build_fn, assign_fn, layers_fn, find_layer_fn]):
+                doc = _ezdxf.readfile(dxf_path)
+                layers = layers_fn(dxf_path)
+                cable_layer = find_layer_fn(layers)
+
+                if cable_layer:
+                    spans = build_fn(doc, cable_layer)
+                    spans = assign_fn(spans, pipeline_state.get("results", []))
+
+                    # Track pole pairs to generate unique span codes
+                    pole_pair_counts = {}
+
+                    for span in spans:
+                        from_pole = span.get("from_pole")
+                        to_pole = span.get("to_pole")
+
+                        # Skip invalid spans
+                        if not from_pole or not to_pole:
+                            continue
+                        if from_pole == to_pole:
+                            continue
+                        if (
+                            from_pole not in pole_code_map
+                            or to_pole not in pole_code_map
+                        ):
+                            continue
+
+                        from_code = pole_code_map[from_pole]
+                        to_code = pole_code_map[to_pole]
+
+                        # Generate unique pole_span_code with index for duplicate pairs
+                        pole_pair = tuple(sorted([from_code, to_code]))
+                        occurrence = pole_pair_counts.get(pole_pair, 0) + 1
+                        pole_pair_counts[pole_pair] = occurrence
+
+                        if occurrence == 1:
+                            pole_span_code = f"{node_id}-{from_code}-{to_code}"
+                        else:
+                            pole_span_code = (
+                                f"{node_id}-{from_code}-{to_code}-{occurrence}"
+                            )
+
+                        pole_spans.append(
+                            {
+                                "from_pole_code": from_code,
+                                "to_pole_code": to_code,
+                                "pole_span_code": pole_span_code,
+                                "length_meters": span.get("meter_value", 0) or 0,
+                                "runs": span.get("cable_runs", 1),
+                                "expected_cable": span.get("meter_value", 0) or 0,
+                            }
+                        )
+        except Exception as e:
+            # Log but continue - spans are optional
+            print(f"[bulk] Warning: Could not build cable spans: {e}")
+
+    # ── Calculate equipment counts from SCAN_STATE ────────────────────────────
+    equipment_counts = {"amplifier": 0, "extender": 0, "tsc": 0}
+    shapes = scan_state.get("shapes", [])
+
+    for shape in shapes:
+        kind = shape.get("kind", "")
+        if kind in ("circle", "square", "hexagon"):
+            equipment_counts["tsc"] += 1
+        elif kind == "rectangle":
+            equipment_counts["amplifier"] += 1
+        elif kind == "triangle":
+            equipment_counts["extender"] += 1
+
+    # ── Build node data ───────────────────────────────────────────────────────
+    total_strand_length = sum(s.get("length_meters", 0) for s in pole_spans)
+    expected_cable = sum(s.get("expected_cable", 0) for s in pole_spans)
+
+    node_data = {
+        "node_id": node_id,
+        "node_name": node_config.get("node_name"),
+        "city": node_config.get("city"),
+        "province": node_config.get("province"),
+        "team": node_config.get("team"),
+        "date_start": node_config.get("date_start"),
+        "due_date": node_config.get("due_date"),
+        "total_strand_length": total_strand_length,
+        "expected_cable": expected_cable,
+        "node_count": 1,
+        **equipment_counts,
+    }
+
+    # Remove None values (let Planner API use defaults)
+    node_data = {k: v for k, v in node_data.items() if v is not None}
+
+    # ── Build final payload ───────────────────────────────────────────────────
+    payload = {
+        "project_id": project_id,
+        "node": node_data,
+        "poles": poles,
+        "pole_spans": pole_spans,
+    }
+
+    # ── Upload to Planner API ─────────────────────────────────────────────────
+    try:
+        print(
+            f"[bulk] Uploading to Planner API: {len(poles)} poles, {len(pole_spans)} spans"
+        )
+        result = auth.bulk_upload(payload, compress=compress)
+        print(f"[bulk] Upload successful: {result.get('message', 'OK')}")
+        return _ok(result.get("data", result)), 201
+
+    except Exception as e:
+        print(f"[bulk] Upload failed: {e}")
+        return _err(f"Bulk upload failed: {str(e)}", 500)
