@@ -987,16 +987,25 @@ def push_to_planner(
             node_id = "CAD_NODE"
 
         # Aggregate equipment counts for node
+        # Shape kind mapping:
+        #   circle   -> 2-Way Tap (splitter)
+        #   square   -> 4-Way Tap (tapoff)
+        #   hexagon  -> 8-Way Tap (tapoff)
+        #   triangle -> Line Extender
+        #   rectangle -> Amplifier/Node
         equipment_counts = {}
         for shape in equipment:
             kind = shape.get("kind", "")
             if kind == "circle":
-                equipment_counts["amplifier"] = equipment_counts.get("amplifier", 0) + 1
+                equipment_counts["tsc"] = equipment_counts.get("tsc", 0) + 1
+            elif kind == "square":
+                equipment_counts["tsc"] = equipment_counts.get("tsc", 0) + 1
+            elif kind == "hexagon":
+                equipment_counts["tsc"] = equipment_counts.get("tsc", 0) + 1
             elif kind == "rectangle":
                 equipment_counts["amplifier"] = equipment_counts.get("amplifier", 0) + 1
             elif kind == "triangle":
                 equipment_counts["extender"] = equipment_counts.get("extender", 0) + 1
-            # Add more mappings as needed
 
         # Assign OCR meter values to spans
         spans = assign_meter_values_to_spans(spans, ocr_results)
@@ -1010,8 +1019,9 @@ def push_to_planner(
             "expected_cable": sum(s.get("meter_value", 0) or 0 for s in spans),
             "amplifier": equipment_counts.get("amplifier", 0),
             "extender": equipment_counts.get("extender", 0),
+            "tsc": equipment_counts.get("tsc", 0),
             "node_count": 1,
-            "date_start": datetime.now().isoformat(),
+            "date_start": datetime.now().strftime("%Y-%m-%d"),
         }
         print(f"[planner] Node data: {node_data}")
         print(f"[planner] Spans count: {len(spans)}, equipment count: {len(equipment)}")
