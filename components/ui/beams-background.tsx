@@ -34,7 +34,8 @@ function createBeam(width: number, height: number): Beam {
     speed: 0.6 + Math.random() * 1.2,
     opacity: 0.12 + Math.random() * 0.16,
     // Green hues for TelcoVantage theme (120-170 range for greens, with some amber at 40-50)
-    hue: Math.random() > 0.15 ? 140 + Math.random() * 40 : 40 + Math.random() * 15,
+    hue:
+      Math.random() > 0.15 ? 140 + Math.random() * 40 : 40 + Math.random() * 15,
     pulse: Math.random() * Math.PI * 2,
     pulseSpeed: 0.02 + Math.random() * 0.03,
   };
@@ -75,7 +76,7 @@ export function BeamsBackground({
 
       const totalBeams = MINIMUM_BEAMS * 1.5;
       beamsRef.current = Array.from({ length: totalBeams }, () =>
-        createBeam(canvas.width, canvas.height)
+        createBeam(canvas.width, canvas.height),
       );
     };
 
@@ -90,9 +91,7 @@ export function BeamsBackground({
 
       beam.y = canvas.height + 100;
       beam.x =
-        column * spacing +
-        spacing / 2 +
-        (Math.random() - 0.5) * spacing * 0.5;
+        column * spacing + spacing / 2 + (Math.random() - 0.5) * spacing * 0.5;
       beam.width = 100 + Math.random() * 100;
       beam.speed = 0.5 + Math.random() * 0.4;
       // Green-focused hues with occasional amber accent
@@ -108,9 +107,7 @@ export function BeamsBackground({
 
       // Calculate pulsing opacity
       const pulsingOpacity =
-        beam.opacity *
-        (0.8 + Math.sin(beam.pulse) * 0.2) *
-        currentOpacity;
+        beam.opacity * (0.8 + Math.sin(beam.pulse) * 0.2) * currentOpacity;
 
       const gradient = ctx.createLinearGradient(0, 0, 0, beam.length);
 
@@ -118,19 +115,19 @@ export function BeamsBackground({
       gradient.addColorStop(0, `hsla(${beam.hue}, 85%, 55%, 0)`);
       gradient.addColorStop(
         0.1,
-        `hsla(${beam.hue}, 85%, 55%, ${pulsingOpacity * 0.5})`
+        `hsla(${beam.hue}, 85%, 55%, ${pulsingOpacity * 0.5})`,
       );
       gradient.addColorStop(
         0.4,
-        `hsla(${beam.hue}, 85%, 55%, ${pulsingOpacity})`
+        `hsla(${beam.hue}, 85%, 55%, ${pulsingOpacity})`,
       );
       gradient.addColorStop(
         0.6,
-        `hsla(${beam.hue}, 85%, 55%, ${pulsingOpacity})`
+        `hsla(${beam.hue}, 85%, 55%, ${pulsingOpacity})`,
       );
       gradient.addColorStop(
         0.9,
-        `hsla(${beam.hue}, 85%, 55%, ${pulsingOpacity * 0.5})`
+        `hsla(${beam.hue}, 85%, 55%, ${pulsingOpacity * 0.5})`,
       );
       gradient.addColorStop(1, `hsla(${beam.hue}, 85%, 55%, 0)`);
 
@@ -173,10 +170,7 @@ export function BeamsBackground({
 
   return (
     <div
-      className={cn(
-        "relative min-h-screen w-full overflow-hidden",
-        className
-      )}
+      className={cn("relative min-h-screen w-full overflow-hidden", className)}
       style={{ background: "#02200f" }}
     >
       <canvas
@@ -202,9 +196,7 @@ export function BeamsBackground({
       />
 
       {/* Children content */}
-      <div className="relative z-10">
-        {children}
-      </div>
+      <div className="relative z-10">{children}</div>
     </div>
   );
 }
