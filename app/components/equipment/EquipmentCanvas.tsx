@@ -1,9 +1,9 @@
 "use client";
 
-import { useRef, useEffect, useCallback, useState } from "react";
+import { useRef, useEffect, useCallback, useState, useMemo } from "react";
 import type { EquipmentShape, BoundaryPoint, Segment } from "../../types";
 
-// --- NEW 1: Import the math utility ---
+// --- Import the math utility ---
 import { isPointInPolygon } from "../../page";
 
 interface Props {
@@ -14,7 +14,6 @@ interface Props {
   visibleLayers: Set<string>;
   onSelectShape: (id: number | null) => void;
   fitTrigger?: number;
-  // --- NEW 2: Boundary Props ---
   boundary: BoundaryPoint[] | null;
   isMaskEnabled: boolean;
 }
@@ -64,8 +63,8 @@ export default function EquipmentCanvas({
   visibleLayers,
   onSelectShape,
   fitTrigger,
-  boundary, // NEW
-  isMaskEnabled, // NEW
+  boundary,
+  isMaskEnabled,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const vpRef = useRef<Viewport>({ x: 0, y: 0, scale: 1 });
@@ -81,72 +80,35 @@ export default function EquipmentCanvas({
     maxy: number;
   } | null>(null);
 
-  const shapesRef = useRef(shapes);
-  const selectedRef = useRef(selectedId);
-  const visKindsRef = useRef(visibleKinds);
-  const visLayersRef = useRef(visibleLayers);
-
-  // Keep refs for boundary to avoid closure staleness
-  const boundaryRef = useRef(boundary);
-  const maskEnabledRef = useRef(isMaskEnabled);
-
   const [tooltip, setTooltip] = useState<{
     x: number;
     y: number;
     text: string;
   } | null>(null);
 
-  useEffect(() => {
-    shapesRef.current = shapes;
-  }, [shapes]);
-  useEffect(() => {
-    selectedRef.current = selectedId;
-  }, [selectedId]);
-  useEffect(() => {
-    visKindsRef.current = visibleKinds;
-  }, [visibleKinds]);
-  useEffect(() => {
-    visLayersRef.current = visibleLayers;
-  }, [visibleLayers]);
-  useEffect(() => {
-    boundaryRef.current = boundary;
-  }, [boundary]);
-  useEffect(() => {
-    maskEnabledRef.current = isMaskEnabled;
-  }, [isMaskEnabled]);
-
-  // --- NEW 3: Apply the point-in-polygon filter to the visible shapes ---
-  const visibleShapes = useCallback(() => {
-    return shapesRef.current.filter((s) => {
+  // --- FIX 1: Replaced state-syncing refs with a single useMemo ---
+  // This calculates exactly once per render and prevents the "one step behind" bug
+  const visibleShapes = useMemo(() => {
+    return shapes.filter((s) => {
       const dk = getDisplayKind(s.kind, s.layer);
-      const isVisibleLayer =
-        visKindsRef.current.has(dk) && visLayersRef.current.has(s.layer);
+      const isVisibleLayer = visibleKinds.has(dk) && visibleLayers.has(s.layer);
       if (!isVisibleLayer) return false;
 
       // Apply boundary mask if enabled
-      if (
-        maskEnabledRef.current &&
-        boundaryRef.current &&
-        boundaryRef.current.length > 2
-      ) {
-        return isPointInPolygon(
-          s.cx ?? s.bbox[0],
-          s.cy ?? s.bbox[1],
-          boundaryRef.current,
-        );
+      if (isMaskEnabled && boundary && boundary.length > 2) {
+        return isPointInPolygon(s.cx ?? s.bbox[0], s.cy ?? s.bbox[1], boundary);
       }
       return true;
     });
-  }, []);
+  }, [shapes, visibleKinds, visibleLayers, isMaskEnabled, boundary]);
 
+  // --- FIX 2: Redraw now depends directly on the memoized visibleShapes and props ---
   const redraw = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     const vp = vpRef.current;
-    const currentBoundary = boundaryRef.current;
-    const isMaskOn = maskEnabledRef.current;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.save();
@@ -164,17 +126,17 @@ export default function EquipmentCanvas({
       ctx.stroke();
     }
 
-    // --- NEW 4: Draw the dashed green boundary polygon ---
-    if (isMaskOn && currentBoundary && currentBoundary.length > 2) {
+    // Draw the dashed green boundary polygon
+    if (isMaskEnabled && boundary && boundary.length > 2) {
       ctx.save();
       ctx.strokeStyle = "rgba(16, 185, 129, 0.8)"; // Emerald 500
       ctx.lineWidth = 2.5 / vp.scale;
       ctx.setLineDash([15 / vp.scale, 10 / vp.scale]);
 
       ctx.beginPath();
-      ctx.moveTo(currentBoundary[0].x, currentBoundary[0].y);
-      for (let i = 1; i < currentBoundary.length; i++) {
-        ctx.lineTo(currentBoundary[i].x, currentBoundary[i].y);
+      ctx.moveTo(boundary[0].x, boundary[0].y);
+      for (let i = 1; i < boundary.length; i++) {
+        ctx.lineTo(boundary[i].x, boundary[i].y);
       }
       ctx.closePath();
       ctx.stroke();
@@ -184,8 +146,8 @@ export default function EquipmentCanvas({
       ctx.restore();
     }
 
-    for (const shape of visibleShapes()) {
-      const isSel = shape.shape_id === selectedRef.current;
+    for (const shape of visibleShapes) {
+      const isSel = shape.shape_id === selectedId;
       const dk = getDisplayKind(shape.kind, shape.layer);
       const color = KIND_COLOR[dk] ?? "#64748b";
       const [x0, y0, x1, y1] = shape.bbox;
@@ -262,7 +224,7 @@ export default function EquipmentCanvas({
     }
 
     ctx.restore();
-  }, [segments, visibleShapes]);
+  }, [segments, visibleShapes, boundary, isMaskEnabled, selectedId]);
 
   const fitView = useCallback(() => {
     const canvas = canvasRef.current;
@@ -315,18 +277,10 @@ export default function EquipmentCanvas({
     return () => ro.disconnect();
   }, [redraw]);
 
-  // --- NEW 5: Add boundary and mask dependencies to redraw effect ---
+  // Keep the redraw effect simple since the dependencies are built into the useCallback
   useEffect(() => {
     redraw();
-  }, [
-    redraw,
-    shapes,
-    boundary,
-    isMaskEnabled,
-    selectedId,
-    visibleKinds,
-    visibleLayers,
-  ]);
+  }, [redraw]);
 
   function s2w(sx: number, sy: number) {
     const vp = vpRef.current;
@@ -335,7 +289,7 @@ export default function EquipmentCanvas({
 
   function hitTest(wx: number, wy: number) {
     const tol = 16 / vpRef.current.scale;
-    for (const s of visibleShapes()) {
+    for (const s of visibleShapes) {
       if (Math.abs(wx - s.cx) < tol && Math.abs(wy - s.cy) < tol) return s;
     }
     return null;
@@ -398,12 +352,14 @@ export default function EquipmentCanvas({
     redraw();
   };
 
-  const visible = visibleShapes();
-  const kindBreakdown = visible.reduce<Record<string, number>>((acc, s) => {
-    const dk = getDisplayKind(s.kind, s.layer);
-    acc[dk] = (acc[dk] ?? 0) + 1;
-    return acc;
-  }, {});
+  const kindBreakdown = visibleShapes.reduce<Record<string, number>>(
+    (acc, s) => {
+      const dk = getDisplayKind(s.kind, s.layer);
+      acc[dk] = (acc[dk] ?? 0) + 1;
+      return acc;
+    },
+    {},
+  );
 
   return (
     <>
@@ -426,7 +382,7 @@ export default function EquipmentCanvas({
         </div>
       )}
 
-      {visible.length > 0 && (
+      {visibleShapes.length > 0 && (
         <div className="absolute top-4 right-4 bg-surface/90 border border-border rounded-xl px-4 py-2 flex items-center gap-2.5 shadow-sm backdrop-blur-sm flex-wrap max-w-md">
           {Object.entries(kindBreakdown).map(([dk, count]) => (
             <div key={dk} className="flex items-center gap-1.5 text-xs">
@@ -438,14 +394,11 @@ export default function EquipmentCanvas({
               <span className="text-muted">{KIND_LABEL[dk] ?? dk}</span>
             </div>
           ))}
-          {Object.keys(kindBreakdown).length > 1 && (
-            <>
-              <div className="w-px h-4 bg-border" />
-              <span className="text-xs font-bold text-accent">
-                {visible.length} total
-              </span>
-            </>
-          )}
+          {/* --- FIX 3: Removed the > 1 condition so the total always shows --- */}
+          <div className="w-px h-4 bg-border" />
+          <span className="text-xs font-bold text-accent">
+            {visibleShapes.length} total
+          </span>
         </div>
       )}
 
@@ -542,7 +495,6 @@ export default function EquipmentCanvas({
             <span>{KIND_LABEL[dk]}</span>
           </div>
         ))}
-        {/* --- NEW: Add boundary key to legend --- */}
         <div className="flex items-center gap-2 text-xs mt-0.5 pt-1.5 border-t border-border">
           <div className="w-3 border-t-[2.5px] border-dashed border-[#10b981]" />
           Boundary

@@ -401,23 +401,26 @@ export default function DxfViewer({
   >({});
 
   // Helper to notify parent of span changes
-  const notifySpansChange = useCallback((spans: CableSpan[]) => {
-    if (!onSpansChange) return;
-    const exportSpans: CableSpanExport[] = spans.map((s) => ({
-      span_id: s.span_id,
-      layer: s.layer,
-      bbox: s.bbox,
-      cx: s.cx,
-      cy: s.cy,
-      segment_count: s.segment_count,
-      total_length: s.total_length,
-      meter_value: s.meterValue ?? null,
-      cable_runs: s.cable_runs,
-      from_pole: s.from_pole ?? null,
-      to_pole: s.to_pole ?? null,
-    }));
-    onSpansChange(exportSpans);
-  }, [onSpansChange]);
+  const notifySpansChange = useCallback(
+    (spans: CableSpan[]) => {
+      if (!onSpansChange) return;
+      const exportSpans: CableSpanExport[] = spans.map((s) => ({
+        span_id: s.span_id,
+        layer: s.layer,
+        bbox: s.bbox,
+        cx: s.cx,
+        cy: s.cy,
+        segment_count: s.segment_count,
+        total_length: s.total_length,
+        meter_value: s.meterValue ?? null,
+        cable_runs: s.cable_runs,
+        from_pole: s.from_pole ?? null,
+        to_pole: s.to_pole ?? null,
+      }));
+      onSpansChange(exportSpans);
+    },
+    [onSpansChange],
+  );
 
   const isLayerVisible = useCallback((name: string | null) => {
     if (!name) return false;
@@ -2264,12 +2267,12 @@ export default function DxfViewer({
               {hoveredSpanData.span_id}
             </span>
           </div>
-          <div className="flex justify-between gap-4">
+          {/*<div className="flex justify-between gap-4">
             <span className="text-slate-400">Layer:</span>
             <span className="font-mono text-white truncate max-w-[120px]">
               {hoveredSpanData.layer}
             </span>
-          </div>
+          </div>*/}
           <div className="flex justify-between gap-4">
             <span className="text-slate-400">Pole Connection:</span>
             <span className="font-mono text-white">
@@ -2511,7 +2514,8 @@ export default function DxfViewer({
                 )}
               </div>
               <div>ID: {selectedSpan.span_id}</div>
-              <div>Layer: {selectedSpan.layer}</div>
+
+              {/*<div>Layer: {selectedSpan.layer}</div>*/}
               <div>
                 Strand length:{" "}
                 {selectedSpan.meterValue?.toFixed(2) ??
