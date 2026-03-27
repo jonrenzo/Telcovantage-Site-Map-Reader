@@ -958,9 +958,10 @@ def push_to_planner(
     project_id: int,
 ) -> dict:
     """
-    Push processed CAD data to TelcoVantage Planner API.
+    Push processed CAD data to TelcoVantage Planner API using bulk upload.
 
-    Creates a single node (derived from drawing name), poles, and pole-spans.
+    Sends a single JSON file containing node + poles + pole_spans to the
+    /bulk-upload endpoint instead of making individual POST requests.
 
     Args:
         dxf_path: Path to the DXF file
@@ -968,198 +969,161 @@ def push_to_planner(
         spans: List of cable spans from build_cable_spans
         equipment: List of equipment shapes from SCAN_STATE
         ocr_results: OCR results for meter values
+        project_id: Planner project ID
 
     Returns:
-        Dict with success status and any errors
+        Dict with success status and created counts
     """
     if not ENABLE_PLANNER_INTEGRATION:
         print("[planner] Integration disabled, skipping push.")
         return {"skipped": True, "reason": "Planner integration disabled"}
 
     try:
-        print(f"[planner] Starting push for {dxf_path}")
+        print(f"[planner] Starting bulk push for {dxf_path}")
 
-        # Derive node ID from drawing name (e.g., "TY-2026" from filename)
-        dxf_name = Path(dxf_path).stem
-        node_id = (
-            dxf_name.split("_")[0] if "_" in dxf_name else dxf_name
-        )  # Simple derivation
+        # 1. Derive node_id from DXF filename (e.g., "TY-2026" from filename)
+        dxf_name = Path(dxf_path).stem if dxf_path else "CAD_NODE"
+        node_id = dxf_name.split("_")[0] if "_" in dxf_name else dxf_name
         if not node_id:
             node_id = "CAD_NODE"
 
-        # Aggregate equipment counts for node
-        # Shape kind mapping:
-        #   circle   -> 2-Way Tap (splitter)
-        #   square   -> 4-Way Tap (tapoff)
-        #   hexagon  -> 8-Way Tap (tapoff)
-        #   triangle -> Line Extender
-        #   rectangle -> Amplifier/Node
-        equipment_counts = {}
+        # 2. Calculate equipment counts
+        equipment_counts = {"amplifier": 0, "extender": 0, "tsc": 0}
         for shape in equipment:
             kind = shape.get("kind", "")
-            if kind == "circle":
-                equipment_counts["tsc"] = equipment_counts.get("tsc", 0) + 1
-            elif kind == "square":
-                equipment_counts["tsc"] = equipment_counts.get("tsc", 0) + 1
-            elif kind == "hexagon":
-                equipment_counts["tsc"] = equipment_counts.get("tsc", 0) + 1
+            if kind in ("circle", "square", "hexagon"):
+                equipment_counts["tsc"] += 1
             elif kind == "rectangle":
-                equipment_counts["amplifier"] = equipment_counts.get("amplifier", 0) + 1
+                equipment_counts["amplifier"] += 1
             elif kind == "triangle":
-                equipment_counts["extender"] = equipment_counts.get("extender", 0) + 1
+                equipment_counts["extender"] += 1
 
-        # Assign OCR meter values to spans
+        # 3. Assign OCR meter values to spans
         spans = assign_meter_values_to_spans(spans, ocr_results)
 
-        # Create node
-        node_data = {
-            "project_id": project_id,
-            "node_id": node_id,
-            "node_name": node_id,
-            "total_strand_length": sum(s.get("meter_value", 0) or 0 for s in spans),
-            "expected_cable": sum(s.get("meter_value", 0) or 0 for s in spans),
-            "amplifier": equipment_counts.get("amplifier", 0),
-            "extender": equipment_counts.get("extender", 0),
-            "tsc": equipment_counts.get("tsc", 0),
-            "node_count": 1,
-            "date_start": datetime.now().strftime("%Y-%m-%d"),
-        }
-        print(f"[planner] Node data: {node_data}")
-        print(f"[planner] Spans count: {len(spans)}, equipment count: {len(equipment)}")
-        node_response = auth.make_request("POST", "/nodes", node_data)
-        node_id_created = node_response["id"]
-        print(f"[planner] Node created with ID: {node_id_created}")
-
-        # Create poles (with batch processing)
-        BATCH_SIZE = 10
-        BATCH_PAUSE_SECONDS = 2.0
-
-        pole_id_map = {}
+        # 4. Build poles list with sequential codes
+        poles_list = []
+        pole_code_map = {}  # pole_name -> pole_code
         pole_counter = 1
-        poles_processed = 0
-        poles_failed = 0
+
         for pole in poles:
-            pole_code = f"P{pole_counter:04d}"
+            pole_name = (pole.get("corrected_name") or pole.get("name", "")).strip()
+            if not pole_name:
+                continue
+            # Skip duplicates (use first occurrence)
+            if pole_name in pole_code_map:
+                continue
+
+            pole_code = f"{pole_counter:03d}"
+            pole_code_map[pole_name] = pole_code
             pole_counter += 1
-            pole_name = pole.get("name", "").strip()
-            if not pole_name or pole_name in pole_id_map:
-                continue
-            pole_data = {
-                "node_id": node_id_created,
-                "pole_code": pole_code,
-                "pole_name": pole_name,
-                "map_latitude": pole.get("cy", 0),
-                "map_longitude": pole.get("cx", 0),
-            }
-            print(f"[planner] Creating pole: {pole_data}")
-            try:
-                pole_response = auth.make_request("POST", "/poles", pole_data)
-                pole_id_map[pole_name] = pole_response["id"]
-            except Exception as e:
-                poles_failed += 1
-                print(f"[planner] Failed to create pole {pole_name}: {e}")
-                continue
 
-            # Batch pause logic for poles
-            poles_processed += 1
-            if poles_processed % BATCH_SIZE == 0:
-                print(
-                    f"[planner] Processed {poles_processed} poles, pausing {BATCH_PAUSE_SECONDS}s..."
-                )
-                time.sleep(BATCH_PAUSE_SECONDS)
+            poles_list.append(
+                {
+                    "pole_code": pole_code,
+                    "pole_name": pole_name,
+                    "map_latitude": pole.get("cy"),
+                    "map_longitude": pole.get("cx"),
+                }
+            )
 
-        print(f"[planner] Created {len(pole_id_map)} poles ({poles_failed} failed)")
+        print(f"[planner] Built {len(poles_list)} poles for upload")
 
-        # Create pole spans (with batch processing)
-        spans_created = 0
-        spans_failed = 0
-        spans_skipped_same_pole = 0
-        spans_skipped_no_poles = 0
-        failed_spans = []
-        pole_pair_counts = {}  # Track occurrences for unique pole_span_code
-        spans_processed = 0
+        # 5. Build pole_spans list
+        pole_spans = []
+        pole_pair_counts = {}  # Track occurrences for unique span codes
+        spans_skipped = 0
 
         for span in spans:
-            from_pole_name = span.get("from_pole")
-            to_pole_name = span.get("to_pole")
+            from_pole = span.get("from_pole")
+            to_pole = span.get("to_pole")
 
-            # Skip if missing pole connections
-            if not from_pole_name or not to_pole_name:
-                spans_skipped_no_poles += 1
+            # Skip invalid spans
+            if not from_pole or not to_pole:
+                spans_skipped += 1
+                continue
+            if from_pole == to_pole:
+                spans_skipped += 1
+                continue
+            if from_pole not in pole_code_map or to_pole not in pole_code_map:
+                spans_skipped += 1
                 continue
 
-            # Skip if same pole on both ends (API rejects this)
-            if from_pole_name == to_pole_name:
-                spans_skipped_same_pole += 1
-                print(
-                    f"[planner] Skipping span with same from/to pole: {from_pole_name}"
-                )
-                continue
-
-            # Skip if poles not in map
-            if from_pole_name not in pole_id_map or to_pole_name not in pole_id_map:
-                spans_skipped_no_poles += 1
-                continue
+            from_code = pole_code_map[from_pole]
+            to_code = pole_code_map[to_pole]
 
             # Generate unique pole_span_code with index for duplicate pairs
-            pole_pair = tuple(sorted([from_pole_name, to_pole_name]))
+            pole_pair = tuple(sorted([from_code, to_code]))
             occurrence = pole_pair_counts.get(pole_pair, 0) + 1
             pole_pair_counts[pole_pair] = occurrence
 
             if occurrence == 1:
-                pole_span_code = f"{node_id}-{from_pole_name}-{to_pole_name}"
+                pole_span_code = f"{node_id}-{from_code}-{to_code}"
             else:
-                pole_span_code = (
-                    f"{node_id}-{from_pole_name}-{to_pole_name}-{occurrence}"
-                )
+                pole_span_code = f"{node_id}-{from_code}-{to_code}-{occurrence}"
 
-            span_data = {
-                "node_id": node_id_created,
-                "from_pole_id": pole_id_map[from_pole_name],
-                "to_pole_id": pole_id_map[to_pole_name],
-                "pole_span_code": pole_span_code,
-                "length_meters": span.get("meter_value", 0) or 0,
-                "runs": span.get("cable_runs", 1),
-                "expected_cable": span.get("meter_value", 0) or 0,
-                "expected_amplifier": 0,
-                "expected_extender": 0,
-            }
-
-            try:
-                print(f"[planner] Creating span: {span_data}")
-                auth.make_request("POST", "/pole-spans", span_data)
-                spans_created += 1
-            except Exception as e:
-                spans_failed += 1
-                failed_spans.append({"code": pole_span_code, "error": str(e)})
-                print(f"[planner] Failed to create span {pole_span_code}: {e}")
-
-            # Batch pause logic for spans
-            spans_processed += 1
-            if spans_processed % BATCH_SIZE == 0:
-                print(
-                    f"[planner] Processed {spans_processed} spans, pausing {BATCH_PAUSE_SECONDS}s..."
-                )
-                time.sleep(BATCH_PAUSE_SECONDS)
+            pole_spans.append(
+                {
+                    "from_pole_code": from_code,
+                    "to_pole_code": to_code,
+                    "pole_span_code": pole_span_code,
+                    "length_meters": span.get("meter_value", 0) or 0,
+                    "runs": span.get("cable_runs", 1),
+                    "expected_cable": span.get("meter_value", 0) or 0,
+                }
+            )
 
         print(
-            f"[planner] Push completed: {spans_created} created, {spans_failed} failed, "
-            f"{spans_skipped_same_pole} skipped (same pole), {spans_skipped_no_poles} skipped (no poles)"
+            f"[planner] Built {len(pole_spans)} pole spans for upload ({spans_skipped} skipped)"
         )
+
+        # 6. Build node data
+        total_strand_length = sum(s.get("length_meters", 0) for s in pole_spans)
+        node_data = {
+            "node_id": node_id,
+            "node_name": node_id,
+            "total_strand_length": total_strand_length,
+            "expected_cable": total_strand_length,
+            "node_count": 1,
+            "date_start": datetime.now().strftime("%Y-%m-%d"),
+            **equipment_counts,
+        }
+
+        # 7. Build payload
+        payload = {
+            "project_id": project_id,
+            "node": node_data,
+            "poles": poles_list,
+            "pole_spans": pole_spans,
+        }
+
+        print(
+            f"[planner] Uploading bulk payload: {len(poles_list)} poles, {len(pole_spans)} spans"
+        )
+
+        # 8. Upload via bulk endpoint
+        result = auth.bulk_upload(payload)
+
+        print(f"[planner] Bulk upload successful: {result.get('message', 'OK')}")
+
+        # 9. Return result summary
+        data = result.get("data", result)
+        summary = data.get("summary", {})
+
         return {
             "success": True,
-            "node_id": node_id_created,
-            "poles_created": len(pole_id_map),
-            "poles_failed": poles_failed,
-            "spans_created": spans_created,
-            "spans_failed": spans_failed,
-            "spans_skipped_same_pole": spans_skipped_same_pole,
-            "spans_skipped_no_poles": spans_skipped_no_poles,
-            "failed_spans": failed_spans[:10],  # Limit to first 10
+            "node_id": data.get("node", {}).get("id"),
+            "node_action": data.get("node", {}).get("action", "created"),
+            "poles_created": summary.get("poles_count", len(poles_list)),
+            "spans_created": summary.get("pole_spans_count", len(pole_spans)),
+            "spans_skipped": spans_skipped,
         }
 
     except Exception as e:
-        print(f"[planner] Push failed: {e}")
+        print(f"[planner] Bulk push failed: {e}")
+        import traceback
+
+        traceback.print_exc()
         return {"success": False, "error": str(e)}
 
 

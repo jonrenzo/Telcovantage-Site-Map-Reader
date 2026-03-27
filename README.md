@@ -513,6 +513,103 @@ Trigger an Excel export of pole IDs and get back a download URL.
 
 ---
 
+#### `POST /api/v1/bulk`
+
+Bulk upload poles and cable spans from the current scan session to the TelcoVantage Planner API.
+
+This endpoint collects all detected poles and cable spans, transforms them to the Planner API format, and uploads them in a single bulk request via the ngrok-exposed Planner API.
+
+**Prerequisites**
+- Pole scan must be completed (`GET /api/v1/status` → `data.poles.status === "done"`)
+- Planner API integration must be enabled in `planner_config.py`
+
+**Request Body (JSON)**
+```json
+{
+    "project_id": 1,
+    "node": {
+        "node_id": "TY-5232",
+        "node_name": "Taytay Area 1",
+        "city": "Taytay",
+        "province": "Rizal",
+        "team": "Team Alpha",
+        "date_start": "2026-03-24",
+        "due_date": "2026-04-30"
+    },
+    "compress": false
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `project_id` | integer | **Yes** | Planner project ID |
+| `node.node_id` | string | **Yes** | Unique node identifier (e.g., `"TY-5232"`) |
+| `node.node_name` | string | No | Human-readable node name |
+| `node.city` | string | No | City location |
+| `node.province` | string | No | Province/state |
+| `node.team` | string | No | Assigned team |
+| `node.date_start` | string | No | Start date (`YYYY-MM-DD`) |
+| `node.due_date` | string | No | Due date (`YYYY-MM-DD`) |
+| `compress` | boolean | No | Gzip compress the upload (default: `false`) |
+
+**What gets uploaded**
+- **Poles**: All detected pole tags from `POLE_STATE`, with sequential codes (`001`, `002`, `003`...)
+- **Pole Spans**: All cable spans with valid `from_pole`/`to_pole` connections
+- **Equipment Counts**: Aggregated from `SCAN_STATE` (amplifiers, extenders, TSCs)
+- **Strand Totals**: Summed from OCR meter values
+
+**Response (201 Created)**
+```json
+{
+    "ok": true,
+    "data": {
+        "node": {
+            "id": 10,
+            "node_id": "TY-5232",
+            "action": "created"
+        },
+        "poles": [
+            { "pole_code": "001", "id": 55, "action": "created" },
+            { "pole_code": "002", "id": 56, "action": "created" }
+        ],
+        "pole_spans": [
+            { "pole_span_code": "TY-5232-001-002", "id": 200, "action": "created" },
+            { "pole_span_code": "TY-5232-002-003", "id": 201, "action": "created" }
+        ],
+        "summary": {
+            "poles_count": 15,
+            "pole_spans_count": 12
+        }
+    }
+}
+```
+
+**Field notes**
+- `action` — Either `"created"` or `"updated"`. Re-uploading the same data is safe (upsert behavior).
+- `pole_code` — Sequential codes generated from pole order (`001`, `002`, etc.).
+- `pole_span_code` — Format: `{node_id}-{from_code}-{to_code}` (e.g., `TY-5232-001-002`).
+
+**Error responses**
+- `400` — Missing required fields, no pole scan data, or Planner integration disabled.
+- `500` — Planner API request failed.
+
+**Example**
+```bash
+curl -X POST http://localhost:5000/api/v1/bulk \
+  -H "Content-Type: application/json" \
+  -d '{
+    "project_id": 1,
+    "node": {
+      "node_id": "TY-5232",
+      "node_name": "Taytay Area 1",
+      "city": "Taytay",
+      "province": "Rizal"
+    }
+  }'
+```
+
+---
+
 ### Typical Integration Workflow
 
 The recommended sequence for a consuming system is:
@@ -536,9 +633,13 @@ The recommended sequence for a consuming system is:
    GET /api/v1/equipment
    GET /api/v1/cable_spans
 
-5. Export (optional)
+5. Export to Excel (optional)
    POST /api/v1/export/ocr   { corrections: { "3": "72" } }
    GET  /api/download?file=site_plan_results.xlsx
+
+6. Bulk upload to Planner API (optional)
+   POST /api/v1/bulk   { project_id: 1, node: { node_id: "TY-5232", ... } }
+   → { data.summary.poles_count: 15, data.summary.pole_spans_count: 12 }
 ```
 
 ---
