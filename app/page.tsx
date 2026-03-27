@@ -17,6 +17,20 @@ interface BoundaryPoint {
   y: number;
 }
 
+interface CableSpanExport {
+  span_id: number;
+  layer: string;
+  bbox: [number, number, number, number];
+  cx: number;
+  cy: number;
+  segment_count: number;
+  total_length: number;
+  meter_value?: number | null;
+  cable_runs: number;
+  from_pole?: string | null;
+  to_pole?: string | null;
+}
+
 export function isPointInPolygon(
   px: number,
   py: number,
@@ -39,7 +53,7 @@ export function isPointInPolygon(
 }
 
 type MapTab = "review" | "dxf" | "equipment" | "pole";
-export type ExportType = "all" | "ocr" | "equipment" | "poles" | "pdf";
+export type ExportType = "all" | "ocr" | "equipment" | "poles" | "pdf" | "polemaster";
 
 export default function Home() {
   const [step, setStep] = useState<Step>(1);
@@ -54,6 +68,7 @@ export default function Home() {
     null,
   );
   const [isMaskEnabled, setIsMaskEnabled] = useState<boolean>(true);
+  const [cableSpans, setCableSpans] = useState<CableSpanExport[]>([]);
 
   const pdfExportRef = useRef<(() => void) | null>(null);
 
@@ -167,8 +182,9 @@ export default function Home() {
 
         switch (type) {
           case "all":
+            // Use cable spans from state (includes pole connections from DxfViewer)
             endpoint = "/api/export/all";
-            body = { corrections };
+            body = { corrections, cable_spans: cableSpans };
             break;
           case "ocr":
             endpoint = "/api/export";
@@ -179,6 +195,10 @@ export default function Home() {
             break;
           case "poles":
             endpoint = "/api/pole_tags/export";
+            break;
+          case "polemaster":
+            endpoint = "/api/export/polemaster";
+            body = { corrections, cable_spans: cableSpans };
             break;
         }
 
@@ -192,14 +212,52 @@ export default function Home() {
           alert("Export failed: " + data.error);
           return;
         }
+        
+        // Handle polemaster response differently - it doesn't return a file
+        if (type === "polemaster") {
+          const result = data.result || {};
+          let message = `Pole Master Push Complete!\n\n` +
+            `Node ID: ${result.node_id || 'N/A'}\n` +
+            `Poles Created: ${result.poles_created || 0}`;
+          
+          if (result.poles_failed > 0) {
+            message += ` (${result.poles_failed} failed)`;
+          }
+          
+          message += `\nSpans Created: ${result.spans_created || 0}`;
+          
+          if (result.spans_failed > 0) {
+            message += `\nSpans Failed: ${result.spans_failed}`;
+          }
+          if (result.spans_skipped_same_pole > 0) {
+            message += `\nSpans Skipped (same pole): ${result.spans_skipped_same_pole}`;
+          }
+          if (result.spans_skipped_no_poles > 0) {
+            message += `\nSpans Skipped (no pole connections): ${result.spans_skipped_no_poles}`;
+          }
+          if (result.failed_spans?.length > 0) {
+            message += `\n\nFirst ${result.failed_spans.length} failed spans:`;
+            result.failed_spans.forEach((f: { code: string; error: string }) => {
+              message += `\n- ${f.code}: ${f.error}`;
+            });
+          }
+          
+          alert(message);
+          return;
+        }
+        
         window.location.href =
           "/api/download?file=" + encodeURIComponent(data.path);
       } finally {
         setExporting(null);
       }
     },
-    [exporting, results, isMaskEnabled, globalBoundary],
+    [exporting, results, isMaskEnabled, globalBoundary, cableSpans],
   );
+
+  const handleSpansChange = useCallback((spans: CableSpanExport[]) => {
+    setCableSpans(spans);
+  }, []);
 
   const handleStartOver = useCallback(() => {
     pipeline.reset();
@@ -212,6 +270,7 @@ export default function Home() {
     setExporting(null);
     setGlobalBoundary(null);
     setIsMaskEnabled(true);
+    setCableSpans([]);
   }, [pipeline]);
 
   const TABS = [
@@ -311,6 +370,7 @@ export default function Home() {
                 onExportPdfRef={pdfExportRef}
                 boundary={globalBoundary}
                 isMaskEnabled={isMaskEnabled}
+                onSpansChange={handleSpansChange}
               />
             </div>
 

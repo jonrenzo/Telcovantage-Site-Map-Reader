@@ -43,6 +43,20 @@ interface CableSpan {
   to_pole?: string;
 }
 
+interface CableSpanExport {
+  span_id: number;
+  layer: string;
+  bbox: [number, number, number, number];
+  cx: number;
+  cy: number;
+  segment_count: number;
+  total_length: number;
+  meter_value?: number | null;
+  cable_runs: number;
+  from_pole?: string | null;
+  to_pole?: string | null;
+}
+
 interface Props {
   dxfPath: string;
   ocrResults: any[];
@@ -50,6 +64,7 @@ interface Props {
   onExportPdfRef?: React.MutableRefObject<(() => void) | null>;
   boundary: BoundaryPoint[] | null;
   isMaskEnabled: boolean;
+  onSpansChange?: (spans: CableSpanExport[]) => void;
 }
 
 interface PartialDetail {
@@ -279,6 +294,7 @@ export default function DxfViewer({
   onExportPdfRef,
   boundary,
   isMaskEnabled,
+  onSpansChange,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
@@ -383,6 +399,25 @@ export default function DxfViewer({
   const [cableStatuses, setCableStatuses] = useState<
     Record<number, CableRecoveryStatus>
   >({});
+
+  // Helper to notify parent of span changes
+  const notifySpansChange = useCallback((spans: CableSpan[]) => {
+    if (!onSpansChange) return;
+    const exportSpans: CableSpanExport[] = spans.map((s) => ({
+      span_id: s.span_id,
+      layer: s.layer,
+      bbox: s.bbox,
+      cx: s.cx,
+      cy: s.cy,
+      segment_count: s.segment_count,
+      total_length: s.total_length,
+      meter_value: s.meterValue ?? null,
+      cable_runs: s.cable_runs,
+      from_pole: s.from_pole ?? null,
+      to_pole: s.to_pole ?? null,
+    }));
+    onSpansChange(exportSpans);
+  }, [onSpansChange]);
 
   const isLayerVisible = useCallback((name: string | null) => {
     if (!name) return false;
@@ -919,8 +954,9 @@ export default function DxfViewer({
     });
     cableSpansRef.current = newSpans;
     setCableSpans(newSpans);
+    notifySpansChange(newSpans);
     redraw();
-  }, [redraw]);
+  }, [redraw, notifySpansChange]);
 
   const toggleActives = async () => {
     if (showActives) {
@@ -1061,6 +1097,7 @@ export default function DxfViewer({
     );
     cableSpansRef.current = newSpans;
     setCableSpans(newSpans);
+    notifySpansChange(newSpans);
     setCableStatuses((prev) => {
       const next = { ...prev };
       delete next[spanToDelete];
@@ -1102,6 +1139,7 @@ export default function DxfViewer({
       const newSpans = [...cableSpansRef.current, dataToRestore.span];
       cableSpansRef.current = newSpans;
       setCableSpans(newSpans);
+      notifySpansChange(newSpans);
       if (dataToRestore.status)
         setCableStatuses((prev) => {
           const next = { ...prev, [spanId]: dataToRestore.status! };
@@ -1261,6 +1299,7 @@ export default function DxfViewer({
       });
       cableSpansRef.current = newSpans;
       setCableSpans(newSpans);
+      notifySpansChange(newSpans);
 
       const prevStatus = cableStatusRef.current[spanId];
       if (prevStatus) {
@@ -1410,9 +1449,10 @@ export default function DxfViewer({
       });
       cableSpansRef.current = newSpans;
       setCableSpans(newSpans);
+      notifySpansChange(newSpans);
       redraw();
     }
-  }, [partialDetails, redraw]);
+  }, [partialDetails, redraw, notifySpansChange]);
 
   const onDoubleClick = (e: React.MouseEvent) => {
     const rect = canvasRef.current?.getBoundingClientRect();
@@ -1476,6 +1516,7 @@ export default function DxfViewer({
           newSpans.push(mergedSpan);
           cableSpansRef.current = newSpans;
           setCableSpans(newSpans);
+          notifySpansChange(newSpans);
           setSelectedSpanId(nextId);
           redraw();
           return;
@@ -1492,6 +1533,7 @@ export default function DxfViewer({
     if (!last) return;
     cableSpansRef.current = last.prev;
     setCableSpans([...last.prev]);
+    notifySpansChange([...last.prev]);
     if (last.prevDeleted) {
       deletedSpansRef.current = last.prevDeleted;
       setDeletedSpans([...last.prevDeleted]);
@@ -1499,7 +1541,7 @@ export default function DxfViewer({
     selectedSpanRef.current = null;
     setSelectedSpanId(null);
     redraw();
-  }, [redraw]);
+  }, [redraw, notifySpansChange]);
 
   const redoSplit = useCallback(() => {}, []);
 
@@ -1559,8 +1601,9 @@ export default function DxfViewer({
       };
     });
     setCableSpans([...cableSpansRef.current]);
+    notifySpansChange([...cableSpansRef.current]);
     redraw();
-  }, [ocrResults, cableDataVersion, redraw]);
+  }, [ocrResults, cableDataVersion, redraw, notifySpansChange]);
 
   const startMultiAction = (action: "runs" | "merge") => {
     if (selectedSpanId === null) return;
@@ -1632,6 +1675,7 @@ export default function DxfViewer({
     newSpans.push(mergedSpan);
     cableSpansRef.current = newSpans;
     setCableSpans(newSpans);
+    notifySpansChange(newSpans);
     cancelMultiAction();
   };
 
@@ -1731,6 +1775,7 @@ export default function DxfViewer({
         nextSpanIdRef.current = maxId + 1;
         cableSpansRef.current = spans;
         setCableSpans(spans);
+        notifySpansChange(spans);
         cableLayersRef.current = cableData.cable_layers ?? [];
         setCableLayerNames(cableData.cable_layers ?? []);
         setCableDataVersion((v) => v + 1);
@@ -1741,7 +1786,7 @@ export default function DxfViewer({
         setError(e.message);
         setLoading(false);
       });
-  }, [dxfPath, fitView]);
+  }, [dxfPath, fitView, notifySpansChange]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -1893,6 +1938,7 @@ export default function DxfViewer({
         });
         cableSpansRef.current = newSpans;
         setCableSpans(newSpans);
+        notifySpansChange(newSpans);
         const nextMode = mode === "from" ? "to" : "idle";
         poleConnectModeRef.current = nextMode;
         setPoleConnectMode(nextMode);

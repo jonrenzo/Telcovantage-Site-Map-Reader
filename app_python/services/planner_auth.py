@@ -5,6 +5,8 @@ Handles login, token management, and retries.
 
 import requests
 import time
+import ssl
+from requests.exceptions import SSLError
 from app_python.planner_config import (
     PLANNER_API_BASE_URL,
     PLANNER_EMAIL,
@@ -12,6 +14,9 @@ from app_python.planner_config import (
     PLANNER_HEADERS,
     API_TIMEOUT,
 )
+
+# Default delay between requests to avoid overwhelming ngrok tunnel
+DEFAULT_REQUEST_DELAY = 0.3  # 300ms
 
 
 class PlannerAuth:
@@ -49,10 +54,23 @@ class PlannerAuth:
         headers["Authorization"] = f"Bearer {self.get_token()}"
         return headers
 
-    def make_request(self, method, endpoint, json=None, retries=3):
-        """Make authenticated request with retry on 401."""
+    def make_request(self, method, endpoint, json=None, retries=3, request_delay=None):
+        """Make authenticated request with retry on 401 and SSL error handling.
+
+        Args:
+            method: HTTP method (GET, POST, etc.)
+            endpoint: API endpoint path
+            json: JSON payload for request
+            retries: Number of retry attempts (default 3, increased to 4 for SSL errors)
+            request_delay: Delay after successful request (default 300ms)
+        """
+        if request_delay is None:
+            request_delay = DEFAULT_REQUEST_DELAY
+
         url = f"{PLANNER_API_BASE_URL}{endpoint}"
-        for attempt in range(retries):
+        max_retries = retries
+
+        for attempt in range(max_retries + 1):  # +1 to allow extra retry for SSL
             try:
                 headers = self.get_headers()
                 response = requests.request(
@@ -61,14 +79,29 @@ class PlannerAuth:
                 if response.status_code == 401:
                     # Token invalid, re-login
                     self.token = None
-                    if attempt < retries - 1:
+                    if attempt < max_retries:
                         continue
                 response.raise_for_status()
+
+                # Add delay after successful request to avoid overwhelming ngrok
+                if request_delay > 0:
+                    time.sleep(request_delay)
+
                 return response.json()
+            except SSLError as e:
+                # SSL errors need exponential backoff (common with free ngrok)
+                if attempt >= max_retries:
+                    raise Exception(f"SSL error after {attempt + 1} attempts: {e}")
+                backoff_time = 2 ** (attempt + 1)  # 2s, 4s, 8s, 16s
+                print(
+                    f"[planner] SSL error, retrying in {backoff_time}s... (attempt {attempt + 1})"
+                )
+                time.sleep(backoff_time)
             except requests.exceptions.RequestException as e:
-                if attempt == retries - 1:
-                    raise Exception(f"Request failed after {retries} attempts: {e}")
-                time.sleep(1)  # Wait before retry
+                if attempt >= max_retries:
+                    raise Exception(f"Request failed after {attempt + 1} attempts: {e}")
+                # Standard 1s wait for other errors
+                time.sleep(1)
 
 
 def get_projects():

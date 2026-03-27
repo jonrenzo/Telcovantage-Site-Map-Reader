@@ -29,6 +29,7 @@ import time
 from collections import Counter, defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
@@ -39,7 +40,7 @@ from flask import Blueprint, Flask, jsonify, request, send_file, send_from_direc
 from flask_cors import CORS
 from PIL import Image
 
-from app_python.planner_config import ENABLE_PLANNER_INTEGRATION, DEFAULT_PROJECT_ID
+from app_python.planner_config import DEFAULT_PROJECT_ID, ENABLE_PLANNER_INTEGRATION
 from app_python.services.planner_auth import auth
 
 app = Flask(__name__, static_folder="frontend/dist", static_url_path="")
@@ -997,16 +998,20 @@ def push_to_planner(
                 equipment_counts["extender"] = equipment_counts.get("extender", 0) + 1
             # Add more mappings as needed
 
+        # Assign OCR meter values to spans
+        spans = assign_meter_values_to_spans(spans, ocr_results)
+
         # Create node
         node_data = {
-            "project_id": project_id,  # From parameter
+            "project_id": project_id,
             "node_id": node_id,
-            "node_name": f"CAD Import - {dxf_name}",
-            "total_strand_length": sum(s.get("total_length", 0) for s in spans),
-            "expected_cable": sum(s.get("total_length", 0) for s in spans),
+            "node_name": node_id,
+            "total_strand_length": sum(s.get("meter_value", 0) or 0 for s in spans),
+            "expected_cable": sum(s.get("meter_value", 0) or 0 for s in spans),
             "amplifier": equipment_counts.get("amplifier", 0),
             "extender": equipment_counts.get("extender", 0),
             "node_count": 1,
+            "date_start": datetime.now().isoformat(),
         }
         print(f"[planner] Node data: {node_data}")
         print(f"[planner] Spans count: {len(spans)}, equipment count: {len(equipment)}")
@@ -1014,56 +1019,132 @@ def push_to_planner(
         node_id_created = node_response["id"]
         print(f"[planner] Node created with ID: {node_id_created}")
 
-        # Create poles
-        pole_id_map = {}  # Map pole names to created IDs
+        # Create poles (with batch processing)
+        BATCH_SIZE = 10
+        BATCH_PAUSE_SECONDS = 2.0
+
+        pole_id_map = {}
+        pole_counter = 1
+        poles_processed = 0
+        poles_failed = 0
         for pole in poles:
-            pole_code = pole.get("name", f"POLE_{pole.get('pole_id', 0)}").strip()
-            if not pole_code or pole_code in pole_id_map:
-                continue  # Skip duplicates or empty
+            pole_code = f"P{pole_counter:04d}"
+            pole_counter += 1
+            pole_name = pole.get("name", "").strip()
+            if not pole_name or pole_name in pole_id_map:
+                continue
             pole_data = {
                 "node_id": node_id_created,
                 "pole_code": pole_code,
-                "pole_name": pole.get("name", ""),
+                "pole_name": pole_name,
                 "map_latitude": pole.get("cy", 0),
                 "map_longitude": pole.get("cx", 0),
             }
             print(f"[planner] Creating pole: {pole_data}")
             try:
                 pole_response = auth.make_request("POST", "/poles", pole_data)
-                pole_id_map[pole_code] = pole_response["id"]
+                pole_id_map[pole_name] = pole_response["id"]
             except Exception as e:
-                print(f"[planner] Failed to create pole {pole_code}: {e}")
+                poles_failed += 1
+                print(f"[planner] Failed to create pole {pole_name}: {e}")
                 continue
 
-        print(f"[planner] Created {len(pole_id_map)} poles")
+            # Batch pause logic for poles
+            poles_processed += 1
+            if poles_processed % BATCH_SIZE == 0:
+                print(
+                    f"[planner] Processed {poles_processed} poles, pausing {BATCH_PAUSE_SECONDS}s..."
+                )
+                time.sleep(BATCH_PAUSE_SECONDS)
 
-        # Create pole spans
+        print(f"[planner] Created {len(pole_id_map)} poles ({poles_failed} failed)")
+
+        # Create pole spans (with batch processing)
         spans_created = 0
+        spans_failed = 0
+        spans_skipped_same_pole = 0
+        spans_skipped_no_poles = 0
+        failed_spans = []
+        pole_pair_counts = {}  # Track occurrences for unique pole_span_code
+        spans_processed = 0
+
         for span in spans:
             from_pole_name = span.get("from_pole")
             to_pole_name = span.get("to_pole")
-            if from_pole_name in pole_id_map and to_pole_name in pole_id_map:
-                span_data = {
-                    "node_id": node_id_created,
-                    "from_pole_id": pole_id_map[from_pole_name],
-                    "to_pole_id": pole_id_map[to_pole_name],
-                    "pole_span_code": f"{node_id}-{from_pole_name}-{to_pole_name}",
-                    "length_meters": span.get("total_length", 0),
-                    "runs": span.get("cable_runs", 1),
-                    "expected_cable": span.get("total_length", 0),
-                    "expected_amplifier": 0,  # Could derive from equipment proximity
-                    "expected_extender": 0,
-                }
+
+            # Skip if missing pole connections
+            if not from_pole_name or not to_pole_name:
+                spans_skipped_no_poles += 1
+                continue
+
+            # Skip if same pole on both ends (API rejects this)
+            if from_pole_name == to_pole_name:
+                spans_skipped_same_pole += 1
+                print(
+                    f"[planner] Skipping span with same from/to pole: {from_pole_name}"
+                )
+                continue
+
+            # Skip if poles not in map
+            if from_pole_name not in pole_id_map or to_pole_name not in pole_id_map:
+                spans_skipped_no_poles += 1
+                continue
+
+            # Generate unique pole_span_code with index for duplicate pairs
+            pole_pair = tuple(sorted([from_pole_name, to_pole_name]))
+            occurrence = pole_pair_counts.get(pole_pair, 0) + 1
+            pole_pair_counts[pole_pair] = occurrence
+
+            if occurrence == 1:
+                pole_span_code = f"{node_id}-{from_pole_name}-{to_pole_name}"
+            else:
+                pole_span_code = (
+                    f"{node_id}-{from_pole_name}-{to_pole_name}-{occurrence}"
+                )
+
+            span_data = {
+                "node_id": node_id_created,
+                "from_pole_id": pole_id_map[from_pole_name],
+                "to_pole_id": pole_id_map[to_pole_name],
+                "pole_span_code": pole_span_code,
+                "length_meters": span.get("meter_value", 0) or 0,
+                "runs": span.get("cable_runs", 1),
+                "expected_cable": span.get("meter_value", 0) or 0,
+                "expected_amplifier": 0,
+                "expected_extender": 0,
+            }
+
+            try:
                 print(f"[planner] Creating span: {span_data}")
                 auth.make_request("POST", "/pole-spans", span_data)
                 spans_created += 1
+            except Exception as e:
+                spans_failed += 1
+                failed_spans.append({"code": pole_span_code, "error": str(e)})
+                print(f"[planner] Failed to create span {pole_span_code}: {e}")
 
-        print(f"[planner] Push completed successfully: {spans_created} spans created")
+            # Batch pause logic for spans
+            spans_processed += 1
+            if spans_processed % BATCH_SIZE == 0:
+                print(
+                    f"[planner] Processed {spans_processed} spans, pausing {BATCH_PAUSE_SECONDS}s..."
+                )
+                time.sleep(BATCH_PAUSE_SECONDS)
+
+        print(
+            f"[planner] Push completed: {spans_created} created, {spans_failed} failed, "
+            f"{spans_skipped_same_pole} skipped (same pole), {spans_skipped_no_poles} skipped (no poles)"
+        )
         return {
             "success": True,
             "node_id": node_id_created,
             "poles_created": len(pole_id_map),
+            "poles_failed": poles_failed,
             "spans_created": spans_created,
+            "spans_failed": spans_failed,
+            "spans_skipped_same_pole": spans_skipped_same_pole,
+            "spans_skipped_no_poles": spans_skipped_no_poles,
+            "failed_spans": failed_spans[:10],  # Limit to first 10
         }
 
     except Exception as e:
@@ -2489,29 +2570,65 @@ def api_export_all():
     if err:
         return jsonify({"error": err}), 500
 
-    # Push to Planner API if enabled and project_id provided
-    project_id = data.get("project_id")
-    print(
-        f"[export] ENABLE_PLANNER_INTEGRATION: {ENABLE_PLANNER_INTEGRATION}, project_id: {project_id}"
-    )
-    if ENABLE_PLANNER_INTEGRATION and project_id is None:
-        project_id = DEFAULT_PROJECT_ID
-        print(f"[export] Using default project_id: {project_id}")
-    if ENABLE_PLANNER_INTEGRATION and project_id is not None:
-        try:
-            push_result = push_to_planner(
-                state.get("dxf_path"),
-                poles,
-                cable_spans,
-                shapes,
-                state.get("results", []),
-                int(project_id),
-            )
-            return jsonify({"path": path, "planner_push": push_result})
-        except Exception as e:
-            return jsonify({"path": path, "planner_push": {"error": str(e)}})
-
     return jsonify({"path": path})
+
+
+@app.route("/api/export/polemaster", methods=["POST"])
+def api_export_polemaster():
+    """Push data to TelcoVantage Planner API (Pole Master)."""
+    data = request.get_json() or {}
+    corrections = data.get("corrections", {})
+
+    # Apply corrections to OCR results
+    for r in state["results"]:
+        did = str(r["digit_id"])
+        if did in corrections and corrections[did] is not None:
+            r["corrected_value"] = corrections[did]
+
+    shapes = SCAN_STATE.get("shapes", [])
+    poles = POLE_STATE.get("tags", [])
+    cable_spans = data.get("cable_spans", [])
+    project_id = data.get("project_id")
+
+    print(
+        f"[polemaster] ENABLE_PLANNER_INTEGRATION: {ENABLE_PLANNER_INTEGRATION}, project_id: {project_id}"
+    )
+    print(f"[polemaster] Received {len(cable_spans)} cable spans, {len(poles)} poles")
+
+    # Log sample span data for debugging
+    if cable_spans:
+        sample = cable_spans[0]
+        print(
+            f"[polemaster] Sample span: from_pole={sample.get('from_pole')}, to_pole={sample.get('to_pole')}"
+        )
+
+    if not ENABLE_PLANNER_INTEGRATION:
+        return jsonify({"error": "Planner integration is disabled"}), 400
+
+    if project_id is None:
+        project_id = DEFAULT_PROJECT_ID
+        print(f"[polemaster] Using default project_id: {project_id}")
+
+    if project_id is None:
+        return jsonify(
+            {"error": "No project_id provided and no default configured"}
+        ), 400
+
+    try:
+        push_result = push_to_planner(
+            state.get("dxf_path"),
+            poles,
+            cable_spans,
+            shapes,
+            state.get("results", []),
+            int(project_id),
+        )
+        return jsonify({"success": True, "result": push_result})
+    except Exception as e:
+        import traceback
+
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/download")

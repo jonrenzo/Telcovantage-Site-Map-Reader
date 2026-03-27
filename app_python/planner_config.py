@@ -11,8 +11,8 @@ PLANNER_API_BASE_URL = os.getenv(
 )
 
 # Authentication credentials (set via environment variables)
-PLANNER_EMAIL = os.getenv("PLANNER_EMAIL")
-PLANNER_PASSWORD = os.getenv("PLANNER_PASSWORD")
+PLANNER_EMAIL = os.getenv("PLANNER_EMAIL", "renzo.toledo@telcovantage.com")
+PLANNER_PASSWORD = os.getenv("PLANNER_PASSWORD", "TELCOVANTAGE@2026!")
 
 # Default project ID to use (set via env or change as needed)
 DEFAULT_PROJECT_ID = int(os.getenv("PLANNER_DEFAULT_PROJECT_ID", "1"))
