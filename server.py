@@ -64,6 +64,7 @@ def pdf_to_dxf_autocad(pdf_path):
         r"C:\Program Files\Autodesk\AutoCAD 2024\accoreconsole.exe",
         r"C:\Program Files\Autodesk\AutoCAD 2023\accoreconsole.exe",
         r"C:\Program Files\Autodesk\AutoCAD 2022\accoreconsole.exe",
+        r"C:\Program Files\Autodesk\AutoCAD 2021\accoreconsole.exe",
     ]
     accore = next((p for p in accore_candidates if Path(p).exists()), None)
     if accore is None:
@@ -199,7 +200,7 @@ _OCR_ROTATION_PAIRS = [
 ]
 
 _FAST_ACCEPT_CONF = 0.95
-_MIN_CONF = 0.50
+_MIN_CONF = 0.98
 _MAX_STRAND_VALUE = 75
 _STRAND_RE = _re.compile(r"^\d{1,2}$")
 
