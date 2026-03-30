@@ -26,6 +26,17 @@ type UploadState = "idle" | "uploading" | "done" | "error";
 type ViewMode = "grid" | "list";
 type SortKey = "name" | "modified" | "size";
 
+// Batch upload types
+interface BatchUploadItem {
+  name: string;
+  status: "queued" | "uploading" | "converting" | "success" | "error";
+  progress: number;
+  error?: string;
+  jobId?: string;
+}
+
+type BatchUploadState = "idle" | "uploading" | "done";
+
 interface Props {
   onStartProcessing: (opts: {
     dxfPath: string;
@@ -127,6 +138,11 @@ export default function LoadScreen({ onStartProcessing }: Props) {
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Batch upload state
+  const [batchUploadState, setBatchUploadState] = useState<BatchUploadState>("idle");
+  const [batchUploadItems, setBatchUploadItems] = useState<BatchUploadItem[]>([]);
+  const [showBatchProgress, setShowBatchProgress] = useState(false);
+
   // New folder modal
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
@@ -192,6 +208,185 @@ export default function LoadScreen({ onStartProcessing }: Props) {
 
   // ── Upload handler ──────────────────────────────────────────────────────────
 
+  // Poll for PDF conversion status
+  const pollConversionStatus = useCallback(async (jobId: string, fileName: string) => {
+    const pollInterval = setInterval(async () => {
+      try {
+        const statusRes = await fetch(`/api/files/convert-status?job_id=${jobId}`);
+        const status = await statusRes.json();
+
+        if (status.status === "done") {
+          clearInterval(pollInterval);
+          setBatchUploadItems((prev) =>
+            prev.map((item) =>
+              item.jobId === jobId
+                ? { ...item, status: "success", progress: 100 }
+                : item
+            )
+          );
+          await fetchFiles();
+        } else if (status.status === "error") {
+          clearInterval(pollInterval);
+          setBatchUploadItems((prev) =>
+            prev.map((item) =>
+              item.jobId === jobId
+                ? { ...item, status: "error", error: status.error }
+                : item
+            )
+          );
+        } else {
+          // Still converting - increment progress slowly
+          setBatchUploadItems((prev) =>
+            prev.map((item) =>
+              item.jobId === jobId && item.status === "converting"
+                ? { ...item, progress: Math.min(90, item.progress + 5) }
+                : item
+            )
+          );
+        }
+      } catch (err) {
+        console.error("Polling error:", err);
+      }
+    }, 2000);
+  }, [fetchFiles]);
+
+  // Handle batch upload (multiple files)
+  const handleBatchUpload = useCallback(
+    async (files: FileList | File[]) => {
+      const fileArray = Array.from(files);
+      if (fileArray.length === 0) return;
+
+      // Filter valid files
+      const validFiles = fileArray.filter((f) => {
+        const ext = f.name.toLowerCase();
+        return ext.endsWith(".dxf") || ext.endsWith(".pdf");
+      });
+
+      if (validFiles.length === 0) {
+        alert("Please select DXF or PDF files only.");
+        return;
+      }
+
+      if (validFiles.length !== fileArray.length) {
+        alert(`${fileArray.length - validFiles.length} file(s) were skipped (unsupported format).`);
+      }
+
+      // Initialize batch upload state
+      const items: BatchUploadItem[] = validFiles.map((f) => ({
+        name: f.name,
+        status: "queued",
+        progress: 0,
+      }));
+      setBatchUploadItems(items);
+      setBatchUploadState("uploading");
+      setShowBatchProgress(true);
+
+      // Create FormData with all files
+      const fd = new FormData();
+      validFiles.forEach((f) => fd.append("files", f));
+      fd.append("folder", currentFolder);
+
+      try {
+        // Mark all as uploading
+        setBatchUploadItems((prev) =>
+          prev.map((item) => ({ ...item, status: "uploading", progress: 20 }))
+        );
+
+        const res = await fetch("/api/files/upload-batch", {
+          method: "POST",
+          body: fd,
+        });
+
+        const data = await res.json();
+
+        if (!data.ok) {
+          setBatchUploadItems((prev) =>
+            prev.map((item) => ({ ...item, status: "error", error: data.error }))
+          );
+          return;
+        }
+
+        // Update each item based on server response
+        const resultMap = new Map(
+          data.results.map((r: { name: string; status: string; error?: string; job_id?: string }) => [r.name, r])
+        );
+
+        setBatchUploadItems((prev) =>
+          prev.map((item) => {
+            const result = resultMap.get(item.name) as {
+              status: string;
+              error?: string;
+              job_id?: string;
+            } | undefined;
+            if (!result) return item;
+
+            if (result.status === "success") {
+              return { ...item, status: "success", progress: 100 };
+            } else if (result.status === "converting") {
+              return {
+                ...item,
+                status: "converting",
+                progress: 30,
+                jobId: result.job_id,
+              };
+            } else {
+              return { ...item, status: "error", error: result.error };
+            }
+          })
+        );
+
+        // Start polling for any converting files
+        data.results.forEach((r: { status: string; job_id?: string; name: string }) => {
+          if (r.status === "converting" && r.job_id) {
+            pollConversionStatus(r.job_id, r.name);
+          }
+        });
+
+        await fetchFiles();
+
+        // Check if all done
+        const allDone = data.results.every(
+          (r: { status: string }) => r.status === "success" || r.status === "error"
+        );
+        if (allDone) {
+          setBatchUploadState("done");
+          setTimeout(() => {
+            setShowBatchProgress(false);
+            setBatchUploadState("idle");
+            setBatchUploadItems([]);
+          }, 3000);
+        }
+      } catch (e) {
+        setBatchUploadItems((prev) =>
+          prev.map((item) => ({
+            ...item,
+            status: "error",
+            error: (e as Error).message,
+          }))
+        );
+      }
+    },
+    [currentFolder, fetchFiles, pollConversionStatus]
+  );
+
+  // Check batch upload completion
+  useEffect(() => {
+    if (batchUploadState !== "uploading") return;
+    
+    const allCompleted = batchUploadItems.every(
+      (item) => item.status === "success" || item.status === "error"
+    );
+    
+    if (allCompleted && batchUploadItems.length > 0) {
+      setBatchUploadState("done");
+      setTimeout(() => {
+        setShowBatchProgress(false);
+        setBatchUploadState("idle");
+        setBatchUploadItems([]);
+      }, 3000);
+    }
+  }, [batchUploadItems, batchUploadState]);
+
   const handleUploadFile = useCallback(
     async (file: File) => {
       const isPdf = file.name.toLowerCase().endsWith(".pdf");
@@ -220,6 +415,55 @@ export default function LoadScreen({ onStartProcessing }: Props) {
           return;
         }
 
+        // Handle async PDF conversion with polling
+        if (d.converting && d.job_id) {
+          setUploadState("uploading"); // Keep showing upload state
+          setUploadProgress(30);
+
+          // Poll for conversion status
+          const pollConversion = async () => {
+            let progress = 30;
+            const pollInterval = setInterval(async () => {
+              try {
+                const statusRes = await fetch(
+                  `/api/files/convert-status?job_id=${d.job_id}`,
+                );
+                const status = await statusRes.json();
+
+                if (status.status === "done") {
+                  clearInterval(pollInterval);
+                  setUploadProgress(100);
+                  setUploadState("done");
+                  await fetchFiles();
+                  setTimeout(() => {
+                    setUploadState("idle");
+                    setUploadProgress(0);
+                  }, 1200);
+                } else if (status.status === "error") {
+                  clearInterval(pollInterval);
+                  setUploadState("error");
+                  alert("PDF conversion failed: " + status.error);
+                  setTimeout(() => {
+                    setUploadState("idle");
+                    setUploadProgress(0);
+                  }, 2000);
+                } else {
+                  // Still converting - increment progress slowly
+                  progress = Math.min(90, progress + 5);
+                  setUploadProgress(progress);
+                }
+              } catch (err) {
+                // Network error during polling - keep trying
+                console.error("Polling error:", err);
+              }
+            }, 2000); // Poll every 2 seconds
+          };
+
+          pollConversion();
+          return;
+        }
+
+        // Normal DXF upload - immediate completion
         setUploadProgress(100);
         setUploadState("done");
         await fetchFiles();
@@ -240,10 +484,14 @@ export default function LoadScreen({ onStartProcessing }: Props) {
     (e: React.DragEvent) => {
       e.preventDefault();
       setDragOver(false);
-      const file = e.dataTransfer.files[0];
-      if (file) handleUploadFile(file);
+      const files = e.dataTransfer.files;
+      if (files.length > 1) {
+        handleBatchUpload(files);
+      } else if (files.length === 1) {
+        handleUploadFile(files[0]);
+      }
     },
-    [handleUploadFile],
+    [handleUploadFile, handleBatchUpload],
   );
 
   // ── Open file flow ──────────────────────────────────────────────────────────
@@ -579,10 +827,18 @@ export default function LoadScreen({ onStartProcessing }: Props) {
             ref={fileInputRef}
             type="file"
             accept=".dxf,.pdf"
+            multiple
             className="hidden"
-            onChange={(e) =>
-              e.target.files?.[0] && handleUploadFile(e.target.files[0])
-            }
+            onChange={(e) => {
+              const files = e.target.files;
+              if (files && files.length > 1) {
+                handleBatchUpload(files);
+              } else if (files && files.length === 1) {
+                handleUploadFile(files[0]);
+              }
+              // Reset input so same file can be selected again
+              e.target.value = "";
+            }}
           />
         </div>
 
@@ -613,6 +869,71 @@ export default function LoadScreen({ onStartProcessing }: Props) {
               <polyline points="20 6 9 17 4 12" />
             </svg>
             File uploaded successfully
+          </div>
+        )}
+
+        {/* Batch Upload Progress */}
+        {showBatchProgress && batchUploadItems.length > 0 && (
+          <div className="bg-surface border-b border-border px-5 py-3 flex-shrink-0">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-semibold text-[#1e293b]">
+                Uploading {batchUploadItems.length} file{batchUploadItems.length > 1 ? "s" : ""}...
+              </span>
+              <button
+                onClick={() => {
+                  setShowBatchProgress(false);
+                  setBatchUploadState("idle");
+                  setBatchUploadItems([]);
+                }}
+                className="text-xs text-muted hover:text-[#1e293b]"
+              >
+                Dismiss
+              </button>
+            </div>
+            <div className="space-y-2 max-h-32 overflow-y-auto">
+              {batchUploadItems.map((item, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  {/* Status icon */}
+                  <div className="w-4 h-4 flex-shrink-0">
+                    {item.status === "success" && (
+                      <svg className="w-4 h-4 text-ok" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    )}
+                    {item.status === "error" && (
+                      <svg className="w-4 h-4 text-danger" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="15" y1="9" x2="9" y2="15" />
+                        <line x1="9" y1="9" x2="15" y2="15" />
+                      </svg>
+                    )}
+                    {(item.status === "uploading" || item.status === "converting") && (
+                      <div className="w-4 h-4 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
+                    )}
+                    {item.status === "queued" && (
+                      <div className="w-4 h-4 border-2 border-border rounded-full" />
+                    )}
+                  </div>
+                  {/* File name */}
+                  <span className="text-xs text-[#1e293b] truncate flex-1 min-w-0">
+                    {item.name}
+                  </span>
+                  {/* Status text */}
+                  <span className={`text-[10px] font-medium ${
+                    item.status === "success" ? "text-ok" :
+                    item.status === "error" ? "text-danger" :
+                    item.status === "converting" ? "text-amber-600" :
+                    "text-muted"
+                  }`}>
+                    {item.status === "success" && "Done"}
+                    {item.status === "error" && (item.error || "Failed")}
+                    {item.status === "converting" && "Converting PDF..."}
+                    {item.status === "uploading" && `${item.progress}%`}
+                    {item.status === "queued" && "Queued"}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

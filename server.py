@@ -26,6 +26,7 @@ import subprocess
 import tempfile
 import threading
 import time
+import uuid
 from collections import Counter, defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass
@@ -2308,6 +2309,61 @@ def api_check_model():
 UPLOADS_DIR = Path("uploads")
 INDEX_FILE = UPLOADS_DIR / "index.json"
 
+# Track async PDF conversion jobs
+# job_id -> { status: "pending"|"converting"|"done"|"error", path?, error? }
+CONVERT_JOBS: Dict[str, dict] = {}
+
+
+def _run_pdf_conversion(job_id: str, pdf_path: str, folder: str):
+    """
+    Background thread function for PDF-to-DXF conversion.
+    Updates CONVERT_JOBS with progress and result.
+    """
+    try:
+        CONVERT_JOBS[job_id]["status"] = "converting"
+        print(f"[convert] Starting PDF conversion for job {job_id}: {pdf_path}")
+
+        # Run AutoCAD conversion
+        dxf_path_str = pdf_to_dxf_autocad(pdf_path)
+
+        # Update file index
+        fname = Path(dxf_path_str).name
+        p = Path(dxf_path_str)
+        data = _read_index()
+        # Remove any existing entry with same path
+        data["files"] = [f for f in data["files"] if f["path"] != dxf_path_str]
+        data["files"].append(
+            {
+                "name": fname,
+                "path": dxf_path_str,
+                "size": p.stat().st_size,
+                "modified": int(p.stat().st_mtime),
+                "folder": folder,
+            }
+        )
+        _write_index(data)
+
+        # Delete original PDF
+        Path(pdf_path).unlink(missing_ok=True)
+
+        # Mark job as done
+        CONVERT_JOBS[job_id] = {
+            "status": "done",
+            "path": dxf_path_str,
+            "name": fname,
+        }
+        print(f"[convert] Job {job_id} completed: {dxf_path_str}")
+
+    except Exception as e:
+        import traceback
+
+        traceback.print_exc()
+        CONVERT_JOBS[job_id] = {
+            "status": "error",
+            "error": str(e),
+        }
+        print(f"[convert] Job {job_id} failed: {e}")
+
 
 def _read_index() -> dict:
     UPLOADS_DIR.mkdir(exist_ok=True)
@@ -2429,20 +2485,29 @@ def api_upload():
         save_path = str(dest_dir / fname)
         file.save(save_path)
 
+        # Handle PDF files asynchronously to avoid timeout
         if save_path.lower().endswith(".pdf"):
-            try:
-                dxf_path_str = pdf_to_dxf_autocad(save_path)
-            except RuntimeError as e:
-                return jsonify({"error": str(e)}), 400
-            except Exception as e:
-                import traceback
+            job_id = str(uuid.uuid4())
+            CONVERT_JOBS[job_id] = {"status": "pending"}
 
-                traceback.print_exc()
-                return jsonify({"error": "PDF conversion failed: " + str(e)}), 500
-            Path(save_path).unlink(missing_ok=True)
-            save_path = dxf_path_str
-            fname = Path(save_path).name
+            # Start conversion in background thread
+            thread = threading.Thread(
+                target=_run_pdf_conversion,
+                args=(job_id, save_path, folder),
+                daemon=True,
+            )
+            thread.start()
 
+            print(f"[upload] PDF conversion job started: {job_id}")
+            return jsonify(
+                {
+                    "converting": True,
+                    "job_id": job_id,
+                    "message": "PDF conversion started. Poll /api/files/convert-status for progress.",
+                }
+            )
+
+        # DXF files are handled immediately
         p = Path(save_path)
         data = _read_index()
         data["files"] = [f for f in data["files"] if f["path"] != save_path]
@@ -2463,6 +2528,252 @@ def api_upload():
 
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/files/convert-status", methods=["GET"])
+def api_convert_status():
+    """
+    Poll PDF conversion job status.
+
+    Query Parameters:
+        job_id: The conversion job ID returned from upload
+
+    Response:
+        {
+            "status": "pending" | "converting" | "done" | "error",
+            "path": "uploads/file.dxf",  // when done
+            "name": "file.dxf",          // when done
+            "error": "message"           // when error
+        }
+    """
+    job_id = request.args.get("job_id")
+    if not job_id:
+        return jsonify({"error": "job_id is required"}), 400
+
+    if job_id not in CONVERT_JOBS:
+        return jsonify({"error": "Invalid or expired job_id"}), 404
+
+    job = CONVERT_JOBS[job_id]
+
+    # Clean up completed jobs after returning (keep for 5 minutes)
+    # For now, just return the status
+    return jsonify(job)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CHATBOT SUPPORT ENDPOINTS
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@app.route("/api/chat/summary", methods=["GET"])
+def api_chat_summary():
+    """
+    Return aggregated summary for chatbot.
+    Combines file counts, current session state, and scan results.
+    """
+    # Files
+    index = _read_index()
+    file_count = len(index.get("files", []))
+    folders = index.get("folders", [])
+
+    # Count files by folder
+    folder_counts = {"root": 0}
+    for f in folders:
+        folder_counts[f] = 0
+    for f in index.get("files", []):
+        key = f.get("folder") or "root"
+        folder_counts[key] = folder_counts.get(key, 0) + 1
+
+    # Current file
+    current_file = state.get("dxf_path")
+
+    # OCR Results
+    results = state.get("results", [])
+    ocr_count = len(results)
+    ocr_needing_review = len([r for r in results if r.get("needs_review")])
+
+    total_strand_meters = 0
+    for r in results:
+        val = r.get("corrected_value") or r.get("value") or "0"
+        if str(val).isdigit():
+            total_strand_meters += int(val)
+
+    # Poles
+    poles = POLE_STATE.get("tags", [])
+    pole_count = len(poles)
+    poles_needing_review = len([p for p in poles if p.get("needs_review")])
+
+    # Equipment
+    shapes = SCAN_STATE.get("shapes", [])
+    equipment_count = len(shapes)
+    equipment_by_kind = {}
+    for s in shapes:
+        kind = s.get("kind", "unknown")
+        equipment_by_kind[kind] = equipment_by_kind.get(kind, 0) + 1
+
+    # Status
+    ocr_status = state.get("status", "idle")
+    pole_status = POLE_STATE.get("status", "idle")
+    equipment_status = SCAN_STATE.get("status", "idle")
+
+    return jsonify(
+        {
+            "ok": True,
+            "data": {
+                "files": {
+                    "total": file_count,
+                    "folders": folders,
+                    "by_folder": folder_counts,
+                },
+                "current_file": current_file,
+                "ocr": {
+                    "count": ocr_count,
+                    "needs_review": ocr_needing_review,
+                    "total_strand_meters": total_strand_meters,
+                    "status": ocr_status,
+                },
+                "poles": {
+                    "count": pole_count,
+                    "needs_review": poles_needing_review,
+                    "status": pole_status,
+                },
+                "equipment": {
+                    "count": equipment_count,
+                    "by_kind": equipment_by_kind,
+                    "status": equipment_status,
+                },
+            },
+        }
+    )
+
+
+@app.route("/api/files/upload-batch", methods=["POST"])
+def api_upload_batch():
+    """
+    Upload multiple files at once.
+    Accepts multipart form data with multiple 'files' entries.
+
+    Returns:
+        {
+            "ok": True,
+            "results": [
+                {"name": "file.dxf", "status": "success", "path": "..."},
+                {"name": "file.pdf", "status": "converting", "job_id": "..."},
+                {"name": "bad.txt", "status": "error", "error": "Unsupported file type"}
+            ],
+            "total": 3,
+            "successful": 2
+        }
+    """
+    files = request.files.getlist("files")
+    folder = (request.form.get("folder") or "").strip()
+
+    if not files:
+        return jsonify({"ok": False, "error": "No files provided"}), 400
+
+    UPLOADS_DIR.mkdir(exist_ok=True)
+
+    if folder:
+        dest_dir = UPLOADS_DIR / folder
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        # Ensure folder is in index
+        data = _read_index()
+        if folder not in data["folders"]:
+            data["folders"].append(folder)
+            _write_index(data)
+    else:
+        dest_dir = UPLOADS_DIR
+
+    results = []
+    for file in files:
+        try:
+            if not file.filename:
+                results.append(
+                    {"name": "unknown", "status": "error", "error": "No filename"}
+                )
+                continue
+
+            fname = Path(file.filename).name
+            ext = Path(fname).suffix.lower()
+
+            if ext not in [".dxf", ".pdf"]:
+                results.append(
+                    {
+                        "name": fname,
+                        "status": "error",
+                        "error": f"Unsupported file type: {ext}. Only .dxf and .pdf are supported.",
+                    }
+                )
+                continue
+
+            save_path = str(dest_dir / fname)
+            file.save(save_path)
+
+            # Handle PDF conversion asynchronously
+            if ext == ".pdf":
+                job_id = str(uuid.uuid4())
+                CONVERT_JOBS[job_id] = {"status": "pending"}
+
+                thread = threading.Thread(
+                    target=_run_pdf_conversion,
+                    args=(job_id, save_path, folder),
+                    daemon=True,
+                )
+                thread.start()
+
+                results.append(
+                    {
+                        "name": fname,
+                        "status": "converting",
+                        "job_id": job_id,
+                    }
+                )
+            else:
+                # DXF files - update index immediately
+                p = Path(save_path)
+                data = _read_index()
+                data["files"] = [f for f in data["files"] if f["path"] != save_path]
+                data["files"].append(
+                    {
+                        "name": fname,
+                        "path": save_path,
+                        "size": p.stat().st_size,
+                        "modified": int(p.stat().st_mtime),
+                        "folder": folder,
+                    }
+                )
+                _write_index(data)
+
+                results.append(
+                    {
+                        "name": fname,
+                        "status": "success",
+                        "path": save_path,
+                    }
+                )
+
+        except Exception as e:
+            import traceback
+
+            traceback.print_exc()
+            results.append(
+                {
+                    "name": file.filename or "unknown",
+                    "status": "error",
+                    "error": str(e),
+                }
+            )
+
+    successful = len([r for r in results if r["status"] in ["success", "converting"]])
+
+    return jsonify(
+        {
+            "ok": True,
+            "results": results,
+            "total": len(files),
+            "successful": successful,
+        }
+    )
 
 
 @app.route("/api/layers", methods=["POST"])
