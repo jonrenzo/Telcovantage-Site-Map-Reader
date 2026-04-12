@@ -297,6 +297,21 @@ export default function LoadScreen({ onStartProcessing }: Props) {
           body: fd,
         });
 
+        if (!res.ok) {
+          let errorMsg = `Batch upload failed: ${res.status}`;
+          try {
+            const errData = await res.json();
+            errorMsg = errData.error || errorMsg;
+          } catch {
+            const text = await res.text();
+            if (text) errorMsg = text;
+          }
+          setBatchUploadItems((prev) =>
+            prev.map((item) => ({ ...item, status: "error", error: errorMsg }))
+          );
+          return;
+        }
+
         const data = await res.json();
 
         if (!data.ok) {
@@ -407,6 +422,21 @@ export default function LoadScreen({ onStartProcessing }: Props) {
           method: "POST",
           body: fd,
         });
+
+        if (!res.ok) {
+          let errorMsg = `Upload failed: ${res.status}`;
+          try {
+            const errData = await res.json();
+            errorMsg = errData.error || errorMsg;
+          } catch {
+            const text = await res.text();
+            if (text) errorMsg = text;
+          }
+          setUploadState("error");
+          alert(errorMsg);
+          return;
+        }
+
         const d = await res.json();
 
         if (d.error) {

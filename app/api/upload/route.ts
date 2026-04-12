@@ -14,6 +14,12 @@ export async function POST(req: NextRequest) {
     duplex: "half",
   });
 
-  const data = await response.json();
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    const text = await response.text();
+    return NextResponse.json({ error: text || `Backend error: ${response.status}` }, { status: response.status });
+  }
   return NextResponse.json(data, { status: response.status });
 }
