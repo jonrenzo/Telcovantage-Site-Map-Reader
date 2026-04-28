@@ -8,6 +8,7 @@ MarkupSafe==3.0.3
 blinker==1.9.0
 click==8.3.1
 colorama==0.4.6
+python-dotenv==1.0.0           # Load .env variables automatically
 
 # ── DXF parsing ───────────────────────────────────────────────────────────────
 ezdxf==1.4.3
@@ -43,7 +44,7 @@ typing_extensions==4.15.0
 filelock==3.25.0                # used by HuggingFace cache locking
 fsspec==2026.2.0                # used by HuggingFace hub downloads
 packaging                       # used by transformers version checks
-requests                        # used by HuggingFace hub for model downloads
+requests>=2.31.0                # used by HuggingFace hub + Upstash REST calls
 tqdm                            # progress bars during model download
 PyYAML                          # used by transformers config loading
 regex                           # faster regex used by tokenizers

@@ -37,9 +37,14 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 import cv2
 import ezdxf
 import numpy as np
+import requests
 from flask import Blueprint, Flask, jsonify, request, send_file, send_from_directory
 from flask_cors import CORS
 from PIL import Image
+from dotenv import load_dotenv
+
+# Load .env file if present (for local dev / Flask shell scripts)
+load_dotenv()
 
 from app_python.planner_config import DEFAULT_PROJECT_ID, ENABLE_PLANNER_INTEGRATION
 from app_python.services.planner_auth import auth
@@ -48,6 +53,161 @@ app = Flask(__name__, static_folder="frontend/dist", static_url_path="")
 CORS(app)
 
 public_api = Blueprint("public_api", __name__, url_prefix="/api/v1")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# OPTIONAL UPSTASH REDIS STATE CACHE
+# ─────────────────────────────────────────────────────────────────────────────
+
+UPSTASH_REDIS_REST_URL = os.getenv("UPSTASH_REDIS_REST_URL", "").strip()
+UPSTASH_REDIS_REST_TOKEN = os.getenv("UPSTASH_REDIS_REST_TOKEN", "").strip()
+_UPSTASH_ENABLED = bool(UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN)
+_UPSTASH_TIMEOUT = 4
+_UPSTASH_STATE_TTL = int(os.getenv("UPSTASH_STATE_TTL_SECONDS", "86400"))
+_UPSTASH_LOCK = threading.Lock()
+
+
+def _upstash_command(command: List[str]) -> Optional[dict]:
+    if not _UPSTASH_ENABLED:
+        return None
+    try:
+        res = requests.post(
+            UPSTASH_REDIS_REST_URL,
+            headers={
+                "Authorization": f"Bearer {UPSTASH_REDIS_REST_TOKEN}",
+                "Content-Type": "application/json",
+            },
+            json=command,
+            timeout=_UPSTASH_TIMEOUT,
+        )
+        res.raise_for_status()
+        return res.json()
+    except Exception as exc:
+        print(f"[upstash] command failed: {command[:2]} - {exc}")
+        return None
+
+
+def _upstash_set_json(
+    key: str, payload: Dict[str, Any], ttl: Optional[int] = None
+) -> None:
+    if not _UPSTASH_ENABLED:
+        return
+    encoded = json.dumps(payload, ensure_ascii=False)
+    with _UPSTASH_LOCK:
+        _upstash_command(["SET", key, encoded])
+        expire_ttl = _UPSTASH_STATE_TTL if ttl is None else ttl
+        if expire_ttl > 0:
+            _upstash_command(["EXPIRE", key, str(expire_ttl)])
+
+
+def _upstash_get_json(key: str) -> Optional[Dict[str, Any]]:
+    if not _UPSTASH_ENABLED:
+        return None
+    with _UPSTASH_LOCK:
+        data = _upstash_command(["GET", key])
+    if not data:
+        return None
+    raw = data.get("result")
+    if not raw:
+        return None
+    try:
+        parsed = json.loads(raw)
+        return parsed if isinstance(parsed, dict) else None
+    except Exception:
+        return None
+
+
+def _segs_to_jsonable(segs: Iterable[Any]) -> List[Dict[str, float]]:
+    out = []
+    for s in segs:
+        if isinstance(s, dict):
+            out.append(
+                {
+                    "x1": float(s.get("x1", 0.0)),
+                    "y1": float(s.get("y1", 0.0)),
+                    "x2": float(s.get("x2", 0.0)),
+                    "y2": float(s.get("y2", 0.0)),
+                }
+            )
+        else:
+            out.append(
+                {
+                    "x1": float(getattr(s, "x1", 0.0)),
+                    "y1": float(getattr(s, "y1", 0.0)),
+                    "x2": float(getattr(s, "x2", 0.0)),
+                    "y2": float(getattr(s, "y2", 0.0)),
+                }
+            )
+    return out
+
+
+def _persist_ocr_status() -> None:
+    # Skip Redis writes during active processing to avoid blocking OCR pipeline
+    if state.get("status") == "processing":
+        return
+    _upstash_set_json(
+        "tv:ocr:status",
+        {
+            "status": state["status"],
+            "progress": state["progress"],
+            "total": state["total"],
+            "error": state["error"],
+            "step": state.get("step", 0),
+            "step_label": state.get("step_label", ""),
+        },
+    )
+
+
+def _persist_ocr_results() -> None:
+    # Skip Redis writes during active processing
+    if state.get("status") == "processing":
+        return
+    _upstash_set_json(
+        "tv:ocr:results",
+        {
+            "results": state.get("results", []),
+            "segments": _segs_to_jsonable(state.get("segments", [])),
+        },
+    )
+
+
+def _persist_equipment_state() -> None:
+    # Skip Redis writes during active processing
+    if SCAN_STATE.get("status") == "processing":
+        return
+    _upstash_set_json(
+        "tv:equipment:state",
+        {
+            "status": SCAN_STATE["status"],
+            "error": SCAN_STATE["error"],
+            "progress": SCAN_STATE["progress"],
+            "total": SCAN_STATE["total"],
+            "count": len(SCAN_STATE["shapes"]),
+            "shapes": SCAN_STATE["shapes"],
+            "boundary": SCAN_STATE["boundary"],
+        },
+    )
+
+
+def _persist_pole_state() -> None:
+    # Skip Redis writes during active processing
+    if POLE_STATE.get("status") == "processing":
+        return
+    _upstash_set_json(
+        "tv:poles:state",
+        {
+            "status": POLE_STATE["status"],
+            "error": POLE_STATE["error"],
+            "layer": POLE_STATE["layer"],
+            "layers": POLE_STATE.get("layers", []),
+            "layer_counts_raw": POLE_STATE.get("layer_counts_raw", {}),
+            "layer_counts_final": POLE_STATE.get("layer_counts_final", {}),
+            "progress": POLE_STATE.get("progress", 0),
+            "total": POLE_STATE.get("total", 0),
+            "tags": POLE_STATE["tags"],
+            "count": len(POLE_STATE["tags"]),
+        },
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1132,21 +1292,90 @@ def push_to_planner(
 # GLOBAL STATE  (OCR pipeline)
 # ─────────────────────────────────────────────────────────────────────────────
 
-state = {
-    "dxf_path": None,
-    "model_path": None,
-    "layers": [],
-    "segments": [],
-    "candidates": [],
-    "results": [],
-    "status": "idle",
-    "progress": 0,
-    "total": 0,
-    "error": None,
-    "step": 0,
-    "step_label": "",
-    "ocr_start_time": None,
-}
+
+def _get_fresh_state() -> Dict[str, Any]:
+    return {
+        "dxf_path": None,
+        "model_path": None,
+        "layers": [],
+        "segments": [],
+        "candidates": [],
+        "results": [],
+        "status": "idle",
+        "progress": 0,
+        "total": 0,
+        "error": None,
+        "step": 0,
+        "step_label": "",
+        "ocr_start_time": None,
+    }
+
+
+def _get_fresh_scan_state() -> Dict[str, Any]:
+    return {
+        "status": "idle",
+        "error": None,
+        "shapes": [],
+        "boundary": None,
+        "progress": 0,
+        "total": 0,
+    }
+
+
+def _get_fresh_pole_state() -> Dict[str, Any]:
+    return {
+        "status": "idle",
+        "error": None,
+        "tags": [],
+        "layer": None,
+        "layers": [],
+        "layer_counts_raw": {},
+        "layer_counts_final": {},
+        "dxf_path": None,
+        "progress": 0,
+        "total": 0,
+    }
+
+
+def _clear_all_states() -> None:
+    global state, SCAN_STATE, POLE_STATE
+    # Preserve file path and layers - only clear results, not file references
+    saved_dxf_path = state.get("dxf_path")
+    saved_layers = state.get("layers", [])
+    saved_model_path = state.get("model_path")
+
+    state = _get_fresh_state()
+    state["dxf_path"] = saved_dxf_path
+    state["layers"] = saved_layers
+    state["model_path"] = saved_model_path
+
+    # Preserve equipment scan file reference
+    saved_eq_dxf_path = SCAN_STATE.get("dxf_path")
+    SCAN_STATE = _get_fresh_scan_state()
+    SCAN_STATE["dxf_path"] = saved_eq_dxf_path
+
+    # Preserve pole scan file reference
+    saved_pole_dxf_path = POLE_STATE.get("dxf_path")
+    POLE_STATE = _get_fresh_pole_state()
+    POLE_STATE["dxf_path"] = saved_pole_dxf_path
+
+    print("[state] Scan data cleared, file references preserved")
+    if _UPSTASH_ENABLED:
+        try:
+            _upstash_command(
+                [
+                    "DEL",
+                    "tv:ocr:status",
+                    "tv:ocr:results",
+                    "tv:poles:state",
+                    "tv:equipment:state",
+                ]
+            )
+        except Exception as e:
+            print(f"[state] Redis clear error: {e}")
+
+
+state = _get_fresh_state()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1207,6 +1436,8 @@ def run_pipeline(dxf_path, layers, model_path):
                 "results": [],
             }
         )
+        _persist_ocr_status()
+        _persist_ocr_results()
 
         # ── Step 1: Extract segments from ALL chosen layers ────────────────
         doc = ezdxf.readfile(dxf_path)
@@ -1216,6 +1447,7 @@ def run_pipeline(dxf_path, layers, model_path):
             all_segments.extend(segs)
 
         state["segments"] = all_segments
+        _persist_ocr_results()
 
         # ── Step 2: Cluster ───────────────────────────────────────────────
         state.update({"step": 2, "step_label": "Grouping into digit clusters…"})
@@ -1227,6 +1459,7 @@ def run_pipeline(dxf_path, layers, model_path):
         candidates = build_candidates_robust(all_segments, infos)
         state["candidates"] = candidates
         state["total"] = len(candidates)
+        _persist_ocr_status()
 
         if not candidates:
             state.update(
@@ -1236,6 +1469,8 @@ def run_pipeline(dxf_path, layers, model_path):
                     "step_label": "Done — no candidates found",
                 }
             )
+            _persist_ocr_status()
+            _persist_ocr_results()
             return
 
         crops = [render_crop(all_segments, cand) for cand in candidates]
@@ -1293,6 +1528,8 @@ def run_pipeline(dxf_path, layers, model_path):
                     "step_label": f"Reading digit {done} of {len(candidates)} — {eta_str}",
                 }
             )
+            _persist_ocr_status()
+            _persist_ocr_results()
 
         results = _post_ocr_validate(results)
 
@@ -1304,12 +1541,15 @@ def run_pipeline(dxf_path, layers, model_path):
                 "results": results,
             }
         )
+        _persist_ocr_status()
+        _persist_ocr_results()
 
     except Exception as e:
         import traceback
 
         traceback.print_exc()
         state.update({"status": "error", "error": str(e)})
+        _persist_ocr_status()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1322,14 +1562,7 @@ from app_python.services.boundary_service import (
 )
 from app_python.services.shape_service import extract_equipment_shapes
 
-SCAN_STATE = {
-    "status": "idle",
-    "error": None,
-    "shapes": [],
-    "boundary": None,
-    "progress": 0,
-    "total": 0,
-}
+SCAN_STATE = _get_fresh_scan_state()
 
 SHAPE_CONFIG = {
     "min_circle_r": 1e-5,
@@ -1358,6 +1591,7 @@ def _run_full_scan(dxf_path: str, boundary_layer: Optional[str]):
                 "total": 0,
             }
         )
+        _persist_equipment_state()
 
         doc = ezdxf.readfile(dxf_path)
         layers = list_layers(dxf_path)
@@ -1384,6 +1618,7 @@ def _run_full_scan(dxf_path: str, boundary_layer: Optional[str]):
 
         scan_layers = list(layer_kind_targets.keys())
         SCAN_STATE["total"] = len(scan_layers)
+        _persist_equipment_state()
 
         all_shapes = []
         for i, layer in enumerate(scan_layers):
@@ -1406,6 +1641,7 @@ def _run_full_scan(dxf_path: str, boundary_layer: Optional[str]):
             except Exception as e:
                 pass
             SCAN_STATE["progress"] = i + 1
+            _persist_equipment_state()
 
         DEDUP_EPS = 0.5
         all_shapes.sort(key=lambda s: (s["kind"], s["cx"], s["cy"]))
@@ -1445,12 +1681,14 @@ def _run_full_scan(dxf_path: str, boundary_layer: Optional[str]):
                 "boundary": boundary_pts,
             }
         )
+        _persist_equipment_state()
 
     except Exception as e:
         import traceback
 
         traceback.print_exc()
         SCAN_STATE.update({"status": "error", "error": str(e)})
+        _persist_equipment_state()
 
 
 @app.route("/api/scan_equipment", methods=["POST"])
@@ -1461,6 +1699,10 @@ def api_scan_equipment():
 
     if not dxf_path:
         return jsonify({"error": "No DXF loaded"}), 400
+
+    # Clear stale state if switching files
+    if dxf_path and dxf_path != SCAN_STATE.get("dxf_path"):
+        _clear_all_states()
 
     t = threading.Thread(
         target=_run_full_scan,
@@ -1473,6 +1715,17 @@ def api_scan_equipment():
 
 @app.route("/api/scan_status")
 def api_scan_status():
+    cached = _upstash_get_json("tv:equipment:state")
+    if cached:
+        return jsonify(
+            {
+                "status": cached.get("status", SCAN_STATE["status"]),
+                "error": cached.get("error", SCAN_STATE["error"]),
+                "progress": cached.get("progress", SCAN_STATE["progress"]),
+                "total": cached.get("total", SCAN_STATE["total"]),
+                "count": cached.get("count", len(SCAN_STATE["shapes"])),
+            }
+        )
     return jsonify(
         {
             "status": SCAN_STATE["status"],
@@ -1486,6 +1739,20 @@ def api_scan_status():
 
 @app.route("/api/scan_results")
 def api_scan_results():
+    cached = _upstash_get_json("tv:equipment:state")
+    if cached:
+        segs_cached = _upstash_get_json("tv:ocr:results") or {}
+        return jsonify(
+            {
+                "shapes": cached.get("shapes", SCAN_STATE["shapes"]),
+                "boundary": cached.get("boundary", SCAN_STATE["boundary"]),
+                "segments": segs_cached.get("segments")
+                or [
+                    {"x1": s.x1, "y1": s.y1, "x2": s.x2, "y2": s.y2}
+                    for s in state["segments"]
+                ],
+            }
+        )
     segs = [{"x1": s.x1, "y1": s.y1, "x2": s.x2, "y2": s.y2} for s in state["segments"]]
     return jsonify(
         {
@@ -1502,15 +1769,7 @@ def api_scan_results():
 import poleid as _poleid
 from app_python.services.pole_ocr import ocr_pole
 
-POLE_STATE: Dict = {
-    "status": "idle",
-    "error": None,
-    "tags": [],
-    "layer": None,
-    "dxf_path": None,
-    "progress": 0,
-    "total": 0,
-}
+POLE_STATE: Dict = _get_fresh_pole_state()
 
 POLE_CONFIG = _poleid.PoleIdConfig(
     include_text=True,
@@ -1535,22 +1794,127 @@ POLE_CONFIG = _poleid.PoleIdConfig(
 OCR_WORKERS = 4
 
 
-def _run_pole_scan(dxf_path: str, layer_name: str) -> None:
+def _source_rank(source: str) -> int:
+    if source in ("text", "mtext"):
+        return 3
+    if source == "stroke":
+        return 2
+    return 1
+
+
+def _bbox_area(bbox: List[float]) -> float:
+    if not bbox or len(bbox) != 4:
+        return 0.0
+    return max(0.0, bbox[2] - bbox[0]) * max(0.0, bbox[3] - bbox[1])
+
+
+def _bbox_iou(a: List[float], b: List[float]) -> float:
+    if not a or not b or len(a) != 4 or len(b) != 4:
+        return 0.0
+    ix1 = max(a[0], b[0])
+    iy1 = max(a[1], b[1])
+    ix2 = min(a[2], b[2])
+    iy2 = min(a[3], b[3])
+    iw = max(0.0, ix2 - ix1)
+    ih = max(0.0, iy2 - iy1)
+    inter = iw * ih
+    if inter <= 0:
+        return 0.0
+    ua = _bbox_area(a) + _bbox_area(b) - inter
+    return inter / ua if ua > 0 else 0.0
+
+
+def _normalized_label(name: str) -> str:
+    if not name:
+        return ""
+    return "".join(ch for ch in name.upper() if ch.isalnum())
+
+
+def _is_placeholder_label(name: str) -> bool:
+    n = _normalized_label(name)
+    return n.startswith("POLE")
+
+
+def _is_duplicate_pole(a: Dict[str, Any], b: Dict[str, Any]) -> bool:
+    ax, ay = float(a.get("cx", 0.0)), float(a.get("cy", 0.0))
+    bx, by = float(b.get("cx", 0.0)), float(b.get("cy", 0.0))
+    dist = math.hypot(ax - bx, ay - by)
+
+    ab = a.get("bbox") or []
+    bb = b.get("bbox") or []
+    iou = _bbox_iou(ab, bb)
+    max_dim = 0.0
+    if len(ab) == 4:
+        max_dim = max(max_dim, abs(ab[2] - ab[0]), abs(ab[3] - ab[1]))
+    if len(bb) == 4:
+        max_dim = max(max_dim, abs(bb[2] - bb[0]), abs(bb[3] - bb[1]))
+    proximity_tol = max(0.2, max_dim * 0.35)
+
+    na = _normalized_label(str(a.get("name", "")))
+    nb = _normalized_label(str(b.get("name", "")))
+    same_name = bool(na) and na == nb
+    both_placeholders = _is_placeholder_label(
+        str(a.get("name", ""))
+    ) and _is_placeholder_label(str(b.get("name", "")))
+
+    # Keep close-but-different labels separate.
+    # Only merge by geometry when both are placeholder labels.
+    if iou >= 0.7 and both_placeholders:
+        return True
+
+    # Merge matched names across layers when they are geometrically close.
+    if same_name and iou >= 0.35:
+        return True
+    if same_name and dist <= max(0.35, proximity_tol * 1.5):
+        return True
+    return False
+
+
+def _dedupe_pole_tags(tags: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    ranked = sorted(
+        tags,
+        key=lambda t: (
+            _source_rank(str(t.get("source", ""))),
+            float(t.get("ocr_conf") if t.get("ocr_conf") is not None else -1.0),
+            _bbox_area(t.get("bbox") or []),
+        ),
+        reverse=True,
+    )
+
+    kept: List[Dict[str, Any]] = []
+    for tag in ranked:
+        if any(_is_duplicate_pole(tag, k) for k in kept):
+            continue
+        kept.append(tag)
+
+    kept.sort(key=lambda t: (-float(t.get("cy", 0.0)), float(t.get("cx", 0.0))))
+    for idx, tag in enumerate(kept):
+        tag["pole_id"] = idx
+    return kept
+
+
+def _run_pole_scan(dxf_path: str, layer_names: List[str]) -> None:
     try:
+        scan_layers = [l for l in layer_names if l]
+        if not scan_layers:
+            raise ValueError("No layers provided for pole scan")
+
         POLE_STATE.update(
             {
                 "status": "processing",
                 "error": None,
                 "tags": [],
-                "layer": layer_name,
+                "layer": scan_layers[0],
+                "layers": scan_layers,
+                "layer_counts_raw": {},
+                "layer_counts_final": {},
                 "progress": 0,
                 "total": 0,
             }
         )
+        _persist_pole_state()
 
         doc = ezdxf.readfile(dxf_path)
-        matches = _poleid.find_pole_labels(doc, layer_name, config=POLE_CONFIG)
-        all_layer_segs = extract_stroke_segments(doc, layer_name)
         placeholder_prefix = (POLE_CONFIG.stroke_placeholder_prefix or "POLE").upper()
 
         tags = []
@@ -1558,38 +1922,49 @@ def _run_pole_scan(dxf_path: str, layer_name: str) -> None:
         ocr_queue = []
         non_ocr = []
 
-        for pole_id, (lab, _circ) in enumerate(matches):
-            bbox = list(lab.bbox) if lab.bbox else [lab.x, lab.y, lab.x, lab.y]
-            source = getattr(lab, "source", "unknown")
-            display_name = _poleid.clean_label(lab.text)
-            is_placeholder = display_name.upper().startswith(placeholder_prefix)
+        next_local_id = 0
+        layer_counts_raw: Dict[str, int] = {layer: 0 for layer in scan_layers}
+        for layer_name in scan_layers:
+            matches = _poleid.find_pole_labels(doc, layer_name, config=POLE_CONFIG)
+            all_layer_segs = extract_stroke_segments(doc, layer_name)
 
-            if source == "stroke" and is_placeholder:
-                ocr_queue.append((pole_id, lab, bbox, source))
-            else:
-                non_ocr.append(
-                    {
-                        "pole_id": pole_id,
-                        "name": display_name,
-                        "cx": round(lab.x, 4),
-                        "cy": round(lab.y, 4),
-                        "bbox": [round(v, 4) for v in bbox],
-                        "layer": layer_name,
-                        "source": source,
-                        "crop_b64": None,
-                        "ocr_conf": None,
-                        "needs_review": False,
-                    }
-                )
+            for lab, _circ in matches:
+                bbox = list(lab.bbox) if lab.bbox else [lab.x, lab.y, lab.x, lab.y]
+                source = getattr(lab, "source", "unknown")
+                display_name = _poleid.clean_label(lab.text)
+                is_placeholder = display_name.upper().startswith(placeholder_prefix)
+
+                if source == "stroke" and is_placeholder:
+                    ocr_queue.append(
+                        (next_local_id, layer_name, lab, bbox, source, all_layer_segs)
+                    )
+                else:
+                    non_ocr.append(
+                        {
+                            "pole_id": next_local_id,
+                            "name": display_name,
+                            "cx": round(lab.x, 4),
+                            "cy": round(lab.y, 4),
+                            "bbox": [round(v, 4) for v in bbox],
+                            "layer": layer_name,
+                            "source": source,
+                            "crop_b64": None,
+                            "ocr_conf": None,
+                            "needs_review": False,
+                        }
+                    )
+                next_local_id += 1
+                layer_counts_raw[layer_name] = layer_counts_raw.get(layer_name, 0) + 1
 
         with tags_lock:
             tags.extend(non_ocr)
             POLE_STATE["tags"] = list(tags)
-            POLE_STATE["total"] = len(matches)
+            POLE_STATE["total"] = len(non_ocr) + len(ocr_queue)
             POLE_STATE["progress"] = len(non_ocr)
+        _persist_pole_state()
 
         def _ocr_one(args):
-            pole_id, lab, bbox, source = args
+            pole_id, layer_name, lab, bbox, source, all_layer_segs = args
             display_name = _poleid.clean_label(lab.text)
             crop_b64 = None
             ocr_conf = None
@@ -1634,12 +2009,12 @@ def _run_pole_scan(dxf_path: str, layer_name: str) -> None:
                         args = futures[future]
                         tag = {
                             "pole_id": args[0],
-                            "name": _poleid.clean_label(args[1].text),
-                            "cx": round(args[1].x, 4),
-                            "cy": round(args[1].y, 4),
-                            "bbox": [round(v, 4) for v in args[2]],
-                            "layer": layer_name,
-                            "source": args[3],
+                            "name": _poleid.clean_label(args[2].text),
+                            "cx": round(args[2].x, 4),
+                            "cy": round(args[2].y, 4),
+                            "bbox": [round(v, 4) for v in args[3]],
+                            "layer": args[1],
+                            "source": args[4],
                             "crop_b64": None,
                             "ocr_conf": None,
                             "needs_review": True,
@@ -1649,21 +2024,31 @@ def _run_pole_scan(dxf_path: str, layer_name: str) -> None:
                         tags.sort(key=lambda t: t["pole_id"])
                         POLE_STATE["tags"] = list(tags)
                         POLE_STATE["progress"] = len(tags)
+                    _persist_pole_state()
 
-        tags.sort(key=lambda t: t["pole_id"])
+        tags = _dedupe_pole_tags(tags)
+        layer_counts_final: Dict[str, int] = {}
+        for tag in tags:
+            layer = str(tag.get("layer", ""))
+            layer_counts_final[layer] = layer_counts_final.get(layer, 0) + 1
         POLE_STATE.update(
             {
                 "status": "done",
                 "tags": tags,
                 "progress": len(tags),
+                "total": len(tags),
+                "layer_counts_raw": layer_counts_raw,
+                "layer_counts_final": layer_counts_final,
             }
         )
+        _persist_pole_state()
 
     except Exception as exc:
         import traceback
 
         traceback.print_exc()
         POLE_STATE.update({"status": "error", "error": str(exc)})
+        _persist_pole_state()
 
 
 @app.route("/api/dxf_segments_no_circles")
@@ -1687,11 +2072,34 @@ def api_dxf_segments_no_circles():
 
 @app.route("/api/pole_tags")
 def api_pole_tags():
+    cached = _upstash_get_json("tv:poles:state")
+    if cached:
+        return jsonify(
+            {
+                "status": cached.get("status", POLE_STATE["status"]),
+                "error": cached.get("error", POLE_STATE["error"]),
+                "layer": cached.get("layer", POLE_STATE["layer"]),
+                "layers": cached.get("layers", POLE_STATE.get("layers", [])),
+                "layer_counts_raw": cached.get(
+                    "layer_counts_raw", POLE_STATE.get("layer_counts_raw", {})
+                ),
+                "layer_counts_final": cached.get(
+                    "layer_counts_final", POLE_STATE.get("layer_counts_final", {})
+                ),
+                "count": cached.get("count", len(POLE_STATE["tags"])),
+                "progress": cached.get("progress", POLE_STATE.get("progress", 0)),
+                "total": cached.get("total", POLE_STATE.get("total", 0)),
+                "tags": cached.get("tags", POLE_STATE["tags"]),
+            }
+        )
     return jsonify(
         {
             "status": POLE_STATE["status"],
             "error": POLE_STATE["error"],
             "layer": POLE_STATE["layer"],
+            "layers": POLE_STATE.get("layers", []),
+            "layer_counts_raw": POLE_STATE.get("layer_counts_raw", {}),
+            "layer_counts_final": POLE_STATE.get("layer_counts_final", {}),
             "count": len(POLE_STATE["tags"]),
             "progress": POLE_STATE.get("progress", 0),
             "total": POLE_STATE.get("total", 0),
@@ -1704,20 +2112,34 @@ def api_pole_tags():
 def api_pole_tags_scan():
     data = request.get_json()
     dxf_path = data.get("dxf_path", "") or state.get("dxf_path", "")
+    layers = data.get("layers", [])
     layer_name = data.get("layer", "")
 
     if not dxf_path:
         return jsonify({"error": "No DXF loaded"}), 400
-    if not layer_name:
-        return jsonify({"error": "layer is required"}), 400
+
+    # Clear stale pole state if switching files
+    if dxf_path and dxf_path != POLE_STATE.get("dxf_path"):
+        _clear_all_states()
+
+    if isinstance(layers, list):
+        scan_layers = [str(l).strip() for l in layers if str(l).strip()]
+    else:
+        scan_layers = []
+    if not scan_layers and layer_name:
+        scan_layers = [str(layer_name).strip()]
+    if not scan_layers:
+        return jsonify({"error": "layer or layers is required"}), 400
+
+    POLE_STATE["dxf_path"] = dxf_path
 
     t = threading.Thread(
         target=_run_pole_scan,
-        args=(dxf_path, layer_name),
+        args=(dxf_path, scan_layers),
         daemon=True,
     )
     t.start()
-    return jsonify({"ok": True})
+    return jsonify({"ok": True, "layers": scan_layers, "layer": scan_layers[0]})
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -2226,6 +2648,23 @@ def _find_pole_layer_name(layers: List[str]) -> Optional[str]:
     return None
 
 
+def _find_pole_layer_names(layers: List[str]) -> List[str]:
+    patterns = ["pole", "poleid", "pole_id", "pole id", "tag", "label"]
+    out: List[str] = []
+    seen = set()
+    for layer in layers:
+        ll = layer.lower()
+        if any(p in ll for p in patterns):
+            key = ll.strip()
+            if key not in seen:
+                seen.add(key)
+                out.append(layer)
+    if out:
+        return out
+    one = _find_pole_layer_name(layers)
+    return [one] if one else []
+
+
 @app.route("/api/pole_tags/auto_scan", methods=["POST"])
 def api_pole_tags_auto_scan():
     data = request.get_json()
@@ -2239,10 +2678,19 @@ def api_pole_tags_auto_scan():
         POLE_STATE.get("status") in ("processing", "done")
         and POLE_STATE.get("dxf_path") == dxf_path
     ):
-        return jsonify({"ok": True, "skipped": True, "layer": POLE_STATE.get("layer")})
+        layers = POLE_STATE.get("layers", [])
+        layer = POLE_STATE.get("layer")
+        return jsonify(
+            {
+                "ok": True,
+                "skipped": True,
+                "layer": layer,
+                "layers": layers if layers else ([layer] if layer else []),
+            }
+        )
 
-    layer_name = _find_pole_layer_name(all_layers)
-    if not layer_name:
+    layer_names = _find_pole_layer_names(all_layers)
+    if not layer_names:
         return jsonify(
             {"ok": False, "reason": "No pole layer detected in this drawing"}
         )
@@ -2251,11 +2699,11 @@ def api_pole_tags_auto_scan():
 
     t = threading.Thread(
         target=_run_pole_scan,
-        args=(dxf_path, layer_name),
+        args=(dxf_path, layer_names),
         daemon=True,
     )
     t.start()
-    return jsonify({"ok": True, "layer": layer_name})
+    return jsonify({"ok": True, "layer": layer_names[0], "layers": layer_names})
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -2270,6 +2718,18 @@ def index():
 
 @app.route("/api/status")
 def api_status():
+    cached = _upstash_get_json("tv:ocr:status")
+    if cached:
+        return jsonify(
+            {
+                "status": cached.get("status", state["status"]),
+                "progress": cached.get("progress", state["progress"]),
+                "total": cached.get("total", state["total"]),
+                "error": cached.get("error", state["error"]),
+                "step": cached.get("step", state.get("step", 0)),
+                "step_label": cached.get("step_label", state.get("step_label", "")),
+            }
+        )
     return jsonify(
         {
             "status": state["status"],
@@ -2284,6 +2744,18 @@ def api_status():
 
 @app.route("/api/results")
 def api_results():
+    cached = _upstash_get_json("tv:ocr:results")
+    if cached:
+        return jsonify(
+            {
+                "results": cached.get("results", state["results"]),
+                "segments": cached.get("segments")
+                or [
+                    {"x1": s.x1, "y1": s.y1, "x2": s.x2, "y2": s.y2}
+                    for s in state["segments"]
+                ],
+            }
+        )
     segs = [{"x1": s.x1, "y1": s.y1, "x2": s.x2, "y2": s.y2} for s in state["segments"]]
     return jsonify({"results": state["results"], "segments": segs})
 
@@ -2300,6 +2772,18 @@ def api_check_model():
         return jsonify(
             {"ok": False, "engine": "easyocr", "error": "easyocr not installed"}
         )
+
+
+@app.route("/api/redis/health")
+def api_redis_health():
+    if not _UPSTASH_ENABLED:
+        return jsonify(
+            {"ok": False, "enabled": False, "error": "Upstash not configured"}
+        )
+    pong = _upstash_command(["PING"])
+    if pong and str(pong.get("result", "")).upper() == "PONG":
+        return jsonify({"ok": True, "enabled": True, "provider": "upstash"})
+    return jsonify({"ok": False, "enabled": True, "error": "PING failed"}), 502
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -2791,7 +3275,13 @@ def api_layers():
 @app.route("/api/run", methods=["POST"])
 def api_run():
     data = request.get_json()
-    state["dxf_path"] = data["dxf_path"]
+    new_dxf_path = data.get("dxf_path", "")
+
+    # Clear stale states if switching to a new file
+    if new_dxf_path and new_dxf_path != state.get("dxf_path"):
+        _clear_all_states()
+
+    state["dxf_path"] = new_dxf_path
 
     layers = data.get("layers", [])
     if not layers and "layer" in data:
@@ -3049,6 +3539,9 @@ def v1_status():
             "poles": {
                 "status": POLE_STATE.get("status", "idle"),
                 "layer": POLE_STATE.get("layer"),
+                "layers": POLE_STATE.get("layers", []),
+                "layer_counts_raw": POLE_STATE.get("layer_counts_raw", {}),
+                "layer_counts_final": POLE_STATE.get("layer_counts_final", {}),
                 "progress": POLE_STATE.get("progress", 0),
                 "total": POLE_STATE.get("total", 0),
                 "count": len(POLE_STATE.get("tags", [])),
@@ -3168,6 +3661,9 @@ def v1_poles():
         {
             "dxf_path": state.get("dxf_path"),
             "layer": POLE_STATE.get("layer"),
+            "layers": POLE_STATE.get("layers", []),
+            "layer_counts_raw": POLE_STATE.get("layer_counts_raw", {}),
+            "layer_counts_final": POLE_STATE.get("layer_counts_final", {}),
             "count": len(output),
             "poles": output,
         }

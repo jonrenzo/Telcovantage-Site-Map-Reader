@@ -19,6 +19,7 @@ export interface FileCache {
   // Pole scan
   poleTags: PoleTag[];
   poleLayer: string | null;
+  poleLayers: string[];
   poleDone: boolean;
 }
 
@@ -40,6 +41,7 @@ export function useSessionCache() {
       equipmentDone: false,
       poleTags: [],
       poleLayer: null,
+      poleLayers: [],
       poleDone: false,
     };
     cacheRef.current[dxfPath] = { ...existing, ...data };

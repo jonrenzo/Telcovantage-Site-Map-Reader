@@ -64,7 +64,8 @@ export default function PoleLayout({
     "idle" | "processing" | "done" | "error"
   >("idle");
   const [scanError, setScanError] = useState<string | null>(null);
-  const [scannedLayer, setScannedLayer] = useState<string | null>(null);
+  const [scannedLayers, setScannedLayers] = useState<string[]>([]);
+  const [previewLayer, setPreviewLayer] = useState<string | null>(null);
   const [scanProgress, setScanProgress] = useState(0);
   const [scanTotal, setScanTotal] = useState(0);
 
@@ -189,7 +190,7 @@ export default function PoleLayout({
   useEffect(() => {
     if (cachedData?.poleDone) {
       setTags(cachedData.poleTags);
-      setScannedLayer(cachedData.poleLayer);
+      setScannedLayers(cachedData.poleLayers ?? (cachedData.poleLayer ? [cachedData.poleLayer] : []));
       setScanStatus("done");
       setScanProgress(cachedData.poleTags.length);
       setScanTotal(cachedData.poleTags.length);
@@ -212,13 +213,29 @@ export default function PoleLayout({
         if (data.status === "done") {
           setScanStatus("done");
           setTags(data.tags ?? []);
-          setScannedLayer(data.layer);
+          const nextLayers =
+            (Array.isArray(data.layers) ? data.layers : []).filter(
+              (l: unknown): l is string => typeof l === "string" && l.length > 0,
+            ) || [];
+          setScannedLayers(
+            nextLayers.length > 0
+              ? nextLayers
+              : data.layer
+                ? [data.layer]
+                : [],
+          );
           clearInterval(timer);
 
           // Save completed scan to cache
           onCacheUpdate({
             poleTags: data.tags ?? [],
             poleLayer: data.layer,
+            poleLayers:
+              nextLayers.length > 0
+                ? nextLayers
+                : data.layer
+                  ? [data.layer]
+                  : [],
             poleDone: true,
           });
         } else if (data.status === "error") {
@@ -235,22 +252,23 @@ export default function PoleLayout({
 
   // ── Trigger scan ──────────────────────────────────────────────────────────
   const handleScan = useCallback(
-    async (layer: string) => {
+    async (layers: string[]) => {
       setScanStatus("processing");
       setScanError(null);
       setTags([]);
       setSelectedId(null);
+      setScannedLayers([]);
       setScanProgress(0);
       setScanTotal(0);
 
       // Clear pole cache for this file so fresh results replace old ones
-      onCacheUpdate({ poleTags: [], poleLayer: null, poleDone: false });
+      onCacheUpdate({ poleTags: [], poleLayer: null, poleLayers: [], poleDone: false });
 
       try {
         await fetch("/api/pole_tags/scan", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ dxf_path: dxfPath, layer }),
+          body: JSON.stringify({ dxf_path: dxfPath, layers }),
         });
       } catch (e) {
         setScanStatus("error");
@@ -293,7 +311,7 @@ export default function PoleLayout({
     ctx.scale(vp.scale, -vp.scale);
 
     // Draw base segments
-    ctx.strokeStyle = "rgba(71,85,105,0.18)";
+    ctx.strokeStyle = previewLayer ? "rgba(71,85,105,0.08)" : "rgba(71,85,105,0.18)";
     ctx.lineWidth = 0.8 / vp.scale;
     ctx.beginPath();
     for (const s of canvasSegments) {
@@ -301,6 +319,18 @@ export default function PoleLayout({
       ctx.lineTo(s.x2, s.y2);
     }
     ctx.stroke();
+
+    // Quick peek: emphasize hovered layer geometry
+    if (previewLayer && allLayerSegs[previewLayer]?.length) {
+      ctx.strokeStyle = "rgba(245,158,11,0.9)";
+      ctx.lineWidth = 1.7 / vp.scale;
+      ctx.beginPath();
+      for (const s of allLayerSegs[previewLayer]) {
+        ctx.moveTo(s.x1, s.y1);
+        ctx.lineTo(s.x2, s.y2);
+      }
+      ctx.stroke();
+    }
 
     // --- NEW 4: Draw the Boundary Polygon ---
     if (isMaskOn && currentBoundary && currentBoundary.length > 2) {
@@ -329,6 +359,10 @@ export default function PoleLayout({
       const r = 12 / vp.scale;
 
       for (const tag of vTags) {
+        const isPreviewMatch = !previewLayer || tag.layer === previewLayer;
+        if (previewLayer && !isPreviewMatch) {
+          continue;
+        }
         const isSel = tag.pole_id === selId;
         const color = isSel ? "#d97706" : "#f59e0b";
 
@@ -358,7 +392,7 @@ export default function PoleLayout({
     }
 
     ctx.restore();
-  }, [canvasSegments]);
+  }, [allLayerSegs, canvasSegments, previewLayer]);
 
   const fitView = useCallback(() => {
     const canvas = canvasRef.current;
@@ -416,7 +450,7 @@ export default function PoleLayout({
   // Make sure changing mask state directly triggers redraw
   useEffect(() => {
     redraw();
-  }, [visibleTags, selectedId, showOnMap, redraw, boundary, isMaskEnabled]);
+  }, [visibleTags, selectedId, showOnMap, redraw, boundary, isMaskEnabled, previewLayer]);
 
   useEffect(() => {
     if (!isActive) return;
@@ -521,8 +555,9 @@ export default function PoleLayout({
         tags={visibleTags}
         status={scanStatus}
         error={scanError}
-        scannedLayer={scannedLayer}
+        scannedLayers={scannedLayers}
         onScan={handleScan}
+        onPreviewLayerChange={setPreviewLayer}
         selectedId={selectedId}
         onSelectTag={setSelectedId}
         showOnMap={showOnMap}

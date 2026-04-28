@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import type { PoleTag } from "../../types";
 
 interface Props {
@@ -9,8 +9,9 @@ interface Props {
   tags: PoleTag[];
   status: "idle" | "processing" | "done" | "error";
   error: string | null;
-  scannedLayer: string | null;
-  onScan: (layer: string) => void;
+  scannedLayers: string[];
+  onScan: (layers: string[]) => void;
+  onPreviewLayerChange: (layer: string | null) => void;
   selectedId: number | null;
   onSelectTag: (id: number | null) => void;
   showOnMap: boolean;
@@ -38,8 +39,9 @@ export default function PolePanel({
   tags,
   status,
   error,
-  scannedLayer,
+  scannedLayers,
   onScan,
+  onPreviewLayerChange,
   selectedId,
   onSelectTag,
   showOnMap,
@@ -48,7 +50,9 @@ export default function PolePanel({
   scanTotal,
   onRenamePole,
 }: Props) {
-  const [selectedLayer, setSelectedLayer] = useState<string>("");
+  const [selectedLayers, setSelectedLayers] = useState<string[]>([]);
+  const [isLayerMenuOpen, setIsLayerMenuOpen] = useState(false);
+  const [layerSearch, setLayerSearch] = useState("");
   const [search, setSearch] = useState("");
   const [sortMode, setSortMode] = useState<SortMode>("position");
 
@@ -57,14 +61,19 @@ export default function PolePanel({
   const [editDraft, setEditDraft] = useState("");
   const editRef = useRef<HTMLInputElement>(null);
 
-  // Auto-select a pole layer on mount
-  useEffect(() => {
-    if (!selectedLayer) {
-      const poleLayer = layers.find((l) => /pole|tag|label/i.test(l));
-      if (poleLayer) setSelectedLayer(poleLayer);
-      else if (layers.length) setSelectedLayer(layers[0]);
-    }
-  }, [layers, selectedLayer]);
+  const effectiveSelectedLayers = useMemo(() => {
+    const valid = selectedLayers.filter((l) => layers.includes(l));
+    if (valid.length > 0) return valid;
+    if (!layers.length) return [];
+    const poleLayer = layers.find((l) => /pole|tag|label/i.test(l)) ?? layers[0];
+    return [poleLayer];
+  }, [layers, selectedLayers]);
+
+  const filteredLayerOptions = useMemo(() => {
+    const q = layerSearch.trim().toLowerCase();
+    if (!q) return layers;
+    return layers.filter((layer) => layer.toLowerCase().includes(q));
+  }, [layers, layerSearch]);
 
   // Focus the edit input when it appears
   useEffect(() => {
@@ -83,6 +92,15 @@ export default function PolePanel({
   const strTags = tags.filter((t) => t.source === "stroke");
   const ocrDone = strTags.filter((t) => t.ocr_conf !== null);
   const ocrAccepted = ocrDone.filter((t) => !t.needs_review);
+
+  function toggleLayer(layer: string) {
+    setSelectedLayers(() => {
+      if (effectiveSelectedLayers.includes(layer)) {
+        return effectiveSelectedLayers.filter((l) => l !== layer);
+      }
+      return [...effectiveSelectedLayers, layer];
+    });
+  }
 
   function commitEdit(poleId: number) {
     const v = editDraft.trim().toUpperCase();
@@ -159,22 +177,87 @@ export default function PolePanel({
 
         {/* Layer selector + Scan */}
         <div className="flex gap-2">
-          <select
-            value={selectedLayer}
-            onChange={(e) => setSelectedLayer(e.target.value)}
-            disabled={isScanning}
-            className="flex-1 bg-surface-2 border border-border rounded-lg px-2 py-1.5 text-xs
-                            focus:outline-none focus:ring-2 focus:ring-[#f59e0b]/30 min-w-0 truncate"
-          >
-            {layers.map((l) => (
-              <option key={l} value={l}>
-                {l}
-              </option>
-            ))}
-          </select>
+          <div className="relative flex-1 min-w-0">
+            <button
+              type="button"
+              onClick={() => {
+                setIsLayerMenuOpen((v) => {
+                  const next = !v;
+                  if (!next) {
+                    setLayerSearch("");
+                    onPreviewLayerChange(null);
+                  }
+                  return next;
+                });
+              }}
+              disabled={isScanning || layers.length === 0}
+              className="w-full bg-surface-2 border border-border rounded-lg px-2 py-1.5 text-xs
+                            focus:outline-none focus:ring-2 focus:ring-[#f59e0b]/30 min-w-0 truncate text-left
+                            disabled:opacity-60 disabled:cursor-not-allowed"
+              title={effectiveSelectedLayers.join(", ") || "Select pole layers"}
+            >
+              {effectiveSelectedLayers.length === 0
+                ? "Select pole layers"
+                : effectiveSelectedLayers.length === 1
+                  ? effectiveSelectedLayers[0]
+                  : `${effectiveSelectedLayers.length} layers selected`}
+            </button>
+
+            {isLayerMenuOpen && !isScanning && (
+              <div
+                className="absolute z-20 mt-1 w-full max-h-52 overflow-y-auto rounded-lg border border-border bg-white shadow-lg p-1"
+                onMouseLeave={() => onPreviewLayerChange(null)}
+              >
+                <div className="sticky top-0 z-10 bg-white p-1 pb-2 border-b border-border">
+                  <input
+                    type="text"
+                    placeholder="Search layers..."
+                    value={layerSearch}
+                    onChange={(e) => setLayerSearch(e.target.value)}
+                    className="w-full bg-surface-2 border border-border rounded-md px-2 py-1.5 text-xs
+                               focus:outline-none focus:ring-2 focus:ring-[#f59e0b]/30"
+                  />
+                </div>
+
+                {filteredLayerOptions.length === 0 ? (
+                  <p className="px-2 py-2 text-[11px] text-muted">No layers match your search.</p>
+                ) : (
+                  filteredLayerOptions.map((layer) => {
+                    const checked = effectiveSelectedLayers.includes(layer);
+                    return (
+                      <label
+                        key={layer}
+                        className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-surface-2 cursor-pointer"
+                        onMouseEnter={() => onPreviewLayerChange(layer)}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleLayer(layer)}
+                          onFocus={() => onPreviewLayerChange(layer)}
+                          onBlur={() => onPreviewLayerChange(null)}
+                          className="accent-[#f59e0b] w-3 h-3"
+                        />
+                        <span className="text-xs truncate" title={layer}>
+                          {layer}
+                        </span>
+                      </label>
+                    );
+                  })
+                )}
+              </div>
+            )}
+          </div>
           <button
-            onClick={() => selectedLayer && onScan(selectedLayer)}
-            disabled={isScanning || !selectedLayer}
+            onClick={() => {
+              if (effectiveSelectedLayers.length > 0) {
+                onScan(effectiveSelectedLayers);
+              }
+              setIsLayerMenuOpen(false);
+              setLayerSearch("");
+              onPreviewLayerChange(null);
+            }}
+            disabled={isScanning || effectiveSelectedLayers.length === 0}
             className="px-3 py-1.5 bg-[#f59e0b] hover:bg-[#d97706] text-white text-xs font-semibold
                             rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
           >
@@ -232,11 +315,12 @@ export default function PolePanel({
         )}
 
         {/* Done stats */}
-        {status === "done" && scannedLayer && (
+        {status === "done" && scannedLayers.length > 0 && (
           <div className="mt-2 flex flex-col gap-0.5">
             <p className="text-[10px] text-[#16a34a]">
-              Found {tags.length} pole{tags.length !== 1 ? "s" : ""} on{" "}
-              <span className="font-mono">{scannedLayer}</span>
+              Found {tags.length} pole{tags.length !== 1 ? "s" : ""} across{" "}
+              <span className="font-mono">{scannedLayers.length}</span> layer
+              {scannedLayers.length !== 1 ? "s" : ""}
             </p>
             {ocrDone.length > 0 && (
               <p className="text-[10px] text-muted">
@@ -306,7 +390,7 @@ export default function PolePanel({
               </svg>
             </div>
             <p className="text-xs text-muted leading-relaxed">
-              Select a layer and press <strong>Scan</strong> to detect pole IDs.
+              Select one or more layers and press <strong>Scan</strong> to detect pole IDs.
             </p>
           </div>
         )}
@@ -331,7 +415,7 @@ export default function PolePanel({
             <p className="text-xs text-muted">
               {search
                 ? "No poles match your search."
-                : "No pole labels found on this layer."}
+                : "No pole labels found on selected layers."}
             </p>
             {search && (
               <button
