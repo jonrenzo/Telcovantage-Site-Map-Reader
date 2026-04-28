@@ -94,7 +94,7 @@ python -m venv venv
 venv\Scripts\activate          # Windows
 source venv/bin/activate       # Mac/Linux
 pip install -r requirements.txt
-cd cad-ocr-frontend && npm install
+npm install
 ```
 
 ---
@@ -108,7 +108,10 @@ start.bat
 
 **Mac/Linux:**
 ```bash
-./start.sh
+# start.sh is not included in this repository.
+# Run backend and frontend in two terminals instead:
+python server.py
+npm run dev
 ```
 
 Open **http://localhost:3000** in your browser.
@@ -132,7 +135,7 @@ This system exposes a stable, versioned REST API at `/api/v1/` for consumption b
 
 ### Applying the API to your server
 
-The integration API lives in `app_python/api/public_api.py`. Three small edits to `server.py` activate it — see `server_patch.py` for exact copy-paste instructions.
+The integration API is registered directly in `server.py` using a Flask blueprint with the `/api/v1` prefix.
 
 ### Base URL
 
@@ -513,100 +516,11 @@ Trigger an Excel export of pole IDs and get back a download URL.
 
 ---
 
-#### `POST /api/v1/bulk`
+#### Planner bulk upload note
 
-Bulk upload poles and cable spans from the current scan session to the TelcoVantage Planner API.
+`POST /api/v1/bulk` is not currently exposed by this repository's active Flask app.
 
-This endpoint collects all detected poles and cable spans, transforms them to the Planner API format, and uploads them in a single bulk request via the ngrok-exposed Planner API.
-
-**Prerequisites**
-- Pole scan must be completed (`GET /api/v1/status` → `data.poles.status === "done"`)
-- Planner API integration must be enabled in `planner_config.py`
-
-**Request Body (JSON)**
-```json
-{
-    "project_id": 1,
-    "node": {
-        "node_id": "TY-5232",
-        "node_name": "Taytay Area 1",
-        "city": "Taytay",
-        "province": "Rizal",
-        "team": "Team Alpha",
-        "date_start": "2026-03-24",
-        "due_date": "2026-04-30"
-    },
-    "compress": false
-}
-```
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `project_id` | integer | **Yes** | Planner project ID |
-| `node.node_id` | string | **Yes** | Unique node identifier (e.g., `"TY-5232"`) |
-| `node.node_name` | string | No | Human-readable node name |
-| `node.city` | string | No | City location |
-| `node.province` | string | No | Province/state |
-| `node.team` | string | No | Assigned team |
-| `node.date_start` | string | No | Start date (`YYYY-MM-DD`) |
-| `node.due_date` | string | No | Due date (`YYYY-MM-DD`) |
-| `compress` | boolean | No | Gzip compress the upload (default: `false`) |
-
-**What gets uploaded**
-- **Poles**: All detected pole tags from `POLE_STATE`, with sequential codes (`001`, `002`, `003`...)
-- **Pole Spans**: All cable spans with valid `from_pole`/`to_pole` connections
-- **Equipment Counts**: Aggregated from `SCAN_STATE` (amplifiers, extenders, TSCs)
-- **Strand Totals**: Summed from OCR meter values
-
-**Response (201 Created)**
-```json
-{
-    "ok": true,
-    "data": {
-        "node": {
-            "id": 10,
-            "node_id": "TY-5232",
-            "action": "created"
-        },
-        "poles": [
-            { "pole_code": "001", "id": 55, "action": "created" },
-            { "pole_code": "002", "id": 56, "action": "created" }
-        ],
-        "pole_spans": [
-            { "pole_span_code": "TY-5232-001-002", "id": 200, "action": "created" },
-            { "pole_span_code": "TY-5232-002-003", "id": 201, "action": "created" }
-        ],
-        "summary": {
-            "poles_count": 15,
-            "pole_spans_count": 12
-        }
-    }
-}
-```
-
-**Field notes**
-- `action` — Either `"created"` or `"updated"`. Re-uploading the same data is safe (upsert behavior).
-- `pole_code` — Sequential codes generated from pole order (`001`, `002`, etc.).
-- `pole_span_code` — Format: `{node_id}-{from_code}-{to_code}` (e.g., `TY-5232-001-002`).
-
-**Error responses**
-- `400` — Missing required fields, no pole scan data, or Planner integration disabled.
-- `500` — Planner API request failed.
-
-**Example**
-```bash
-curl -X POST http://localhost:5000/api/v1/bulk \
-  -H "Content-Type: application/json" \
-  -d '{
-    "project_id": 1,
-    "node": {
-      "node_id": "TY-5232",
-      "node_name": "Taytay Area 1",
-      "city": "Taytay",
-      "province": "Rizal"
-    }
-  }'
-```
+If you need Planner sync from the current UI flow, use the internal route `POST /api/export/polemaster`.
 
 ---
 
@@ -620,7 +534,7 @@ The recommended sequence for a consuming system is:
    → { path: "uploads/site_plan.dxf" }
 
 2. Run OCR pipeline
-   POST /api/run   { dxf_path, layer, model_path }
+   POST /api/run   { dxf_path, layers, model_path }
 
 3. Poll until done
    GET /api/v1/status
@@ -637,9 +551,9 @@ The recommended sequence for a consuming system is:
    POST /api/v1/export/ocr   { corrections: { "3": "72" } }
    GET  /api/download?file=site_plan_results.xlsx
 
-6. Bulk upload to Planner API (optional)
-   POST /api/v1/bulk   { project_id: 1, node: { node_id: "TY-5232", ... } }
-   → { data.summary.poles_count: 15, data.summary.pole_spans_count: 12 }
+6. Planner upload from UI flow (optional)
+   POST /api/export/polemaster   { project_id, corrections, cable_spans }
+   → { result.node_id, result.poles_created, result.spans_created, ... }
 ```
 
 ---
@@ -668,7 +582,7 @@ These are the original routes used by the Next.js frontend. External systems sho
 |--------|----------|-------------|
 | `POST` | `/api/upload` | Upload a DXF or PDF file |
 | `POST` | `/api/layers` | Get list of layers from a DXF file |
-| `GET`  | `/api/check_model` | Check if the CNN model file exists |
+| `GET`  | `/api/check_model` | Check if the EasyOCR engine is available |
 | `POST` | `/api/run` | Start the OCR pipeline |
 | `GET`  | `/api/status` | Poll OCR pipeline progress |
 | `GET`  | `/api/results` | Get OCR results and segments |
@@ -681,8 +595,29 @@ These are the original routes used by the Next.js frontend. External systems sho
 | `GET`  | `/api/pole_tags` | Get all pole tags |
 | `POST` | `/api/pole_tags/scan` | Start pole scan on a specific layer |
 | `POST` | `/api/pole_tags/auto_scan` | Auto-detect pole layer and scan |
-| `POST` | `/api/pole_tags/export` | Export pole tags to Excel |
+| `POST` | `/api/export/polemaster` | Push poles/spans to Planner API |
 | `GET`  | `/api/cable_spans` | Get cable spans with meter values |
+| `GET`  | `/api/planner/projects` | List Planner projects (when integration is enabled) |
+
+---
+
+## Environment Variables
+
+Create a local `.env` file (an `.env.example` template is included).
+
+| Variable | Required | Purpose |
+|----------|----------|---------|
+| `NEXT_PUBLIC_BACKEND_URL` | Yes | Base URL for Flask backend used by Next.js proxying |
+| `GOOGLE_GENERATIVE_AI_API_KEY` | For chat only | Gemini API key for `/api/chat` |
+| `FLASK_API_URL` | Recommended | Direct backend URL used by chat tools |
+| `NEXT_PUBLIC_SUPABASE_URL` | Optional | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Optional | Supabase anon key |
+| `PORT` | Optional | Flask port (default `5000`) |
+| `ENABLE_PLANNER_INTEGRATION` | Optional | Enable Planner upload routes (`true`/`false`) |
+| `PLANNER_API_BASE_URL` | If planner enabled | Planner API base URL |
+| `PLANNER_EMAIL` | If planner enabled | Planner account email |
+| `PLANNER_PASSWORD` | If planner enabled | Planner account password |
+| `PLANNER_DEFAULT_PROJECT_ID` | Optional | Default Planner project ID |
 
 ---
 
@@ -723,8 +658,8 @@ These are the original routes used by the Next.js frontend. External systems sho
 ### "Upload failed: Unexpected end of JSON input"
 PDF conversion via AutoCAD takes a long time. If conversion exceeds the timeout, check that AutoCAD is not hanging or displaying a dialog box.
 
-### "Model file not found"
-Make sure `cad_digit_model.pt` is in the same directory as `server.py`.
+### "easyocr not installed"
+Install backend dependencies with `pip install -r requirements.txt`. Then retry `GET /api/check_model`.
 
 ### Boundary not detected
 Check the Flask terminal output for `[boundary]` log lines. Common causes: wrong layer name, gaps too large (increase `close_max_gap`), too few segments.
