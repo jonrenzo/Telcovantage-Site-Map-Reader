@@ -3263,9 +3263,15 @@ def api_upload_batch():
 @app.route("/api/layers", methods=["POST"])
 def api_layers():
     data = request.get_json()
-    dxf_path = data.get("dxf_path", "")
+    new_path = data.get("dxf_path", "")
+
+    # Clear stale states if switching to new file
+    if new_path and new_path != state.get("dxf_path"):
+        _clear_all_states()
+        state["dxf_path"] = new_path
+
     try:
-        layers = list_layers(dxf_path)
+        layers = list_layers(new_path)
         return jsonify({"layers": layers})
     except Exception as e:
         return jsonify({"error": str(e)}), 400
@@ -3422,7 +3428,14 @@ def api_download():
 
 @app.route("/api/dxf_segments")
 def api_dxf_segments():
-    dxf_path = state.get("dxf_path")
+    # Support optional dxg_path param for file switching
+    new_path = request.args.get("dxf_path") or state.get("dxf_path")
+    # Clear stale states if switching to new file
+    if new_path and new_path != state.get("dxf_path"):
+        _clear_all_states()
+        state["dxf_path"] = new_path
+
+    dxf_path = new_path
     hide_circles = request.args.get("hide_circles") == "1"
     if not dxf_path:
         return jsonify({"error": "No DXF loaded"}), 400
@@ -3443,7 +3456,14 @@ def api_dxf_segments():
 # <-- UPDATED TO SUPPORT MULTIPLE CABLE LAYERS -->
 @app.route("/api/cable_spans")
 def api_cable_spans():
-    dxf_path = state.get("dxf_path")
+    # Support optional dxf_path param for file switching
+    new_path = request.args.get("dxf_path") or state.get("dxf_path")
+    # Clear stale states if switching to new file
+    if new_path and new_path != state.get("dxf_path"):
+        _clear_all_states()
+        state["dxf_path"] = new_path
+
+    dxf_path = new_path
     if not dxf_path:
         return jsonify({"error": "No DXF loaded"}), 400
     try:
