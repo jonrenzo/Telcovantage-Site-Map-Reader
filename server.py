@@ -1169,6 +1169,22 @@ state = {
 }
 
 
+def _clear_all_states():
+    for k in list(state.keys()):
+        state[k] = None
+    state["layers"] = []
+    state["segments"] = []
+    state["candidates"] = []
+    state["results"] = []
+    state["status"] = "idle"
+    state["progress"] = 0
+    state["total"] = 0
+    state["error"] = None
+    state["step"] = 0
+    state["step_label"] = ""
+    state["ocr_start_time"] = None
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # POST-OCR VALIDATION
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1737,6 +1753,9 @@ def api_pole_tags_scan():
     data = request.get_json()
     dxf_path = data.get("dxf_path", "") or state.get("dxf_path", "")
     layer_name = data.get("layer", "")
+    layers = data.get("layers", [])
+    if not layer_name and layers:
+        layer_name = layers[0]
 
     if not dxf_path:
         return jsonify({"error": "No DXF loaded"}), 400
