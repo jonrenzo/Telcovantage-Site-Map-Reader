@@ -2140,13 +2140,15 @@ def export_all_excel(
         pole_fill = openpyxl.styles.PatternFill("solid", fgColor="FEF3C7")
         _write_header_row(
             ws3,
-            ["#", "Pole Name", "Layer", "Source", "Confidence", "X", "Y"],
-            [8, 28, 20, 10, 12, 12, 12],
+            ["#", "Pole Name", "Layer", "Source", "Confidence", "X", "Y", "Latitude", "Longitude"],
+            [8, 28, 20, 10, 12, 12, 12, 14, 14],
             styles,
         )
         ws3.freeze_panes = "A2"
 
         for ri, tag in enumerate(poles, 2):
+            lat = tag.get("map_latitude")
+            lon = tag.get("map_longitude")
             row_data = [
                 ri - 1,
                 tag.get("name", ""),
@@ -2157,6 +2159,8 @@ def export_all_excel(
                 else "—",
                 round(tag.get("cx", 0), 4),
                 round(tag.get("cy", 0), 4),
+                round(lat, 6) if lat is not None else "",
+                round(lon, 6) if lon is not None else "",
             ]
             for ci, val in enumerate(row_data, 1):
                 cell = ws3.cell(row=ri, column=ci, value=val)
@@ -3352,6 +3356,31 @@ def v1_poles():
             "poles": output,
         }
     )
+
+
+@public_api.route("/poles/georeference", methods=["PATCH"])
+def v1_poles_georeference():
+    body = request.get_json(silent=True)
+    if not body or "poles" not in body:
+        return _v1_err("Request body must contain a 'poles' array.", 400)
+
+    tags = POLE_STATE.get("tags", [])
+    tag_map = {t.get("pole_id"): t for t in tags}
+    updated = 0
+
+    for p in body["poles"]:
+        pid = p.get("pole_id")
+        if pid is None or pid not in tag_map:
+            continue
+        lat = p.get("map_latitude")
+        lon = p.get("map_longitude")
+        if lat is None or lon is None:
+            continue
+        tag_map[pid]["map_latitude"] = lat
+        tag_map[pid]["map_longitude"] = lon
+        updated += 1
+
+    return _v1_ok({"updated": updated})
 
 
 @public_api.route("/equipment", methods=["GET"])
