@@ -3657,5 +3657,9 @@ def main():
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
+    print(f"\n{'=' * 50}")
+    print(f"  CAD OCR – Flask Backend  (EasyOCR engine)")
+    print(f"  http://localhost:{port}")
+    print(f"{'=' * 50}\n")
+    _start_geotool()
     app.run(host="0.0.0.0", port=port)
-    main()
