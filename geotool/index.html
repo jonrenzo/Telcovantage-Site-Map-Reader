@@ -1,0 +1,707 @@
+<!doctype html>
+<html>
+    <head>
+        <title>Telco Mapper Pro</title>
+        <link
+            rel="stylesheet"
+            href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        />
+        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+        <style>
+            body {
+                margin: 0;
+                font-family: Arial, sans-serif;
+            }
+
+            #map {
+                height: 100vh;
+                width: 100vw;
+            }
+
+            /* Modal Styles */
+            #modal {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100vw;
+                height: 100vh;
+                background: rgba(0, 0, 0, 0.8);
+                z-index: 9999;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+            }
+
+            .modal-content {
+                background: white;
+                padding: 30px;
+                border-radius: 8px;
+                width: 400px;
+            }
+
+            .modal-content input {
+                width: 100%;
+                margin-bottom: 15px;
+                padding: 10px;
+                box-sizing: border-box;
+            }
+
+            button {
+                padding: 10px 15px;
+                background: #007bff;
+                color: white;
+                border: none;
+                cursor: pointer;
+                border-radius: 4px;
+            }
+
+            button:hover {
+                background: #0056b3;
+            }
+
+            /* Floating Toolbar */
+            #toolbar {
+                position: fixed;
+                bottom: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: white;
+                padding: 15px;
+                border-radius: 8px;
+                z-index: 1000;
+                box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.3);
+                display: none;
+                text-align: center;
+            }
+
+            .instruction {
+                font-size: 14px;
+                color: #555;
+                margin-bottom: 10px;
+            }
+
+            .pole-marker {
+                background-color: red;
+                border-radius: 50%;
+                border: 1px solid darkred;
+                box-sizing: border-box;
+            }
+
+            .pole-marker.selected {
+                background-color: yellow;
+                border: 2px solid black;
+            }
+
+            /* NEW: Tooltip Styles for Pole Names */
+            .pole-tooltip {
+                background-color: rgba(0, 0, 0, 0.8);
+                border: 1px solid #444;
+                color: #fff;
+                font-weight: bold;
+                font-size: 11px;
+                border-radius: 4px;
+                padding: 2px 6px;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+                white-space: nowrap;
+            }
+            .leaflet-tooltip-left.pole-tooltip::before {
+                border-left-color: rgba(0, 0, 0, 0.8);
+            }
+            .leaflet-tooltip-right.pole-tooltip::before {
+                border-right-color: rgba(0, 0, 0, 0.8);
+            }
+        </style>
+    </head>
+
+    <body>
+        <div id="modal">
+            <div class="modal-content">
+                <h2>New Mapping Project</h2>
+                <label>1. Search Location (e.g., Mapayapa Village)</label>
+                <input
+                    type="text"
+                    id="locInput"
+                    placeholder="Enter location..."
+                />
+
+                <label>2. Select DXF File</label>
+                <input type="file" id="dxfFile" accept=".dxf" />
+
+                <button onclick="startSetup()">Start Mapping</button>
+                <button
+                    onclick="skipSetup()"
+                    style="background: #6c757d; margin-top: 10px; width: 100%"
+                >
+                    Skip Search (Find Manually)
+                </button>
+            </div>
+        </div>
+
+        <div id="map"></div>
+        <div id="toolbar">
+            <div class="instruction" id="status-text">
+                Click the 4 corners of the subdivision layout.
+            </div>
+            <button
+                id="processBtn"
+                onclick="processMap()"
+                style="display: none; background: #28a745"
+            >
+                Process DXF
+            </button>
+            <button
+                id="exportBtn"
+                onclick="exportCSV()"
+                style="display: none; background: #17a2b8"
+            >
+                Save Coordinates to As-built
+            </button>
+            <p
+                style="
+                    font-size: 12px;
+                    margin-top: 10px;
+                    color: gray;
+                    line-height: 1.5;
+                "
+            >
+                <i>Shift + Click or Shift + Drag to select multiple poles.</i
+                ><br />
+                <i
+                    >Ctrl+Z (Undo), Ctrl+Y (Redo), Ctrl+D (Deselect), S
+                    (Straighten)</i
+                >
+            </p>
+        </div>
+
+        <script>
+            // --- 1. SETUP MAP LAYERS (OSM + Satellite) ---
+            var osm = L.tileLayer(
+                "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+                { maxZoom: 21 },
+            );
+            var satellite = L.tileLayer(
+                "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+                { maxZoom: 21 },
+            );
+
+            var map = L.map("map", {
+                layers: [satellite, osm],
+                zoomControl: false,
+            }).setView([14.6879, 121.0698], 6);
+
+            L.control
+                .layers({ Satellite: satellite, "Street Map (OSM)": osm })
+                .addTo(map);
+
+            var anchorPins = [];
+            var poleMarkers = [];
+            var selectedPoles = new Set();
+            var dragStartCoords = new Map();
+
+            var undoStack = [];
+            var redoStack = [];
+            var currentDragAction = null;
+
+            var poleIcon = L.divIcon({
+                className: "pole-marker",
+                iconSize: [12, 12],
+                iconAnchor: [6, 6],
+            });
+
+            function setMarkerSelected(marker, isSelected) {
+                let el = marker.getElement();
+                if (isSelected) {
+                    selectedPoles.add(marker);
+                    if (el) el.classList.add("selected");
+                } else {
+                    selectedPoles.delete(marker);
+                    if (el) el.classList.remove("selected");
+                }
+            }
+
+            function updateAnchorStatus() {
+                document.getElementById("status-text").innerText =
+                    `Anchors placed: ${anchorPins.length}/4`;
+                if (anchorPins.length === 4) {
+                    document.getElementById("processBtn").style.display =
+                        "inline-block";
+                    document.getElementById("status-text").innerText =
+                        "Anchors locked. Ready to process.";
+                } else {
+                    document.getElementById("processBtn").style.display =
+                        "none";
+                }
+            }
+
+            // Box Selection Variables
+            var selectionBox = null;
+            var boxStartLatLng = null;
+
+            map.boxZoom.disable();
+
+            map.on("mousedown", function (e) {
+                if (e.originalEvent.shiftKey) {
+                    map.dragging.disable();
+                    boxStartLatLng = e.latlng;
+                    selectionBox = L.rectangle(
+                        [boxStartLatLng, boxStartLatLng],
+                        {
+                            color: "#007bff",
+                            weight: 1,
+                            fillOpacity: 0.2,
+                            interactive: false,
+                        },
+                    ).addTo(map);
+                }
+            });
+
+            map.on("mousemove", function (e) {
+                if (selectionBox && boxStartLatLng) {
+                    selectionBox.setBounds([boxStartLatLng, e.latlng]);
+                }
+            });
+
+            map.on("mouseup", function (e) {
+                if (selectionBox) {
+                    let bounds = selectionBox.getBounds();
+                    map.removeLayer(selectionBox);
+                    selectionBox = null;
+                    boxStartLatLng = null;
+
+                    poleMarkers.forEach((marker) => {
+                        if (bounds.contains(marker.getLatLng())) {
+                            setMarkerSelected(marker, true);
+                        }
+                    });
+
+                    map.dragging.enable();
+                }
+            });
+
+            // Keyboard shortcuts
+            document.addEventListener("keydown", function (e) {
+                if (e.ctrlKey && e.key.toLowerCase() === "z") {
+                    e.preventDefault();
+                    if (undoStack.length === 0) return;
+                    let action = undoStack.pop();
+                    if (action.type === "drag") {
+                        action.markers.forEach((data, marker) => {
+                            marker.setLatLng(data.oldLatLng);
+                        });
+                        redoStack.push(action);
+                    } else if (action.type === "anchor") {
+                        let pin = anchorPins.pop();
+                        map.removeLayer(pin);
+                        updateAnchorStatus();
+                        action.pin = pin;
+                        redoStack.push(action);
+                    }
+                }
+                if (e.ctrlKey && e.key.toLowerCase() === "y") {
+                    e.preventDefault();
+                    if (redoStack.length === 0) return;
+                    let action = redoStack.pop();
+                    if (action.type === "drag") {
+                        action.markers.forEach((data, marker) => {
+                            marker.setLatLng(data.newLatLng);
+                        });
+                        undoStack.push(action);
+                    } else if (action.type === "anchor") {
+                        let pin = action.pin;
+                        pin.addTo(map);
+                        anchorPins.push(pin);
+                        updateAnchorStatus();
+                        undoStack.push(action);
+                    }
+                }
+                if (e.ctrlKey && e.key.toLowerCase() === "d") {
+                    e.preventDefault();
+                    Array.from(selectedPoles).forEach((m) =>
+                        setMarkerSelected(m, false),
+                    );
+                }
+                if (!e.ctrlKey && e.key.toLowerCase() === "s") {
+                    if (selectedPoles.size > 2) {
+                        let poles = Array.from(selectedPoles);
+                        let action = { type: "drag", markers: new Map() };
+                        poles.forEach((m) => {
+                            action.markers.set(m, {
+                                oldLatLng: Object.assign({}, m.getLatLng()),
+                                newLatLng: null,
+                            });
+                        });
+
+                        let maxZoom = 21;
+                        let projectedPts = poles.map((m) =>
+                            map.project(m.getLatLng(), maxZoom),
+                        );
+
+                        let maxDistSq = -1;
+                        let pA = null,
+                            pB = null;
+                        for (let i = 0; i < projectedPts.length; i++) {
+                            for (let j = i + 1; j < projectedPts.length; j++) {
+                                let dx = projectedPts[i].x - projectedPts[j].x;
+                                let dy = projectedPts[i].y - projectedPts[j].y;
+                                let distSq = dx * dx + dy * dy;
+                                if (distSq > maxDistSq) {
+                                    maxDistSq = distSq;
+                                    pA = projectedPts[i];
+                                    pB = projectedPts[j];
+                                }
+                            }
+                        }
+
+                        if (maxDistSq > 0) {
+                            let v = { x: pB.x - pA.x, y: pB.y - pA.y };
+                            let c2 = v.x * v.x + v.y * v.y;
+
+                            poles.forEach((m, idx) => {
+                                let p = projectedPts[idx];
+                                if (p === pA || p === pB) return;
+
+                                let w = { x: p.x - pA.x, y: p.y - pA.y };
+                                let c1 = w.x * v.x + w.y * v.y;
+                                let b = c1 / c2;
+
+                                let pProj = L.point(
+                                    pA.x + b * v.x,
+                                    pA.y + b * v.y,
+                                );
+                                m.setLatLng(map.unproject(pProj, maxZoom));
+                            });
+
+                            let actuallyMoved = false;
+                            poles.forEach((m) => {
+                                let data = action.markers.get(m);
+                                let newLatLng = Object.assign(
+                                    {},
+                                    m.getLatLng(),
+                                );
+                                data.newLatLng = newLatLng;
+                                if (
+                                    data.oldLatLng.lat !== newLatLng.lat ||
+                                    data.oldLatLng.lng !== newLatLng.lng
+                                ) {
+                                    actuallyMoved = true;
+                                }
+                            });
+
+                            if (actuallyMoved) {
+                                undoStack.push(action);
+                                redoStack = [];
+                            }
+                        }
+                    }
+                }
+            });
+
+            // --- 2. MODAL LOGIC (Teleporting via Python) ---
+            async function startSetup() {
+                var loc = document.getElementById("locInput").value;
+                var fileInput = document.getElementById("dxfFile").files[0];
+
+                if (!loc) return alert("Please enter a location to search.");
+                if (!fileInput && !globalDxfPath)
+                    return alert("Please select a DXF file.");
+
+                document.querySelector(".modal-content button").innerText =
+                    "Locating...";
+                var safeLoc = encodeURIComponent(loc);
+
+                try {
+                    let res = await fetch(`/api/geocode?loc=${safeLoc}`);
+                    let data = await res.json();
+
+                    if (data.status === "success") {
+                        map.setView([data.lat, data.lon], 17);
+                        document.getElementById("modal").style.display = "none";
+                        document.getElementById("toolbar").style.display =
+                            "block";
+                    } else {
+                        alert(
+                            "Location not found. Try adding the city name (e.g., 'Mapayapa Village 1, Quezon City').",
+                        );
+                        document.querySelector(
+                            ".modal-content button",
+                        ).innerText = "Start Mapping";
+                    }
+                } catch (error) {
+                    alert(
+                        "Error connecting to your Python server. Make sure uvicorn is running!",
+                    );
+                    document.querySelector(".modal-content button").innerText =
+                        "Start Mapping";
+                }
+            }
+
+            function skipSetup() {
+                var fileInput = document.getElementById("dxfFile").files[0];
+                if (!fileInput && !globalDxfPath) {
+                    return alert("Please select your DXF file first.");
+                }
+                document.getElementById("modal").style.display = "none";
+                document.getElementById("toolbar").style.display = "block";
+            }
+
+            // --- 3. ANCHOR CLICK LOGIC ---
+            map.on("click", function (e) {
+                if (anchorPins.length < 4 && poleMarkers.length === 0) {
+                    var pin = L.marker(e.latlng).addTo(map);
+                    anchorPins.push(pin);
+                    updateAnchorStatus();
+
+                    undoStack.push({ type: "anchor", pin: pin });
+                    redoStack = [];
+                } else if (
+                    poleMarkers.length > 0 &&
+                    !e.originalEvent.shiftKey
+                ) {
+                    Array.from(selectedPoles).forEach((m) =>
+                        setMarkerSelected(m, false),
+                    );
+                }
+            });
+
+            // --- 4. DATA SYNC & BYPASS LOGIC ---
+            let globalDxfPath = null;
+            let globalPoles = []; // Stores the named poles from React
+
+            document.addEventListener("DOMContentLoaded", () => {
+                const urlParams = new URLSearchParams(window.location.search);
+                const path = urlParams.get("dxf_path");
+
+                if (path) {
+                    globalDxfPath = path;
+
+                    // Hide the DXF file input field robustly
+                    const fileInput = document.getElementById("dxfFile");
+                    if (fileInput) fileInput.style.display = "none";
+
+                    const labels = document.querySelectorAll(
+                        ".modal-content label",
+                    );
+                    labels.forEach((label) => {
+                        if (label.textContent.includes("Select DXF File")) {
+                            label.style.display = "none";
+                        }
+                    });
+                }
+
+                // Ping the React app to let it know the georef window is ready for data
+                if (window.opener) {
+                    window.opener.postMessage({ type: "GEO_READY" }, "*");
+                }
+            });
+
+            // Listen for the named poles payload from React
+            window.addEventListener("message", (event) => {
+                if (event.data?.type === "POLE_DATA") {
+                    globalPoles = event.data.payload;
+                    console.log(
+                        "📥 Received active named poles from As-built:",
+                        globalPoles,
+                    );
+                }
+            });
+
+            // --- 5. COMMUNICATE WITH PYTHON ---
+            async function processMap() {
+                document.getElementById("processBtn").innerText =
+                    "Processing...";
+
+                const coords = anchorPins.map((p) => [
+                    p.getLatLng().lat,
+                    p.getLatLng().lng,
+                ]);
+
+                // Send both the DXF path AND the exact named poles over to Python
+                let response = await fetch(
+                    "http://localhost:8000/api/process_map",
+                    {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            dxf_path: globalDxfPath,
+                            anchors: coords,
+                            cad_poles: globalPoles,
+                        }),
+                    },
+                );
+
+                let result = await response.json();
+
+                if (result.status === "success") {
+                    renderPoles(result.poles);
+                    document.getElementById("processBtn").style.display =
+                        "none";
+                    document.getElementById("exportBtn").style.display =
+                        "inline-block";
+                    document.getElementById("status-text").innerText =
+                        "Map generated! Drag poles to adjust.";
+
+                    anchorPins.forEach((p) => map.removeLayer(p));
+                    anchorPins = [];
+                } else {
+                    alert(result.message);
+                    document.getElementById("processBtn").innerText =
+                        "Process DXF";
+                }
+            }
+
+            // --- 6. RENDER & MULTI-DRAG LOGIC ---
+            function renderPoles(poles) {
+                poles.forEach((p) => {
+                    let marker = L.marker([p.lat, p.lon], {
+                        icon: poleIcon,
+                        draggable: true,
+                    }).addTo(map);
+
+                    // 👉 NEW: Attach the visual name tooltip to the marker!
+                    let poleName = p.name || p.id || "Unknown";
+                    marker.bindTooltip(poleName, {
+                        permanent: true,
+                        direction: "right",
+                        className: "pole-tooltip",
+                        offset: [6, 0],
+                    });
+
+                    // Store internal data for sync
+                    marker.idName = poleName;
+                    marker.cad_x = p.cad_x;
+                    marker.cad_y = p.cad_y;
+
+                    // Instant visual selection before drag
+                    marker.on("mousedown", function (e) {
+                        if (e.originalEvent.shiftKey) {
+                            if (selectedPoles.has(marker)) {
+                                setMarkerSelected(marker, false);
+                            } else {
+                                setMarkerSelected(marker, true);
+                            }
+                        } else {
+                            if (!selectedPoles.has(marker)) {
+                                Array.from(selectedPoles).forEach((m) =>
+                                    setMarkerSelected(m, false),
+                                );
+                                setMarkerSelected(marker, true);
+                            }
+                        }
+                    });
+
+                    marker.on("click", function (e) {
+                        if (
+                            !e.originalEvent.shiftKey &&
+                            selectedPoles.has(marker)
+                        ) {
+                            Array.from(selectedPoles).forEach((m) =>
+                                setMarkerSelected(m, false),
+                            );
+                            setMarkerSelected(marker, true);
+                        }
+                    });
+
+                    // Multi-Drag Logic
+                    marker.on("dragstart", function (e) {
+                        if (!selectedPoles.has(marker)) {
+                            Array.from(selectedPoles).forEach((m) =>
+                                setMarkerSelected(m, false),
+                            );
+                            setMarkerSelected(marker, true);
+                        }
+
+                        currentDragAction = {
+                            type: "drag",
+                            markers: new Map(),
+                        };
+                        selectedPoles.forEach((m) => {
+                            currentDragAction.markers.set(m, {
+                                oldLatLng: Object.assign({}, m.getLatLng()),
+                            });
+                        });
+
+                        dragStartCoords.clear();
+                        selectedPoles.forEach((m) =>
+                            dragStartCoords.set(
+                                m,
+                                Object.assign({}, m.getLatLng()),
+                            ),
+                        );
+                        dragStartCoords.set(
+                            "anchor",
+                            Object.assign({}, marker.getLatLng()),
+                        );
+                    });
+
+                    marker.on("drag", function (e) {
+                        let anchorStart = dragStartCoords.get("anchor");
+                        let currentPos = marker.getLatLng();
+
+                        let latDelta = currentPos.lat - anchorStart.lat;
+                        let lngDelta = currentPos.lng - anchorStart.lng;
+
+                        selectedPoles.forEach((m) => {
+                            if (m !== marker) {
+                                let mStart = dragStartCoords.get(m);
+                                m.setLatLng([
+                                    mStart.lat + latDelta,
+                                    mStart.lng + lngDelta,
+                                ]);
+                            }
+                        });
+                    });
+
+                    marker.on("dragend", function (e) {
+                        if (currentDragAction) {
+                            let actuallyMoved = false;
+                            selectedPoles.forEach((m) => {
+                                if (currentDragAction.markers.has(m)) {
+                                    let newLatLng = Object.assign(
+                                        {},
+                                        m.getLatLng(),
+                                    );
+                                    let data = currentDragAction.markers.get(m);
+                                    data.newLatLng = newLatLng;
+                                    if (
+                                        data.oldLatLng.lat !== newLatLng.lat ||
+                                        data.oldLatLng.lng !== newLatLng.lng
+                                    ) {
+                                        actuallyMoved = true;
+                                    }
+                                }
+                            });
+
+                            if (actuallyMoved) {
+                                undoStack.push(currentDragAction);
+                                redoStack = [];
+                            }
+                            currentDragAction = null;
+                        }
+                    });
+
+                    poleMarkers.push(marker);
+                });
+            }
+
+            // --- 7. EXPORT BACK TO AS-BUILT ---
+            function exportCSV() {
+                const payload = poleMarkers.map((m) => ({
+                    cad_x: m.cad_x,
+                    cad_y: m.cad_y,
+                    lat: m.getLatLng().lat,
+                    lon: m.getLatLng().lng,
+                }));
+
+                if (window.opener) {
+                    window.opener.postMessage(
+                        { type: "GEO_COORDINATES", payload: payload },
+                        "*",
+                    );
+                    window.close();
+                } else {
+                    alert("Parent As-built tab not found. Cannot sync data.");
+                }
+            }
+        </script>
+    </body>
+</html>

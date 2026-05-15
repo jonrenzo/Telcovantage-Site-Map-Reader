@@ -46,14 +46,16 @@ export interface DxfLayerData {
 }
 
 export interface PoleTag {
-    pole_id:      number;
-    name:         string;
-    cx:           number;
-    cy:           number;
-    bbox:         [number, number, number, number];
-    layer:        string;
-    source:       string;
-    crop_b64:     string | null;
-    ocr_conf:     number  | null;
-    needs_review: boolean | null;
+    pole_id:        number;
+    name:           string;
+    cx:             number;
+    cy:             number;
+    bbox:           [number, number, number, number];
+    layer:          string;
+    source:         string;
+    crop_b64:       string | null;
+    ocr_conf:       number  | null;
+    needs_review:   boolean | null;
+    map_latitude?:  number;
+    map_longitude?: number;
 }

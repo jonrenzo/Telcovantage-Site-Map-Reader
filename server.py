@@ -17,6 +17,7 @@ Changes from original:
 """
 
 import argparse
+import atexit
 import base64
 import io
 import json
@@ -24,6 +25,7 @@ import math
 import os
 import shutil as _shutil
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -3045,6 +3047,124 @@ def api_planner_projects():
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# GEOREFERENCING  —  Map CAD poles to GPS coordinates
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def transform_coordinate(point, cad_p1, cad_p2, map_p1, map_p2):
+    """Similarity transform: maps a CAD point (x,y) to GPS (lat,lon)
+    using two anchor pairs."""
+    dx_cad = cad_p2[0] - cad_p1[0]
+    dy_cad = cad_p2[1] - cad_p1[1]
+    dx_map = map_p2[1] - map_p1[1]  # Lon delta
+    dy_map = map_p2[0] - map_p1[0]  # Lat delta
+
+    dist_cad = math.hypot(dx_cad, dy_cad)
+    dist_map = math.hypot(dx_map, dy_map)
+    scale = dist_map / dist_cad if dist_cad > 0 else 1.0
+
+    angle_cad = math.atan2(dy_cad, dx_cad)
+    angle_map = math.atan2(dy_map, dx_map)
+    angle_diff = angle_map - angle_cad
+
+    vx = point[0] - cad_p1[0]
+    vy = point[1] - cad_p1[1]
+
+    new_x = (vx * math.cos(angle_diff) - vy * math.sin(angle_diff)) * scale
+    new_y = (vx * math.sin(angle_diff) + vy * math.cos(angle_diff)) * scale
+
+    final_lon = map_p1[1] + new_x
+    final_lat = map_p1[0] + new_y
+    return (final_lat, final_lon)
+
+
+@app.route("/api/geocode")
+def api_geocode():
+    loc = request.args.get("loc", "")
+    if not loc:
+        return jsonify({"status": "error", "message": "loc parameter required"}), 400
+    try:
+        from geopy.geocoders import Nominatim
+        geolocator = Nominatim(user_agent="telco_mapper_app")
+        location = geolocator.geocode(loc)
+        if location:
+            return jsonify({
+                "status": "success",
+                "lat": location.latitude,
+                "lon": location.longitude,
+            })
+        else:
+            return jsonify({"status": "not_found"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)})
+
+
+@app.route("/api/georeference/poles")
+def api_georeference_poles():
+    """Return poles from POLE_STATE formatted for the georeference workflow."""
+    tags = POLE_STATE.get("tags", [])
+    out = []
+    for t in tags:
+        out.append({
+            "id": t.get("pole_id", 0),
+            "name": t.get("name", ""),
+            "cx": t.get("cx", 0),
+            "cy": t.get("cy", 0),
+        })
+    return jsonify({"status": "success", "poles": out})
+
+
+@app.route("/api/georeference/process", methods=["POST"])
+def api_georeference_process():
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"status": "error", "message": "Request body required"}), 400
+
+    anchors = data.get("anchors", [])
+    poles_data = data.get("poles", [])
+
+    if len(anchors) != 4:
+        return jsonify({
+            "status": "error",
+            "message": "Exactly 4 anchor points required"
+        }), 400
+
+    if not poles_data:
+        return jsonify({
+            "status": "error",
+            "message": "No poles provided"
+        }), 400
+
+    # Bounds from GPS anchors
+    lats = [a[0] for a in anchors]
+    lons = [a[1] for a in anchors]
+    map_p1 = (min(lats), min(lons))
+    map_p2 = (max(lats), max(lons))
+
+    # Bounds from CAD poles
+    cxs = [p.get("cx", 0) for p in poles_data]
+    cys = [p.get("cy", 0) for p in poles_data]
+    cad_p1 = (min(cxs), min(cys))
+    cad_p2 = (max(cxs), max(cys))
+
+    mapped = []
+    for p in poles_data:
+        lat, lon = transform_coordinate(
+            (p["cx"], p["cy"]), cad_p1, cad_p2, map_p1, map_p2
+        )
+        mapped.append({
+            "id": p.get("id", 0),
+            "name": p.get("name", ""),
+            "lat": round(lat, 6),
+            "lon": round(lon, 6),
+            "cad_x": p["cx"],
+            "cad_y": p["cy"],
+        })
+
+    return jsonify({"status": "success", "poles": mapped})
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # PUBLIC INTEGRATION API  —  /api/v1/
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -3392,6 +3512,19 @@ def _prewarm_ocr():
 app.register_blueprint(public_api)
 _prewarm_ocr()
 
+_geotool_proc = None
+
+
+def _start_geotool():
+    global _geotool_proc
+    project_root = Path(__file__).parent
+    _geotool_proc = subprocess.Popen(
+        [sys.executable, "-m", "geotool", "--port", "8000"],
+        cwd=str(project_root),
+    )
+    print(f"  GeoTool server -> http://localhost:8000")
+    atexit.register(lambda: _geotool_proc and _geotool_proc.terminate())
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -3406,6 +3539,7 @@ def main():
         print(f"  React dev server: http://localhost:5173")
     print(f"{'=' * 50}\n")
 
+    _start_geotool()
     app.run(host="localhost", port=args.port, debug=True, threaded=True)
 
 

@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "geotool"
+version = "0.1.0"
+description = "Standalone georeferencing tool for CAD pole mapping"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "ezdxf",
+    "geopy",
+    "pydantic",
+]

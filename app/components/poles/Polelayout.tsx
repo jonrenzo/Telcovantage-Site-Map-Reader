@@ -484,73 +484,46 @@ export default function PoleLayout({
     tagsRef.current = tags;
   }, [tags]);
 
+  // ── Geotool popup communication ──────────────────────────────────────────
+
+  // Respond to GEO_READY by sending pole data to the geotool popup
   useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      // NEW: When the georef window opens, it will ask if we are ready. Send the poles!
-      if (event.data?.type === "GEO_READY") {
-        const payload = tagsRef.current.map((t) => ({
+    function handleGeoReady(e: MessageEvent) {
+      if (e.data?.type === "GEO_READY" && e.source) {
+        const payload = tags.map((t) => ({
           id: t.pole_id,
           name: t.name || `POLE_${t.pole_id}`,
           cx: t.cx,
           cy: t.cy,
         }));
-        event.source?.postMessage({ type: "POLE_DATA", payload }, "*");
-        return;
+        (e.source as Window).postMessage({ type: "POLE_DATA", payload }, { targetOrigin: "*" });
       }
+    }
+    window.addEventListener("message", handleGeoReady);
+    return () => window.removeEventListener("message", handleGeoReady);
+  }, [tags]);
 
-      // EXISTING: Sync coordinates back into React
-      if (event.data?.type === "GEO_COORDINATES") {
-        const geoData = event.data.payload;
-        console.log("🌍 Received Data from Georeferencing:", geoData);
-
-        setTags((prevTags) => {
-          let matchCount = 0;
-          const updatedPoles = prevTags.map((pole) => {
-            let bestMatch = null;
-            let minDistance = Infinity;
-
-            geoData.forEach((geoPoint: any) => {
-              if (geoPoint.cad_x === undefined) {
-                console.error(
-                  "Missing cad_x in payload! Check index.html export.",
-                );
-              }
-
-              const dist = Math.hypot(
-                pole.cx - geoPoint.cad_x,
-                pole.cy - geoPoint.cad_y,
-              );
-              if (dist < minDistance) {
-                minDistance = dist;
-                bestMatch = geoPoint;
-              }
-            });
-
-            const TOLERANCE = 100.0;
-
-            if (bestMatch && minDistance < TOLERANCE) {
-              matchCount++;
-              return {
-                ...pole,
-                map_latitude: bestMatch.lat,
-                map_longitude: bestMatch.lon,
-              };
-            }
-            return pole;
-          });
-
-          console.log(
-            `✅ Successfully matched ${matchCount} out of ${prevTags.length} poles!`,
-          );
-          onCacheUpdate({ poleTags: updatedPoles });
-          return updatedPoles;
-        });
+  // Receive GEO_COORDINATES back from geotool and update tags
+  useEffect(() => {
+    function handleGeoCoords(e: MessageEvent) {
+      if (e.data?.type === "GEO_COORDINATES" && Array.isArray(e.data.payload)) {
+        const coordMap = new Map(
+          e.data.payload.map((p: { cad_x: number; cad_y: number; lat: number; lon: number }) => {
+            const key = `${p.cad_x},${p.cad_y}`;
+            return [key, { map_latitude: p.lat, map_longitude: p.lon }];
+          }),
+        );
+        setTags((prev) =>
+          prev.map((t) => {
+            const coords = coordMap.get(`${t.cx},${t.cy}`);
+            return coords ? { ...t, ...coords } : t;
+          }),
+        );
       }
-    };
-
-    window.addEventListener("message", handleMessage);
-    return () => window.removeEventListener("message", handleMessage);
-  }, [onCacheUpdate]);
+    }
+    window.addEventListener("message", handleGeoCoords);
+    return () => window.removeEventListener("message", handleGeoCoords);
+  }, []);
 
   // ── Pan & zoom ────────────────────────────────────────────────────────────
   const handleWheel = useCallback(
