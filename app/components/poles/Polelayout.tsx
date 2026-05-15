@@ -190,7 +190,10 @@ export default function PoleLayout({
   useEffect(() => {
     if (cachedData?.poleDone) {
       setTags(cachedData.poleTags);
-      setScannedLayers(cachedData.poleLayers ?? (cachedData.poleLayer ? [cachedData.poleLayer] : []));
+      setScannedLayers(
+        cachedData.poleLayers ??
+          (cachedData.poleLayer ? [cachedData.poleLayer] : []),
+      );
       setScanStatus("done");
       setScanProgress(cachedData.poleTags.length);
       setScanTotal(cachedData.poleTags.length);
@@ -215,14 +218,11 @@ export default function PoleLayout({
           setTags(data.tags ?? []);
           const nextLayers =
             (Array.isArray(data.layers) ? data.layers : []).filter(
-              (l: unknown): l is string => typeof l === "string" && l.length > 0,
+              (l: unknown): l is string =>
+                typeof l === "string" && l.length > 0,
             ) || [];
           setScannedLayers(
-            nextLayers.length > 0
-              ? nextLayers
-              : data.layer
-                ? [data.layer]
-                : [],
+            nextLayers.length > 0 ? nextLayers : data.layer ? [data.layer] : [],
           );
           clearInterval(timer);
 
@@ -262,7 +262,12 @@ export default function PoleLayout({
       setScanTotal(0);
 
       // Clear pole cache for this file so fresh results replace old ones
-      onCacheUpdate({ poleTags: [], poleLayer: null, poleLayers: [], poleDone: false });
+      onCacheUpdate({
+        poleTags: [],
+        poleLayer: null,
+        poleLayers: [],
+        poleDone: false,
+      });
 
       try {
         await fetch("/api/pole_tags/scan", {
@@ -311,7 +316,9 @@ export default function PoleLayout({
     ctx.scale(vp.scale, -vp.scale);
 
     // Draw base segments
-    ctx.strokeStyle = previewLayer ? "rgba(71,85,105,0.08)" : "rgba(71,85,105,0.18)";
+    ctx.strokeStyle = previewLayer
+      ? "rgba(71,85,105,0.08)"
+      : "rgba(71,85,105,0.18)";
     ctx.lineWidth = 0.8 / vp.scale;
     ctx.beginPath();
     for (const s of canvasSegments) {
@@ -450,7 +457,15 @@ export default function PoleLayout({
   // Make sure changing mask state directly triggers redraw
   useEffect(() => {
     redraw();
-  }, [visibleTags, selectedId, showOnMap, redraw, boundary, isMaskEnabled, previewLayer]);
+  }, [
+    visibleTags,
+    selectedId,
+    showOnMap,
+    redraw,
+    boundary,
+    isMaskEnabled,
+    previewLayer,
+  ]);
 
   useEffect(() => {
     if (!isActive) return;
@@ -460,6 +475,82 @@ export default function PoleLayout({
     }, 30);
     return () => clearTimeout(id);
   }, [isActive, fitView, redraw, canvasSegments.length]);
+
+  // ── Georeferencing Sync Listener ──────────────────────────────────────────
+
+  // Create a ref so our event listener always has the freshest tag data
+  const tagsRef = useRef(tags);
+  useEffect(() => {
+    tagsRef.current = tags;
+  }, [tags]);
+
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      // NEW: When the georef window opens, it will ask if we are ready. Send the poles!
+      if (event.data?.type === "GEO_READY") {
+        const payload = tagsRef.current.map((t) => ({
+          id: t.pole_id,
+          name: t.name || `POLE_${t.pole_id}`,
+          cx: t.cx,
+          cy: t.cy,
+        }));
+        event.source?.postMessage({ type: "POLE_DATA", payload }, "*");
+        return;
+      }
+
+      // EXISTING: Sync coordinates back into React
+      if (event.data?.type === "GEO_COORDINATES") {
+        const geoData = event.data.payload;
+        console.log("🌍 Received Data from Georeferencing:", geoData);
+
+        setTags((prevTags) => {
+          let matchCount = 0;
+          const updatedPoles = prevTags.map((pole) => {
+            let bestMatch = null;
+            let minDistance = Infinity;
+
+            geoData.forEach((geoPoint: any) => {
+              if (geoPoint.cad_x === undefined) {
+                console.error(
+                  "Missing cad_x in payload! Check index.html export.",
+                );
+              }
+
+              const dist = Math.hypot(
+                pole.cx - geoPoint.cad_x,
+                pole.cy - geoPoint.cad_y,
+              );
+              if (dist < minDistance) {
+                minDistance = dist;
+                bestMatch = geoPoint;
+              }
+            });
+
+            const TOLERANCE = 100.0;
+
+            if (bestMatch && minDistance < TOLERANCE) {
+              matchCount++;
+              return {
+                ...pole,
+                map_latitude: bestMatch.lat,
+                map_longitude: bestMatch.lon,
+              };
+            }
+            return pole;
+          });
+
+          console.log(
+            `✅ Successfully matched ${matchCount} out of ${prevTags.length} poles!`,
+          );
+          onCacheUpdate({ poleTags: updatedPoles });
+          return updatedPoles;
+        });
+      }
+    };
+
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [onCacheUpdate]);
 
   // ── Pan & zoom ────────────────────────────────────────────────────────────
   const handleWheel = useCallback(
@@ -595,6 +686,22 @@ export default function PoleLayout({
             <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
           </svg>
         </button>
+
+        {/* Insert Coordinates Button */}
+        {scanStatus === "done" && tags.length > 0 && (
+          <button
+            onClick={() => {
+              // Open FastAPI Georeferencing tool in a new tab
+              window.open(
+                `http://localhost:8000/?dxf_path=${encodeURIComponent(dxfPath)}`,
+                "_blank",
+              );
+            }}
+            className="absolute bottom-16 right-4 z-10 bg-indigo-600 shadow-lg px-4 py-2 rounded-lg font-semibold text-sm text-white hover:bg-indigo-700 transition-all flex items-center gap-2"
+          >
+            🌍 Insert Coordinates
+          </button>
+        )}
 
         {/* Legend */}
         <div className="absolute bottom-4 left-4 bg-white/90 border border-border rounded-lg px-3 py-2 shadow-sm text-[10px] text-muted space-y-1">
@@ -745,18 +852,28 @@ export default function PoleLayout({
                 </span>
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    { label: "X", val: selectedTag.cx },
-                    { label: "Y", val: selectedTag.cy },
-                  ].map(({ label, val }) => (
+                    {
+                      label: (selectedTag as any).map_longitude ? "LONG" : "X",
+                      val: (selectedTag as any).map_longitude ?? selectedTag.cx,
+                      isGps: !!(selectedTag as any).map_longitude,
+                    },
+                    {
+                      label: (selectedTag as any).map_latitude ? "LAT" : "Y",
+                      val: (selectedTag as any).map_latitude ?? selectedTag.cy,
+                      isGps: !!(selectedTag as any).map_latitude,
+                    },
+                  ].map(({ label, val, isGps }) => (
                     <div
                       key={label}
-                      className="bg-surface-2 rounded-lg px-3 py-2 text-center"
+                      className={`rounded-lg px-3 py-2 text-center ${isGps ? "bg-indigo-50 border border-indigo-100" : "bg-surface-2"}`}
                     >
-                      <p className="text-[9px] text-muted uppercase tracking-wider mb-0.5">
+                      <p
+                        className={`text-[9px] uppercase tracking-wider mb-0.5 ${isGps ? "text-indigo-600 font-bold" : "text-muted"}`}
+                      >
                         {label}
                       </p>
                       <p className="font-mono text-xs font-semibold">
-                        {val.toFixed(3)}
+                        {isGps ? val.toFixed(6) : val.toFixed(3)}
                       </p>
                     </div>
                   ))}

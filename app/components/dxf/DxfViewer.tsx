@@ -26,6 +26,8 @@ interface PoleTag {
   bbox: number[];
   layer: string;
   source: string;
+  map_latitude?: number;
+  map_longitude?: number;
 }
 
 interface CableSpan {
@@ -1830,6 +1832,55 @@ export default function DxfViewer({
     [redraw],
   );
 
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      // Ensure you verify the origin in production
+      if (event.data?.type === "GEO_COORDINATES") {
+        const geoData = event.data.payload;
+
+        // Perform the Spatial Join
+        const updatedPoles = polesRef.current.map((pole) => {
+          let bestMatch = null;
+          let minDistance = Infinity;
+
+          geoData.forEach((geoPoint: any) => {
+            // Calculate distance between TrOCR Pole (cx,cy) and Georeferenced Circle (cad_x, cad_y)
+            const dist = Math.hypot(
+              pole.cx - geoPoint.cad_x,
+              pole.cy - geoPoint.cad_y,
+            );
+            if (dist < minDistance) {
+              minDistance = dist;
+              bestMatch = geoPoint;
+            }
+          });
+
+          // If the circle is very close to the text entity, link them!
+          const TOLERANCE = 5.0; // Adjust based on your DXF scale
+          if (bestMatch && minDistance < TOLERANCE) {
+            return {
+              ...pole,
+              map_latitude: bestMatch.lat,
+              map_longitude: bestMatch.lon,
+            };
+          }
+          return pole;
+        });
+
+        // Update state
+        polesRef.current = updatedPoles;
+        setPoles(updatedPoles);
+
+        // Optional: Trigger a save to your Flask backend here so the data persists
+        alert("Coordinates successfully synced from Georeferencing tool!");
+        redraw();
+      }
+    };
+
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [redraw]);
+
   const showAll = useCallback(() => {
     setLayers((prev) => {
       const next = prev.map((l) => ({ ...l, visible: true }));
@@ -2362,6 +2413,21 @@ export default function DxfViewer({
           className="absolute bottom-[8.5rem] right-6 z-10 bg-white/95 backdrop-blur border border-blue-200 shadow-lg px-5 py-2.5 rounded-full font-semibold text-sm text-blue-700 hover:bg-blue-50 transition-all flex items-center gap-2"
         >
           ⚡ Auto-Connect Cables
+        </button>
+      )}
+
+      {!loading && !error && poleScanStatus === "done" && (
+        <button
+          onClick={() => {
+            // Open the tool in a new tab, passing the file path
+            window.open(
+              `http://localhost:8000/?dxf_path=${encodeURIComponent(dxfPath)}`,
+              "_blank",
+            );
+          }}
+          className="absolute bottom-[12.5rem] right-6 z-10 bg-indigo-600 shadow-lg px-5 py-2.5 rounded-full font-semibold text-sm text-white hover:bg-indigo-700 transition-all flex items-center gap-2"
+        >
+          🌍 Insert Coordinates
         </button>
       )}
 
