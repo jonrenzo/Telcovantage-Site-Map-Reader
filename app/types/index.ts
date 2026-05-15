@@ -74,17 +74,10 @@ export interface CableSpanExport {
     to_pole?: string | null;
 }
 
-export interface AsbuiltArea {
-    id:   number;
-    name: string;
-}
-
 export interface AsbuiltSite {
-    id:       number;
-    name:     string;
-    area_id?: number;
-    area?:    string;
-    address?: string | null;
+    id:         number;
+    name:       string;
+    node_count: number;
 }
 
 export interface AsbuiltNode {

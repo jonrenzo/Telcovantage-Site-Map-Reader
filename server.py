@@ -3522,38 +3522,25 @@ def v1_export_poles():
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-@public_api.route("/asbuilt/areas", methods=["GET"])
-def v1_asbuilt_areas():
-    """Proxy to AsBuilt IQ API — list available areas."""
-    try:
-        from app_python.services.asbuilt_api import get_areas
-
-        areas = get_areas()
-        return _v1_ok(areas)
-    except Exception as e:
-        return _v1_err(str(e), 502)
-
-
 @public_api.route("/asbuilt/sites", methods=["GET"])
 def v1_asbuilt_sites():
-    """Proxy to AsBuilt IQ API — list sites, optionally filtered by area_id."""
+    """Proxy to AsBuilt IQ API — list all sites (areas)."""
     try:
         from app_python.services.asbuilt_api import get_sites
 
-        area_id = request.args.get("area_id", type=int)
-        sites = get_sites(area_id=area_id)
+        sites = get_sites()
         return _v1_ok(sites)
     except Exception as e:
         return _v1_err(str(e), 502)
 
 
-@public_api.route("/asbuilt/sites/<int:site_id>/nodes", methods=["GET"])
-def v1_asbuilt_nodes(site_id: int):
-    """Proxy to AsBuilt IQ API — list nodes under a site."""
+@public_api.route("/asbuilt/sites/<int:area_id>/nodes", methods=["GET"])
+def v1_asbuilt_nodes(area_id: int):
+    """Proxy to AsBuilt IQ API — list nodes under an area."""
     try:
         from app_python.services.asbuilt_api import get_nodes
 
-        nodes = get_nodes(site_id)
+        nodes = get_nodes(area_id)
         return _v1_ok(nodes)
     except Exception as e:
         return _v1_err(str(e), 502)

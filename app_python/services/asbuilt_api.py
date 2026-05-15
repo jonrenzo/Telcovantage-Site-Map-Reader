@@ -12,22 +12,14 @@ def _headers():
         "ngrok-skip-browser-warning": "1",
     }
 
-def get_areas():
-    url = f"{PLANNER_API_BASE_URL}/asbuilt/areas"
-    resp = requests.get(url, headers=_headers(), timeout=API_TIMEOUT)
-    resp.raise_for_status()
-    return resp.json()
-
-def get_sites(area_id: int | None = None):
+def get_sites():
     url = f"{PLANNER_API_BASE_URL}/asbuilt/sites"
-    if area_id is not None:
-        url += f"?area_id={area_id}"
     resp = requests.get(url, headers=_headers(), timeout=API_TIMEOUT)
     resp.raise_for_status()
     return resp.json()
 
-def get_nodes(site_id: int):
-    url = f"{PLANNER_API_BASE_URL}/asbuilt/sites/{site_id}/nodes"
+def get_nodes(area_id: int):
+    url = f"{PLANNER_API_BASE_URL}/asbuilt/sites/{area_id}/nodes"
     resp = requests.get(url, headers=_headers(), timeout=API_TIMEOUT)
     resp.raise_for_status()
     return resp.json()

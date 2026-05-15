@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import type { PoleTag, AsbuiltArea, AsbuiltSite, AsbuiltNode, AsbuiltExportResult, CableSpanExport } from "../types";
+import type { PoleTag, AsbuiltSite, AsbuiltNode, AsbuiltExportResult, CableSpanExport } from "../types";
 
 interface Props {
   cableSpans: CableSpanExport[];
@@ -13,8 +13,6 @@ type Step = "gps_check" | "georef_warn" | "site_select" | "posting" | "done" | "
 export default function AsbuiltExportModal({ cableSpans, onClose }: Props) {
   const [step, setStep] = useState<Step>("gps_check");
   const [poles, setPoles] = useState<PoleTag[]>([]);
-  const [areas, setAreas] = useState<AsbuiltArea[]>([]);
-  const [selectedAreaId, setSelectedAreaId] = useState<number | null>(null);
   const [sites, setSites] = useState<AsbuiltSite[]>([]);
   const [selectedSiteId, setSelectedSiteId] = useState<number | null>(null);
   const [nodes, setNodes] = useState<AsbuiltNode[]>([]);
@@ -57,44 +55,14 @@ export default function AsbuiltExportModal({ cableSpans, onClose }: Props) {
 
   useEffect(() => {
     if (step !== "site_select") return;
-    if (areas.length > 0) return;
-    loadAreas();
+    if (sites.length > 0) return;
+    loadSites();
   }, [step]);
 
-  async function loadAreas() {
+  async function loadSites() {
     setLoading(true);
     try {
-      const res = await fetch("/api/v1/asbuilt/areas");
-      const json = await res.json();
-      if (json.ok) {
-        const list = Array.isArray(json.data) ? (json.data as AsbuiltArea[]) : [];
-        setAreas(list);
-      } else {
-        setError(json.error || "Failed to load areas");
-        setStep("error");
-      }
-    } catch (e: any) {
-      setError(e.message);
-      setStep("error");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    setSites([]);
-    setSelectedSiteId(null);
-    setNodes([]);
-    setSelectedNodeId(null);
-    if (selectedAreaId == null) return;
-    loadSites(selectedAreaId);
-  }, [selectedAreaId]);
-
-  async function loadSites(areaId: number) {
-    setLoading(true);
-    try {
-      const url = areaId ? `/api/v1/asbuilt/sites?area_id=${areaId}` : "/api/v1/asbuilt/sites";
-      const res = await fetch(url);
+      const res = await fetch("/api/v1/asbuilt/sites");
       const json = await res.json();
       if (json.ok) {
         const list = Array.isArray(json.data) ? (json.data as AsbuiltSite[]) : [];
@@ -120,12 +88,12 @@ export default function AsbuiltExportModal({ cableSpans, onClose }: Props) {
     loadNodes(selectedSiteId);
   }, [selectedSiteId]);
 
-  async function loadNodes(siteId: number) {
+  async function loadNodes(areaId: number) {
     setLoading(true);
     setNodes([]);
     setSelectedNodeId(null);
     try {
-      const res = await fetch(`/api/v1/asbuilt/sites/${siteId}/nodes`);
+      const res = await fetch(`/api/v1/asbuilt/sites/${areaId}/nodes`);
       const json = await res.json();
       if (json.ok) {
         const data = json.data;
@@ -286,27 +254,6 @@ export default function AsbuiltExportModal({ cableSpans, onClose }: Props) {
                     </span>
                   </div>
 
-                  {/* Area selector */}
-                  {areas.length > 0 && (
-                    <div>
-                      <label className="block text-xs font-semibold text-muted uppercase tracking-wider mb-2">
-                        Area
-                      </label>
-                      <select
-                        value={selectedAreaId ?? ""}
-                        onChange={(e) => setSelectedAreaId(e.target.value ? Number(e.target.value) : null)}
-                        className="w-full px-3 py-2.5 rounded-lg border border-border bg-white text-sm font-medium text-text focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
-                      >
-                        <option value="">All areas...</option>
-                        {areas.map((a) => (
-                          <option key={a.id} value={a.id}>
-                            {a.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
                   {/* Site selector */}
                   <div>
                     <label className="block text-xs font-semibold text-muted uppercase tracking-wider mb-2">
@@ -316,12 +263,11 @@ export default function AsbuiltExportModal({ cableSpans, onClose }: Props) {
                       value={selectedSiteId ?? ""}
                       onChange={(e) => setSelectedSiteId(e.target.value ? Number(e.target.value) : null)}
                       className="w-full px-3 py-2.5 rounded-lg border border-border bg-white text-sm font-medium text-text focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
-                      disabled={selectedAreaId != null && sites.length === 0 && !loading}
                     >
                       <option value="">{loading && sites.length === 0 ? "Loading sites..." : "Select a site..."}</option>
                       {sites.map((s) => (
                         <option key={s.id} value={s.id}>
-                          {s.name}{s.area ? ` (${s.area})` : ""}
+                          {s.name}{s.node_count != null ? ` (${s.node_count} nodes)` : ""}
                         </option>
                       ))}
                     </select>
@@ -360,12 +306,6 @@ export default function AsbuiltExportModal({ cableSpans, onClose }: Props) {
                   {/* Selection summary */}
                   {selectedSite && selectedNode && (
                     <div className="bg-surface-2 rounded-xl px-4 py-3 space-y-1">
-                      {selectedAreaId && (
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted">Area</span>
-                          <span className="font-semibold text-text">{areas.find((a) => a.id === selectedAreaId)?.name}</span>
-                        </div>
-                      )}
                       <div className="flex justify-between text-sm">
                         <span className="text-muted">Site</span>
                         <span className="font-semibold text-text">{selectedSite.name}</span>
