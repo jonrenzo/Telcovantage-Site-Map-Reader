@@ -59,3 +59,34 @@ export interface PoleTag {
     map_latitude?:  number;
     map_longitude?: number;
 }
+
+export interface AsbuiltSite {
+    id:       number;
+    name:     string;
+    area_id?: number;
+    area?:    string;
+    address?: string | null;
+}
+
+export interface AsbuiltNode {
+    id:          number;
+    name:        string;
+    full_label?: string;
+    status?:     string;
+    report_type?: string | null;
+    pole_count?: number;
+}
+
+export interface AsbuiltExportResult {
+    message: string;
+    data?: {
+        node:          { id: number; name: string; report_type: string };
+        poles_created: string[];
+        poles_updated: string[];
+        spans_created: string[];
+        spans_updated: string[];
+        total_poles:   number;
+        total_spans:   number;
+        errors:        string[];
+    };
+}

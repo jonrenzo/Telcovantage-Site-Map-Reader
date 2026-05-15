@@ -1836,33 +1836,23 @@ export default function DxfViewer({
     const handleMessage = (event: MessageEvent) => {
       // Ensure you verify the origin in production
       if (event.data?.type === "GEO_COORDINATES") {
-        const geoData = event.data.payload;
+        const geoData = event.data.payload as any[];
 
-        // Perform the Spatial Join
+        // Perform the Spatial Join — use reduce to avoid closure type ambiguity
+        const TOLERANCE = 5.0;
         const updatedPoles = polesRef.current.map((pole) => {
-          let bestMatch = null;
-          let minDistance = Infinity;
-
-          geoData.forEach((geoPoint: any) => {
-            // Calculate distance between TrOCR Pole (cx,cy) and Georeferenced Circle (cad_x, cad_y)
-            const dist = Math.hypot(
-              pole.cx - geoPoint.cad_x,
-              pole.cy - geoPoint.cad_y,
-            );
-            if (dist < minDistance) {
-              minDistance = dist;
-              bestMatch = geoPoint;
-            }
-          });
-
-          // If the circle is very close to the text entity, link them!
-          const TOLERANCE = 5.0; // Adjust based on your DXF scale
-          if (bestMatch && minDistance < TOLERANCE) {
-            return {
-              ...pole,
-              map_latitude: bestMatch.lat,
-              map_longitude: bestMatch.lon,
-            };
+          const best = geoData.reduce<{ lat: number; lon: number; dist: number } | null>(
+            (acc, geoPoint: any) => {
+              const dist = Math.hypot(pole.cx - geoPoint.cad_x, pole.cy - geoPoint.cad_y);
+              if (dist < TOLERANCE && (!acc || dist < acc.dist)) {
+                return { lat: geoPoint.lat, lon: geoPoint.lon, dist };
+              }
+              return acc;
+            },
+            null,
+          );
+          if (best) {
+            return { ...pole, map_latitude: best.lat, map_longitude: best.lon };
           }
           return pole;
         });

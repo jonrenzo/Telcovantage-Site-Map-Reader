@@ -33,6 +33,7 @@ export default function Header({ step, onBack, exporting, onExport }: Props) {
     { type: "poles", label: "Pole IDs", desc: "Poles only" },
     { type: "pdf", label: "DXF Drawing", desc: "PDF of the drawing" },
     { type: "polemaster", label: "Pole Master", desc: "Push to Planner API" },
+    { type: "asbuilt", label: "AsBuilt IQ", desc: "Push to AsBuilt IQ" },
   ];
 
   const isExporting = exporting !== null;

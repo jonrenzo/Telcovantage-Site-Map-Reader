@@ -11,6 +11,7 @@ import ReviewLayout from "./components/ReviewLayout";
 import DxfViewer from "./components/dxf/DxfViewer";
 import EquipmentLayout from "./components/equipment/EquipmentLayout";
 import PoleLayout from "./components/poles/Polelayout";
+import AsbuiltExportModal from "./components/AsbuiltExportModal";
 
 interface BoundaryPoint {
   x: number;
@@ -53,7 +54,7 @@ export function isPointInPolygon(
 }
 
 type MapTab = "review" | "dxf" | "equipment" | "pole";
-export type ExportType = "all" | "ocr" | "equipment" | "poles" | "pdf" | "polemaster";
+export type ExportType = "all" | "ocr" | "equipment" | "poles" | "pdf" | "polemaster" | "asbuilt";
 
 export default function Home() {
   const [step, setStep] = useState<Step>(1);
@@ -63,6 +64,7 @@ export default function Home() {
   const [segments, setSegments] = useState<Segment[]>([]);
   const [mapTab, setMapTab] = useState<MapTab>("review");
   const [exporting, setExporting] = useState<ExportType | null>(null);
+  const [showAsbuiltModal, setShowAsbuiltModal] = useState(false);
 
   const [globalBoundary, setGlobalBoundary] = useState<BoundaryPoint[] | null>(
     null,
@@ -155,6 +157,12 @@ export default function Home() {
   const handleExport = useCallback(
     async (type: ExportType) => {
       if (exporting) return;
+
+      if (type === "asbuilt") {
+        setShowAsbuiltModal(true);
+        return;
+      }
+
       setExporting(type);
 
       try {
@@ -406,6 +414,9 @@ export default function Home() {
 
           </div>
         </div>
+      )}
+      {showAsbuiltModal && (
+        <AsbuiltExportModal onClose={() => setShowAsbuiltModal(false)} />
       )}
     </div>
   );

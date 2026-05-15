@@ -3487,6 +3487,118 @@ def v1_export_poles():
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# ASBUILT IQ EXPORT  —  /api/v1/asbuilt/
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@public_api.route("/asbuilt/sites", methods=["GET"])
+def v1_asbuilt_sites():
+    """Proxy to AsBuilt IQ API — list available sites."""
+    try:
+        from app_python.services.asbuilt_api import get_sites
+
+        sites = get_sites()
+        return _v1_ok(sites)
+    except Exception as e:
+        return _v1_err(str(e), 502)
+
+
+@public_api.route("/asbuilt/sites/<int:site_id>/nodes", methods=["GET"])
+def v1_asbuilt_nodes(site_id: int):
+    """Proxy to AsBuilt IQ API — list nodes under a site."""
+    try:
+        from app_python.services.asbuilt_api import get_nodes
+
+        nodes = get_nodes(site_id)
+        return _v1_ok(nodes)
+    except Exception as e:
+        return _v1_err(str(e), 502)
+
+
+@public_api.route("/asbuilt/export", methods=["POST"])
+def v1_asbuilt_export():
+    """
+    Export poles from the current session to the AsBuilt IQ API.
+
+    Poles must already have GPS coordinates (map_latitude / map_longitude)
+    set via the GeoTool workflow.
+
+    Request Body
+    ------------
+    {
+        "node_id": 10        # Required — target node on AsBuilt IQ
+    }
+
+    Response
+    --------
+    {
+        "ok": true,
+        "data": {
+            "message": "AsBuilt import completed.",
+            "poles_created": [...],
+            "poles_updated": [...],
+            "errors": [...]
+        }
+    }
+    """
+    body = request.get_json(silent=True) or {}
+    node_id = body.get("node_id")
+    if not node_id:
+        return _v1_err("node_id is required", 400)
+
+    poles = POLE_STATE.get("tags", [])
+    if not poles:
+        return _v1_err("No poles in current session. Run a pole scan first.", 400)
+
+    missing_gps = [
+        p
+        for p in poles
+        if p.get("map_latitude") is None or p.get("map_longitude") is None
+    ]
+    if missing_gps:
+        return _v1_err(
+            f"{len(missing_gps)} of {len(poles)} poles are missing GPS coordinates. "
+            "Use the 'Insert Coordinates' (GeoTool) button in the Pole IDs tab first.",
+            400,
+        )
+
+    asbuilt_poles = []
+    for p in poles:
+        code = (p.get("name") or "").strip().upper()
+        if not code:
+            continue
+        asbuilt_poles.append(
+            {
+                "pole_code": code,
+                "latitude": p.get("map_latitude"),
+                "longitude": p.get("map_longitude"),
+            }
+        )
+
+    if not asbuilt_poles:
+        return _v1_err("No valid poles with names found in session.", 400)
+
+    payload = {"node_id": node_id, "poles": asbuilt_poles}
+
+    try:
+        from app_python.services.asbuilt_api import import_data
+
+        result = import_data(payload)
+        return _v1_ok(result)
+    except Exception as e:
+        status = 502
+        detail = str(e)
+        resp = getattr(e, "response", None)
+        if resp is not None:
+            status = resp.status_code
+            try:
+                detail = resp.json()
+            except Exception:
+                detail = str(e)
+        return _v1_err(f"AsBuilt API error ({status}): {detail}", status)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # STARTUP
 # ─────────────────────────────────────────────────────────────────────────────
 
