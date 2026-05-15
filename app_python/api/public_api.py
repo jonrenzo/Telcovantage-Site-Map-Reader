@@ -391,6 +391,8 @@ def poles():
             "ocr_conf": t.get("ocr_conf"),
             "needs_review": t.get("needs_review"),
             "crop_b64": t.get("crop_b64") if include_crops else None,
+            "map_latitude": t.get("map_latitude"),
+            "map_longitude": t.get("map_longitude"),
         }
         output.append(entry)
 
@@ -402,6 +404,53 @@ def poles():
             "poles": output,
         }
     )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PATCH /api/v1/poles/georeference
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@public_api.route("/poles/georeference", methods=["PATCH"])
+def poles_georeference():
+    """
+    Persist GPS coordinates from the GeoTool back to POLE_STATE.
+
+    Request
+    -------
+    {
+        "poles": [
+            { "pole_id": 1, "map_latitude": 35.123, "map_longitude": -80.456 },
+            ...
+        ]
+    }
+
+    Response
+    --------
+    { "ok": true, "data": { "updated": <count> } }
+    """
+    body = request.get_json(silent=True)
+    if not body or "poles" not in body:
+        return _err("Request body must contain a 'poles' array.", 400)
+
+    pole_state = _get_pole_state()
+    tags = pole_state.get("tags", [])
+    tag_map = {t.get("pole_id"): t for t in tags}
+    updated = 0
+
+    for p in body["poles"]:
+        pid = p.get("pole_id")
+        if pid is None or pid not in tag_map:
+            continue
+        lat = p.get("map_latitude")
+        lon = p.get("map_longitude")
+        if lat is None or lon is None:
+            continue
+        tag_map[pid]["map_latitude"] = lat
+        tag_map[pid]["map_longitude"] = lon
+        updated += 1
+
+    return _ok({"updated": updated})
 
 
 # ─────────────────────────────────────────────────────────────────────────────

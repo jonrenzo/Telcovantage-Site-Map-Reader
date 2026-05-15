@@ -513,12 +513,27 @@ export default function PoleLayout({
             return [key, { map_latitude: p.lat, map_longitude: p.lon }];
           }),
         );
-        setTags((prev) =>
+        const updated = (prev: typeof tags) =>
           prev.map((t) => {
             const coords = coordMap.get(`${t.cx},${t.cy}`);
             return coords ? { ...t, ...coords } : t;
-          }),
-        );
+          });
+        setTags(updated);
+
+        const gpsPoles = updated(tags)
+          .filter((p) => p.map_latitude != null && p.map_longitude != null)
+          .map((p) => ({
+            pole_id: p.pole_id,
+            map_latitude: p.map_latitude,
+            map_longitude: p.map_longitude,
+          }));
+        if (gpsPoles.length > 0) {
+          fetch("/api/v1/poles/georeference", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ poles: gpsPoles }),
+          }).catch(() => {});
+        }
       }
     }
     window.addEventListener("message", handleGeoCoords);

@@ -1861,7 +1861,22 @@ export default function DxfViewer({
         polesRef.current = updatedPoles;
         setPoles(updatedPoles);
 
-        // Optional: Trigger a save to your Flask backend here so the data persists
+        // Persist GPS coords to backend
+        const gpsPoles = updatedPoles
+          .filter((p) => p.map_latitude != null && p.map_longitude != null)
+          .map((p) => ({
+            pole_id: p.pole_id,
+            map_latitude: p.map_latitude,
+            map_longitude: p.map_longitude,
+          }));
+        if (gpsPoles.length > 0) {
+          fetch("/api/v1/poles/georeference", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ poles: gpsPoles }),
+          }).catch(() => {});
+        }
+
         alert("Coordinates successfully synced from Georeferencing tool!");
         redraw();
       }

@@ -3338,6 +3338,8 @@ def v1_poles():
             "ocr_conf": t.get("ocr_conf"),
             "needs_review": t.get("needs_review"),
             "crop_b64": t.get("crop_b64") if include_crops else None,
+            "map_latitude": t.get("map_latitude"),
+            "map_longitude": t.get("map_longitude"),
         }
         for t in tags
     ]
