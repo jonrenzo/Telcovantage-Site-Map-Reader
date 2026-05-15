@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import type { DigitResult, Segment, Step } from "./types";
+import type { CableSpanExport, DigitResult, Segment, Step } from "./types";
 import { usePipeline } from "./hooks/usePipeline";
 import { useSessionCache } from "./hooks/useSessionCache";
 import Header from "./components/Header";
