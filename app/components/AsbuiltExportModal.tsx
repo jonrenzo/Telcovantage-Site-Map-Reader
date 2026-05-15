@@ -1,15 +1,16 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import type { PoleTag, AsbuiltArea, AsbuiltSite, AsbuiltNode, AsbuiltExportResult } from "../types";
+import type { PoleTag, AsbuiltArea, AsbuiltSite, AsbuiltNode, AsbuiltExportResult, CableSpanExport } from "../types";
 
 interface Props {
+  cableSpans: CableSpanExport[];
   onClose: () => void;
 }
 
 type Step = "gps_check" | "georef_warn" | "site_select" | "posting" | "done" | "error";
 
-export default function AsbuiltExportModal({ onClose }: Props) {
+export default function AsbuiltExportModal({ cableSpans, onClose }: Props) {
   const [step, setStep] = useState<Step>("gps_check");
   const [poles, setPoles] = useState<PoleTag[]>([]);
   const [areas, setAreas] = useState<AsbuiltArea[]>([]);
@@ -143,11 +144,22 @@ export default function AsbuiltExportModal({ onClose }: Props) {
   async function handleExport() {
     if (!selectedNodeId) return;
     setStep("posting");
+
+    const spans = cableSpans
+      .filter((s) => s.from_pole && s.to_pole)
+      .map((s) => ({
+        from_pole_code: s.from_pole!.toUpperCase(),
+        to_pole_code: s.to_pole!.toUpperCase(),
+        strand_length: s.total_length,
+        number_of_runs: s.cable_runs || 1,
+        components: { node: 0, amplifier: 0, extender: 0, tsc: 0, powersupply: 0, ps_housing: 0 },
+      }));
+
     try {
       const res = await fetch("/api/v1/asbuilt/import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ node_id: selectedNodeId }),
+        body: JSON.stringify({ node_id: selectedNodeId, spans }),
       });
       const json = await res.json();
       if (json.ok) {
@@ -399,7 +411,7 @@ export default function AsbuiltExportModal({ onClose }: Props) {
                 <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
               </svg>
               <p className="text-sm font-semibold text-text">Posting to AsBuilt IQ...</p>
-              <p className="text-xs text-muted">Importing {gpsCount} poles</p>
+              <p className="text-xs text-muted">{gpsCount} poles, {cableSpans.filter((s) => s.from_pole && s.to_pole).length} spans</p>
             </div>
           )}
 

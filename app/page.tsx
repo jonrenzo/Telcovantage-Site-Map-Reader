@@ -18,20 +18,6 @@ interface BoundaryPoint {
   y: number;
 }
 
-interface CableSpanExport {
-  span_id: number;
-  layer: string;
-  bbox: [number, number, number, number];
-  cx: number;
-  cy: number;
-  segment_count: number;
-  total_length: number;
-  meter_value?: number | null;
-  cable_runs: number;
-  from_pole?: string | null;
-  to_pole?: string | null;
-}
-
 export function isPointInPolygon(
   px: number,
   py: number,
@@ -416,7 +402,10 @@ export default function Home() {
         </div>
       )}
       {showAsbuiltModal && (
-        <AsbuiltExportModal onClose={() => setShowAsbuiltModal(false)} />
+        <AsbuiltExportModal
+          cableSpans={cableSpans}
+          onClose={() => setShowAsbuiltModal(false)}
+        />
       )}
     </div>
   );

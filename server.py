@@ -3572,17 +3572,23 @@ def v1_asbuilt_node(node_id: int):
 
 
 @public_api.route("/asbuilt/import", methods=["POST"])
-def v1_asbuilt_export():
+def v1_asbuilt_import():
     """
-    Export poles from the current session to the AsBuilt IQ API.
-
-    Poles must already have GPS coordinates (map_latitude / map_longitude)
-    set via the GeoTool workflow.
+    Import poles + spans from the current session to the AsBuilt IQ API.
 
     Request Body
     ------------
     {
-        "node_id": 10        # Required — target node on AsBuilt IQ
+        "node_id": 10,                           # Required — target node
+        "spans": [                                # Optional — cable spans
+            {
+                "from_pole_code": "PL-001",
+                "to_pole_code":   "PL-002",
+                "strand_length":  50.5,
+                "number_of_runs": 1,
+                "components": { ... }
+            }
+        ]
     }
 
     Response
@@ -3606,35 +3612,49 @@ def v1_asbuilt_export():
     if not poles:
         return _v1_err("No poles in current session. Run a pole scan first.", 400)
 
-    missing_gps = [
-        p
-        for p in poles
-        if p.get("map_latitude") is None or p.get("map_longitude") is None
-    ]
-    if missing_gps:
-        return _v1_err(
-            f"{len(missing_gps)} of {len(poles)} poles are missing GPS coordinates. "
-            "Use the 'Insert Coordinates' (GeoTool) button in the Pole IDs tab first.",
-            400,
-        )
-
+    # Build pole list (GPS optional per AsBuilt API spec)
     asbuilt_poles = []
+    pole_code_set = set()
     for p in poles:
         code = (p.get("name") or "").strip().upper()
-        if not code:
+        if not code or code in pole_code_set:
             continue
-        asbuilt_poles.append(
-            {
-                "pole_code": code,
-                "latitude": p.get("map_latitude"),
-                "longitude": p.get("map_longitude"),
-            }
-        )
+        pole_code_set.add(code)
+        entry = {"pole_code": code}
+        lat = p.get("map_latitude")
+        lon = p.get("map_longitude")
+        if lat is not None and lon is not None:
+            entry["latitude"] = lat
+            entry["longitude"] = lon
+        asbuilt_poles.append(entry)
 
     if not asbuilt_poles:
         return _v1_err("No valid poles with names found in session.", 400)
 
-    payload = {"node_id": node_id, "poles": asbuilt_poles}
+    payload: dict[str, Any] = {"node_id": node_id, "poles": asbuilt_poles}
+
+    # Attach spans if provided
+    spans = body.get("spans")
+    if spans:
+        span_defaults = {"node": 0, "amplifier": 0, "extender": 0, "tsc": 0, "powersupply": 0, "ps_housing": 0}
+        cleaned = []
+        for s in spans:
+            frm = (s.get("from_pole_code") or "").strip().upper()
+            to = (s.get("to_pole_code") or "").strip().upper()
+            if not frm or not to or frm == to:
+                continue
+            comp = dict(span_defaults)
+            if isinstance(s.get("components"), dict):
+                comp.update(s["components"])
+            cleaned.append({
+                "from_pole_code": frm,
+                "to_pole_code": to,
+                "strand_length": s.get("strand_length", 0),
+                "number_of_runs": s.get("number_of_runs", 1),
+                "components": comp,
+            })
+        if cleaned:
+            payload["spans"] = cleaned
 
     try:
         from app_python.services.asbuilt_api import import_data
