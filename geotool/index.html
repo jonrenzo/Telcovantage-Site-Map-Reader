@@ -7,6 +7,8 @@
             href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         />
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+        <script src="https://unpkg.com/leaflet-imageoverlay-rotated@0.2.1/Leaflet.ImageOverlay.Rotated.js"></script>
+
         <style>
             body {
                 margin: 0;
@@ -110,6 +112,35 @@
             .leaflet-tooltip-right.pole-tooltip::before {
                 border-right-color: rgba(0, 0, 0, 0.8);
             }
+            .transform-controls {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                margin-bottom: 10px;
+            }
+            input[type="range"] {
+                width: 100px;
+            }
+            .handle-marker {
+                background-color: white;
+                border: 2px solid #007bff;
+                border-radius: 50%;
+                cursor: move;
+            }
+            .cad-pop {
+                /* Thickens the lines, boosts contrast, and adds a slight dark edge so light colors stand out */
+                filter: contrast(300%) saturate(200%)
+                    drop-shadow(0px 0px 1px rgba(0, 0, 0, 0.8));
+            }
+            .move-handle {
+                background-color: #28a745;
+                border: 2px solid white;
+                border-radius: 50%;
+                cursor: move;
+                width: 18px !important;
+                height: 18px !important;
+                box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.5);
+            }
         </style>
     </head>
 
@@ -140,14 +171,37 @@
         <div id="map"></div>
         <div id="toolbar">
             <div class="instruction" id="status-text">
-                Click the 4 corners of the subdivision layout.
+                Ready to map. Click Transform or place anchors.
             </div>
-            <button
-                id="processBtn"
-                onclick="processMap()"
-                style="display: none; background: #28a745"
+
+            <div
+                id="visualControls"
+                class="transform-controls"
+                style="display: none"
             >
-                Process DXF
+                <label>Opacity:</label>
+                <input
+                    type="range"
+                    id="opacitySlider"
+                    min="0.1"
+                    max="1"
+                    step="0.1"
+                    value="0.7"
+                />
+                <button
+                    onclick="lockTransformation()"
+                    style="background: #28a745"
+                >
+                    Done
+                </button>
+            </div>
+
+            <button
+                id="transformBtn"
+                onclick="initVisualTransform()"
+                style="background: #6f42c1"
+            >
+                Transform Overlay
             </button>
             <button
                 id="exportBtn"
@@ -156,21 +210,20 @@
             >
                 Save Coordinates to As-built
             </button>
-            <p
-                style="
-                    font-size: 12px;
-                    margin-top: 10px;
-                    color: gray;
-                    line-height: 1.5;
-                "
+            <button
+                id="toggleOverlayBtn"
+                onclick="toggleOverlay()"
+                style="display: none; background: #ffc107; color: black"
             >
-                <i>Shift + Click or Shift + Drag to select multiple poles.</i
-                ><br />
-                <i
-                    >Ctrl+Z (Undo), Ctrl+Y (Redo), Ctrl+D (Deselect), S
-                    (Straighten)</i
-                >
-            </p>
+                Hide Overlay
+            </button>
+            <button
+                id="exportBtn"
+                onclick="exportCSV()"
+                style="display: none; background: #17a2b8"
+            >
+                Save Coordinates to As-built
+            </button>
         </div>
 
         <script>
@@ -280,6 +333,13 @@
 
             // Keyboard shortcuts
             document.addEventListener("keydown", function (e) {
+                // --- NEW: Select All (Ctrl + A) ---
+                if (e.ctrlKey && e.key.toLowerCase() === "a") {
+                    e.preventDefault();
+                    poleMarkers.forEach((m) => setMarkerSelected(m, true));
+                    return; // Stop here so we don't trigger other browser actions
+                }
+                // ----------------------------------
                 if (e.ctrlKey && e.key.toLowerCase() === "z") {
                     e.preventDefault();
                     if (undoStack.length === 0) return;
@@ -700,6 +760,241 @@
                     window.close();
                 } else {
                     alert("Parent As-built tab not found. Cannot sync data.");
+                }
+            }
+
+            // --- VISUAL TRANSFORM LOGIC ---
+            let cadImageOverlay = null;
+            let transformHandles = [];
+            let savedCadBounds = null;
+
+            async function initVisualTransform() {
+                if (!globalDxfPath) return alert("DXF Path not found!");
+
+                document.getElementById("transformBtn").innerText =
+                    "Extracting Layers...";
+                document.getElementById("transformBtn").disabled = true;
+
+                try {
+                    let res = await fetch(
+                        `/api/get_overlay?dxf_path=${encodeURIComponent(globalDxfPath)}`,
+                    );
+                    let json = await res.json();
+
+                    if (json.status !== "success")
+                        throw new Error(json.message);
+
+                    savedCadBounds = json.data.bounds;
+                    let imgBase64 = json.data.image;
+
+                    // Setup initial coordinates based on current map view
+                    let center = map.getCenter();
+                    let offset = 0.002; // Arbitrary starting size
+
+                    let pTopLeft = L.latLng(
+                        center.lat + offset,
+                        center.lng - offset,
+                    );
+                    let pTopRight = L.latLng(
+                        center.lat + offset,
+                        center.lng + offset,
+                    );
+                    let pBottomLeft = L.latLng(
+                        center.lat - offset,
+                        center.lng - offset,
+                    );
+
+                    // Add the Rotated Overlay
+                    cadImageOverlay = L.imageOverlay
+                        .rotated(imgBase64, pTopLeft, pTopRight, pBottomLeft, {
+                            opacity: 0.7,
+                            interactive: true,
+                            className: "cad-pop",
+                        })
+                        .addTo(map);
+
+                    // Create Draggable Handles
+                    let handleIcon = L.divIcon({
+                        className: "handle-marker",
+                        iconSize: [16, 16],
+                        iconAnchor: [8, 8],
+                    });
+
+                    let m1 = L.marker(pTopLeft, {
+                        draggable: true,
+                        icon: handleIcon,
+                    }).addTo(map);
+                    let m2 = L.marker(pTopRight, {
+                        draggable: true,
+                        icon: handleIcon,
+                    }).addTo(map);
+                    let m3 = L.marker(pBottomLeft, {
+                        draggable: true,
+                        icon: handleIcon,
+                    }).addTo(map);
+
+                    // --- NEW: THE MASTER MOVE HANDLE ---
+                    // Calculate the center point
+                    let centerLat = (pTopLeft.lat + pBottomLeft.lat) / 2;
+                    let centerLng = (pTopLeft.lng + pTopRight.lng) / 2;
+
+                    let moveIcon = L.divIcon({
+                        className: "move-handle",
+                        iconSize: [18, 18],
+                        iconAnchor: [9, 9],
+                    });
+                    let moveHandle = L.marker([centerLat, centerLng], {
+                        draggable: true,
+                        icon: moveIcon,
+                    }).addTo(map);
+
+                    transformHandles = [m1, m2, m3];
+
+                    // Logic to move all other handles when the center is dragged
+                    moveHandle.on("dragstart", function () {
+                        this._startPos = this.getLatLng();
+                        this._startTL = m1.getLatLng();
+                        this._startTR = m2.getLatLng();
+                        this._startBL = m3.getLatLng();
+                    });
+
+                    moveHandle.on("drag", function () {
+                        let currentPos = this.getLatLng();
+                        let latDelta = currentPos.lat - this._startPos.lat;
+                        let lngDelta = currentPos.lng - this._startPos.lng;
+
+                        // Shift the 3 corners by the exact same distance
+                        m1.setLatLng([
+                            this._startTL.lat + latDelta,
+                            this._startTL.lng + lngDelta,
+                        ]);
+                        m2.setLatLng([
+                            this._startTR.lat + latDelta,
+                            this._startTR.lng + lngDelta,
+                        ]);
+                        m3.setLatLng([
+                            this._startBL.lat + latDelta,
+                            this._startBL.lng + lngDelta,
+                        ]);
+
+                        // Tell the image to update its position
+                        cadImageOverlay.reposition(
+                            m1.getLatLng(),
+                            m2.getLatLng(),
+                            m3.getLatLng(),
+                        );
+                    });
+                    // -----------------------------------
+
+                    // Bind dragging of corners to image recalculation and move the center handle
+                    function updateOverlay() {
+                        cadImageOverlay.reposition(
+                            m1.getLatLng(),
+                            m2.getLatLng(),
+                            m3.getLatLng(),
+                        );
+
+                        // Keep the green move handle in the middle if corners are dragged
+                        let newCenterLat =
+                            (m1.getLatLng().lat + m3.getLatLng().lat) / 2;
+                        let newCenterLng =
+                            (m1.getLatLng().lng + m2.getLatLng().lng) / 2;
+                        moveHandle.setLatLng([newCenterLat, newCenterLng]);
+                    }
+
+                    m1.on("drag", updateOverlay);
+                    m2.on("drag", updateOverlay);
+                    m3.on("drag", updateOverlay);
+
+                    // Connect Opacity Slider
+                    document
+                        .getElementById("opacitySlider")
+                        .addEventListener("input", function (e) {
+                            cadImageOverlay.setOpacity(e.target.value);
+                        });
+
+                    // UI Updates
+                    document.getElementById("transformBtn").style.display =
+                        "none";
+                    document.getElementById("visualControls").style.display =
+                        "flex";
+                    document.getElementById("status-text").innerText =
+                        "Drag the handles to align the overlay.";
+                } catch (err) {
+                    alert("Error: " + err.message);
+                    document.getElementById("transformBtn").innerText =
+                        "Transform Overlay";
+                    document.getElementById("transformBtn").disabled = false;
+                }
+            }
+
+            let isOverlayVisible = true;
+            function toggleOverlay() {
+                let btn = document.getElementById("toggleOverlayBtn");
+                if (isOverlayVisible) {
+                    map.removeLayer(cadImageOverlay);
+                    btn.innerText = "Show Overlay";
+                } else {
+                    map.addLayer(cadImageOverlay);
+                    btn.innerText = "Hide Overlay";
+                }
+                isOverlayVisible = !isOverlayVisible;
+            }
+
+            async function lockTransformation() {
+                document.getElementById("visualControls").style.display =
+                    "none";
+                document.getElementById("status-text").innerText =
+                    "Calculating precise pole locations...";
+
+                // Capture final GPS coordinates from the handles
+                let finalGpsBounds = {
+                    top_left: [
+                        transformHandles[0].getLatLng().lat,
+                        transformHandles[0].getLatLng().lng,
+                    ],
+                    top_right: [
+                        transformHandles[1].getLatLng().lat,
+                        transformHandles[1].getLatLng().lng,
+                    ],
+                    bottom_left: [
+                        transformHandles[2].getLatLng().lat,
+                        transformHandles[2].getLatLng().lng,
+                    ],
+                };
+
+                let response = await fetch(
+                    "http://localhost:8000/api/process_visual_map",
+                    {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            dxf_path: globalDxfPath,
+                            gps_bounds: finalGpsBounds,
+                            cad_bounds: savedCadBounds,
+                            cad_poles: globalPoles,
+                        }),
+                    },
+                );
+
+                let result = await response.json();
+
+                if (result.status === "success") {
+                    // Remove the interactive handles, but KEEP the image overlay
+                    transformHandles.forEach((m) => map.removeLayer(m));
+
+                    // Render the fully interactive red poles
+                    renderPoles(result.poles);
+
+                    // Show the final buttons
+                    document.getElementById("toggleOverlayBtn").style.display =
+                        "inline-block";
+                    document.getElementById("exportBtn").style.display =
+                        "inline-block";
+                    document.getElementById("status-text").innerText =
+                        "Georeferencing locked. Compare the red poles to the magenta layout.";
+                } else {
+                    alert(result.message);
                 }
             }
         </script>

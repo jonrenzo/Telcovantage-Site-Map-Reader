@@ -12,4 +12,6 @@ dependencies = [
     "ezdxf",
     "geopy",
     "pydantic",
+    "matplotlib",
+    "numpy",
 ]

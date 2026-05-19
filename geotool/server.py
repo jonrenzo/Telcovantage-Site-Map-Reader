@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from .core import extract_cad_poles, transform_coordinate
 from .geocode import geocode
+from .overlay import apply_affine_transform, generate_overlay_png
 
 app = FastAPI()
 
@@ -40,6 +41,37 @@ class MapRequest(BaseModel):
     dxf_path: Optional[str] = None
     anchors: List[Tuple[float, float]]
     cad_poles: List[CadPole] = []
+
+
+class VisualMapRequest(BaseModel):
+    dxf_path: str
+    gps_bounds: dict
+    cad_bounds: dict
+    cad_poles: List[CadPole]
+
+
+@app.get("/api/get_overlay")
+async def get_overlay(dxf_path: str):
+    try:
+        layers = ["road", "stp", "pole", "strand", "0"]
+        data = generate_overlay_png(dxf_path, layers)
+        return {"status": "success", "data": data}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+@app.post("/api/process_visual_map")
+async def process_visual_map(payload: VisualMapRequest):
+    if not payload.cad_poles:
+        return {
+            "status": "error",
+            "message": "No poles received from As-built app.",
+        }
+
+    mapped_poles = apply_affine_transform(
+        payload.cad_poles, payload.cad_bounds, payload.gps_bounds
+    )
+    return {"status": "success", "poles": mapped_poles}
 
 
 @app.post("/api/process_map")
