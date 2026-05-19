@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 from .core import extract_cad_poles, transform_coordinate
 from .geocode import geocode
-from .overlay import apply_affine_transform, generate_overlay_png
+from .overlay import apply_affine_transform, generate_overlay_png, snap_poles_to_circles
 
 app = FastAPI()
 
@@ -67,9 +67,11 @@ async def process_visual_map(payload: VisualMapRequest):
             "status": "error",
             "message": "No poles received from As-built app.",
         }
+    # NEW: Intercept the text coordinates and snap them to the physical circles
+    snapped_poles = snap_poles_to_circles(payload.dxf_path, payload.cad_poles)
 
     mapped_poles = apply_affine_transform(
-        payload.cad_poles, payload.cad_bounds, payload.gps_bounds
+        snapped_poles, payload.cad_bounds, payload.gps_bounds
     )
     return {"status": "success", "poles": mapped_poles}
 

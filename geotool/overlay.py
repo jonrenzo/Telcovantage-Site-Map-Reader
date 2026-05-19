@@ -1,5 +1,6 @@
 import base64
 import io
+import math
 
 import ezdxf
 import matplotlib.pyplot as plt
@@ -129,3 +130,40 @@ def apply_affine_transform(poles, cad_bounds, gps_bounds):
         )
 
     return mapped_poles
+
+
+def snap_poles_to_circles(dxf_filepath, cad_poles):
+    """Finds physical CAD circles and snaps the text coordinates to the nearest circle center."""
+    doc = ezdxf.readfile(dxf_filepath)
+    msp = doc.modelspace()
+
+    # 1. Gather all circle coordinates from pole-related layers
+    circle_centers = []
+    for entity in msp.query("CIRCLE"):
+        layer_name = entity.dxf.layer.lower()
+        # We check for 'pole' and 'npt' just to be safe based on your screenshots
+        if "pole" in layer_name or "npt" in layer_name:
+            circle_centers.append((entity.dxf.center.x, entity.dxf.center.y))
+
+    # If the script can't find any circles, just return the original data
+    if not circle_centers:
+        return cad_poles
+
+    # 2. Compare each incoming text coordinate to the circles and find the closest one
+    for pole in cad_poles:
+        min_dist = float("inf")
+        nearest_center = None
+
+        for cx, cy in circle_centers:
+            # Calculate standard Euclidean distance
+            dist = math.hypot(pole.cx - cx, pole.cy - cy)
+            if dist < min_dist:
+                min_dist = dist
+                nearest_center = (cx, cy)
+
+        # 3. Overwrite the text coordinate with the circle's exact center
+        if nearest_center:
+            pole.cx = nearest_center[0]
+            pole.cy = nearest_center[1]
+
+    return cad_poles
