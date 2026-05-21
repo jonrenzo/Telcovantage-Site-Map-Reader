@@ -3697,14 +3697,17 @@ def _prewarm_ocr():
     except Exception as e:
         print(f"[startup] EasyOCR pre-warm failed: {e}")
 
-    try:
-        from app_python.services.pole_ocr import _load_model as _load_pole
+    if os.environ.get("REMOTE_TROCR_URL"):
+        print("[startup] Pole TrOCR pre-warm skipped (remote mode)")
+    else:
+        try:
+            from app_python.services.pole_ocr import _load_model as _load_pole
 
-        print("[startup] Pre-warming pole TrOCR model...")
-        _load_pole()
-        print("[startup] Pole TrOCR ready.")
-    except Exception as e:
-        print(f"[startup] Pole TrOCR pre-warm failed: {e}")
+            print("[startup] Pre-warming pole TrOCR model...")
+            _load_pole()
+            print("[startup] Pole TrOCR ready.")
+        except Exception as e:
+            print(f"[startup] Pole TrOCR pre-warm failed: {e}")
 
 
 app.register_blueprint(public_api)
