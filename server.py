@@ -63,6 +63,7 @@ def pdf_to_dxf_autocad(pdf_path):
     dxf_path = pdf_path.with_suffix(".dxf")
 
     accore_candidates = [
+        r"C:\Program Files\Autodesk\AutoCAD 2027\accoreconsole.exe",
         r"C:\Program Files\Autodesk\AutoCAD 2026\accoreconsole.exe",
         r"C:\Program Files\Autodesk\AutoCAD 2025\accoreconsole.exe",
         r"C:\Program Files\Autodesk\AutoCAD 2024\accoreconsole.exe",
@@ -2140,7 +2141,17 @@ def export_all_excel(
         pole_fill = openpyxl.styles.PatternFill("solid", fgColor="FEF3C7")
         _write_header_row(
             ws3,
-            ["#", "Pole Name", "Layer", "Source", "Confidence", "X", "Y", "Latitude", "Longitude"],
+            [
+                "#",
+                "Pole Name",
+                "Layer",
+                "Source",
+                "Confidence",
+                "X",
+                "Y",
+                "Latitude",
+                "Longitude",
+            ],
             [8, 28, 20, 10, 12, 12, 12, 14, 14],
             styles,
         )
@@ -3089,14 +3100,17 @@ def api_geocode():
         return jsonify({"status": "error", "message": "loc parameter required"}), 400
     try:
         from geopy.geocoders import Nominatim
+
         geolocator = Nominatim(user_agent="telco_mapper_app")
         location = geolocator.geocode(loc)
         if location:
-            return jsonify({
-                "status": "success",
-                "lat": location.latitude,
-                "lon": location.longitude,
-            })
+            return jsonify(
+                {
+                    "status": "success",
+                    "lat": location.latitude,
+                    "lon": location.longitude,
+                }
+            )
         else:
             return jsonify({"status": "not_found"})
     except Exception as e:
@@ -3109,12 +3123,14 @@ def api_georeference_poles():
     tags = POLE_STATE.get("tags", [])
     out = []
     for t in tags:
-        out.append({
-            "id": t.get("pole_id", 0),
-            "name": t.get("name", ""),
-            "cx": t.get("cx", 0),
-            "cy": t.get("cy", 0),
-        })
+        out.append(
+            {
+                "id": t.get("pole_id", 0),
+                "name": t.get("name", ""),
+                "cx": t.get("cx", 0),
+                "cy": t.get("cy", 0),
+            }
+        )
     return jsonify({"status": "success", "poles": out})
 
 
@@ -3128,16 +3144,12 @@ def api_georeference_process():
     poles_data = data.get("poles", [])
 
     if len(anchors) != 4:
-        return jsonify({
-            "status": "error",
-            "message": "Exactly 4 anchor points required"
-        }), 400
+        return jsonify(
+            {"status": "error", "message": "Exactly 4 anchor points required"}
+        ), 400
 
     if not poles_data:
-        return jsonify({
-            "status": "error",
-            "message": "No poles provided"
-        }), 400
+        return jsonify({"status": "error", "message": "No poles provided"}), 400
 
     # Bounds from GPS anchors
     lats = [a[0] for a in anchors]
@@ -3156,14 +3168,16 @@ def api_georeference_process():
         lat, lon = transform_coordinate(
             (p["cx"], p["cy"]), cad_p1, cad_p2, map_p1, map_p2
         )
-        mapped.append({
-            "id": p.get("id", 0),
-            "name": p.get("name", ""),
-            "lat": round(lat, 6),
-            "lon": round(lon, 6),
-            "cad_x": p["cx"],
-            "cad_y": p["cy"],
-        })
+        mapped.append(
+            {
+                "id": p.get("id", 0),
+                "name": p.get("name", ""),
+                "lat": round(lat, 6),
+                "lon": round(lon, 6),
+                "cad_x": p["cx"],
+                "cad_y": p["cy"],
+            }
+        )
 
     return jsonify({"status": "success", "poles": mapped})
 
@@ -3623,7 +3637,14 @@ def v1_asbuilt_import():
     # Attach spans if provided
     spans = body.get("spans")
     if spans:
-        span_defaults = {"node": 0, "amplifier": 0, "extender": 0, "tsc": 0, "powersupply": 0, "ps_housing": 0}
+        span_defaults = {
+            "node": 0,
+            "amplifier": 0,
+            "extender": 0,
+            "tsc": 0,
+            "powersupply": 0,
+            "ps_housing": 0,
+        }
         cleaned = []
         for s in spans:
             frm = (s.get("from_pole_code") or "").strip().upper()
@@ -3633,13 +3654,15 @@ def v1_asbuilt_import():
             comp = dict(span_defaults)
             if isinstance(s.get("components"), dict):
                 comp.update(s["components"])
-            cleaned.append({
-                "from_pole_code": frm,
-                "to_pole_code": to,
-                "strand_length": s.get("strand_length", 0),
-                "number_of_runs": s.get("number_of_runs", 1),
-                "components": comp,
-            })
+            cleaned.append(
+                {
+                    "from_pole_code": frm,
+                    "to_pole_code": to,
+                    "strand_length": s.get("strand_length", 0),
+                    "number_of_runs": s.get("number_of_runs", 1),
+                    "components": comp,
+                }
+            )
         if cleaned:
             payload["spans"] = cleaned
 
