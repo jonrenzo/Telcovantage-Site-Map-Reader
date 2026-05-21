@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Poppins } from "next/font/google";
 import { JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-import { ChatWidget } from "./components/chat/ChatWidget";
 
 const poppins = Poppins({
   subsets: ["latin"],
@@ -31,7 +30,6 @@ export default function RootLayout({
         className={`${poppins.variable} ${jetbrainsMono.variable} font-sans bg-[#f4f6fb] text-[#1e293b] h-screen overflow-hidden`}
       >
         {children}
-        <ChatWidget />
       </body>
     </html>
   );

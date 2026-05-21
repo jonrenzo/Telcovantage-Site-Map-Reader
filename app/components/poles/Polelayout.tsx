@@ -79,6 +79,14 @@ export default function PoleLayout({
 
   const cropRotation = selectedId !== null ? (rotations[selectedId] ?? 0) : 0;
 
+  // ── Manual pole placement state ─────────────────────────────────────────
+  const [manualMode, setManualMode] = useState(false);
+  const [manualPending, setManualPending] = useState<{
+    cx: number;
+    cy: number;
+  } | null>(null);
+  const [manualValue, setManualValue] = useState("");
+
   function rotateCrop() {
     if (selectedId === null) return;
     setRotations((prev) => ({
@@ -296,6 +304,52 @@ export default function PoleLayout({
         onCacheUpdate({ poleTags: updated });
         return updated;
       });
+    },
+    [onCacheUpdate],
+  );
+
+  // ── Add/Delete handlers ────────────────────────────────────────────────────
+  const handleAddPole = useCallback(
+    (cx: number, cy: number, name: string) => {
+      const nextId =
+        tags.length > 0 ? Math.max(...tags.map((t) => t.pole_id)) + 1 : 1;
+      const newPole: PoleTag = {
+        pole_id: nextId,
+        name: name.toUpperCase(),
+        cx,
+        cy,
+        bbox: [cx - 0.5, cy - 0.5, cx + 0.5, cy + 0.5] as [
+          number,
+          number,
+          number,
+          number,
+        ],
+        layer: scannedLayers[0] ?? "",
+        source: "manual",
+        crop_b64: null,
+        ocr_conf: null,
+        needs_review: false,
+      };
+      setTags((prev) => {
+        const updated = [...prev, newPole];
+        onCacheUpdate({ poleTags: updated });
+        return updated;
+      });
+      setManualPending(null);
+      setManualValue("");
+      setManualMode(false);
+    },
+    [tags, scannedLayers, onCacheUpdate],
+  );
+
+  const handleDeletePole = useCallback(
+    (poleId: number) => {
+      setTags((prev) => {
+        const updated = prev.filter((t) => t.pole_id !== poleId);
+        onCacheUpdate({ poleTags: updated });
+        return updated;
+      });
+      setSelectedId((prev) => (prev === poleId ? null : prev));
     },
     [onCacheUpdate],
   );
@@ -604,11 +658,19 @@ export default function PoleLayout({
       const vp = vpRef.current;
       const wx = (e.clientX - rect.left - vp.x) / vp.scale;
       const wy = -(e.clientY - rect.top - vp.y) / vp.scale;
+
+      // If in manual mode, capture the click location for adding a pole
+      if (manualMode) {
+        setManualPending({ cx: wx, cy: wy });
+        setManualValue("");
+        return;
+      }
+
       const r = Math.max(1.0, 12 / vp.scale);
 
       let closest: PoleTag | null = null;
       let bestD = Infinity;
-      // --- NEW 5: Hit test against visibleTags instead of all tags ---
+      // Hit test against visibleTags
       for (const tag of visibleTagsRef.current) {
         const d = Math.hypot(tag.cx - wx, tag.cy - wy);
         if (d < r && d < bestD) {
@@ -618,7 +680,7 @@ export default function PoleLayout({
       }
       setSelectedId(closest ? closest.pole_id : null);
     },
-    [],
+    [manualMode],
   );
 
   // Safely grab the selected tag from the filtered array
@@ -644,6 +706,14 @@ export default function PoleLayout({
         scanProgress={scanProgress}
         scanTotal={scanTotal}
         onRenamePole={handleRenamePole}
+        onDeletePole={handleDeletePole}
+        manualMode={manualMode}
+        onToggleManual={() => {
+          setManualMode((m) => !m);
+          setManualPending(null);
+          setManualValue("");
+          setSelectedId(null);
+        }}
       />
 
       <div className="flex-1 relative bg-[#f8fafc] overflow-hidden">
@@ -674,6 +744,13 @@ export default function PoleLayout({
             <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
           </svg>
         </button>
+
+        {/* Manual mode indicator */}
+        {manualMode && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 bg-[#8b5cf6] text-white text-xs font-semibold px-3 py-1.5 rounded-full shadow-lg pointer-events-none">
+            Click on the map to place a new pole
+          </div>
+        )}
 
         {/* Insert Coordinates Button */}
         {scanStatus === "done" && tags.length > 0 && (
@@ -706,6 +783,76 @@ export default function PoleLayout({
             <span>Stroked polylines</span>
           </div>
         </div>
+
+        {/* ── Manual pole placement popup ── */}
+        {manualPending && (
+          <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/10 backdrop-blur-[1px]">
+            <div className="bg-white rounded-xl shadow-2xl border border-border p-5 w-72">
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-sm font-semibold">Add Pole Manually</p>
+                <button
+                  onClick={() => {
+                    setManualPending(null);
+                    setManualValue("");
+                  }}
+                  className="w-5 h-5 rounded-full bg-surface-2 flex items-center justify-center text-muted text-xs hover:bg-border transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+              <p className="text-xs text-muted mb-3 font-mono">
+                ({manualPending.cx.toFixed(2)}, {manualPending.cy.toFixed(2)})
+              </p>
+              <input
+                autoFocus
+                type="text"
+                value={manualValue}
+                onChange={(e) => setManualValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && manualValue.trim())
+                    handleAddPole(
+                      manualPending.cx,
+                      manualPending.cy,
+                      manualValue,
+                    );
+                  if (e.key === "Escape") {
+                    setManualPending(null);
+                    setManualValue("");
+                  }
+                }}
+                placeholder="Enter pole name…"
+                className="w-full border border-border rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-[#f59e0b]/30 font-mono"
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    setManualPending(null);
+                    setManualValue("");
+                  }}
+                  className="flex-1 px-3 py-2 rounded-lg text-sm border border-border text-muted hover:bg-surface-2 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() =>
+                    handleAddPole(
+                      manualPending.cx,
+                      manualPending.cy,
+                      manualValue,
+                    )
+                  }
+                  disabled={!manualValue.trim()}
+                  className="flex-1 px-3 py-2 rounded-lg text-sm bg-[#f59e0b] text-white font-medium hover:bg-[#d97706] disabled:opacity-40 transition-colors"
+                >
+                  Confirm
+                </button>
+              </div>
+              <p className="text-[10px] text-muted-2 text-center mt-2">
+                Enter to confirm · Esc to cancel
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Selected pole detail panel */}
         {selectedTag && (
@@ -912,6 +1059,24 @@ export default function PoleLayout({
                     )}
                   </>
                 )}
+
+              {/* ── Delete pole button ── */}
+              <div className="h-px bg-border" />
+              <button
+                onClick={() => handleDeletePole(selectedTag.pole_id)}
+                className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-[#dc2626] border border-[#fecaca] hover:bg-[#fef2f2] transition-colors"
+              >
+                <svg
+                  className="w-3.5 h-3.5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+                </svg>
+                Delete this pole
+              </button>
             </div>
           </div>
         )}

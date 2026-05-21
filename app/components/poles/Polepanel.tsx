@@ -19,6 +19,9 @@ interface Props {
   scanProgress: number;
   scanTotal: number;
   onRenamePole: (poleId: number, newName: string) => void;
+  onDeletePole: (poleId: number) => void;
+  manualMode: boolean;
+  onToggleManual: () => void;
 }
 
 type SortMode = "name" | "position";
@@ -49,6 +52,9 @@ export default function PolePanel({
   scanProgress,
   scanTotal,
   onRenamePole,
+  onDeletePole,
+  manualMode,
+  onToggleManual,
 }: Props) {
   const [selectedLayers, setSelectedLayers] = useState<string[]>([]);
   const [isLayerMenuOpen, setIsLayerMenuOpen] = useState(false);
@@ -605,6 +611,32 @@ export default function PolePanel({
                       Save
                     </button>
                   </div>
+
+                  {/* ── Inline delete ── */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (
+                        window.confirm(
+                          `Delete pole "${tag.name || `POLE_${tag.pole_id}`}"?`,
+                        )
+                      ) {
+                        onDeletePole(tag.pole_id);
+                      }
+                    }}
+                    className="w-full flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-[10px] font-semibold text-[#dc2626] border border-[#fecaca] hover:bg-[#fef2f2] transition-colors"
+                  >
+                    <svg
+                      className="w-3 h-3"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+                    </svg>
+                    Delete pole
+                  </button>
                 </div>
               )}
             </div>
@@ -614,18 +646,57 @@ export default function PolePanel({
 
       {/* ── Footer ─────────────────────────────────────────────────── */}
       {tags.length > 0 && (
-        <div className="px-3 py-2 border-t border-border text-[10px] text-muted flex-shrink-0 flex justify-between">
-          <span>
-            {sorted.length} / {tags.length} poles
-          </span>
-          {search && (
-            <button
-              onClick={() => setSearch("")}
-              className="text-[#f59e0b] hover:underline"
-            >
-              Clear
-            </button>
-          )}
+        <div className="px-3 py-2 border-t border-border text-[10px] text-muted flex-shrink-0 flex flex-col gap-1.5">
+          <div className="flex justify-between items-center">
+            <span>
+              {sorted.length} / {tags.length} poles
+            </span>
+            {search && (
+              <button
+                onClick={() => setSearch("")}
+                className="text-[#f59e0b] hover:underline"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+          {/* ── Add Pole button ── */}
+          <button
+            onClick={onToggleManual}
+            className={`w-full flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[10px] font-semibold border transition-colors ${
+              manualMode
+                ? "bg-[#8b5cf6] text-white border-[#8b5cf6]"
+                : "bg-[#f5f3ff] text-[#8b5cf6] border-[#ddd6fe] hover:bg-[#ede9fe]"
+            }`}
+          >
+            {manualMode ? (
+              <>
+                <svg
+                  className="w-3 h-3"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                >
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+                Cancel — Click map to place
+              </>
+            ) : (
+              <>
+                <svg
+                  className="w-3 h-3"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                >
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+                Add Pole
+              </>
+            )}
+          </button>
         </div>
       )}
     </div>
