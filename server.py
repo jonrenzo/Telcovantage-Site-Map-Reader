@@ -3616,12 +3616,23 @@ def v1_asbuilt_import():
     # Build pole list (GPS optional per AsBuilt API spec)
     asbuilt_poles = []
     pole_code_set = set()
+
     for p in poles:
         code = (p.get("name") or "").strip().upper()
-        if not code or code in pole_code_set:
-            continue
+
+        # --- FIX: Handle missing or duplicate pole names ---
+        # If the OCR didn't catch a name at all, generate a unique ID
+        if not code:
+            code = f"UNNAMED-{uuid.uuid4().hex[:6].upper()}"
+
+        # If the name is already in the set (e.g. multiple "NPT" poles), append a random ID
+        if code in pole_code_set:
+            code = f"{code}-{uuid.uuid4().hex[:6].upper()}"
+        # ---------------------------------------------------
+
         pole_code_set.add(code)
         entry = {"pole_code": code}
+
         lat = p.get("map_latitude")
         lon = p.get("map_longitude")
         if lat is not None and lon is not None:
@@ -3630,7 +3641,7 @@ def v1_asbuilt_import():
         asbuilt_poles.append(entry)
 
     if not asbuilt_poles:
-        return _v1_err("No valid poles with names found in session.", 400)
+        return _v1_err("No valid poles found in session.", 400)
 
     payload: dict[str, Any] = {"node_id": node_id, "poles": asbuilt_poles}
 
