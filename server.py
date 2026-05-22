@@ -3613,19 +3613,41 @@ def v1_asbuilt_node(node_id: int):
 @public_api.route("/asbuilt/import", methods=["POST"])
 def v1_asbuilt_import():
     """
-    Import poles + spans from the current session to the AsBuilt IQ API.
+    Import poles + spans to the AsBuilt IQ API.
 
     Request Body
     ------------
     {
-        "node_id": 10,                           # Required — target node
-        "spans": [                                # Optional — cable spans
+        "node_id":   "TY1401",            # Required — VARCHAR node identifier
+        "node_name": "MONTEVISTA SUBD.",  # Required — node name
+        "area_id":   1,                   # Required — area/site database ID
+        "region":    "CALABARZON",        # Optional
+        "province":  "LAGUNA",            # Optional
+        "city":      "STA. ROSA",         # Optional
+        "barangay_code": "043428001",     # Optional
+        "barangay_name": "Balibago",       # Optional
+        "poles": [                         # Required
+            {
+                "pole_code": "PL-001",
+                "latitude":  14.539770,
+                "longitude": 121.109219,
+                "region":    "CALABARZON",
+                "province":  "LAGUNA",
+                "city":      "STA. ROSA",
+                "barangay_code": "043428001",
+                "barangay_name": "Balibago"
+            }
+        ],
+        "spans": [                         # Optional
             {
                 "from_pole_code": "PL-001",
                 "to_pole_code":   "PL-002",
                 "strand_length":  50.5,
                 "number_of_runs": 1,
-                "components": { ... }
+                "components": {
+                    "node": 2, "amplifier": 1, "extender": 0,
+                    "tsc": 1, "powersupply": 0, "ps_housing": 0
+                }
             }
         ]
     }
@@ -3636,63 +3658,51 @@ def v1_asbuilt_import():
         "ok": true,
         "data": {
             "message": "AsBuilt import completed.",
-            "poles_created": [...],
-            "poles_updated": [...],
-            "errors": [...]
+            "data": {
+                "node": { ... },
+                "poles_created": [...],
+                "poles_updated": [...],
+                "spans_created": [...],
+                "spans_updated": [...],
+                "total_poles": 3,
+                "total_spans": 2,
+                "errors": []
+            }
         }
     }
     """
     body = request.get_json(silent=True) or {}
     node_id = body.get("node_id")
     if not node_id:
-        return _v1_err("node_id is required", 400)
+        return _v1_err("node_id (VARCHAR) is required", 400)
+    node_name = body.get("node_name")
+    if not node_name:
+        return _v1_err("node_name is required", 400)
 
-    poles = body.get("poles", POLE_STATE.get("tags", []))
-    if not poles:
-        return _v1_err("No poles in current session. Run a pole scan first.", 400)
+    poles = body.get("poles")
+    if not poles or not isinstance(poles, list) or len(poles) == 0:
+        return _v1_err("poles array is required", 400)
 
-    # Build pole list (GPS optional per AsBuilt API spec)
-    asbuilt_poles = []
-    pole_code_set = set()
+    # Build payload — frontend already handles format, area data, and dedup
+    payload: dict[str, Any] = {
+        "node_id": node_id,
+        "node_name": node_name,
+        "area_id": body.get("area_id"),
+        "poles": poles,
+    }
 
-    for p in poles:
-        code = (p.get("name") or "").strip().upper()
+    # Pass through optional area fields
+    for field in ("region", "province", "city", "barangay_code", "barangay_name"):
+        val = body.get(field)
+        if val:
+            payload[field] = val
 
-        # --- FIX: Handle missing or duplicate pole names ---
-        # If the OCR didn't catch a name at all, generate a unique ID
-        if not code:
-            code = f"UNNAMED-{uuid.uuid4().hex[:6].upper()}"
-
-        # If the name is already in the set (e.g. multiple "NPT" poles), append a random ID
-        if code in pole_code_set:
-            code = f"{code}-{uuid.uuid4().hex[:6].upper()}"
-        # ---------------------------------------------------
-
-        pole_code_set.add(code)
-        entry = {"pole_code": code}
-
-        lat = p.get("map_latitude")
-        lon = p.get("map_longitude")
-        if lat is not None and lon is not None:
-            entry["latitude"] = lat
-            entry["longitude"] = lon
-        asbuilt_poles.append(entry)
-
-    if not asbuilt_poles:
-        return _v1_err("No valid poles found in session.", 400)
-
-    payload: dict[str, Any] = {"node_id": node_id, "poles": asbuilt_poles}
-
-    # Attach spans if provided
+    # Attach spans with component defaults
     spans = body.get("spans")
-    if spans:
+    if spans and isinstance(spans, list):
         span_defaults = {
-            "node": 0,
-            "amplifier": 0,
-            "extender": 0,
-            "tsc": 0,
-            "powersupply": 0,
-            "ps_housing": 0,
+            "node": 0, "amplifier": 0, "extender": 0,
+            "tsc": 0, "powersupply": 0, "ps_housing": 0,
         }
         cleaned = []
         for s in spans:
@@ -3703,15 +3713,13 @@ def v1_asbuilt_import():
             comp = dict(span_defaults)
             if isinstance(s.get("components"), dict):
                 comp.update(s["components"])
-            cleaned.append(
-                {
-                    "from_pole_code": frm,
-                    "to_pole_code": to,
-                    "strand_length": s.get("strand_length", 0),
-                    "number_of_runs": s.get("number_of_runs", 1),
-                    "components": comp,
-                }
-            )
+            cleaned.append({
+                "from_pole_code": frm,
+                "to_pole_code": to,
+                "strand_length": s.get("strand_length", 0),
+                "number_of_runs": s.get("number_of_runs", 1),
+                "components": comp,
+            })
         if cleaned:
             payload["spans"] = cleaned
 

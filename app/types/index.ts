@@ -14,9 +14,9 @@ export interface DigitResult {
     bbox:            [number, number, number, number];
     center_x:        number;
     center_y:        number;
-    crop_b64:        string | null;   // null for manually added entries
-    manual?:         boolean;         // true for manually placed digits
-    pole_id?:        string | null;   // assigned when pole backend is connected
+    crop_b64:        string | null;
+    manual?:         boolean;
+    pole_id?:        string | null;
 }
 
 export type PipelineStatus = "idle" | "processing" | "done" | "error";
@@ -81,18 +81,20 @@ export interface AsbuiltSite {
 }
 
 export interface AsbuiltNode {
-    id:          number;
-    name:        string;
-    full_label?: string;
-    status?:     string;
+    id:           number;
+    node_id:      string;
+    name:         string;
+    full_label?:  string;
+    status?:      string;
     report_type?: string | null;
-    pole_count?: number;
+    source_file?: string | null;
+    pole_count?:  number;
 }
 
 export interface AsbuiltExportResult {
     message: string;
     data?: {
-        node:          { id: number; name: string; report_type: string };
+        node:          { id: number; node_id: string; name: string; report_type: string; source_file?: string };
         poles_created: string[];
         poles_updated: string[];
         spans_created: string[];
@@ -101,4 +103,77 @@ export interface AsbuiltExportResult {
         total_spans:   number;
         errors:        string[];
     };
+}
+
+export interface ManualNodeForm {
+    node_id:       string;
+    node_name:     string;
+    region:        string;
+    province:      string;
+    city:          string;
+    barangay_code: string;
+    barangay_name: string;
+}
+
+export interface PoleAreaData {
+    region:        string;
+    province:      string;
+    city:          string;
+    barangay_code: string;
+    barangay_name: string;
+}
+
+export interface AsbuiltPole {
+    skycable_pole_id: number;
+    pole_id:          number;
+    pole_code:        string;
+    sequence:         number;
+    latitude:         number;
+    longitude:        number;
+    region?:          string;
+    province?:        string;
+    city?:            string;
+    barangay_code?:   string;
+    barangay_name?:   string;
+    status:           string;
+    date_start:       string | null;
+    finished_at:      string | null;
+    duration:         number | null;
+}
+
+export interface AsbuiltSpan {
+    span_id:        number;
+    from_pole_code: string;
+    to_pole_code:   string;
+    strand_length:  number;
+    number_of_runs: number;
+    expected_cable: number;
+    status:         string;
+    components: {
+        node:         number;
+        amplifier:    number;
+        extender:     number;
+        tsc:          number;
+        powersupply:  number;
+        ps_housing:   number;
+    };
+}
+
+export interface VerifyNodeResponse {
+    node: {
+        id:            number;
+        node_id:       string;
+        name:          string;
+        area:          string;
+        region?:       string;
+        province?:     string;
+        city?:         string;
+        barangay_code?: string;
+        barangay_name?: string;
+        report_type:   string;
+        source_file:   string;
+        status:        string;
+    };
+    poles: AsbuiltPole[];
+    spans: AsbuiltSpan[];
 }
