@@ -345,6 +345,8 @@ export default function DxfViewer({
   const nextSpanIdRef = useRef<number>(1);
   const exportPdfFnRef = useRef<(() => void) | null>(null);
 
+  const hasAutoConnectedRef = useRef(false);
+
   useEffect(() => {
     if (onExportPdfRef) {
       onExportPdfRef.current = () => exportPdfFnRef.current?.();
@@ -1032,16 +1034,50 @@ export default function DxfViewer({
       try {
         const res = await fetch("/api/pole_tags");
         const data = await res.json();
-        if (data.status) setPoleScanStatus(data.status);
-        if (data.status === "done" && data.tags) {
-          polesRef.current = data.tags;
-          setPoles(data.tags);
-          if (showPolesRef.current) redraw();
+
+        if (data.status) {
+          if (data.status === "processing" || data.status === "idle") {
+            hasAutoConnectedRef.current = false; // Reset lock for new scans
+          }
+          setPoleScanStatus(data.status);
+        }
+
+        // CRITICAL FIX: Only overwrite local poles if the backend is actively
+        // processing a NEW scan, or on the exact moment it finishes.
+        // Once finished, we ignore the backend tags so manual edits are preserved.
+        if (
+          data.status === "processing" ||
+          (data.status === "done" && poleScanStatus !== "done")
+        ) {
+          if (data.tags) {
+            polesRef.current = data.tags;
+            setPoles(data.tags);
+            if (showPolesRef.current) redraw();
+          }
         }
       } catch (e) {}
     }, 2000);
     return () => clearInterval(poll);
-  }, [redraw]);
+  }, [poleScanStatus, redraw]); // Added poleScanStatus to dependencies
+
+  // ADD THIS NEW USEEFFECT
+  useEffect(() => {
+    if (
+      poleScanStatus === "done" &&
+      poles.length > 0 &&
+      cableSpans.length > 0 &&
+      !hasAutoConnectedRef.current
+    ) {
+      // 1. Lock immediately to prevent race conditions
+      hasAutoConnectedRef.current = true;
+
+      // 2. Use a slight timeout so the UI paints the loaded poles
+      // before blocking the main thread with distance calculations
+      setTimeout(() => {
+        autoConnectPoles();
+      }, 50);
+    }
+  }, [poleScanStatus, poles.length, cableSpans.length, autoConnectPoles]);
 
   const togglePoles = () => {
     const next = !showPoles;
@@ -1733,6 +1769,9 @@ export default function DxfViewer({
     deletedSpansRef.current = [];
     setDeletedSpans([]);
     setCableLayerNames([]);
+
+    hasAutoConnectedRef.current = false;
+
     Promise.all([
       fetch("/api/dxf_segments").then((r) => r.json()),
       fetch("/api/cable_spans").then((r) => r.json()),
@@ -1834,34 +1873,34 @@ export default function DxfViewer({
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
-      // Ensure you verify the origin in production
+      // 1. Existing Georeferencing Logic
       if (event.data?.type === "GEO_COORDINATES") {
         const geoData = event.data.payload as any[];
-
-        // Perform the Spatial Join — use reduce to avoid closure type ambiguity
         const TOLERANCE = 5.0;
         const updatedPoles = polesRef.current.map((pole) => {
-          const best = geoData.reduce<{ lat: number; lon: number; dist: number } | null>(
-            (acc, geoPoint: any) => {
-              const dist = Math.hypot(pole.cx - geoPoint.cad_x, pole.cy - geoPoint.cad_y);
-              if (dist < TOLERANCE && (!acc || dist < acc.dist)) {
-                return { lat: geoPoint.lat, lon: geoPoint.lon, dist };
-              }
-              return acc;
-            },
-            null,
-          );
+          const best = geoData.reduce<{
+            lat: number;
+            lon: number;
+            dist: number;
+          } | null>((acc, geoPoint: any) => {
+            const dist = Math.hypot(
+              pole.cx - geoPoint.cad_x,
+              pole.cy - geoPoint.cad_y,
+            );
+            if (dist < TOLERANCE && (!acc || dist < acc.dist)) {
+              return { lat: geoPoint.lat, lon: geoPoint.lon, dist };
+            }
+            return acc;
+          }, null);
           if (best) {
             return { ...pole, map_latitude: best.lat, map_longitude: best.lon };
           }
           return pole;
         });
 
-        // Update state
         polesRef.current = updatedPoles;
         setPoles(updatedPoles);
 
-        // Persist GPS coords to backend
         const gpsPoles = updatedPoles
           .filter((p) => p.map_latitude != null && p.map_longitude != null)
           .map((p) => ({
@@ -1880,11 +1919,64 @@ export default function DxfViewer({
         alert("Coordinates successfully synced from Georeferencing tool!");
         redraw();
       }
+
+      // 2. Real-Time Pole Updates & Cascading Span Updates
+      if (event.data?.type === "POLE_UPDATE") {
+        const { action, pole } = event.data.payload;
+        let updatedPoles = [...polesRef.current];
+
+        if (action === "ADD") {
+          updatedPoles.push(pole);
+        } else if (action === "UPDATE") {
+          // Find the old pole to get its previous name
+          const oldPole = updatedPoles.find((p) => p.pole_id === pole.pole_id);
+          const oldName = oldPole?.name;
+
+          updatedPoles = updatedPoles.map((p) =>
+            p.pole_id === pole.pole_id ? { ...p, ...pole } : p,
+          );
+
+          // CASCADE RENAME TO CABLE SPANS
+          if (oldName && pole.name && oldName !== pole.name) {
+            const newSpans = cableSpansRef.current.map((span) => {
+              let updated = { ...span };
+              if (updated.from_pole === oldName) updated.from_pole = pole.name;
+              if (updated.to_pole === oldName) updated.to_pole = pole.name;
+              return updated;
+            });
+            cableSpansRef.current = newSpans;
+            setCableSpans(newSpans);
+            notifySpansChange(newSpans);
+          }
+        } else if (action === "DELETE") {
+          const oldPole = updatedPoles.find((p) => p.pole_id === pole.pole_id);
+          const oldName = oldPole?.name;
+
+          updatedPoles = updatedPoles.filter((p) => p.pole_id !== pole.pole_id);
+
+          // CASCADE DELETE TO CABLE SPANS
+          if (oldName) {
+            const newSpans = cableSpansRef.current.map((span) => {
+              let updated = { ...span };
+              if (updated.from_pole === oldName) updated.from_pole = undefined;
+              if (updated.to_pole === oldName) updated.to_pole = undefined;
+              return updated;
+            });
+            cableSpansRef.current = newSpans;
+            setCableSpans(newSpans);
+            notifySpansChange(newSpans);
+          }
+        }
+
+        polesRef.current = updatedPoles;
+        setPoles(updatedPoles);
+        redraw();
+      }
     };
 
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
-  }, [redraw]);
+  }, [redraw, notifySpansChange]);
 
   const showAll = useCallback(() => {
     setLayers((prev) => {

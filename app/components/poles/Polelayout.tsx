@@ -300,6 +300,17 @@ export default function PoleLayout({
             ? { ...t, name: newName, needs_review: false }
             : t,
         );
+        // ADD THIS: Tell DxfViewer the name changed
+        window.postMessage(
+          {
+            type: "POLE_UPDATE",
+            payload: {
+              action: "UPDATE",
+              pole: { pole_id: poleId, name: newName },
+            },
+          },
+          "*",
+        );
         // Keep cache in sync with renamed tags
         onCacheUpdate({ poleTags: updated });
         return updated;
@@ -333,6 +344,11 @@ export default function PoleLayout({
       setTags((prev) => {
         const updated = [...prev, newPole];
         onCacheUpdate({ poleTags: updated });
+        // ADD THIS: Tell DxfViewer a new pole exists
+        window.postMessage(
+          { type: "POLE_UPDATE", payload: { action: "ADD", pole: newPole } },
+          "*",
+        );
         return updated;
       });
       setManualPending(null);
@@ -347,6 +363,14 @@ export default function PoleLayout({
       setTags((prev) => {
         const updated = prev.filter((t) => t.pole_id !== poleId);
         onCacheUpdate({ poleTags: updated });
+        // ADD THIS: Tell DxfViewer to remove this pole
+        window.postMessage(
+          {
+            type: "POLE_UPDATE",
+            payload: { action: "DELETE", pole: { pole_id: poleId } },
+          },
+          "*",
+        );
         return updated;
       });
       setSelectedId((prev) => (prev === poleId ? null : prev));
@@ -550,7 +574,10 @@ export default function PoleLayout({
           cx: t.cx,
           cy: t.cy,
         }));
-        (e.source as Window).postMessage({ type: "POLE_DATA", payload }, { targetOrigin: "*" });
+        (e.source as Window).postMessage(
+          { type: "POLE_DATA", payload },
+          { targetOrigin: "*" },
+        );
       }
     }
     window.addEventListener("message", handleGeoReady);
@@ -562,10 +589,12 @@ export default function PoleLayout({
     function handleGeoCoords(e: MessageEvent) {
       if (e.data?.type === "GEO_COORDINATES" && Array.isArray(e.data.payload)) {
         const coordMap = new Map(
-          e.data.payload.map((p: { cad_x: number; cad_y: number; lat: number; lon: number }) => {
-            const key = `${p.cad_x},${p.cad_y}`;
-            return [key, { map_latitude: p.lat, map_longitude: p.lon }];
-          }),
+          e.data.payload.map(
+            (p: { cad_x: number; cad_y: number; lat: number; lon: number }) => {
+              const key = `${p.cad_x},${p.cad_y}`;
+              return [key, { map_latitude: p.lat, map_longitude: p.lon }];
+            },
+          ),
         );
         const updated = (prev: typeof tags) =>
           prev.map((t) => {
