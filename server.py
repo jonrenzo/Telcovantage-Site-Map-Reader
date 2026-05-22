@@ -40,12 +40,11 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 import cv2
 import ezdxf
 import numpy as np
+from app_python.planner_config import DEFAULT_PROJECT_ID, ENABLE_PLANNER_INTEGRATION
+from app_python.services.planner_auth import auth
 from flask import Blueprint, Flask, jsonify, request, send_file, send_from_directory
 from flask_cors import CORS
 from PIL import Image
-
-from app_python.planner_config import DEFAULT_PROJECT_ID, ENABLE_PLANNER_INTEGRATION
-from app_python.services.planner_auth import auth
 
 app = Flask(__name__, static_folder="frontend/dist", static_url_path="")
 CORS(app)
@@ -358,6 +357,17 @@ def predict_with_easyocr(crop_np: np.ndarray) -> Tuple[str, float]:
 
 def _dist2(a, b):
     return (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2
+
+
+def point_segment_dist(px, py, x1, y1, x2, y2):
+    """Calculates the shortest distance from a point to a line segment."""
+    l2 = (x2 - x1) ** 2 + (y2 - y1) ** 2
+    if l2 == 0:
+        return math.hypot(px - x1, py - y1)
+    t = max(0.0, min(1.0, ((px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)) / l2))
+    proj_x = x1 + t * (x2 - x1)
+    proj_y = y1 + t * (y2 - y1)
+    return math.hypot(px - proj_x, py - proj_y)
 
 
 def _bbox_from_segments(segments, idxs):
@@ -1398,7 +1408,7 @@ def _run_full_scan(dxf_path: str, boundary_layer: Optional[str]):
         layers = list_layers(dxf_path)
 
         KIND_LAYER_MAP = {
-            "circle": ["splitter", "tapoff", "tap-off", "tap_off"],
+            "circle": ["splitter", "tapoff", "tap-off", "tap_off", "splt"],
             "hexagon": ["tapoff", "tap-off", "tap_off"],
             "rectangle": ["node", "amplifier", "amp"],
             "square": ["tapoff", "tap-off", "tap_off"],
@@ -1472,6 +1482,32 @@ def _run_full_scan(dxf_path: str, boundary_layer: Optional[str]):
                     boundary_pts = [{"x": p[0], "y": p[1]} for p in boundary.pts]
             except Exception as e:
                 pass
+
+        highleg_layer = next((l for l in layers if "highleg" in l.lower()), None)
+        if highleg_layer:
+            highleg_segs = extract_stroke_segments(doc, highleg_layer)
+            if highleg_segs:
+                for s in deduped:
+                    # Target circles strictly on the splt layer
+                    if s["kind"] == "circle" and "splt" in s.get("layer", "").lower():
+                        w = s["bbox"][2] - s["bbox"][0]
+                        h = s["bbox"][3] - s["bbox"][1]
+                        r = max(w, h) * 0.5
+
+                        # Set threshold to 3x the radius to account for the gap in the drawing
+                        threshold = r * 3.0
+
+                        is_splitter = False
+                        for seg in highleg_segs:
+                            d = point_segment_dist(
+                                s["cx"], s["cy"], seg.x1, seg.y1, seg.x2, seg.y2
+                            )
+                            if d <= threshold:
+                                is_splitter = True
+                                break
+
+                        if is_splitter:
+                            s["kind"] = "splitter"
 
         SCAN_STATE.update(
             {
@@ -1782,6 +1818,8 @@ def api_pole_tags_scan():
 def kind_to_equipment_name(kind: str, layer: str = "") -> str:
     if kind == "circle":
         return "2-Way Tap"
+    if kind == "splitter":
+        return "Splitter"
     if kind == "square":
         return "4-Way Tap"
     if kind == "hexagon":

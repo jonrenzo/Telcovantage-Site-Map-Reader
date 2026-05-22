@@ -35,6 +35,7 @@ export function getDisplayKind(kind: string, layer: string): string {
 
 const KIND_COLOR: Record<string, string> = {
   circle: "#2563eb",
+  splitter: "#eab308", // Yellow for Splitter
   square: "#16a34a",
   hexagon: "#7c3aed",
   node: "#0891b2",
@@ -45,6 +46,7 @@ const KIND_COLOR: Record<string, string> = {
 
 export const KIND_LABEL: Record<string, string> = {
   circle: "2 Way Tap",
+  splitter: "Splitter",
   square: "4 Way Tap",
   hexagon: "8 Way Tap",
   node: "Node",
@@ -160,7 +162,7 @@ export default function EquipmentCanvas({
       ctx.scale(1, -1);
 
       ctx.beginPath();
-      if (shape.kind === "circle") {
+      if (shape.kind === "circle" || shape.kind === "splitter") {
         ctx.arc(0, 0, r, 0, Math.PI * 2);
       } else if (shape.kind === "triangle") {
         ctx.moveTo(0, -r);
@@ -436,6 +438,7 @@ export default function EquipmentCanvas({
       <div className="absolute bottom-4 left-4 bg-white/90 border border-border rounded-xl px-3.5 py-2.5 flex flex-col gap-1.5 shadow-sm backdrop-blur-sm">
         {[
           { dk: "circle", shape: "circle" },
+          { dk: "splitter", shape: "circle" },
           { dk: "square", shape: "square" },
           { dk: "hexagon", shape: "hexagon" },
           { dk: "node", shape: "rectangle" },
