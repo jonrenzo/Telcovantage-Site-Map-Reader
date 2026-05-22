@@ -406,6 +406,7 @@ export default function Home() {
         <AsbuiltExportModal
           cableSpans={cableSpans}
           poleTags={getCache(dxfPath)?.poleTags ?? []}
+          dxfPath={dxfPath}
           onClose={() => setShowAsbuiltModal(false)}
         />
       )}

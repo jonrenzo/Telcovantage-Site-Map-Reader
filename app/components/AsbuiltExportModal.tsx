@@ -15,6 +15,7 @@ interface Props {
   cableSpans: CableSpanExport[];
   onClose: () => void;
   poleTags?: PoleTag[];
+  dxfPath?: string;
 }
 
 type Step =
@@ -39,6 +40,7 @@ export default function AsbuiltExportModal({
   cableSpans,
   onClose,
   poleTags = [],
+  dxfPath,
 }: Props) {
   const [step, setStep] = useState<Step>("gps_check");
   const [poles, setPoles] = useState<PoleTag[]>([]);
@@ -58,6 +60,12 @@ export default function AsbuiltExportModal({
   >(null);
   const [manualForm, setManualForm] =
     useState<ManualNodeForm>(EMPTY_MANUAL_FORM);
+
+  const derivedNodeId = (() => {
+    if (!dxfPath) return "";
+    const name = dxfPath.split(/[/\\]/).pop() || dxfPath;
+    return name.replace(/\.dxf$/i, "");
+  })();
 
   useEffect(() => {
     if (poleTags.length > 0) {
@@ -556,7 +564,13 @@ export default function AsbuiltExportModal({
                                 </p>
                               </button>
                               <button
-                                onClick={() => setSelectionMode("manual")}
+                                onClick={() => {
+                                  setSelectionMode("manual");
+                                  setManualForm((f) => ({
+                                    ...f,
+                                    node_id: f.node_id || derivedNodeId,
+                                  }));
+                                }}
                                 className="p-4 rounded-xl border-2 border-border hover:border-emerald-500 hover:bg-emerald-50 transition-all text-left"
                               >
                                 <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center mb-2">
