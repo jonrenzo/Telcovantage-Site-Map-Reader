@@ -188,7 +188,8 @@ export default function Home() {
             endpoint = "/api/export/equipment";
             break;
           case "poles":
-            endpoint = "/api/pole_tags/export";
+            endpoint = "/api/v1/export/poles";
+            body = { poles: getCache(dxfPath)?.poleTags ?? [] };
             break;
           case "polemaster":
             endpoint = "/api/export/polemaster";
@@ -246,7 +247,7 @@ export default function Home() {
         setExporting(null);
       }
     },
-    [exporting, results, isMaskEnabled, globalBoundary, cableSpans],
+    [exporting, results, isMaskEnabled, globalBoundary, cableSpans, dxfPath, getCache],
   );
 
   const handleSpansChange = useCallback((spans: CableSpanExport[]) => {
@@ -404,6 +405,7 @@ export default function Home() {
       {showAsbuiltModal && (
         <AsbuiltExportModal
           cableSpans={cableSpans}
+          poleTags={getCache(dxfPath)?.poleTags ?? []}
           onClose={() => setShowAsbuiltModal(false)}
         />
       )}

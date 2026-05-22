@@ -3512,10 +3512,10 @@ def v1_export_ocr():
 
 @public_api.route("/export/poles", methods=["POST"])
 def v1_export_poles():
-    tags = POLE_STATE.get("tags", [])
+    body = request.get_json(silent=True) or {}
+    tags = body.get("poles", POLE_STATE.get("tags", []))
     if not tags:
         return _v1_err("No pole tags to export. Run a scan first.", 400)
-    body = request.get_json(silent=True) or {}
     overrides = body.get("overrides", {})
     export_tags = []
     for t in tags:
@@ -3609,7 +3609,7 @@ def v1_asbuilt_import():
     if not node_id:
         return _v1_err("node_id is required", 400)
 
-    poles = POLE_STATE.get("tags", [])
+    poles = body.get("poles", POLE_STATE.get("tags", []))
     if not poles:
         return _v1_err("No poles in current session. Run a pole scan first.", 400)
 

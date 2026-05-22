@@ -6,11 +6,12 @@ import type { PoleTag, AsbuiltSite, AsbuiltNode, AsbuiltExportResult, CableSpanE
 interface Props {
   cableSpans: CableSpanExport[];
   onClose: () => void;
+  poleTags?: PoleTag[];
 }
 
 type Step = "gps_check" | "georef_warn" | "site_select" | "posting" | "done" | "error";
 
-export default function AsbuiltExportModal({ cableSpans, onClose }: Props) {
+export default function AsbuiltExportModal({ cableSpans, onClose, poleTags = [] }: Props) {
   const [step, setStep] = useState<Step>("gps_check");
   const [poles, setPoles] = useState<PoleTag[]>([]);
   const [sites, setSites] = useState<AsbuiltSite[]>([]);
@@ -22,8 +23,21 @@ export default function AsbuiltExportModal({ cableSpans, onClose }: Props) {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    loadPoles();
-  }, []);
+    if (poleTags.length > 0) {
+      setPoles(poleTags);
+      const allGps = poleTags.every(
+        (p) => p.map_latitude != null && p.map_longitude != null,
+      );
+      if (!allGps) {
+        setStep("georef_warn");
+      } else {
+        setStep("site_select");
+      }
+      setLoading(false);
+    } else {
+      loadPoles();
+    }
+  }, [poleTags]);
 
   async function loadPoles() {
     setLoading(true);
@@ -127,7 +141,7 @@ export default function AsbuiltExportModal({ cableSpans, onClose }: Props) {
       const res = await fetch("/api/v1/asbuilt/import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ node_id: selectedNodeId, spans }),
+        body: JSON.stringify({ node_id: selectedNodeId, spans, poles }),
       });
       const json = await res.json();
       if (json.ok) {
