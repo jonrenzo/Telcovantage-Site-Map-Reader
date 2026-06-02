@@ -132,38 +132,66 @@ def apply_affine_transform(poles, cad_bounds, gps_bounds):
     return mapped_poles
 
 
-def snap_poles_to_circles(dxf_filepath, cad_poles):
-    """Finds physical CAD circles and snaps the text coordinates to the nearest circle center."""
+def snap_and_discover_poles(dxf_filepath, cad_poles, pole_model):
+    """Snaps text to circles AND discovers unclaimed circles as new NPT poles."""
     doc = ezdxf.readfile(dxf_filepath)
     msp = doc.modelspace()
 
-    # 1. Gather all circle coordinates from pole-related layers
+    # 1. Gather all circle coordinates from target layers
     circle_centers = []
     for entity in msp.query("CIRCLE"):
+        if not hasattr(entity.dxf, "layer"):
+            continue
         layer_name = entity.dxf.layer.lower()
-        # We check for 'pole' and 'npt' just to be safe based on your screenshots
-        if "pole" in layer_name or "npt" in layer_name:
+
+        # Target layers containing pole, npt, or stp
+        if "pole" in layer_name or "npt" in layer_name or "stp" in layer_name:
             circle_centers.append((entity.dxf.center.x, entity.dxf.center.y))
 
-    # If the script can't find any circles, just return the original data
     if not circle_centers:
         return cad_poles
 
-    # 2. Compare each incoming text coordinate to the circles and find the closest one
+    claimed_circles = set()
+
+    # 2. Let existing named poles claim their nearest physical circle
     for pole in cad_poles:
         min_dist = float("inf")
-        nearest_center = None
+        nearest_idx = -1
 
-        for cx, cy in circle_centers:
-            # Calculate standard Euclidean distance
+        for idx, (cx, cy) in enumerate(circle_centers):
             dist = math.hypot(pole.cx - cx, pole.cy - cy)
             if dist < min_dist:
                 min_dist = dist
-                nearest_center = (cx, cy)
+                nearest_idx = idx
 
-        # 3. Overwrite the text coordinate with the circle's exact center
-        if nearest_center:
-            pole.cx = nearest_center[0]
-            pole.cy = nearest_center[1]
+        # Snap the text coordinate to the circle and mark it as claimed
+        if nearest_idx != -1:
+            pole.cx = circle_centers[nearest_idx][0]
+            pole.cy = circle_centers[nearest_idx][1]
+            claimed_circles.add(nearest_idx)
 
-    return cad_poles
+    # 3. Process the remaining UNCLAIMED circles into NPTs
+    # Find the highest existing ID so we don't cause database conflicts
+    existing_ids = {p.id for p in cad_poles}
+    next_id = max(existing_ids) + 1 if existing_ids else 10000
+    npt_counter = 1
+
+    enriched_poles = list(cad_poles)
+
+    for idx, (cx, cy) in enumerate(circle_centers):
+        if idx not in claimed_circles:
+            # FIX: Lowered the threshold to 0.001 to stop it from deleting circles that are just close together
+            is_duplicate = any(
+                math.hypot(cx - p.cx, cy - p.cy) < 0.001 for p in enriched_poles
+            )
+
+            if not is_duplicate:
+                # Create a brand new pole object for the nameless circle
+                new_pole = pole_model(
+                    id=next_id, name=f"NPT-{npt_counter}", cx=cx, cy=cy
+                )
+                enriched_poles.append(new_pole)
+                next_id += 1
+                npt_counter += 1
+
+    return enriched_poles

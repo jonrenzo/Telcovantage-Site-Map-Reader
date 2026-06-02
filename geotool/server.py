@@ -8,7 +8,11 @@ from pydantic import BaseModel
 
 from .core import extract_cad_poles, transform_coordinate
 from .geocode import geocode
-from .overlay import apply_affine_transform, generate_overlay_png, snap_poles_to_circles
+from .overlay import (
+    apply_affine_transform,
+    generate_overlay_png,
+    snap_and_discover_poles,
+)
 
 app = FastAPI()
 
@@ -67,8 +71,10 @@ async def process_visual_map(payload: VisualMapRequest):
             "status": "error",
             "message": "No poles received from As-built app.",
         }
-    # NEW: Intercept the text coordinates and snap them to the physical circles
-    snapped_poles = snap_poles_to_circles(payload.dxf_path, payload.cad_poles)
+        # Intercept text coordinates, snap them, AND discover nameless circles
+    snapped_poles = snap_and_discover_poles(
+        payload.dxf_path, payload.cad_poles, CadPole
+    )
 
     mapped_poles = apply_affine_transform(
         snapped_poles, payload.cad_bounds, payload.gps_bounds
@@ -90,18 +96,26 @@ async def process_map(payload: MapRequest):
     min_lon, max_lon = min(p[1] for p in gps_coords), max(p[1] for p in gps_coords)
     map_p1, map_p2 = (min_lat, min_lon), (max_lat, max_lon)
 
+    # Discover nameless circles here too, just in case they skipped the visual overlay
+    if payload.dxf_path:
+        process_list = snap_and_discover_poles(
+            payload.dxf_path, payload.cad_poles, CadPole
+        )
+    else:
+        process_list = payload.cad_poles
+
     min_x, max_x = (
-        min(p.cx for p in payload.cad_poles),
-        max(p.cx for p in payload.cad_poles),
+        min(p.cx for p in process_list),
+        max(p.cx for p in process_list),
     )
     min_y, max_y = (
-        min(p.cy for p in payload.cad_poles),
-        max(p.cy for p in payload.cad_poles),
+        min(p.cy for p in process_list),
+        max(p.cy for p in process_list),
     )
     cad_p1, cad_p2 = (min_x, min_y), (max_x, max_y)
 
     mapped_poles = []
-    for pole in payload.cad_poles:
+    for pole in process_list:
         lat, lon = transform_coordinate(
             (pole.cx, pole.cy), cad_p1, cad_p2, map_p1, map_p2
         )

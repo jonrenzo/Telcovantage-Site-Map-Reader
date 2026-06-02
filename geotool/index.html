@@ -141,6 +141,9 @@
                 height: 18px !important;
                 box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.5);
             }
+            .glowing-road {
+                filter: drop-shadow(0px 0px 4px #00ffff);
+            }
         </style>
     </head>
 
@@ -187,6 +190,13 @@
                     style="background: #17a2b8"
                 >
                     Mode: Scale
+                </button>
+                <button
+                    id="matchRoadsBtn"
+                    onclick="highlightRealRoads()"
+                    style="background: #fd7e14"
+                >
+                    Highlight Real Roads
                 </button>
                 <label>Opacity:</label>
                 <input
@@ -1117,6 +1127,67 @@
                         "Georeferencing locked. Compare the red poles to the magenta layout.";
                 } else {
                     alert(result.message);
+                }
+            }
+
+            let realRoadsLayer = L.layerGroup().addTo(map);
+
+            async function highlightRealRoads() {
+                let btn = document.getElementById("matchRoadsBtn");
+                btn.innerText = "Fetching Roads...";
+                btn.disabled = true;
+
+                // Clear previous highlights
+                realRoadsLayer.clearLayers();
+
+                // Get the exact GPS boundaries of what the user is currently looking at
+                let bounds = map.getBounds();
+                let s = bounds.getSouth(),
+                    n = bounds.getNorth();
+                let w = bounds.getWest(),
+                    e = bounds.getEast();
+
+                // Query OpenStreetMap for all "highways" (roads, residential streets) in this box
+                let query = `[out:json];(way["highway"](${s},${w},${n},${e}););out geom;`;
+                let url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
+
+                try {
+                    let response = await fetch(url);
+                    let data = await response.json();
+
+                    if (data.elements.length === 0) {
+                        alert(
+                            "No road data found in OpenStreetMap for this specific area.",
+                        );
+                    }
+
+                    // Loop through the data and draw the physical roads
+                    data.elements.forEach((element) => {
+                        if (element.type === "way" && element.geometry) {
+                            let latlngs = element.geometry.map((pos) => [
+                                pos.lat,
+                                pos.lon,
+                            ]);
+
+                            // Draw a thick, glowing cyan line for the real-world road
+                            L.polyline(latlngs, {
+                                color: "#00ffff",
+                                weight: 6,
+                                opacity: 0.8,
+                                className: "glowing-road",
+                            }).addTo(realRoadsLayer);
+                        }
+                    });
+
+                    btn.innerText = "Real Roads Highlighted";
+                } catch (error) {
+                    alert("Failed to fetch map data. Please try again.");
+                    btn.innerText = "Highlight Real Roads";
+                } finally {
+                    setTimeout(() => {
+                        btn.innerText = "Highlight Real Roads";
+                        btn.disabled = false;
+                    }, 3000);
                 }
             }
         </script>
