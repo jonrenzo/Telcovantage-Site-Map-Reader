@@ -148,7 +148,9 @@
         <div id="modal">
             <div class="modal-content">
                 <h2>New Mapping Project</h2>
-                <label>1. Search Location (e.g., Mapayapa Village)</label>
+                <label
+                    >Enter Coordinates ex. (14°18'01.4"N 121°06'29.2"E)
+                </label>
                 <input
                     type="text"
                     id="locInput"
@@ -179,6 +181,13 @@
                 class="transform-controls"
                 style="display: none"
             >
+                <button
+                    id="modeToggleBtn"
+                    onclick="toggleTransformMode()"
+                    style="background: #17a2b8"
+                >
+                    Mode: Scale
+                </button>
                 <label>Opacity:</label>
                 <input
                     type="range"
@@ -456,9 +465,46 @@
                 }
             });
 
-            // --- 2. MODAL LOGIC (Teleporting via Python) ---
+            // Helper to parse DMS and Decimal coordinates
+            function parseCoordinates(input) {
+                // Matches DMS format (e.g., 14°18'01.4"N 121°06'29.2"E)
+                const dmsRegex =
+                    /(\d+)[°\s]+(\d+)['\s]+([\d\.]+)["″]?\s*([NS])[,\s]*(\d+)[°\s]+(\d+)['\s]+([\d\.]+)["″]?\s*([EW])/i;
+                const dmsMatch = input.match(dmsRegex);
+
+                if (dmsMatch) {
+                    let lat =
+                        parseInt(dmsMatch[1]) +
+                        parseInt(dmsMatch[2]) / 60 +
+                        parseFloat(dmsMatch[3]) / 3600;
+                    if (dmsMatch[4].toUpperCase() === "S") lat = -lat;
+
+                    let lon =
+                        parseInt(dmsMatch[5]) +
+                        parseInt(dmsMatch[6]) / 60 +
+                        parseFloat(dmsMatch[7]) / 3600;
+                    if (dmsMatch[8].toUpperCase() === "W") lon = -lon;
+
+                    return { lat: lat, lon: lon };
+                }
+
+                // Matches standard decimal format (e.g., 14.300389, 121.108111)
+                const decRegex = /(-?\d+\.\d+)[,\s]+(-?\d+\.\d+)/;
+                const decMatch = input.match(decRegex);
+
+                if (decMatch) {
+                    return {
+                        lat: parseFloat(decMatch[1]),
+                        lon: parseFloat(decMatch[2]),
+                    };
+                }
+
+                // Return null if it's a standard text address (e.g., "Mapayapa Village")
+                return null;
+            }
+
             async function startSetup() {
-                var loc = document.getElementById("locInput").value;
+                var loc = document.getElementById("locInput").value.trim();
                 var fileInput = document.getElementById("dxfFile").files[0];
 
                 if (!loc) return alert("Please enter a location to search.");
@@ -467,6 +513,21 @@
 
                 document.querySelector(".modal-content button").innerText =
                     "Locating...";
+
+                // 1. Try to parse the input as direct coordinates first
+                var parsedCoords = parseCoordinates(loc);
+
+                if (parsedCoords) {
+                    // If it's a coordinate, instantly jump there and skip the API
+                    map.setView([parsedCoords.lat, parsedCoords.lon], 18); // Zoom 18 for precision
+                    document.getElementById("modal").style.display = "none";
+                    document.getElementById("toolbar").style.display = "block";
+                    document.querySelector(".modal-content button").innerText =
+                        "Start Mapping";
+                    return;
+                }
+
+                // 2. If it's not a coordinate, fallback to Nominatim Geocoding via Python backend
                 var safeLoc = encodeURIComponent(loc);
 
                 try {
@@ -482,14 +543,13 @@
                         alert(
                             "Location not found. Try adding the city name (e.g., 'Mapayapa Village 1, Quezon City').",
                         );
-                        document.querySelector(
-                            ".modal-content button",
-                        ).innerText = "Start Mapping";
                     }
                 } catch (error) {
                     alert(
                         "Error connecting to your Python server. Make sure uvicorn is running!",
                     );
+                } finally {
+                    // Reset the button text whether it succeeds or fails
                     document.querySelector(".modal-content button").innerText =
                         "Start Mapping";
                 }
@@ -768,6 +828,70 @@
             let transformHandles = [];
             let savedCadBounds = null;
 
+            let transformMode = "scale"; // Default mode
+            let mTL, mTR, mBL, mBR, moveHandle;
+
+            function toggleTransformMode() {
+                let btn = document.getElementById("modeToggleBtn");
+                if (transformMode === "scale") {
+                    // Switch to Morph (3-point freeform)
+                    transformMode = "morph";
+                    btn.innerText = "Mode: Morph";
+                    mBR.setOpacity(0); // Hide bottom-right handle
+                    mBR.options.interactive = false;
+                } else {
+                    // Switch to Scale (4-point rectangular)
+                    transformMode = "scale";
+                    btn.innerText = "Mode: Scale";
+
+                    // "Square up" the image to a perfect rectangle based on current min/max bounds
+                    let lats = [
+                        mTL.getLatLng().lat,
+                        mTR.getLatLng().lat,
+                        mBL.getLatLng().lat,
+                    ];
+                    let lngs = [
+                        mTL.getLatLng().lng,
+                        mTR.getLatLng().lng,
+                        mBL.getLatLng().lng,
+                    ];
+
+                    let n = Math.max(...lats);
+                    let s = Math.min(...lats);
+                    let e = Math.max(...lngs);
+                    let w = Math.min(...lngs);
+
+                    mTL.setLatLng([n, w]);
+                    mTR.setLatLng([n, e]);
+                    mBL.setLatLng([s, w]);
+                    mBR.setLatLng([s, e]);
+
+                    mBR.setOpacity(1);
+                    mBR.options.interactive = true;
+                    updateCenterHandle();
+                    updateOverlay();
+                }
+            }
+
+            function updateOverlay() {
+                if (cadImageOverlay) {
+                    cadImageOverlay.reposition(
+                        mTL.getLatLng(),
+                        mTR.getLatLng(),
+                        mBL.getLatLng(),
+                    );
+                }
+            }
+
+            function updateCenterHandle() {
+                if (!moveHandle) return;
+                let newCenterLat =
+                    (mTL.getLatLng().lat + mBL.getLatLng().lat) / 2;
+                let newCenterLng =
+                    (mTL.getLatLng().lng + mTR.getLatLng().lng) / 2;
+                moveHandle.setLatLng([newCenterLat, newCenterLng]);
+            }
+
             async function initVisualTransform() {
                 if (!globalDxfPath) return alert("DXF Path not found!");
 
@@ -787,9 +911,8 @@
                     savedCadBounds = json.data.bounds;
                     let imgBase64 = json.data.image;
 
-                    // Setup initial coordinates based on current map view
                     let center = map.getCenter();
-                    let offset = 0.002; // Arbitrary starting size
+                    let offset = 0.002;
 
                     let pTopLeft = L.latLng(
                         center.lat + offset,
@@ -803,8 +926,11 @@
                         center.lat - offset,
                         center.lng - offset,
                     );
+                    let pBottomRight = L.latLng(
+                        center.lat - offset,
+                        center.lng + offset,
+                    );
 
-                    // Add the Rotated Overlay
                     cadImageOverlay = L.imageOverlay
                         .rotated(imgBase64, pTopLeft, pTopRight, pBottomLeft, {
                             opacity: 0.7,
@@ -813,49 +939,78 @@
                         })
                         .addTo(map);
 
-                    // Create Draggable Handles
                     let handleIcon = L.divIcon({
                         className: "handle-marker",
                         iconSize: [16, 16],
                         iconAnchor: [8, 8],
                     });
-
-                    let m1 = L.marker(pTopLeft, {
-                        draggable: true,
-                        icon: handleIcon,
-                    }).addTo(map);
-                    let m2 = L.marker(pTopRight, {
-                        draggable: true,
-                        icon: handleIcon,
-                    }).addTo(map);
-                    let m3 = L.marker(pBottomLeft, {
-                        draggable: true,
-                        icon: handleIcon,
-                    }).addTo(map);
-
-                    // --- NEW: THE MASTER MOVE HANDLE ---
-                    // Calculate the center point
-                    let centerLat = (pTopLeft.lat + pBottomLeft.lat) / 2;
-                    let centerLng = (pTopLeft.lng + pTopRight.lng) / 2;
-
                     let moveIcon = L.divIcon({
                         className: "move-handle",
                         iconSize: [18, 18],
                         iconAnchor: [9, 9],
                     });
-                    let moveHandle = L.marker([centerLat, centerLng], {
+
+                    mTL = L.marker(pTopLeft, {
+                        draggable: true,
+                        icon: handleIcon,
+                    }).addTo(map);
+                    mTR = L.marker(pTopRight, {
+                        draggable: true,
+                        icon: handleIcon,
+                    }).addTo(map);
+                    mBL = L.marker(pBottomLeft, {
+                        draggable: true,
+                        icon: handleIcon,
+                    }).addTo(map);
+                    mBR = L.marker(pBottomRight, {
+                        draggable: true,
+                        icon: handleIcon,
+                    }).addTo(map);
+
+                    let centerLat = (pTopLeft.lat + pBottomLeft.lat) / 2;
+                    let centerLng = (pTopLeft.lng + pTopRight.lng) / 2;
+                    moveHandle = L.marker([centerLat, centerLng], {
                         draggable: true,
                         icon: moveIcon,
                     }).addTo(map);
 
-                    transformHandles = [m1, m2, m3];
+                    transformHandles = [mTL, mTR, mBL, mBR, moveHandle];
 
-                    // Logic to move all other handles when the center is dragged
+                    // --- Corner Drag Logic ---
+                    function onCornerDrag(e) {
+                        let dragged = e.target;
+                        if (transformMode === "scale") {
+                            let pos = dragged.getLatLng();
+                            if (dragged === mTL) {
+                                mTR.setLatLng([pos.lat, mTR.getLatLng().lng]);
+                                mBL.setLatLng([mBL.getLatLng().lat, pos.lng]);
+                            } else if (dragged === mTR) {
+                                mTL.setLatLng([pos.lat, mTL.getLatLng().lng]);
+                                mBR.setLatLng([mBR.getLatLng().lat, pos.lng]);
+                            } else if (dragged === mBL) {
+                                mBR.setLatLng([pos.lat, mBR.getLatLng().lng]);
+                                mTL.setLatLng([mTL.getLatLng().lat, pos.lng]);
+                            } else if (dragged === mBR) {
+                                mBL.setLatLng([pos.lat, mBL.getLatLng().lng]);
+                                mTR.setLatLng([mTR.getLatLng().lat, pos.lng]);
+                            }
+                        }
+                        updateCenterHandle();
+                        updateOverlay();
+                    }
+
+                    mTL.on("drag", onCornerDrag);
+                    mTR.on("drag", onCornerDrag);
+                    mBL.on("drag", onCornerDrag);
+                    mBR.on("drag", onCornerDrag);
+
+                    // --- Center Move Logic ---
                     moveHandle.on("dragstart", function () {
                         this._startPos = this.getLatLng();
-                        this._startTL = m1.getLatLng();
-                        this._startTR = m2.getLatLng();
-                        this._startBL = m3.getLatLng();
+                        this._startTL = mTL.getLatLng();
+                        this._startTR = mTR.getLatLng();
+                        this._startBL = mBL.getLatLng();
+                        this._startBR = mBR.getLatLng();
                     });
 
                     moveHandle.on("drag", function () {
@@ -863,63 +1018,43 @@
                         let latDelta = currentPos.lat - this._startPos.lat;
                         let lngDelta = currentPos.lng - this._startPos.lng;
 
-                        // Shift the 3 corners by the exact same distance
-                        m1.setLatLng([
+                        mTL.setLatLng([
                             this._startTL.lat + latDelta,
                             this._startTL.lng + lngDelta,
                         ]);
-                        m2.setLatLng([
+                        mTR.setLatLng([
                             this._startTR.lat + latDelta,
                             this._startTR.lng + lngDelta,
                         ]);
-                        m3.setLatLng([
+                        mBL.setLatLng([
                             this._startBL.lat + latDelta,
                             this._startBL.lng + lngDelta,
                         ]);
+                        mBR.setLatLng([
+                            this._startBR.lat + latDelta,
+                            this._startBR.lng + lngDelta,
+                        ]);
 
-                        // Tell the image to update its position
-                        cadImageOverlay.reposition(
-                            m1.getLatLng(),
-                            m2.getLatLng(),
-                            m3.getLatLng(),
-                        );
+                        updateOverlay();
                     });
-                    // -----------------------------------
 
-                    // Bind dragging of corners to image recalculation and move the center handle
-                    function updateOverlay() {
-                        cadImageOverlay.reposition(
-                            m1.getLatLng(),
-                            m2.getLatLng(),
-                            m3.getLatLng(),
-                        );
-
-                        // Keep the green move handle in the middle if corners are dragged
-                        let newCenterLat =
-                            (m1.getLatLng().lat + m3.getLatLng().lat) / 2;
-                        let newCenterLng =
-                            (m1.getLatLng().lng + m2.getLatLng().lng) / 2;
-                        moveHandle.setLatLng([newCenterLat, newCenterLng]);
-                    }
-
-                    m1.on("drag", updateOverlay);
-                    m2.on("drag", updateOverlay);
-                    m3.on("drag", updateOverlay);
-
-                    // Connect Opacity Slider
                     document
                         .getElementById("opacitySlider")
                         .addEventListener("input", function (e) {
                             cadImageOverlay.setOpacity(e.target.value);
                         });
 
-                    // UI Updates
                     document.getElementById("transformBtn").style.display =
                         "none";
                     document.getElementById("visualControls").style.display =
                         "flex";
                     document.getElementById("status-text").innerText =
-                        "Drag the handles to align the overlay.";
+                        "Scale/Move handles to align overlay.";
+
+                    // Ensure mode resets properly on init
+                    transformMode = "scale";
+                    document.getElementById("modeToggleBtn").innerText =
+                        "Mode: Scale";
                 } catch (err) {
                     alert("Error: " + err.message);
                     document.getElementById("transformBtn").innerText =
@@ -947,20 +1082,11 @@
                 document.getElementById("status-text").innerText =
                     "Calculating precise pole locations...";
 
-                // Capture final GPS coordinates from the handles
+                // Capture final GPS coordinates directly from the specific handle variables
                 let finalGpsBounds = {
-                    top_left: [
-                        transformHandles[0].getLatLng().lat,
-                        transformHandles[0].getLatLng().lng,
-                    ],
-                    top_right: [
-                        transformHandles[1].getLatLng().lat,
-                        transformHandles[1].getLatLng().lng,
-                    ],
-                    bottom_left: [
-                        transformHandles[2].getLatLng().lat,
-                        transformHandles[2].getLatLng().lng,
-                    ],
+                    top_left: [mTL.getLatLng().lat, mTL.getLatLng().lng],
+                    top_right: [mTR.getLatLng().lat, mTR.getLatLng().lng],
+                    bottom_left: [mBL.getLatLng().lat, mBL.getLatLng().lng],
                 };
 
                 let response = await fetch(
@@ -980,13 +1106,9 @@
                 let result = await response.json();
 
                 if (result.status === "success") {
-                    // Remove the interactive handles, but KEEP the image overlay
                     transformHandles.forEach((m) => map.removeLayer(m));
-
-                    // Render the fully interactive red poles
                     renderPoles(result.poles);
 
-                    // Show the final buttons
                     document.getElementById("toggleOverlayBtn").style.display =
                         "inline-block";
                     document.getElementById("exportBtn").style.display =

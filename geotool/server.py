@@ -53,7 +53,7 @@ class VisualMapRequest(BaseModel):
 @app.get("/api/get_overlay")
 async def get_overlay(dxf_path: str):
     try:
-        layers = ["road", "stp", "pole", "strand", "0"]
+        layers = ["road", "rdfin"]
         data = generate_overlay_png(dxf_path, layers)
         return {"status": "success", "data": data}
     except Exception as e:

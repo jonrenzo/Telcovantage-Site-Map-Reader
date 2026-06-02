@@ -40,11 +40,12 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 import cv2
 import ezdxf
 import numpy as np
-from app_python.planner_config import DEFAULT_PROJECT_ID, ENABLE_PLANNER_INTEGRATION
-from app_python.services.planner_auth import auth
 from flask import Blueprint, Flask, jsonify, request, send_file, send_from_directory
 from flask_cors import CORS
 from PIL import Image
+
+from app_python.planner_config import DEFAULT_PROJECT_ID, ENABLE_PLANNER_INTEGRATION
+from app_python.services.planner_auth import auth
 
 app = Flask(__name__, static_folder="frontend/dist", static_url_path="")
 CORS(app)
@@ -393,7 +394,7 @@ def list_layers(dxf_path):
     return sorted(layer.dxf.name for layer in doc.layers)
 
 
-POLE_LAYER_FILTER = ["pole"]
+POLE_LAYER_FILTER = ["pole, stp"]
 
 
 def extract_stroke_segments(doc, layer_name, include_circles=True):
@@ -3701,8 +3702,12 @@ def v1_asbuilt_import():
     spans = body.get("spans")
     if spans and isinstance(spans, list):
         span_defaults = {
-            "node": 0, "amplifier": 0, "extender": 0,
-            "tsc": 0, "powersupply": 0, "ps_housing": 0,
+            "node": 0,
+            "amplifier": 0,
+            "extender": 0,
+            "tsc": 0,
+            "powersupply": 0,
+            "ps_housing": 0,
         }
         cleaned = []
         for s in spans:
@@ -3713,13 +3718,15 @@ def v1_asbuilt_import():
             comp = dict(span_defaults)
             if isinstance(s.get("components"), dict):
                 comp.update(s["components"])
-            cleaned.append({
-                "from_pole_code": frm,
-                "to_pole_code": to,
-                "strand_length": s.get("strand_length", 0),
-                "number_of_runs": s.get("number_of_runs", 1),
-                "components": comp,
-            })
+            cleaned.append(
+                {
+                    "from_pole_code": frm,
+                    "to_pole_code": to,
+                    "strand_length": s.get("strand_length", 0),
+                    "number_of_runs": s.get("number_of_runs", 1),
+                    "components": comp,
+                }
+            )
         if cleaned:
             payload["spans"] = cleaned
 
