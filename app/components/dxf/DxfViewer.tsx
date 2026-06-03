@@ -1877,36 +1877,62 @@ export default function DxfViewer({
       if (event.data?.type === "GEO_COORDINATES") {
         const geoData = event.data.payload as any[];
         const TOLERANCE = 5.0;
+        const matchedGeo = new Set<number>();
         const updatedPoles = polesRef.current.map((pole) => {
-          const best = geoData.reduce<{
-            lat: number;
-            lon: number;
-            dist: number;
-          } | null>((acc, geoPoint: any) => {
+          let bestDist = Infinity;
+          let bestLat = 0;
+          let bestLon = 0;
+          let bestIdx = -1;
+          geoData.forEach((geoPoint: any, idx: number) => {
             const dist = Math.hypot(
               pole.cx - geoPoint.cad_x,
               pole.cy - geoPoint.cad_y,
             );
-            if (dist < TOLERANCE && (!acc || dist < acc.dist)) {
-              return { lat: geoPoint.lat, lon: geoPoint.lon, dist };
+            if (dist < TOLERANCE && dist < bestDist) {
+              bestDist = dist;
+              bestLat = geoPoint.map_latitude;
+              bestLon = geoPoint.map_longitude;
+              bestIdx = idx;
             }
-            return acc;
-          }, null);
-          if (best) {
-            return { ...pole, map_latitude: best.lat, map_longitude: best.lon };
+          });
+          if (bestIdx >= 0) {
+            matchedGeo.add(bestIdx);
+            return { ...pole, map_latitude: bestLat, map_longitude: bestLon };
           }
           return pole;
         });
 
-        polesRef.current = updatedPoles;
-        setPoles(updatedPoles);
+        const nptPoles = geoData
+          .filter((_: any, idx: number) => !matchedGeo.has(idx))
+          .filter((g: any) => g.map_latitude != null && g.map_longitude != null)
+          .map((g: any) => ({
+            pole_id: g.pole_id,
+            name: g.name,
+            cx: g.cad_x,
+            cy: g.cad_y,
+            bbox: [0, 0, 0, 0] as [number, number, number, number],
+            layer: "geotool_npt",
+            source: "geotool_npt",
+            ocr_conf: 1.0,
+            needs_review: false,
+            crop_b64: null,
+            map_latitude: g.map_latitude,
+            map_longitude: g.map_longitude,
+          }));
 
-        const gpsPoles = updatedPoles
+        const allPoles = [...updatedPoles, ...nptPoles];
+        polesRef.current = allPoles;
+        setPoles(allPoles);
+
+        const gpsPoles = allPoles
           .filter((p) => p.map_latitude != null && p.map_longitude != null)
           .map((p) => ({
             pole_id: p.pole_id,
+            name: p.name,
             map_latitude: p.map_latitude,
             map_longitude: p.map_longitude,
+            cad_x: p.cx,
+            cad_y: p.cy,
           }));
         if (gpsPoles.length > 0) {
           fetch("/api/v1/poles/georeference", {

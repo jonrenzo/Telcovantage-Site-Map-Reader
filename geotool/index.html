@@ -698,6 +698,7 @@
 
                     // Store internal data for sync
                     marker.idName = poleName;
+                    marker.pole_id = p.id;
                     marker.cad_x = p.cad_x;
                     marker.cad_y = p.cad_y;
 
@@ -816,10 +817,12 @@
             // --- 7. EXPORT BACK TO AS-BUILT ---
             function exportCSV() {
                 const payload = poleMarkers.map((m) => ({
+                    pole_id: m.pole_id, // Sent for server matching
+                    name: m.idName, // Sent so As-built knows the NPT name
                     cad_x: m.cad_x,
                     cad_y: m.cad_y,
-                    lat: m.getLatLng().lat,
-                    lon: m.getLatLng().lng,
+                    map_latitude: m.getLatLng().lat, // Renamed to match server.py
+                    map_longitude: m.getLatLng().lng, // Renamed to match server.py
                 }));
 
                 if (window.opener) {

@@ -4,7 +4,13 @@ Configuration for TelcoVantage Planner API integration.
 
 import os
 
-# Planner API settings
+# AsBuilt IQ API settings
+ASBUILT_API_BASE_URL = os.getenv(
+    "ASBUILT_API_BASE_URL",
+    "http://192.168.0.208:8080/api/v1",
+)
+
+# Planner API settings (legacy)
 PLANNER_API_BASE_URL = os.getenv(
     "PLANNER_API_BASE_URL",
     "https://disguisedly-enarthrodial-kristi.ngrok-free.dev/api/v1",

@@ -111,7 +111,6 @@ export interface ManualNodeForm {
     region:        string;
     province:      string;
     city:          string;
-    barangay_code: string;
     barangay_name: string;
 }
 
@@ -119,7 +118,6 @@ export interface PoleAreaData {
     region:        string;
     province:      string;
     city:          string;
-    barangay_code: string;
     barangay_name: string;
 }
 
@@ -130,10 +128,6 @@ export interface AsbuiltPole {
     sequence:         number;
     latitude:         number;
     longitude:        number;
-    region?:          string;
-    province?:        string;
-    city?:            string;
-    barangay_code?:   string;
     barangay_name?:   string;
     status:           string;
     date_start:       string | null;
@@ -168,8 +162,7 @@ export interface VerifyNodeResponse {
         region?:       string;
         province?:     string;
         city?:         string;
-        barangay_code?: string;
-        barangay_name?: string;
+        barangay?:     string;
         report_type:   string;
         source_file:   string;
         status:        string;

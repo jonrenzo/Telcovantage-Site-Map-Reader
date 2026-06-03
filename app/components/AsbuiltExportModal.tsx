@@ -32,7 +32,6 @@ const EMPTY_MANUAL_FORM: ManualNodeForm = {
   region: "",
   province: "",
   city: "",
-  barangay_code: "",
   barangay_name: "",
 };
 
@@ -199,7 +198,6 @@ export default function AsbuiltExportModal({
         region: manualForm.region,
         province: manualForm.province,
         city: manualForm.city,
-        barangay_code: manualForm.barangay_code,
         barangay_name: manualForm.barangay_name,
       };
     }
@@ -207,7 +205,6 @@ export default function AsbuiltExportModal({
       region: "",
       province: "",
       city: "",
-      barangay_code: "",
       barangay_name: "",
     };
   }
@@ -233,10 +230,6 @@ export default function AsbuiltExportModal({
           pole_code: nameToCode[baseName] || baseName,
           latitude: p.map_latitude!,
           longitude: p.map_longitude!,
-          region: areaData.region,
-          province: areaData.province,
-          city: areaData.city,
-          barangay_code: areaData.barangay_code,
           barangay_name: areaData.barangay_name,
         };
       });
@@ -276,8 +269,7 @@ export default function AsbuiltExportModal({
     if (areaData.region) payload.region = areaData.region;
     if (areaData.province) payload.province = areaData.province;
     if (areaData.city) payload.city = areaData.city;
-    if (areaData.barangay_code) payload.barangay_code = areaData.barangay_code;
-    if (areaData.barangay_name) payload.barangay_name = areaData.barangay_name;
+
 
     try {
       const res = await fetch("/api/v1/asbuilt/import", {
@@ -772,23 +764,6 @@ export default function AsbuiltExportModal({
                                 className="w-full px-3 py-2 rounded-lg border border-border bg-white text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent"
                               />
                             </div>
-                            <div>
-                              <label className="block text-xs font-medium text-muted mb-1">
-                                Barangay Code
-                              </label>
-                              <input
-                                type="text"
-                                value={manualForm.barangay_code}
-                                onChange={(e) =>
-                                  setManualForm((f) => ({
-                                    ...f,
-                                    barangay_code: e.target.value,
-                                  }))
-                                }
-                                placeholder='e.g. "043428001"'
-                                className="w-full px-3 py-2 rounded-lg border border-border bg-white text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent"
-                              />
-                            </div>
                           </div>
                         </div>
                       )}
@@ -965,12 +940,10 @@ export default function AsbuiltExportModal({
                           {verifyResult.node.status}
                         </span>
                       </div>
-                      {verifyResult.node.barangay_name && (
+                      {verifyResult.node.barangay && (
                         <div className="col-span-2">
                           <span className="text-muted">Barangay:</span>{" "}
-                          {verifyResult.node.barangay_name}
-                          {verifyResult.node.barangay_code &&
-                            ` (${verifyResult.node.barangay_code})`}
+                          {verifyResult.node.barangay}
                         </div>
                       )}
                     </div>
@@ -990,8 +963,8 @@ export default function AsbuiltExportModal({
                                 {pole.pole_code}
                               </span>
                               <span className="text-muted">
-                                {pole.latitude?.toFixed(5)},{" "}
-                                {pole.longitude?.toFixed(5)}
+                                {pole.latitude != null ? Number(pole.latitude).toFixed(5) : "—"},{" "}
+                                {pole.longitude != null ? Number(pole.longitude).toFixed(5) : "—"}
                               </span>
                             </div>
                           ))}

@@ -7,9 +7,9 @@ import { BeamsBackground } from "@/components/ui/beams-background";
 // CONSTANTS & DATA
 // ══════════════════════════════════════════════════════════════════════════════
 
-const NGROK_BASE = "https://disguisedly-enarthrodial-kristi.ngrok-free.dev";
+const API_BASE_URL = process.env.NEXT_PUBLIC_ASBUILT_API_BASE_URL || "http://192.168.0.208:8080";
 const ASBUILT_URL = "/";
-const POLE_MASTER_URL = `${NGROK_BASE}/dashboard`;
+const POLE_MASTER_URL = `${API_BASE_URL}/dashboard`;
 
 // Color palette
 const COLORS = {
@@ -192,7 +192,6 @@ const STATS = [
  * The dashboard frontend should read the token from the URL and store it.
  */
 function redirectToPoleMaster(token: string) {
-  // Open dashboard with token in URL - the dashboard JS should read and store it
   window.open(`${POLE_MASTER_URL}?auth_token=${token}`, "_blank");
 }
 
@@ -550,16 +549,11 @@ function DecisionPrompt({
   const [hoveredCard, setHoveredCard] = useState<"yes" | "no" | null>(null);
 
   const handleYesClick = () => {
-    if (isLoggedIn) {
-      window.location.assign(ASBUILT_URL);
-    } else {
-      onSelect("asbuilt");
-    }
+    window.location.assign(ASBUILT_URL);
   };
 
   const handleNoClick = () => {
     if (isLoggedIn && token) {
-      // POST token to ngrok server for session establishment, then redirect
       redirectToPoleMaster(token);
     } else {
       onSelect("polemaster");
@@ -1415,12 +1409,11 @@ function LoginModal({
     setLoading(true);
 
     try {
-      const res = await fetch(`${NGROK_BASE}/api/v1/login`, {
+      const res = await fetch(`${API_BASE_URL}/api/v1/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json",
-          "ngrok-skip-browser-warning": "true",
         },
         body: JSON.stringify({ email, password }),
       });
@@ -1689,7 +1682,6 @@ export default function PortalPage() {
     if (tool === "asbuilt") {
       window.location.assign(ASBUILT_URL);
     } else if (tool === "polemaster") {
-      // POST token to ngrok server for session establishment
       redirectToPoleMaster(newToken);
     }
   };
@@ -1697,12 +1689,11 @@ export default function PortalPage() {
   const handleLogout = async () => {
     if (token) {
       try {
-        await fetch(`${NGROK_BASE}/api/v1/logout`, {
+        await fetch(`${API_BASE_URL}/api/v1/logout`, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${token}`,
             Accept: "application/json",
-            "ngrok-skip-browser-warning": "true",
           },
         });
       } catch {}

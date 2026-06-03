@@ -585,43 +585,78 @@ export default function PoleLayout({
   }, [tags]);
 
   // Receive GEO_COORDINATES back from geotool and update tags
-  useEffect(() => {
-    function handleGeoCoords(e: MessageEvent) {
-      if (e.data?.type === "GEO_COORDINATES" && Array.isArray(e.data.payload)) {
-        const coordMap = new Map(
-          e.data.payload.map(
-            (p: { cad_x: number; cad_y: number; lat: number; lon: number }) => {
-              const key = `${p.cad_x},${p.cad_y}`;
-              return [key, { map_latitude: p.lat, map_longitude: p.lon }];
-            },
-          ),
-        );
-        const updated = (prev: typeof tags) =>
-          prev.map((t) => {
-            const coords = coordMap.get(`${t.cx},${t.cy}`);
-            return coords ? { ...t, ...coords } : t;
-          });
-        setTags(updated);
+  const handleGeoCoords = useCallback((e: MessageEvent) => {
+    if (e.data?.type === "GEO_COORDINATES" && Array.isArray(e.data.payload)) {
+      const geoPayload = e.data.payload as any[];
+      const TOLERANCE = 5.0;
+      const matchedGeo = new Set<number>();
 
-        const gpsPoles = updated(tags)
-          .filter((p) => p.map_latitude != null && p.map_longitude != null)
-          .map((p) => ({
-            pole_id: p.pole_id,
-            map_latitude: p.map_latitude,
-            map_longitude: p.map_longitude,
-          }));
-        if (gpsPoles.length > 0) {
-          fetch("/api/v1/poles/georeference", {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ poles: gpsPoles }),
-          }).catch(() => {});
+      const resultUpdated = tags.map((t) => {
+        let bestDist = Infinity;
+        let bestLat = 0;
+        let bestLon = 0;
+        let bestIdx = -1;
+        geoPayload.forEach((g: any, idx: number) => {
+          const dist = Math.hypot(t.cx - g.cad_x, t.cy - g.cad_y);
+          if (dist < TOLERANCE && dist < bestDist) {
+            bestDist = dist;
+            bestLat = g.map_latitude;
+            bestLon = g.map_longitude;
+            bestIdx = idx;
+          }
+        });
+        if (bestIdx >= 0) {
+          matchedGeo.add(bestIdx);
+          return { ...t, map_latitude: bestLat, map_longitude: bestLon };
         }
+        return t;
+      });
+
+      const newTags = geoPayload
+        .filter((_: any, idx: number) => !matchedGeo.has(idx))
+        .filter((g: any) => g.map_latitude != null && g.map_longitude != null)
+        .map((g: any) => ({
+          pole_id: g.pole_id,
+          name: g.name,
+          cx: g.cad_x,
+          cy: g.cad_y,
+          bbox: [0, 0, 0, 0] as [number, number, number, number],
+          layer: "geotool_npt",
+          source: "geotool_npt",
+          ocr_conf: 1.0,
+          needs_review: false,
+          crop_b64: null,
+          map_latitude: g.map_latitude,
+          map_longitude: g.map_longitude,
+        }));
+
+      const finalTags = [...resultUpdated, ...newTags] as typeof tags;
+      setTags(finalTags);
+
+      const gpsPoles = finalTags
+        .filter((p) => p.map_latitude != null && p.map_longitude != null)
+        .map((p) => ({
+          pole_id: p.pole_id,
+          name: p.name,
+          map_latitude: p.map_latitude,
+          map_longitude: p.map_longitude,
+          cad_x: p.cx,
+          cad_y: p.cy,
+        }));
+      if (gpsPoles.length > 0) {
+        fetch("/api/v1/poles/georeference", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ poles: gpsPoles }),
+        }).catch(() => {});
       }
     }
+  }, [tags]);
+
+  useEffect(() => {
     window.addEventListener("message", handleGeoCoords);
     return () => window.removeEventListener("message", handleGeoCoords);
-  }, []);
+  }, [handleGeoCoords]);
 
   // ── Pan & zoom ────────────────────────────────────────────────────────────
   const handleWheel = useCallback(

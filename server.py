@@ -3420,20 +3420,46 @@ def v1_poles_georeference():
     tags = POLE_STATE.get("tags", [])
     tag_map = {t.get("pole_id"): t for t in tags}
     updated = 0
+    added = 0  # Track new NPTs
 
     for p in body["poles"]:
         pid = p.get("pole_id")
-        if pid is None or pid not in tag_map:
-            continue
         lat = p.get("map_latitude")
         lon = p.get("map_longitude")
+        name = p.get("name", f"NPT-{pid}")
+
         if lat is None or lon is None:
             continue
-        tag_map[pid]["map_latitude"] = lat
-        tag_map[pid]["map_longitude"] = lon
-        updated += 1
 
-    return _v1_ok({"updated": updated})
+        if pid is not None and pid in tag_map:
+            # Update existing pole
+            tag_map[pid]["map_latitude"] = lat
+            tag_map[pid]["map_longitude"] = lon
+            tag_map[pid]["cx"] = p.get("cad_x", tag_map[pid].get("cx", 0))
+            tag_map[pid]["cy"] = p.get("cad_y", tag_map[pid].get("cy", 0))
+            updated += 1
+        else:
+            # UPSERT: Insert newly discovered NPTs from the geotool
+            new_pole = {
+                "pole_id": pid,
+                "name": name,
+                "cx": p.get("cad_x", 0),
+                "cy": p.get("cad_y", 0),
+                "bbox": [0, 0, 0, 0],
+                "layer": POLE_STATE.get("layer", "geotool_discovery"),
+                "source": "geotool_npt",
+                "ocr_conf": 1.0,
+                "needs_review": False,
+                "crop_b64": None,
+                "map_latitude": lat,
+                "map_longitude": lon,
+            }
+            tags.append(new_pole)
+            tag_map[pid] = new_pole
+            added += 1
+
+    POLE_STATE["tags"] = tags
+    return _v1_ok({"updated": updated, "added": added})
 
 
 @public_api.route("/equipment", methods=["GET"])
