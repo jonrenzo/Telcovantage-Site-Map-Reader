@@ -172,24 +172,18 @@ export default function AsbuiltExportModal({
   }
 
   function buildPoleCodeMap() {
-    const seenNames = new Set<string>();
     const nameToCode: Record<string, string> = {};
-    let dupCounter = 0;
+    const idToCode: Record<number, string> = {};
 
     for (const p of poles) {
       if (p.map_latitude == null || p.map_longitude == null) continue;
       const baseName = (p.name || "").trim().toUpperCase();
       if (!baseName) continue;
 
-      let poleCode = baseName;
-      if (seenNames.has(baseName)) {
-        dupCounter++;
-        poleCode = `${baseName}-${dupCounter}`;
-      }
-      seenNames.add(baseName);
-      nameToCode[baseName] = poleCode;
+      nameToCode[baseName] = baseName;
+      idToCode[p.pole_id] = baseName;
     }
-    return nameToCode;
+    return { nameToCode, idToCode };
   }
 
   function getAreaData() {
@@ -220,14 +214,18 @@ export default function AsbuiltExportModal({
     setStep("posting");
 
     const areaData = getAreaData();
-    const nameToCode = buildPoleCodeMap();
+    const { nameToCode, idToCode } = buildPoleCodeMap();
 
+    const poleIndexByPoleId: Record<number, number> = {};
     const asbuiltPoles = poles
       .filter((p) => p.map_latitude != null && p.map_longitude != null)
-      .map((p) => {
+      .map((p, idx) => {
+        const poleIndex = idx + 1; // 1-based sequential index
         const baseName = (p.name || "").trim().toUpperCase();
+        poleIndexByPoleId[p.pole_id] = poleIndex;
         return {
-          pole_code: nameToCode[baseName] || baseName,
+          pole_index: poleIndex,
+          pole_code: nameToCode[baseName],
           latitude: p.map_latitude!,
           longitude: p.map_longitude!,
           barangay_name: areaData.barangay_name,
@@ -238,14 +236,23 @@ export default function AsbuiltExportModal({
       .filter((s) => s.from_pole && s.to_pole)
       .map((s) => {
         const fromCode =
-          nameToCode[s.from_pole!.toUpperCase()] ||
-          s.from_pole!.toUpperCase();
+          (s.from_pole_id != null ? idToCode[s.from_pole_id] : undefined) ||
+          nameToCode[s.from_pole!.toUpperCase()];
         const toCode =
-          nameToCode[s.to_pole!.toUpperCase()] || s.to_pole!.toUpperCase();
+          (s.to_pole_id != null ? idToCode[s.to_pole_id] : undefined) ||
+          nameToCode[s.to_pole!.toUpperCase()];
         return {
           from_pole_code: fromCode,
           to_pole_code: toCode,
-          strand_length: s.total_length,
+          from_pole_index:
+            s.from_pole_id != null
+              ? poleIndexByPoleId[s.from_pole_id]
+              : undefined,
+          to_pole_index:
+            s.to_pole_id != null
+              ? poleIndexByPoleId[s.to_pole_id]
+              : undefined,
+          strand_length: s.meter_value ?? s.total_length,
           number_of_runs: s.cable_runs || 1,
           components: {
             node: 0,

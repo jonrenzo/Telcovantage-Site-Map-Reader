@@ -1283,7 +1283,7 @@ export default function LoadScreen({ onStartProcessing }: Props) {
                           }
                         }}
                       />
-                      <span className="truncate">{l}</span>
+                      <span className="break-words min-w-0" title={l}>{l}</span>
                     </label>
                   ))}
                   {ocrLayers.length === 0 && (

@@ -71,8 +71,8 @@ export default function PolePanel({
     const valid = selectedLayers.filter((l) => layers.includes(l));
     if (valid.length > 0) return valid;
     if (!layers.length) return [];
-    const poleLayer = layers.find((l) => /pole|tag|label/i.test(l)) ?? layers[0];
-    return [poleLayer];
+    const matching = layers.filter((l) => /pole|tag|label|stp/i.test(l));
+    return matching.length > 0 ? matching : [layers[0]];
   }, [layers, selectedLayers]);
 
   const filteredLayerOptions = useMemo(() => {
@@ -214,7 +214,7 @@ export default function PolePanel({
                 className="absolute z-20 mt-1 w-full max-h-52 overflow-y-auto rounded-lg border border-border bg-white shadow-lg p-1"
                 onMouseLeave={() => onPreviewLayerChange(null)}
               >
-                <div className="sticky top-0 z-10 bg-white p-1 pb-2 border-b border-border">
+                <div className="sticky top-0 z-10 bg-white p-1 pb-2 border-b border-border space-y-1">
                   <input
                     type="text"
                     placeholder="Search layers..."
@@ -223,6 +223,18 @@ export default function PolePanel({
                     className="w-full bg-surface-2 border border-border rounded-md px-2 py-1.5 text-xs
                                focus:outline-none focus:ring-2 focus:ring-[#f59e0b]/30"
                   />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const allMatching = layers.filter((l) =>
+                        /pole|stp|tag|label/i.test(l),
+                      );
+                      setSelectedLayers(allMatching);
+                    }}
+                    className="w-full text-[10px] text-[#f59e0b] hover:text-[#d97706] font-semibold text-left px-1 py-0.5"
+                  >
+                    + Select all pole/stp/tag/label layers
+                  </button>
                 </div>
 
                 {filteredLayerOptions.length === 0 ? (

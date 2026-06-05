@@ -630,7 +630,11 @@ export default function PoleLayout({
           map_longitude: g.map_longitude,
         }));
 
-      const finalTags = [...resultUpdated, ...newTags] as typeof tags;
+      // Remove OCR-detected "NPT" text annotations when GeoTool NPTs exist
+      const dedupedResult = newTags.length > 0
+        ? resultUpdated.filter((t: any) => t.name !== "NPT")
+        : resultUpdated;
+      const finalTags = [...dedupedResult, ...newTags] as typeof tags;
       setTags(finalTags);
 
       const gpsPoles = finalTags

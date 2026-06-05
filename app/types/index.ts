@@ -26,7 +26,7 @@ export type EquipmentType = "generic" | "amplifier" | "node" | "extender";
 
 export interface EquipmentShape {
     shape_id: number;
-    kind: "circle" | "triangle" | "square" | "rectangle" | "hexagon";
+    kind: "circle" | "triangle" | "square" | "rectangle" | "hexagon" | "splitter";
     bbox: [number, number, number, number];
     cx: number;
     cy: number;
@@ -72,6 +72,16 @@ export interface CableSpanExport {
     cable_runs: number;
     from_pole?: string | null;
     to_pole?: string | null;
+    from_pole_id?: number | null;
+    to_pole_id?: number | null;
+    from_pole_x?: number | null;
+    from_pole_y?: number | null;
+    to_pole_x?: number | null;
+    to_pole_y?: number | null;
+    from_x?: number | null;
+    from_y?: number | null;
+    to_x?: number | null;
+    to_y?: number | null;
 }
 
 export interface AsbuiltSite {

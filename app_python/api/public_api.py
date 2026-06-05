@@ -30,7 +30,9 @@ Endpoints
 from __future__ import annotations
 
 import base64
+from collections import defaultdict
 from pathlib import Path
+import re
 from typing import Any, Dict, Optional
 
 from flask import Blueprint, current_app, jsonify, request
@@ -65,6 +67,19 @@ def _get_scan_state():
 def _get_pole_state():
     """Retrieve the pole scan state dict from the Flask app context."""
     return current_app.config.get("POLE_STATE", {})
+
+
+def _pole_id_key(value) -> Optional[str]:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def _safe_code_part(value, fallback: str = "X") -> str:
+    text = str(value or "").strip().upper()
+    text = re.sub(r"[^A-Z0-9]+", "-", text).strip("-")
+    return text or fallback
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -872,6 +887,7 @@ def bulk_post():
         return _err("node.node_id is required", 400)
 
     node_id = node_config["node_id"]
+    node_code = _safe_code_part(node_id, "CAD")
     compress = body.get("compress", False)
 
     # ── Check Planner integration is enabled ──────────────────────────────────
@@ -898,25 +914,28 @@ def bulk_post():
 
     # ── Build poles list with sequential codes ────────────────────────────────
     poles = []
-    pole_code_map = {}  # pole_name -> pole_code (e.g., "NPT1" -> "001")
+    pole_id_map: dict[str, str] = {}
     pole_code_counter = 1
 
     for tag in tags:
         pole_name = tag.get("corrected_name") or tag.get("name")
         if not pole_name:
             continue
-        # Skip duplicates (use first occurrence)
-        if pole_name in pole_code_map:
-            continue
 
-        pole_code = f"{pole_code_counter:03d}"
-        pole_code_map[pole_name] = pole_code
+        pid = tag.get("pole_id")
+        pid_key = _pole_id_key(pid)
+        pole_code_suffix = _safe_code_part(pid_key, f"{pole_code_counter:03d}")
+        pole_code = f"{node_code}-P{pole_code_suffix}"
         pole_code_counter += 1
+
+        if pid_key is not None:
+            pole_id_map[pid_key] = pole_code
 
         poles.append(
             {
                 "pole_code": pole_code,
                 "pole_name": pole_name,
+                "pole_id": pid,
                 "map_latitude": tag.get("cy"),
                 "map_longitude": tag.get("cx"),
             }
@@ -924,6 +943,16 @@ def bulk_post():
 
     if not poles:
         return _err("No valid poles found in session.", 400)
+
+    # Fallback name→code map for spans without pole_id
+    name_code_map: dict[str, str] = {}
+    name_candidates: dict[str, list] = defaultdict(list)
+    for p in poles:
+        pole_name_key = (p["pole_name"] or "").strip().upper()
+        if not pole_name_key:
+            continue
+        name_candidates[pole_name_key].append(p)
+        name_code_map.setdefault(pole_name_key, p["pole_code"])
 
     # ── Build cable spans (pole_spans) ────────────────────────────────────────
     pole_spans = []
@@ -956,16 +985,29 @@ def bulk_post():
                         # Skip invalid spans
                         if not from_pole or not to_pole:
                             continue
-                        if from_pole == to_pole:
-                            continue
-                        if (
-                            from_pole not in pole_code_map
-                            or to_pole not in pole_code_map
-                        ):
-                            continue
 
-                        from_code = pole_code_map[from_pole]
-                        to_code = pole_code_map[to_pole]
+                        from_code = pole_id_map.get(
+                            _pole_id_key(span.get("from_pole_id")) or ""
+                        )
+                        if not from_code:
+                            from_candidates = name_candidates.get(
+                                from_pole.strip().upper(), []
+                            )
+                            if len(from_candidates) == 1:
+                                from_code = from_candidates[0]["pole_code"]
+                        to_code = pole_id_map.get(
+                            _pole_id_key(span.get("to_pole_id")) or ""
+                        )
+                        if not to_code:
+                            to_candidates = name_candidates.get(
+                                to_pole.strip().upper(), []
+                            )
+                            if len(to_candidates) == 1:
+                                to_code = to_candidates[0]["pole_code"]
+                        if not from_code or not to_code:
+                            continue
+                        if from_code == to_code:
+                            continue
 
                         # Generate unique pole_span_code with index for duplicate pairs
                         pole_pair = tuple(sorted([from_code, to_code]))

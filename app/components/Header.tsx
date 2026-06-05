@@ -32,6 +32,7 @@ export default function Header({ step, onBack, exporting, onExport }: Props) {
     { type: "equipment", label: "Equipment", desc: "Shapes only" },
     { type: "poles", label: "Pole IDs", desc: "Poles only" },
     { type: "pdf", label: "DXF Drawing", desc: "PDF of the drawing" },
+    { type: "verification", label: "Verification PDF", desc: "Proof of strand values on DXF" },
     { type: "polemaster", label: "Pole Master", desc: "Push to Planner API" },
     { type: "asbuilt", label: "AsBuilt IQ", desc: "Push to AsBuilt IQ" },
   ];

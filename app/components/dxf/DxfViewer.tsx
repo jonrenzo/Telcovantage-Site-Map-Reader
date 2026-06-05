@@ -43,6 +43,8 @@ interface CableSpan {
   segments: RawSegment[];
   from_pole?: string;
   to_pole?: string;
+  from_pole_id?: number;
+  to_pole_id?: number;
 }
 
 interface CableSpanExport {
@@ -57,6 +59,16 @@ interface CableSpanExport {
   cable_runs: number;
   from_pole?: string | null;
   to_pole?: string | null;
+  from_pole_id?: number | null;
+  to_pole_id?: number | null;
+  from_pole_x?: number | null;
+  from_pole_y?: number | null;
+  to_pole_x?: number | null;
+  to_pole_y?: number | null;
+  from_x?: number | null;
+  from_y?: number | null;
+  to_x?: number | null;
+  to_y?: number | null;
 }
 
 interface Props {
@@ -64,6 +76,7 @@ interface Props {
   ocrResults: any[];
   isActive: boolean;
   onExportPdfRef?: React.MutableRefObject<(() => void) | null>;
+  onExportVerificationRef?: React.MutableRefObject<(() => void) | null>;
   boundary: BoundaryPoint[] | null;
   isMaskEnabled: boolean;
   onSpansChange?: (spans: CableSpanExport[]) => void;
@@ -141,6 +154,78 @@ function computeSpanMetrics(segments: RawSegment[]) {
     cy: count > 0 ? sumY / count : 0,
     total_length: length,
   };
+}
+
+type SpanEndpoint = {
+  pt: { x: number; y: number };
+  inward: { x: number; y: number };
+};
+
+function findSpanEndpoints(segments: RawSegment[], tol = 0.5): [SpanEndpoint, SpanEndpoint] | null {
+  if (segments.length === 0) return null;
+
+  const buckets = new Map<
+    string,
+    {
+      x: number;
+      y: number;
+      count: number;
+      inward: { x: number; y: number };
+    }
+  >();
+
+  const addEndpoint = (
+    x: number,
+    y: number,
+    inward: { x: number; y: number },
+  ) => {
+    const key = `${Math.round(x / tol)},${Math.round(y / tol)}`;
+    const existing = buckets.get(key);
+    if (existing) {
+      existing.x = (existing.x * existing.count + x) / (existing.count + 1);
+      existing.y = (existing.y * existing.count + y) / (existing.count + 1);
+      existing.count += 1;
+    } else {
+      buckets.set(key, { x, y, count: 1, inward });
+    }
+  };
+
+  for (const segment of segments) {
+    addEndpoint(segment.x1, segment.y1, { x: segment.x2, y: segment.y2 });
+    addEndpoint(segment.x2, segment.y2, { x: segment.x1, y: segment.y1 });
+  }
+
+  const allPoints = Array.from(buckets.values()).map((bucket) => ({
+    pt: { x: bucket.x, y: bucket.y },
+    inward: bucket.inward,
+  }));
+  const openEndpoints = Array.from(buckets.values())
+    .filter((bucket) => bucket.count === 1)
+    .map((bucket) => ({
+      pt: { x: bucket.x, y: bucket.y },
+      inward: bucket.inward,
+    }));
+
+  const candidates = openEndpoints.length >= 2 ? openEndpoints : allPoints;
+  if (candidates.length < 2) return null;
+
+  let bestA = candidates[0];
+  let bestB = candidates[1];
+  let bestDist = -1;
+  for (let i = 0; i < candidates.length; i++) {
+    for (let j = i + 1; j < candidates.length; j++) {
+      const a = candidates[i];
+      const b = candidates[j];
+      const dist = Math.hypot(a.pt.x - b.pt.x, a.pt.y - b.pt.y);
+      if (dist > bestDist) {
+        bestDist = dist;
+        bestA = a;
+        bestB = b;
+      }
+    }
+  }
+
+  return [bestA, bestB];
 }
 
 function pointToSegmentDistance(
@@ -294,6 +379,7 @@ export default function DxfViewer({
   ocrResults,
   isActive,
   onExportPdfRef,
+  onExportVerificationRef,
   boundary,
   isMaskEnabled,
   onSpansChange,
@@ -346,6 +432,7 @@ export default function DxfViewer({
   const exportPdfFnRef = useRef<(() => void) | null>(null);
 
   const hasAutoConnectedRef = useRef(false);
+  const autoConnectPolesRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     if (onExportPdfRef) {
@@ -408,19 +495,43 @@ export default function DxfViewer({
   const notifySpansChange = useCallback(
     (spans: CableSpan[]) => {
       if (!onSpansChange) return;
-      const exportSpans: CableSpanExport[] = spans.map((s) => ({
-        span_id: s.span_id,
-        layer: s.layer,
-        bbox: s.bbox,
-        cx: s.cx,
-        cy: s.cy,
-        segment_count: s.segment_count,
-        total_length: s.total_length,
-        meter_value: s.meterValue ?? null,
-        cable_runs: s.cable_runs,
-        from_pole: s.from_pole ?? null,
-        to_pole: s.to_pole ?? null,
-      }));
+      const exportSpans: CableSpanExport[] = spans.map((s) => {
+        const endpoints = findSpanEndpoints(s.segments);
+        const fromEndpoint = endpoints?.[0];
+        const toEndpoint = endpoints?.[1];
+        const fromPole =
+          s.from_pole_id != null
+            ? polesRef.current.find((p) => p.pole_id === s.from_pole_id)
+            : null;
+        const toPole =
+          s.to_pole_id != null
+            ? polesRef.current.find((p) => p.pole_id === s.to_pole_id)
+            : null;
+
+        return {
+          span_id: s.span_id,
+          layer: s.layer,
+          bbox: s.bbox,
+          cx: s.cx,
+          cy: s.cy,
+          segment_count: s.segment_count,
+          total_length: s.total_length,
+          meter_value: s.meterValue ?? null,
+          cable_runs: s.cable_runs,
+          from_pole: s.from_pole ?? null,
+          to_pole: s.to_pole ?? null,
+          from_pole_id: s.from_pole_id ?? null,
+          to_pole_id: s.to_pole_id ?? null,
+          from_pole_x: fromPole?.cx ?? null,
+          from_pole_y: fromPole?.cy ?? null,
+          to_pole_x: toPole?.cx ?? null,
+          to_pole_y: toPole?.cy ?? null,
+          from_x: fromEndpoint?.pt.x ?? null,
+          from_y: fromEndpoint?.pt.y ?? null,
+          to_x: toEndpoint?.pt.x ?? null,
+          to_y: toEndpoint?.pt.y ?? null,
+        };
+      });
       onSpansChange(exportSpans);
     },
     [onSpansChange],
@@ -887,17 +998,18 @@ export default function DxfViewer({
 
     const newSpans = cableSpansRef.current.map((span) => {
       if (span.segments.length === 0) return span;
-      const firstSeg = span.segments[0],
-        lastSeg = span.segments[span.segments.length - 1];
-      const ptA = { x: firstSeg.x1, y: firstSeg.y1 },
-        ptA_in = { x: firstSeg.x2, y: firstSeg.y2 };
-      const ptB = { x: lastSeg.x2, y: lastSeg.y2 },
-        ptB_in = { x: lastSeg.x1, y: lastSeg.y1 };
+      const endpoints = findSpanEndpoints(span.segments);
+      if (!endpoints) return span;
+      const [endpointA, endpointB] = endpoints;
+      const ptA = endpointA.pt;
+      const ptA_in = endpointA.inward;
+      const ptB = endpointB.pt;
+      const ptB_in = endpointB.inward;
 
       const findPoleForEndpoint = (
         pt: { x: number; y: number },
         pt_in: { x: number; y: number },
-      ) => {
+      ): { name: string; id: number } | null => {
         let closestPole: PoleTag | null = null,
           minDist = Infinity;
         for (const pole of polesRef.current) {
@@ -913,7 +1025,7 @@ export default function DxfViewer({
             closestPole = pole;
           }
         }
-        if (closestPole) return closestPole.name;
+        if (closestPole) return { name: closestPole.name, id: closestPole.pole_id };
         if (pt.x === pt_in.x && pt.y === pt_in.y) return null;
 
         const angle = Math.atan2(pt.y - pt_in.y, pt.x - pt_in.x);
@@ -945,13 +1057,18 @@ export default function DxfViewer({
             }
           }
         }
-        return closestPole ? closestPole.name : undefined;
+        if (closestPole) return { name: closestPole.name, id: closestPole.pole_id };
+        return null;
       };
 
+      const fromResult = findPoleForEndpoint(ptA, ptA_in);
+      const toResult = findPoleForEndpoint(ptB, ptB_in);
       return {
         ...span,
-        from_pole: findPoleForEndpoint(ptA, ptA_in) || span.from_pole,
-        to_pole: findPoleForEndpoint(ptB, ptB_in) || span.to_pole,
+        from_pole: fromResult?.name ?? span.from_pole,
+        from_pole_id: fromResult?.id ?? span.from_pole_id,
+        to_pole: toResult?.name ?? span.to_pole,
+        to_pole_id: toResult?.id ?? span.to_pole_id,
       };
     });
 
@@ -964,6 +1081,10 @@ export default function DxfViewer({
     notifySpansChange(newSpans);
     redraw();
   }, [redraw, notifySpansChange]);
+
+  useEffect(() => {
+    autoConnectPolesRef.current = autoConnectPoles;
+  }, [autoConnectPoles]);
 
   const toggleActives = async () => {
     if (showActives) {
@@ -1314,6 +1435,8 @@ export default function DxfViewer({
         segment_count: firstHalf.length,
         from_pole: span.from_pole,
         to_pole: undefined,
+        from_pole_id: span.from_pole_id,
+        to_pole_id: undefined,
         ...m1,
         meterValue: getNearestMeterValue(m1.cx, m1.cy),
       };
@@ -1324,6 +1447,8 @@ export default function DxfViewer({
         segment_count: secondHalf.length,
         from_pole: undefined,
         to_pole: span.to_pole,
+        from_pole_id: undefined,
+        to_pole_id: span.to_pole_id,
         ...m2,
         meterValue: getNearestMeterValue(m2.cx, m2.cy),
       };
@@ -1440,6 +1565,8 @@ export default function DxfViewer({
               segment_count: firstHalf.length,
               from_pole: span.from_pole,
               to_pole: undefined,
+              from_pole_id: span.from_pole_id,
+              to_pole_id: undefined,
               ...m1,
               meterValue: getNearestMeterValue(m1.cx, m1.cy),
             };
@@ -1450,6 +1577,8 @@ export default function DxfViewer({
               segment_count: secondHalf.length,
               from_pole: undefined,
               to_pole: span.to_pole,
+              from_pole_id: undefined,
+              to_pole_id: span.to_pole_id,
               ...m2,
               meterValue: getNearestMeterValue(m2.cx, m2.cy),
             };
@@ -1548,6 +1677,8 @@ export default function DxfViewer({
             segment_count: newSegments.length,
             from_pole: targetSpan.from_pole || neighbor.from_pole,
             to_pole: targetSpan.to_pole || neighbor.to_pole,
+            from_pole_id: targetSpan.from_pole_id ?? neighbor.from_pole_id,
+            to_pole_id: targetSpan.to_pole_id ?? neighbor.to_pole_id,
             ...m,
             meterValue: nearestOcr ?? undefined,
           };
@@ -1872,7 +2003,7 @@ export default function DxfViewer({
   );
 
   useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
+    const handleMessage = async (event: MessageEvent) => {
       // 1. Existing Georeferencing Logic
       if (event.data?.type === "GEO_COORDINATES") {
         const geoData = event.data.payload as any[];
@@ -1902,9 +2033,20 @@ export default function DxfViewer({
           return pole;
         });
 
+        // Build a set of existing CAD coordinates to avoid creating duplicates
+        const existingCoords = new Set(
+          polesRef.current.map((p) => `${p.cx.toFixed(4)},${p.cy.toFixed(4)}`),
+        );
+
         const nptPoles = geoData
           .filter((_: any, idx: number) => !matchedGeo.has(idx))
           .filter((g: any) => g.map_latitude != null && g.map_longitude != null)
+          .filter(
+            (g: any) =>
+              !existingCoords.has(
+                `${(g.cad_x ?? 0).toFixed(4)},${(g.cad_y ?? 0).toFixed(4)}`,
+              ),
+          )
           .map((g: any) => ({
             pole_id: g.pole_id,
             name: g.name,
@@ -1920,7 +2062,28 @@ export default function DxfViewer({
             map_longitude: g.map_longitude,
           }));
 
-        const allPoles = [...updatedPoles, ...nptPoles];
+        // Register geotool_npt as a visible pseudo-layer so poles render (isLayerVisible) and appear in the layer panel
+        if (nptPoles.length > 0) {
+          const hasGeoLayer = layersRef.current.some((l) => l.name === "geotool_npt");
+          if (!hasGeoLayer) {
+            const geoLayer: DxfLayerData = {
+              name: "geotool_npt",
+              visible: true,
+              color: "#f59e0b",
+              segmentCount: nptPoles.length,
+            };
+            layersRef.current = [...layersRef.current, geoLayer];
+            setLayers([...layersRef.current]);
+          }
+        }
+
+        // Remove OCR-detected "NPT" text annotations when GeoTool NPTs exist
+        // Text labels like "NPT" are annotations, not actual poles — the GeoTool
+        // discovers the real NPT circle symbols as separate poles at proper positions.
+        const dedupedUpdated = nptPoles.length > 0
+          ? updatedPoles.filter((p) => p.name !== "NPT")
+          : updatedPoles;
+        const allPoles = [...dedupedUpdated, ...nptPoles];
         polesRef.current = allPoles;
         setPoles(allPoles);
 
@@ -1935,12 +2098,24 @@ export default function DxfViewer({
             cad_y: p.cy,
           }));
         if (gpsPoles.length > 0) {
-          fetch("/api/v1/poles/georeference", {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ poles: gpsPoles }),
-          }).catch(() => {});
+          try {
+            const res = await fetch("/api/v1/poles/georeference", {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ poles: gpsPoles }),
+            });
+            const data = await res.json().catch(() => null);
+            if (!res.ok || data?.error) {
+              throw new Error(data?.error || `HTTP ${res.status}`);
+            }
+          } catch (err) {
+            console.error("Georeference PATCH failed:", err);
+            alert("Failed to sync NPTs to server. NPT spans will be skipped until the sync succeeds.");
+            return;
+          }
         }
+
+        autoConnectPolesRef.current();
 
         alert("Coordinates successfully synced from Georeferencing tool!");
         redraw();
@@ -1954,20 +2129,17 @@ export default function DxfViewer({
         if (action === "ADD") {
           updatedPoles.push(pole);
         } else if (action === "UPDATE") {
-          // Find the old pole to get its previous name
-          const oldPole = updatedPoles.find((p) => p.pole_id === pole.pole_id);
-          const oldName = oldPole?.name;
-
           updatedPoles = updatedPoles.map((p) =>
             p.pole_id === pole.pole_id ? { ...p, ...pole } : p,
           );
 
-          // CASCADE RENAME TO CABLE SPANS
-          if (oldName && pole.name && oldName !== pole.name) {
+          // CASCADE RENAME TO CABLE SPANS - match by pole_id
+          if (pole.name) {
+            const renamedId = pole.pole_id;
             const newSpans = cableSpansRef.current.map((span) => {
               let updated = { ...span };
-              if (updated.from_pole === oldName) updated.from_pole = pole.name;
-              if (updated.to_pole === oldName) updated.to_pole = pole.name;
+              if (updated.from_pole_id === renamedId) updated.from_pole = pole.name;
+              if (updated.to_pole_id === renamedId) updated.to_pole = pole.name;
               return updated;
             });
             cableSpansRef.current = newSpans;
@@ -1975,23 +2147,25 @@ export default function DxfViewer({
             notifySpansChange(newSpans);
           }
         } else if (action === "DELETE") {
-          const oldPole = updatedPoles.find((p) => p.pole_id === pole.pole_id);
-          const oldName = oldPole?.name;
-
           updatedPoles = updatedPoles.filter((p) => p.pole_id !== pole.pole_id);
 
           // CASCADE DELETE TO CABLE SPANS
-          if (oldName) {
-            const newSpans = cableSpansRef.current.map((span) => {
-              let updated = { ...span };
-              if (updated.from_pole === oldName) updated.from_pole = undefined;
-              if (updated.to_pole === oldName) updated.to_pole = undefined;
-              return updated;
-            });
-            cableSpansRef.current = newSpans;
-            setCableSpans(newSpans);
-            notifySpansChange(newSpans);
-          }
+          const deletedId = pole.pole_id;
+          const newSpans = cableSpansRef.current.map((span) => {
+            let updated = { ...span };
+            if (updated.from_pole_id === deletedId) {
+              updated.from_pole = undefined;
+              updated.from_pole_id = undefined;
+            }
+            if (updated.to_pole_id === deletedId) {
+              updated.to_pole = undefined;
+              updated.to_pole_id = undefined;
+            }
+            return updated;
+          });
+          cableSpansRef.current = newSpans;
+          setCableSpans(newSpans);
+          notifySpansChange(newSpans);
         }
 
         polesRef.current = updatedPoles;
@@ -2108,8 +2282,8 @@ export default function DxfViewer({
             return {
               ...s,
               ...(mode === "from"
-                ? { from_pole: clickedPole.name }
-                : { to_pole: clickedPole.name }),
+                ? { from_pole: clickedPole.name, from_pole_id: clickedPole.pole_id }
+                : { to_pole: clickedPole.name, to_pole_id: clickedPole.pole_id }),
             };
           return s;
         });
@@ -2387,6 +2561,232 @@ export default function DxfViewer({
       doPrint();
     }
   }, [cableStatuses, partialDetails, renderScene, isLayerVisible]);
+
+  const exportVerificationPdf = useCallback(() => {
+    if (!boundsRef.current) return;
+    const { minx, miny, maxx, maxy } = boundsRef.current;
+    const dw = maxx - minx;
+    const dh = maxy - miny;
+    if (dw <= 0 || dh <= 0) return;
+    const W = 4500;
+    const H = (dh / dw) * W;
+    const offCanvas = document.createElement("canvas");
+    offCanvas.width = W;
+    offCanvas.height = H;
+    const ctx = offCanvas.getContext("2d");
+    if (!ctx) return;
+    const exportVp = { x: 0, y: 0, scale: 1 };
+    exportVp.scale = Math.min(W / dw, H / dh) * 0.96;
+    exportVp.x = W / 2 - ((minx + maxx) / 2) * exportVp.scale;
+    exportVp.y = H / 2 + ((miny + maxy) / 2) * exportVp.scale;
+
+    // Render verification scene
+    const worldToScreen = (wx: number, wy: number) => ({
+      x: wx * exportVp.scale + exportVp.x,
+      y: -wy * exportVp.scale + exportVp.y,
+    });
+
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.save();
+    ctx.translate(exportVp.x, exportVp.y);
+    ctx.scale(exportVp.scale, -exportVp.scale);
+
+    // 1. Draw ALL DXF layers in black
+    for (const layer of layersRef.current) {
+      if (!layer.visible) continue;
+      const segs = segmentsRef.current[layer.name] ?? [];
+      if (!segs.length) continue;
+      ctx.strokeStyle = "#000000";
+      ctx.lineWidth = 0.6 / exportVp.scale;
+      ctx.beginPath();
+      for (const s of segs) {
+        ctx.moveTo(s.x1, s.y1);
+        ctx.lineTo(s.x2, s.y2);
+      }
+      ctx.stroke();
+    }
+
+    // 2. Draw cable spans in red
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    for (const span of cableSpansRef.current) {
+      if (!isLayerVisible(span.layer)) continue;
+      const runs = span.cable_runs || 1;
+
+      ctx.save();
+      ctx.strokeStyle = "rgba(220, 38, 38, 0.25)";
+      ctx.lineWidth = (8 + (runs - 1) * 8) / exportVp.scale;
+      ctx.beginPath();
+      for (const seg of span.segments) {
+        ctx.moveTo(seg.x1, seg.y1);
+        ctx.lineTo(seg.x2, seg.y2);
+      }
+      ctx.stroke();
+      ctx.restore();
+
+      ctx.save();
+      ctx.strokeStyle = "rgba(220, 38, 38, 0.95)";
+      ctx.lineWidth = 1.5 / exportVp.scale;
+      ctx.beginPath();
+      for (const seg of span.segments) {
+        ctx.moveTo(seg.x1, seg.y1);
+        ctx.lineTo(seg.x2, seg.y2);
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+    ctx.restore();
+
+    // 3. Draw strand value labels in screen space (skip null/zero values)
+    ctx.save();
+    ctx.font = "bold 14px monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    for (const span of cableSpansRef.current) {
+      if (!isLayerVisible(span.layer)) continue;
+      const value = span.meterValue;
+      if (!value) continue;
+
+      const label = `${value.toFixed(1)}m`;
+      const sp = worldToScreen(span.cx, span.cy);
+
+      const metrics = ctx.measureText(label);
+      const pad = 3;
+      const rw = metrics.width + pad * 2;
+      const rh = 14 + pad * 2;
+      const rx = sp.x - rw / 2;
+      const ry = sp.y - rh / 2;
+
+      ctx.fillStyle = "rgba(255, 255, 255, 0.92)";
+      ctx.strokeStyle = "rgba(22, 163, 74, 0.5)";
+      ctx.lineWidth = 1;
+      const rad = 4;
+      ctx.beginPath();
+      ctx.moveTo(rx + rad, ry);
+      ctx.lineTo(rx + rw - rad, ry);
+      ctx.quadraticCurveTo(rx + rw, ry, rx + rw, ry + rad);
+      ctx.lineTo(rx + rw, ry + rh - rad);
+      ctx.quadraticCurveTo(rx + rw, ry + rh, rx + rw - rad, ry + rh);
+      ctx.lineTo(rx + rad, ry + rh);
+      ctx.quadraticCurveTo(rx, ry + rh, rx, ry + rh - rad);
+      ctx.lineTo(rx, ry + rad);
+      ctx.quadraticCurveTo(rx, ry, rx + rad, ry);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = "#16a34a";
+      ctx.fillText(label, sp.x, sp.y);
+    }
+    ctx.restore();
+
+    const imageData = offCanvas.toDataURL("image/png");
+    const layerName = cableLayersRef.current.length
+      ? cableLayersRef.current.join(", ")
+      : "—";
+    const dateStr = new Date().toLocaleString();
+
+    let totalSpans = 0;
+    const spanRows: string[] = [];
+    for (const span of cableSpansRef.current) {
+      if (!isLayerVisible(span.layer)) continue;
+      const value = span.meterValue;
+      if (!value) continue;
+      totalSpans++;
+      const runs = span.cable_runs || 1;
+      const actualLen = value * runs;
+      spanRows.push(`<tr>
+        <td style="padding:6px 12px;border:1px solid #e2e8f0;font-family:monospace">${span.span_id}</td>
+        <td style="padding:6px 12px;border:1px solid #e2e8f0;font-family:monospace">${value.toFixed(1)}</td>
+        <td style="padding:6px 12px;border:1px solid #e2e8f0;font-family:monospace">${runs}</td>
+        <td style="padding:6px 12px;border:1px solid #e2e8f0;font-family:monospace">${actualLen.toFixed(1)}</td>
+      </tr>`);
+    }
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Cable Span Verification Report</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Inter, Arial, sans-serif; color: #1e293b; background: #fff; }
+  @page { size: A3 landscape; margin: 15mm; }
+  .page-break { break-before: page; page-break-before: always; }
+  .header-section { margin-bottom: 20px; }
+  h1  { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
+  .subtitle { font-size: 14px; color: #64748b; margin-bottom: 20px; }
+  .legend-box { display: flex; align-items: center; gap: 20px; background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 14px; }
+  .legend-item { display: flex; align-items: center; gap: 8px; color: #334155; font-weight: 500; }
+  .legend-line { width: 32px; height: 4px; border-radius: 2px; display: inline-block; }
+  .legend-label { background: #16a34a; color: #fff; font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+  .image-container { width: 100%; height: 70vh; display: flex; justify-content: center; align-items: center; overflow: hidden; }
+  img { max-width: 100%; max-height: 100%; object-fit: contain; border: 1px solid #e2e8f0; border-radius: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { background: #f8fafc; padding: 10px 12px; border: 1px solid #e2e8f0; text-align: left; font-weight: 600; color: #475569; }
+  h2 { font-size: 20px; margin-bottom: 16px; }
+</style>
+</head>
+<body>
+  <div class="header-section">
+    <h1>Cable Span Verification Report</h1>
+    <div class="subtitle">Generated: ${dateStr} &nbsp;|&nbsp; Layers: ${layerName} &nbsp;|&nbsp; Spans with values: ${totalSpans.toLocaleString()}</div>
+
+    <div class="legend-box">
+      <strong style="color: #0f172a;">Legend:</strong>
+      <div class="legend-item"><span class="legend-line" style="background: #000;"></span> DXF drawing lines</div>
+      <div class="legend-item"><span class="legend-line" style="background: #dc2626; height: 8px; border-radius: 3px;"></span> Cable span</div>
+      <div class="legend-item"><span class="legend-label">123.4m</span> Strand value</div>
+    </div>
+  </div>
+
+  <div class="image-container">
+    <img src="${imageData}" alt="Verification Map" />
+  </div>
+
+  <div class="page-break">
+    <h2>Span Data</h2>
+    ${spanRows.length ? `<table><thead><tr><th>Span ID</th><th>Strand Value (m)</th><th>Cable Runs</th><th>Actual Length (m)</th></tr></thead><tbody>${spanRows.join("")}</tbody></table>` : "<p style='color:#64748b;font-size:14px'>No spans with strand values.</p>"}
+  </div>
+</body>
+</html>`;
+
+    const iframe = document.createElement("iframe");
+    iframe.style.cssText =
+      "position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;border:none;";
+    document.body.appendChild(iframe);
+    const doc = iframe.contentDocument;
+    if (!doc) {
+      document.body.removeChild(iframe);
+      return;
+    }
+    doc.open();
+    doc.write(html);
+    doc.close();
+    const imgEl = doc.querySelector("img");
+    const doPrint = () => {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+      setTimeout(() => {
+        if (document.body.contains(iframe)) document.body.removeChild(iframe);
+      }, 2000);
+    };
+    if (imgEl) {
+      imgEl.onload = doPrint;
+      if (imgEl.complete) doPrint();
+    } else {
+      doPrint();
+    }
+  }, [isLayerVisible]);
+
+  useEffect(() => {
+    if (onExportVerificationRef) {
+      onExportVerificationRef.current = exportVerificationPdf;
+    }
+  }, [onExportVerificationRef, exportVerificationPdf]);
 
   const visibleCount = layers.filter((l) => l.visible).length;
   const selectedSpan =

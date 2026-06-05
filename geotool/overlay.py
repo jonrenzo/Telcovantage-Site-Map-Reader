@@ -174,7 +174,6 @@ def snap_and_discover_poles(dxf_filepath, cad_poles, pole_model):
     # Find the highest existing ID so we don't cause database conflicts
     existing_ids = {p.id for p in cad_poles}
     next_id = max(existing_ids) + 1 if existing_ids else 10000
-    npt_counter = 1
 
     enriched_poles = list(cad_poles)
 
@@ -188,10 +187,9 @@ def snap_and_discover_poles(dxf_filepath, cad_poles, pole_model):
             if not is_duplicate:
                 # Create a brand new pole object for the nameless circle
                 new_pole = pole_model(
-                    id=next_id, name=f"NPT-{npt_counter}", cx=cx, cy=cy
+                    id=next_id, name="NPT", cx=cx, cy=cy
                 )
                 enriched_poles.append(new_pole)
                 next_id += 1
-                npt_counter += 1
 
     return enriched_poles

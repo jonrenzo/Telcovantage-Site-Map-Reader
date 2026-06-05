@@ -945,6 +945,10 @@ def build_cable_spans(
             if not span_segments:
                 continue
 
+            # Store explicit cable endpoints so pole resolution can use proximity
+            first_seg = span_segments[0]
+            last_seg  = span_segments[-1]
+
             spans.append(
                 {
                     "span_id": global_span_id,
@@ -957,6 +961,11 @@ def build_cable_spans(
                     "segments": span_segments,
                     "from_pole": None,
                     "to_pole": None,
+                    # Explicit endpoints for proximity-based pole resolution
+                    "from_x": first_seg["x1"],
+                    "from_y": first_seg["y1"],
+                    "to_x":   last_seg["x2"],
+                    "to_y":   last_seg["y2"],
                 }
             )
             global_span_id += 1
@@ -1013,6 +1022,19 @@ def assign_meter_values_to_spans(spans, ocr_results, max_dist=None):
 # ─────────────────────────────────────────────────────────────────────────────
 
 
+def _pole_id_key(value) -> Optional[str]:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def _safe_code_part(value, fallback: str = "X") -> str:
+    text = str(value or "").strip().upper()
+    text = _re.sub(r"[^A-Z0-9]+", "-", text).strip("-")
+    return text or fallback
+
+
 def push_to_planner(
     dxf_path: str,
     poles: list,
@@ -1032,6 +1054,7 @@ def push_to_planner(
         node_id = dxf_name.split("_")[0] if "_" in dxf_name else dxf_name
         if not node_id:
             node_id = "CAD_NODE"
+        node_code = _safe_code_part(node_id, "CAD")
 
         equipment_counts = {"amplifier": 0, "extender": 0, "tsc": 0}
         for shape in equipment:
@@ -1046,51 +1069,252 @@ def push_to_planner(
         spans = assign_meter_values_to_spans(spans, ocr_results)
 
         poles_list = []
-        pole_code_map = {}
+        pole_id_map: dict[str, str] = {}
         pole_counter = 1
 
+        # Detect pole names that appear more than once (NPT, PT, NT, etc.)
+        # These get an index suffix so each is uniquely identifiable.
+        _raw_name_counts: Counter = Counter(
+            (p.get("corrected_name") or p.get("name", "")).strip().upper()
+            for p in poles
+            if (p.get("corrected_name") or p.get("name", "")).strip()
+        )
+        _duplicate_names = {n for n, c in _raw_name_counts.items() if c > 1}
+        _dup_idx: dict[str, int] = {}
+
         for pole in poles:
-            pole_name = (pole.get("corrected_name") or pole.get("name", "")).strip()
-            if not pole_name:
-                continue
-            if pole_name in pole_code_map:
+            base_name = (pole.get("corrected_name") or pole.get("name", "")).strip()
+            if not base_name:
                 continue
 
-            pole_code = f"{pole_counter:03d}"
-            pole_code_map[pole_name] = pole_code
+            base_upper = base_name.upper()
+
+            # Assign index to duplicate-named poles: NPT → NPT-1, NPT-2 …
+            if base_upper in _duplicate_names:
+                _dup_idx[base_upper] = _dup_idx.get(base_upper, 0) + 1
+                pole_name = f"{base_name}-{_dup_idx[base_upper]}"
+            else:
+                pole_name = base_name
+
+            pid = pole.get("pole_id")
+            pid_key = _pole_id_key(pid)
+            pole_code_suffix = _safe_code_part(pid_key, f"{pole_counter:03d}")
+            pole_code = f"{node_code}-P{pole_code_suffix}"
             pole_counter += 1
+
+            if pid_key is not None:
+                pole_id_map[pid_key] = pole_code
 
             poles_list.append(
                 {
-                    "pole_code": pole_code,
-                    "pole_name": pole_name,
+                    "pole_code":    pole_code,
+                    "pole_name":    pole_name,      # e.g. "NPT-1"
+                    "_base_name":   base_upper,     # e.g. "NPT"  (for reverse lookup)
+                    "pole_id":      pid,
                     "map_latitude": pole.get("cy"),
-                    "map_longitude": pole.get("cx"),
+                    "map_longitude":pole.get("cx"),
                 }
             )
 
         print(f"[planner] Built {len(poles_list)} poles for upload")
+        print(f"[planner] Indexed duplicate names: {sorted(_duplicate_names)}")
+        print(f"[planner] pole_id_map keys: {sorted(pole_id_map.keys())}")
+
+        # All pole candidates for position-based fallback (CAD coords)
+        all_pole_candidates = [
+            p for p in poles_list
+            if p["map_longitude"] is not None and p["map_latitude"] is not None
+        ]
+
+        # Fallback name→code map for spans that don't have pole_id.
+        # Register each pole under BOTH its indexed name ("NPT-1") AND its base
+        # name ("NPT") so spans that only say "NPT" can still resolve by proximity.
+        name_code_map: dict[str, str] = {}
+        name_candidates: dict[str, list] = defaultdict(list)
+        for p in poles_list:
+            indexed_key = (p["pole_name"] or "").strip().upper()
+            base_key    = p.get("_base_name", indexed_key)
+
+            if indexed_key:
+                name_candidates[indexed_key].append(p)
+                name_code_map.setdefault(indexed_key, p["pole_code"])
+
+            # Also register under base name so "NPT" resolves to [NPT-1, NPT-2, ...]
+            if base_key and base_key != indexed_key:
+                name_candidates[base_key].append(p)
+                name_code_map.setdefault(base_key, p["pole_code"])
+
+        def _as_float(value):
+            try:
+                if value is None:
+                    return None
+                return float(value)
+            except (TypeError, ValueError):
+                return None
+
+        def _span_endpoint(span, side: str):
+            # Priority 1: explicit endpoint stored by build_cable_spans
+            x = _as_float(span.get(f"{side}_x"))
+            y = _as_float(span.get(f"{side}_y"))
+            if x is not None and y is not None:
+                return x, y
+
+            # Priority 2: legacy field names
+            x = _as_float(span.get(f"{side}_pole_x"))
+            y = _as_float(span.get(f"{side}_pole_y"))
+            if x is not None and y is not None:
+                return x, y
+
+            # Priority 3: derive from segments
+            segments = span.get("segments") or []
+            if not segments:
+                return None
+
+            if side == "from":
+                seg = segments[0]
+                x = _as_float(seg.get("x1"))
+                y = _as_float(seg.get("y1"))
+            else:
+                seg = segments[-1]
+                x = _as_float(seg.get("x2"))
+                y = _as_float(seg.get("y2"))
+
+            if x is None or y is None:
+                return None
+            return x, y
+
+        def _nearest_candidate_match(candidates, endpoint):
+            if endpoint is None:
+                return None, None
+
+            ex, ey = endpoint
+            best_candidate = None
+            best_dist = float("inf")
+            for candidate in candidates:
+                px = _as_float(candidate.get("map_longitude"))
+                py = _as_float(candidate.get("map_latitude"))
+                if px is None or py is None:
+                    continue
+
+                dist = math.hypot(px - ex, py - ey)
+                if dist < best_dist:
+                    best_dist = dist
+                    best_candidate = candidate
+
+            return best_candidate, best_dist if best_candidate is not None else None
+
+        def _resolve_span_pole_code(span, side: str, span_idx: int = -1):
+            pole_id = span.get(f"{side}_pole_id")
+            pole_key = _pole_id_key(pole_id)
+            if pole_key is not None:
+                code = pole_id_map.get(pole_key)
+                if code:
+                    return code, "pole_id"
+
+            # Log when pole_id lookup fails
+            if span_idx >= 0 and pole_key is not None:
+                print(f"[planner] Span #{span_idx} {side}_pole_id={pole_id!r} NOT found in pole_id_map (keys={sorted(pole_id_map.keys())})")
+
+            pole_name = (span.get(f"{side}_pole") or "").strip().upper()
+            if not pole_name:
+                return None, "missing_name"
+
+            candidates = name_candidates.get(pole_name, [])
+
+            # --- Exact unique match ---
+            if len(candidates) == 1:
+                return candidates[0].get("pole_code"), "unique_name"
+
+            # --- Multiple candidates (duplicate names like NPT-1/NPT-2 or raw "NPT") ---
+            # Always try proximity first using the span's explicit cable endpoints.
+            if len(candidates) > 1:
+                endpoint = _span_endpoint(span, side)
+                nearest_candidate, nearest_dist = _nearest_candidate_match(candidates, endpoint)
+                if nearest_candidate:
+                    return (
+                        nearest_candidate.get("pole_code"),
+                        f"duplicate_name_nearest:{nearest_dist:.4f}",
+                    )
+                # Proximity failed (no position data on candidates) →
+                # widen search to all positioned poles.
+                if span_idx >= 0:
+                    print(
+                        f"[planner] Span #{span_idx} {side}: {pole_name!r} has "
+                        f"{len(candidates)} candidates but no usable endpoint; "
+                        f"falling back to all-poles proximity"
+                    )
+                nearest_any, dist_any = _nearest_candidate_match(all_pole_candidates, endpoint)
+                if nearest_any:
+                    return nearest_any.get("pole_code"), f"duplicate_fallback_any:{dist_any:.4f}"
+                # Last resort: just pick the first candidate rather than dropping the span
+                return candidates[0].get("pole_code"), "duplicate_first_fallback"
+
+            # --- No candidates found by name at all ---
+            # Use proximity against all positioned poles (handles NPT/PT/NT
+            # that appear in span data but whose indexed variant isn't looked up).
+            endpoint = _span_endpoint(span, side)
+            nearest_candidate, nearest_dist = _nearest_candidate_match(
+                all_pole_candidates, endpoint
+            )
+            if nearest_candidate:
+                if span_idx >= 0:
+                    print(
+                        f"[planner] Span #{span_idx} {side}: no name match for "
+                        f"{pole_name!r}; position fallback → "
+                        f"{nearest_candidate.get('pole_code')} (dist={nearest_dist:.4f})"
+                    )
+                return (
+                    nearest_candidate.get("pole_code"),
+                    f"nearest_any:{nearest_dist:.4f}",
+                )
+
+            # Unique non-NPT labels can still use the original name fallback.
+            code = name_code_map.get(pole_name)
+            return (code, "name_fallback") if code else (None, "no_candidate")
 
         pole_spans = []
         pole_pair_counts = {}
-        spans_skipped = 0
+        spans_no_pole_name = 0
+        spans_no_code = 0
+        spans_same_code = 0
+        spans_ok = 0
+        resolution_methods = Counter()
+        span_resolution_debug = []
 
-        for span in spans:
+        for span_idx, span in enumerate(spans):
             from_pole = span.get("from_pole")
             to_pole = span.get("to_pole")
 
             if not from_pole or not to_pole:
-                spans_skipped += 1
+                spans_no_pole_name += 1
                 continue
-            if from_pole == to_pole:
-                spans_skipped += 1
-                continue
-            if from_pole not in pole_code_map or to_pole not in pole_code_map:
-                spans_skipped += 1
-                continue
+            from_code, from_method = _resolve_span_pole_code(span, "from", span_idx)
+            to_code, to_method = _resolve_span_pole_code(span, "to", span_idx)
+            resolution_methods[f"from:{from_method}"] += 1
+            resolution_methods[f"to:{to_method}"] += 1
 
-            from_code = pole_code_map[from_pole]
-            to_code = pole_code_map[to_pole]
+            if len(span_resolution_debug) < 25:
+                span_resolution_debug.append(
+                    {
+                        "span_id": span.get("span_id", span_idx),
+                        "from_pole": from_pole,
+                        "from_pole_id": span.get("from_pole_id"),
+                        "from_code": from_code,
+                        "from_method": from_method,
+                        "to_pole": to_pole,
+                        "to_pole_id": span.get("to_pole_id"),
+                        "to_code": to_code,
+                        "to_method": to_method,
+                    }
+                )
+
+            if not from_code or not to_code:
+                spans_no_code += 1
+                continue
+            if from_code == to_code:
+                spans_same_code += 1
+                continue
+            spans_ok += 1
 
             pole_pair = tuple(sorted([from_code, to_code]))
             occurrence = pole_pair_counts.get(pole_pair, 0) + 1
@@ -1106,14 +1330,15 @@ def push_to_planner(
                     "from_pole_code": from_code,
                     "to_pole_code": to_code,
                     "pole_span_code": pole_span_code,
-                    "length_meters": span.get("meter_value", 0) or 0,
+                    "length_meters": span.get("meter_value") or span.get("total_length", 0) or 0,
                     "runs": span.get("cable_runs", 1),
-                    "expected_cable": span.get("meter_value", 0) or 0,
+                    "expected_cable": span.get("meter_value") or span.get("total_length", 0) or 0,
                 }
             )
 
         print(
-            f"[planner] Built {len(pole_spans)} pole spans for upload ({spans_skipped} skipped)"
+            f"[planner] Built {len(pole_spans)} pole spans for upload "
+            f"(skip reasons: {spans_no_pole_name} no-pole-name, {spans_no_code} no-code, {spans_same_code} same-code)"
         )
 
         total_strand_length = sum(s.get("length_meters", 0) for s in pole_spans)
@@ -1134,6 +1359,12 @@ def push_to_planner(
             "pole_spans": pole_spans,
         }
 
+        debug_dir = Path("cache")
+        debug_dir.mkdir(exist_ok=True)
+        debug_path = debug_dir / "polemaster-last-payload.json"
+        debug_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        print(f"[planner] Saved last bulk payload: {debug_path.resolve()}")
+
         print(
             f"[planner] Uploading bulk payload: {len(poles_list)} poles, {len(pole_spans)} spans"
         )
@@ -1144,6 +1375,12 @@ def push_to_planner(
 
         data = result.get("data", result)
         summary = data.get("summary", {})
+        spans_skipped = spans_no_pole_name + spans_no_code + spans_same_code
+        duplicate_pole_names = {
+            name: len(candidates)
+            for name, candidates in name_candidates.items()
+            if len(candidates) > 1
+        }
 
         return {
             "success": True,
@@ -1151,7 +1388,15 @@ def push_to_planner(
             "node_action": data.get("node", {}).get("action", "created"),
             "poles_created": summary.get("poles_count", len(poles_list)),
             "spans_created": summary.get("pole_spans_count", len(pole_spans)),
+            "spans_ready": spans_ok,
             "spans_skipped": spans_skipped,
+            "spans_skipped_no_poles": spans_no_pole_name,
+            "spans_skipped_unresolved": spans_no_code,
+            "spans_skipped_same_pole": spans_same_code,
+            "span_resolution_methods": dict(resolution_methods),
+            "duplicate_pole_names": duplicate_pole_names,
+            "span_resolution_sample": span_resolution_debug,
+            "debug_payload_path": str(debug_path.resolve()),
         }
 
     except Exception as e:
@@ -1616,68 +1861,71 @@ POLE_CONFIG = _poleid.PoleIdConfig(
 OCR_WORKERS = 4
 
 
-def _run_pole_scan(dxf_path: str, layer_name: str) -> None:
+def _run_pole_scan(dxf_path: str, layer_names: list[str]) -> None:
     try:
+        combined = ", ".join(layer_names)
         POLE_STATE.update(
             {
                 "status": "processing",
                 "error": None,
                 "tags": [],
-                "layer": layer_name,
+                "layer": combined,
                 "progress": 0,
                 "total": 0,
             }
         )
 
         doc = ezdxf.readfile(dxf_path)
-        matches = _poleid.find_pole_labels(doc, layer_name, config=POLE_CONFIG)
-        all_layer_segs = extract_stroke_segments(doc, layer_name)
         placeholder_prefix = (POLE_CONFIG.stroke_placeholder_prefix or "POLE").upper()
 
-        tags = []
+        all_tags = []
+        all_ocr_queue = []
+        global_pole_id = 0
         tags_lock = threading.Lock()
-        ocr_queue = []
-        non_ocr = []
 
-        for pole_id, (lab, _circ) in enumerate(matches):
-            bbox = list(lab.bbox) if lab.bbox else [lab.x, lab.y, lab.x, lab.y]
-            source = getattr(lab, "source", "unknown")
-            display_name = _poleid.clean_label(lab.text)
-            is_placeholder = display_name.upper().startswith(placeholder_prefix)
+        for layer_name in layer_names:
+            matches = _poleid.find_pole_labels(doc, layer_name, config=POLE_CONFIG)
+            layer_segs = extract_stroke_segments(doc, layer_name)
 
-            if source == "stroke" and is_placeholder:
-                ocr_queue.append((pole_id, lab, bbox, source))
-            else:
-                non_ocr.append(
-                    {
-                        "pole_id": pole_id,
-                        "name": display_name,
-                        "cx": round(lab.x, 4),
-                        "cy": round(lab.y, 4),
-                        "bbox": [round(v, 4) for v in bbox],
-                        "layer": layer_name,
-                        "source": source,
-                        "crop_b64": None,
-                        "ocr_conf": None,
-                        "needs_review": False,
-                    }
-                )
+            for lab, _circ in matches:
+                bbox = list(lab.bbox) if lab.bbox else [lab.x, lab.y, lab.x, lab.y]
+                source = getattr(lab, "source", "unknown")
+                display_name = _poleid.clean_label(lab.text)
+                is_placeholder = source == "stroke" and display_name.upper().startswith(placeholder_prefix)
 
-        with tags_lock:
-            tags.extend(non_ocr)
-            POLE_STATE["tags"] = list(tags)
-            POLE_STATE["total"] = len(matches)
-            POLE_STATE["progress"] = len(non_ocr)
+                if is_placeholder:
+                    all_ocr_queue.append((global_pole_id, lab, bbox, source, layer_name, layer_segs))
+                else:
+                    all_tags.append(
+                        {
+                            "pole_id": global_pole_id,
+                            "name": display_name,
+                            "cx": round(lab.x, 4),
+                            "cy": round(lab.y, 4),
+                            "bbox": [round(v, 4) for v in bbox],
+                            "layer": layer_name,
+                            "source": source,
+                            "crop_b64": None,
+                            "ocr_conf": None,
+                            "needs_review": False,
+                        }
+                    )
+                global_pole_id += 1
+
+            with tags_lock:
+                POLE_STATE["total"] = global_pole_id
+                POLE_STATE["progress"] = len(all_tags)
+                POLE_STATE["tags"] = list(all_tags)
 
         def _ocr_one(args):
-            pole_id, lab, bbox, source = args
+            pole_id, lab, bbox, source, layer_name, layer_segs = args
             display_name = _poleid.clean_label(lab.text)
             crop_b64 = None
             ocr_conf = None
             needs_review = False
 
             try:
-                label_segs = getattr(lab, "segments", None) or all_layer_segs
+                label_segs = getattr(lab, "segments", None) or layer_segs
                 result = ocr_pole(label_segs, tuple(bbox))
                 if result.crop_png:
                     crop_b64 = base64.b64encode(result.crop_png).decode("ascii")
@@ -1705,9 +1953,9 @@ def _run_pole_scan(dxf_path: str, layer_name: str) -> None:
                 "needs_review": needs_review,
             }
 
-        if ocr_queue:
+        if all_ocr_queue:
             with ThreadPoolExecutor(max_workers=OCR_WORKERS) as pool:
-                futures = {pool.submit(_ocr_one, args): args for args in ocr_queue}
+                futures = {pool.submit(_ocr_one, args): args for args in all_ocr_queue}
                 for future in as_completed(futures):
                     try:
                         tag = future.result()
@@ -1719,24 +1967,24 @@ def _run_pole_scan(dxf_path: str, layer_name: str) -> None:
                             "cx": round(args[1].x, 4),
                             "cy": round(args[1].y, 4),
                             "bbox": [round(v, 4) for v in args[2]],
-                            "layer": layer_name,
+                            "layer": args[4],
                             "source": args[3],
                             "crop_b64": None,
                             "ocr_conf": None,
                             "needs_review": True,
                         }
                     with tags_lock:
-                        tags.append(tag)
-                        tags.sort(key=lambda t: t["pole_id"])
-                        POLE_STATE["tags"] = list(tags)
-                        POLE_STATE["progress"] = len(tags)
+                        all_tags.append(tag)
+                        all_tags.sort(key=lambda t: t["pole_id"])
+                        POLE_STATE["tags"] = list(all_tags)
+                        POLE_STATE["progress"] = len(all_tags)
 
-        tags.sort(key=lambda t: t["pole_id"])
+        all_tags.sort(key=lambda t: t["pole_id"])
         POLE_STATE.update(
             {
                 "status": "done",
-                "tags": tags,
-                "progress": len(tags),
+                "tags": all_tags,
+                "progress": len(all_tags),
             }
         )
 
@@ -1794,21 +2042,21 @@ def api_pole_tags_scan():
     dxf_path = data.get("dxf_path", "") or state.get("dxf_path", "")
     layer_name = data.get("layer", "")
     layers = data.get("layers", [])
-    if not layer_name and layers:
-        layer_name = layers[0]
+    if not layers and layer_name:
+        layers = [layer_name]
 
     if not dxf_path:
         return jsonify({"error": "No DXF loaded"}), 400
-    if not layer_name:
-        return jsonify({"error": "layer is required"}), 400
+    if not layers:
+        return jsonify({"error": "at least one layer is required"}), 400
 
     t = threading.Thread(
         target=_run_pole_scan,
-        args=(dxf_path, layer_name),
+        args=(dxf_path, layers),
         daemon=True,
     )
     t.start()
-    return jsonify({"ok": True})
+    return jsonify({"ok": True, "layers": layers})
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -2319,18 +2567,17 @@ def export_poles_excel(tags: list, dxf_path: str) -> tuple:
     return out_path, None
 
 
-def _find_pole_layer_name(layers: List[str]) -> Optional[str]:
-    patterns = ["pole", "poleid", "pole_id", "pole id", "tag", "label"]
-    lower_map = {l.lower(): l for l in layers}
-    for p in patterns:
-        if p in lower_map:
-            return lower_map[p]
+def _find_pole_layer_names(layers: List[str]) -> List[str]:
+    patterns = ["pole", "poleid", "pole_id", "pole id", "tag", "label", "stp"]
+    matched = []
+    seen = set()
     for layer in layers:
         ll = layer.lower()
-        for p in patterns:
-            if p in ll:
-                return layer
-    return None
+        if any(p in ll for p in patterns):
+            if layer not in seen:
+                matched.append(layer)
+                seen.add(layer)
+    return matched
 
 
 @app.route("/api/pole_tags/auto_scan", methods=["POST"])
@@ -2346,10 +2593,10 @@ def api_pole_tags_auto_scan():
         POLE_STATE.get("status") in ("processing", "done")
         and POLE_STATE.get("dxf_path") == dxf_path
     ):
-        return jsonify({"ok": True, "skipped": True, "layer": POLE_STATE.get("layer")})
+        return jsonify({"ok": True, "skipped": True, "layers": POLE_STATE.get("layer")})
 
-    layer_name = _find_pole_layer_name(all_layers)
-    if not layer_name:
+    layer_names = _find_pole_layer_names(all_layers)
+    if not layer_names:
         return jsonify(
             {"ok": False, "reason": "No pole layer detected in this drawing"}
         )
@@ -2358,11 +2605,11 @@ def api_pole_tags_auto_scan():
 
     t = threading.Thread(
         target=_run_pole_scan,
-        args=(dxf_path, layer_name),
+        args=(dxf_path, layer_names),
         daemon=True,
     )
     t.start()
-    return jsonify({"ok": True, "layer": layer_name})
+    return jsonify({"ok": True, "layers": layer_names})
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -2970,8 +3217,27 @@ def api_export_polemaster():
     if cable_spans:
         sample = cable_spans[0]
         print(
-            f"[polemaster] Sample span: from_pole={sample.get('from_pole')}, to_pole={sample.get('to_pole')}"
+            f"[polemaster] Sample span: from_pole={sample.get('from_pole')}, to_pole={sample.get('to_pole')}, "
+            f"from_pole_id={sample.get('from_pole_id')}, to_pole_id={sample.get('to_pole_id')}"
         )
+        # Log all unique from_pole_id / to_pole_id values to diagnose spanning issues
+        seen_from = set()
+        seen_to = set()
+        for s in cable_spans:
+            fid = s.get("from_pole_id")
+            tid = s.get("to_pole_id")
+            if fid is not None: seen_from.add(fid)
+            if tid is not None: seen_to.add(tid)
+        print(
+            f"[polemaster] Unique from_pole_ids: {sorted(map(str, seen_from))}"
+        )
+        print(
+            f"[polemaster] Unique to_pole_ids: {sorted(map(str, seen_to))}"
+        )
+        null_from = sum(1 for s in cable_spans if s.get("from_pole_id") is None)
+        null_to = sum(1 for s in cable_spans if s.get("to_pole_id") is None)
+        if null_from or null_to:
+            print(f"[polemaster] WARNING: {null_from} spans have null from_pole_id, {null_to} have null to_pole_id")
 
     if not ENABLE_PLANNER_INTEGRATION:
         return jsonify({"error": "Planner integration is disabled"}), 400
@@ -3418,25 +3684,30 @@ def v1_poles_georeference():
         return _v1_err("Request body must contain a 'poles' array.", 400)
 
     tags = POLE_STATE.get("tags", [])
-    tag_map = {t.get("pole_id"): t for t in tags}
+    tag_map = {
+        key: t
+        for t in tags
+        if (key := _pole_id_key(t.get("pole_id"))) is not None
+    }
     updated = 0
     added = 0  # Track new NPTs
 
     for p in body["poles"]:
         pid = p.get("pole_id")
+        pid_key = _pole_id_key(pid)
         lat = p.get("map_latitude")
         lon = p.get("map_longitude")
-        name = p.get("name", f"NPT-{pid}")
+        name = p.get("name", "NPT")
 
         if lat is None or lon is None:
             continue
 
-        if pid is not None and pid in tag_map:
+        if pid_key is not None and pid_key in tag_map:
             # Update existing pole
-            tag_map[pid]["map_latitude"] = lat
-            tag_map[pid]["map_longitude"] = lon
-            tag_map[pid]["cx"] = p.get("cad_x", tag_map[pid].get("cx", 0))
-            tag_map[pid]["cy"] = p.get("cad_y", tag_map[pid].get("cy", 0))
+            tag_map[pid_key]["map_latitude"] = lat
+            tag_map[pid_key]["map_longitude"] = lon
+            tag_map[pid_key]["cx"] = p.get("cad_x", tag_map[pid_key].get("cx", 0))
+            tag_map[pid_key]["cy"] = p.get("cad_y", tag_map[pid_key].get("cy", 0))
             updated += 1
         else:
             # UPSERT: Insert newly discovered NPTs from the geotool
@@ -3455,7 +3726,8 @@ def v1_poles_georeference():
                 "map_longitude": lon,
             }
             tags.append(new_pole)
-            tag_map[pid] = new_pole
+            if pid_key is not None:
+                tag_map[pid_key] = new_pole
             added += 1
 
     POLE_STATE["tags"] = tags

@@ -40,7 +40,7 @@ export function isPointInPolygon(
 }
 
 type MapTab = "review" | "dxf" | "equipment" | "pole";
-export type ExportType = "all" | "ocr" | "equipment" | "poles" | "pdf" | "polemaster" | "asbuilt";
+export type ExportType = "all" | "ocr" | "equipment" | "poles" | "pdf" | "polemaster" | "asbuilt" | "verification";
 
 export default function Home() {
   const [step, setStep] = useState<Step>(1);
@@ -59,6 +59,7 @@ export default function Home() {
   const [cableSpans, setCableSpans] = useState<CableSpanExport[]>([]);
 
   const pdfExportRef = useRef<(() => void) | null>(null);
+  const verificationExportRef = useRef<(() => void) | null>(null);
 
   const pipeline = usePipeline();
   const { getCache, setCache } = useSessionCache();
@@ -158,6 +159,12 @@ export default function Home() {
           return;
         }
 
+        if (type === "verification") {
+          verificationExportRef.current?.();
+          setExporting(null);
+          return;
+        }
+
         const corrections: Record<number, string | null> = {};
 
         const activeResults =
@@ -194,6 +201,17 @@ export default function Home() {
           case "polemaster":
             endpoint = "/api/export/polemaster";
             body = { corrections, cable_spans: cableSpans };
+            console.log("[export] polemaster payload - total spans:", cableSpans.length);
+            console.log("[export] sample (3):", cableSpans.slice(0, 3));
+            {
+              const nptNull = cableSpans.filter(
+                (s) => (s.from_pole === "NPT" && s.from_pole_id == null) ||
+                        (s.to_pole === "NPT" && s.to_pole_id == null),
+              );
+              if (nptNull.length) {
+                console.warn(`[export] ${nptNull.length} NPT spans have null pole_id`);
+              }
+            }
             break;
         }
 
@@ -211,6 +229,11 @@ export default function Home() {
         // Handle polemaster response differently - it doesn't return a file
         if (type === "polemaster") {
           const result = data.result || {};
+          console.log("[export] polemaster result:", result);
+          if (result.error || result.success === false) {
+            alert("Pole Master push failed: " + (result.error || "Unknown error"));
+            return;
+          }
           let message = `Pole Master Push Complete!\n\n` +
             `Node ID: ${result.node_id || 'N/A'}\n` +
             `Poles Created: ${result.poles_created || 0}`;
@@ -229,6 +252,12 @@ export default function Home() {
           }
           if (result.spans_skipped_no_poles > 0) {
             message += `\nSpans Skipped (no pole connections): ${result.spans_skipped_no_poles}`;
+          }
+          if (result.spans_skipped_unresolved > 0) {
+            message += `\nSpans Skipped (unresolved pole id/name): ${result.spans_skipped_unresolved}`;
+          }
+          if (result.duplicate_pole_names?.NPT) {
+            message += `\nNPT instances in export: ${result.duplicate_pole_names.NPT}`;
           }
           if (result.failed_spans?.length > 0) {
             message += `\n\nFirst ${result.failed_spans.length} failed spans:`;
@@ -363,6 +392,7 @@ export default function Home() {
                 ocrResults={results}
                 isActive={mapTab === "dxf"}
                 onExportPdfRef={pdfExportRef}
+                onExportVerificationRef={verificationExportRef}
                 boundary={globalBoundary}
                 isMaskEnabled={isMaskEnabled}
                 onSpansChange={handleSpansChange}
