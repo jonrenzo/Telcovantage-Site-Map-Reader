@@ -135,6 +135,73 @@ SALVAGE_LONG_SEG_FACTOR = 1.8
 SALVAGE_ANGLE_TOL_DEG = 20.0
 CABLE_CONNECT_TOL = 0.10
 
+# ── adaptive scale ────────────────────────────────────────────────────────────
+# The absolute thresholds above (CONNECT_TOL, MIN_TOTAL_LENGTH, EPS_THIN,
+# LONG_DIM) were calibrated for drawings whose median stroke length is
+# REF_MEDIAN_SEGLEN. Different maps are drawn at different scales, so instead of
+# hand-editing CONNECT_TOL per map we measure each drawing's own stroke size and
+# scale every distance threshold by the same factor. estimate_scale() returns
+# that multiplier (1.0 == reference scale). Overridable via env for tuning.
+REF_MEDIAN_SEGLEN = float(os.environ.get("STRAND_REF_SEGLEN", "0.0125"))
+
+
+def estimate_scale(segments) -> float:
+    """Per-drawing scale multiplier = median stroke length / reference length.
+
+    Robust to map scale: a drawing drawn 10x larger has ~10x longer strokes and
+    therefore a ~10x larger connect tolerance, digit-length floor, etc. Cable
+    polylines are a minority of segments, so the median tracks the digit strokes.
+    """
+    lens = [s.length() for s in segments if s.length() > 1e-9]
+    if not lens:
+        return 1.0
+    return float(np.median(lens)) / REF_MEDIAN_SEGLEN
+
+
+# A segment longer than this multiple of the median stroke length is a cable
+# "seed" — clearly part of the strand line, not a digit. Digit strokes top out
+# around ~10x median while cable seeds are ~15-120x median (empty valley between).
+CABLE_SEG_FACTOR = 20.0
+
+
+def cable_segment_indices(segments, scale=None) -> set:
+    """Indices of segments forming the cable strand line, excluded from digit
+    clustering so the cable can't swallow digits or leak a stub into a crop.
+
+    The cable strand is drawn in a distinct ACI color (e.g. 254) covering both
+    its long runs AND its short corner pieces, while digits are a different color
+    (usually BYLAYER). We auto-detect the cable color as the dominant color among
+    the over-long "seed" segments, then exclude EVERY segment of that color. This
+    cleanly drops cable corner fragments (no junk candidates) while keeping digits
+    that sit on the cable (they are a different color), which geometry alone
+    cannot do.
+
+    Falls back to removing just the long seeds when color is not discriminative
+    (cable shares the digits' color), so it never removes a whole drawing.
+    """
+    from collections import Counter
+
+    # Toggle: set STRAND_CABLE_SEPARATION=0 to disable cable exclusion entirely
+    # (digits on the cable stay missing, but no cable-fragment false positives).
+    if os.environ.get("STRAND_CABLE_SEPARATION", "1") == "0":
+        return set()
+
+    lens = [s.length() for s in segments if s.length() > 1e-9]
+    if not lens:
+        return set()
+    med = float(np.median(lens))
+    seeds = [i for i, s in enumerate(segments) if s.length() > CABLE_SEG_FACTOR * med]
+    if not seeds:
+        return set()
+
+    cable_color, _ = Counter(segments[i].color for i in seeds).most_common(1)[0]
+    same_color = {i for i, s in enumerate(segments) if s.color == cable_color}
+    # Use color only when the cable color is a clear minority (otherwise it is
+    # also the digit color and excluding it would wipe out real digits).
+    if len(same_color) <= 0.6 * len(segments):
+        return same_color
+    return set(seeds)
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # DATA CLASSES
@@ -148,6 +215,7 @@ class Seg:
     x2: float
     y2: float
     is_hatch: bool = False  # Added flag to identify hatch boundaries
+    color: int = 256  # ACI color (256 = BYLAYER); used to tell cable from digits
 
     def p1(self):
         return (self.x1, self.y1)
@@ -206,7 +274,10 @@ _OCR_ROTATION_PAIRS = [
 ]
 
 _FAST_ACCEPT_CONF = 0.95
-_MIN_CONF = 0.98
+# Confidence from strand_recognizer is a vote-share / agreement score (0-1),
+# not a raw single-pass softmax. 0.50 means "the winning value carried at least
+# a majority of the weighted votes"; below that we flag for human review.
+_MIN_CONF = 0.50
 _MAX_STRAND_VALUE = 75
 _STRAND_RE = _re.compile(r"^\d{1,2}$")
 
@@ -250,11 +321,15 @@ def _rotate_crop(img: np.ndarray, degrees: int) -> np.ndarray:
 
     from PIL import Image as _PILImage
 
-    orig_h, orig_w = img.shape[:2]
+    # expand=True grows the canvas to fit the rotated content; pad to square
+    # so the caller always gets a square image (no squish back to orig dims).
     pil = _PILImage.fromarray(img)
     rotated = pil.rotate(-degrees, resample=_PILImage.BICUBIC, expand=True, fillcolor=0)
-    rotated = rotated.resize((orig_w, orig_h), _PILImage.BICUBIC)
-    return np.array(rotated)
+    rw, rh = rotated.size
+    side = max(rw, rh)
+    sq = _PILImage.new("L", (side, side), 0)
+    sq.paste(rotated, ((side - rw) // 2, (side - rh) // 2))
+    return np.array(sq)
 
 
 def _easyocr_on_prepared(img: np.ndarray) -> Tuple[str, float]:
@@ -291,64 +366,13 @@ def _easyocr_on_prepared(img: np.ndarray) -> Tuple[str, float]:
 
 
 def predict_with_easyocr(crop_np: np.ndarray) -> Tuple[str, float]:
-    CONF_GAP_THRESHOLD = 0.08
-    STRONG_PAIR_CONF = 0.80
-
-    best_text = ""
-    best_conf = 0.0
-    best_valid = False
-    strong_winners: List[Tuple[str, float]] = []
-
-    def _run_angle(degrees: int) -> Tuple[str, float, bool]:
-        rotated = _rotate_crop(crop_np, degrees)
-        inverted = cv2.bitwise_not(rotated)
-        padded = cv2.copyMakeBorder(
-            inverted, 16, 16, 16, 16, cv2.BORDER_CONSTANT, value=255
-        )
-        text, conf = _easyocr_on_prepared(padded)
-        valid = _is_valid_strand(text)
-        return text, conf, valid
-
-    def _better(t1, c1, v1, t2, c2, v2) -> bool:
-        if v2 and not v1:
-            return True
-        if not v2:
-            return False
-        if len(t2) == 2 and len(t1) != 2:
-            return True
-        if len(t2) != 2 and len(t1) == 2:
-            return False
-        return c2 > c1
-
-    for deg_a, deg_b in _OCR_ROTATION_PAIRS:
-        ta, ca, va = _run_angle(deg_a)
-        tb, cb, vb = _run_angle(deg_b)
-
-        pt, pc, pv = (tb, cb, vb) if _better(ta, ca, va, tb, cb, vb) else (ta, ca, va)
-        if not pv:
-            continue
-
-        if len(pt) == 2 and pc >= STRONG_PAIR_CONF:
-            strong_winners.append((pt, pc))
-
-        if not best_valid:
-            best_text, best_conf, best_valid = pt, pc, True
-        else:
-            if _better(best_text, best_conf, True, pt, pc, True):
-                if len(pt) == 2 and len(best_text) != 2:
-                    best_text, best_conf = pt, pc
-                elif len(pt) == len(best_text) and pc > best_conf + CONF_GAP_THRESHOLD:
-                    best_text, best_conf = pt, pc
-
-        if best_valid and len(best_text) == 2 and best_conf >= _FAST_ACCEPT_CONF:
-            break
-
-    if len(strong_winners) >= 2:
-        unique_vals = set(t for t, _ in strong_winners)
-        if len(unique_vals) > 1:
-            best_conf = min(best_conf, 0.40)
-
-    return best_text, round(best_conf, 4)
+    """
+    Delegate to strand_recognizer which applies the full 4-layer accuracy
+    pipeline (aspect-correct rasterization, multi-variant rendering, dual-engine
+    ensemble EasyOCR+TrOCR, domain-constrained voting over 1-75).
+    """
+    from app_python.services.strand_recognizer import recognize
+    return recognize(crop_np)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -411,6 +435,13 @@ def extract_stroke_segments(doc, layer_name, include_circles=True):
         for e in space:
             if getattr(e.dxf, "layer", None) != layer_name:
                 continue
+            # Tag every segment from this entity with its ACI color so the cable
+            # strand line (a distinct color) can be told apart from the digits.
+            try:
+                col = int(e.dxf.color)
+            except Exception:
+                col = 256
+            seg_start = len(segments)
             t = e.dxftype()
             if t == "LINE":
                 p1, p2 = e.dxf.start, e.dxf.end
@@ -491,12 +522,17 @@ def extract_stroke_segments(doc, layer_name, include_circles=True):
                                 )
                 except Exception:
                     pass
+            for s in segments[seg_start:]:
+                s.color = col
     return segments
 
 
-def cluster_segments(segments, tol):
+def cluster_segments(segments, tol=None, ignore=None):
     if not segments:
         return []
+    if tol is None:
+        tol = CONNECT_TOL * estimate_scale(segments)
+    ignore = ignore or set()
     tol2 = tol * tol
     cell_size = tol
 
@@ -504,9 +540,9 @@ def cluster_segments(segments, tol):
         return (int(math.floor(p[0] / cell_size)), int(math.floor(p[1] / cell_size)))
 
     grid = {}
-    endpoints = [(i, s.p1()) for i, s in enumerate(segments)] + [
-        (i, s.p2()) for i, s in enumerate(segments)
-    ]
+    endpoints = [
+        (i, s.p1()) for i, s in enumerate(segments) if i not in ignore
+    ] + [(i, s.p2()) for i, s in enumerate(segments) if i not in ignore]
     for si, p in endpoints:
         grid.setdefault(cell_key(p), []).append((si, p))
     adj = [[] for _ in range(len(segments))]
@@ -517,7 +553,8 @@ def cluster_segments(segments, tol):
                 for sj, q in grid.get((ck[0] + dx, ck[1] + dy), []):
                     if sj != si and _dist2(p, q) <= tol2:
                         adj[si].append(sj)
-    visited = [False] * len(segments)
+    # Ignored (cable) segments never seed or join a cluster.
+    visited = [(i in ignore) for i in range(len(segments))]
     clusters = []
     for i in range(len(segments)):
         if visited[i]:
@@ -592,21 +629,25 @@ def is_renderable_cluster(segments, info):
     return any(segments[si].length() > 1e-6 for si in info.seg_indices)
 
 
-def analyze_clusters(segments, clusters):
+def analyze_clusters(segments, clusters, scale=None):
     infos = []
-    ep_tol = CONNECT_TOL * ENDPOINT_TOL_SCALE
+    sc = scale if scale is not None else estimate_scale(segments)
+    ep_tol = CONNECT_TOL * sc * ENDPOINT_TOL_SCALE
+    min_total = MIN_TOTAL_LENGTH * sc
+    eps_thin = EPS_THIN * sc
+    long_dim = LONG_DIM * sc
     for cid, idxs in enumerate(clusters):
         minx, miny, maxx, maxy = _bbox_from_segments(segments, idxs)
         w = maxx - minx
         h = maxy - miny
         total_len = sum(segments[i].length() for i in idxs)
-        if total_len < MIN_TOTAL_LENGTH:
+        if total_len < min_total:
             continue
         comp = cluster_complexity(segments, idxs)
         dom = dominant_direction_ratio(segments, idxs)
         ep = endpoint_count(segments, idxs, tol=ep_tol)
-        thin = min(w, h) < EPS_THIN
-        longish = max(w, h) > LONG_DIM
+        thin = min(w, h) < eps_thin
+        longish = max(w, h) > long_dim
         few = len(idxs) < MIN_SEGS_FOR_DIGIT
         if (
             (thin and longish and comp < COMPLEX_MIN)
@@ -638,7 +679,8 @@ def _point_line_dist(p, c, d):
 
 
 def salvage_remove_dominant_line(
-    segments, idxs, connect_tol, dist_factor, long_seg_factor, angle_tol_deg
+    segments, idxs, connect_tol, dist_factor, long_seg_factor, angle_tol_deg,
+    min_total=MIN_TOTAL_LENGTH,
 ):
     if len(idxs) < 4:
         return [idxs]
@@ -683,12 +725,12 @@ def salvage_remove_dominant_line(
     subclusters = [
         c
         for c in subclusters
-        if sum(segments[i].length() for i in c) >= MIN_TOTAL_LENGTH
+        if sum(segments[i].length() for i in c) >= min_total
     ]
     return subclusters if subclusters else [idxs]
 
 
-def _split_by_gap(segments, info, med_w, med_h):
+def _split_by_gap(segments, info, med_w, med_h, min_total=MIN_TOTAL_LENGTH):
     mids_x = []
     mids_y = []
     for i in info.seg_indices:
@@ -727,7 +769,7 @@ def _split_by_gap(segments, info, med_w, med_h):
             w = bx[2] - bx[0]
             h = bx[3] - bx[1]
             tlen = sum(segments[j].length() for j in half)
-            if tlen < MIN_TOTAL_LENGTH or w < 1e-9 or h < 1e-9:
+            if tlen < min_total or w < 1e-9 or h < 1e-9:
                 continue
             results.append(
                 ClusterInfo(info.cluster_id, half, bx, w, h, tlen, "digit_candidate")
@@ -751,7 +793,9 @@ def _split_by_gap(segments, info, med_w, med_h):
     return [info]
 
 
-def build_candidates_robust(segments, infos):
+def build_candidates_robust(segments, infos, scale=None):
+    sc = scale if scale is not None else estimate_scale(segments)
+    min_total = MIN_TOTAL_LENGTH * sc
     prelim = [
         i
         for i in infos
@@ -786,23 +830,24 @@ def build_candidates_robust(segments, infos):
             or not aspect_ok(i.width, i.height)
         )
         if not too_big:
-            for split in _split_by_gap(segments, i, med_w, med_h):
+            for split in _split_by_gap(segments, i, med_w, med_h, min_total=min_total):
                 final_infos.append(split)
             continue
         subclusters = salvage_remove_dominant_line(
             segments,
             i.seg_indices,
-            CONNECT_TOL * 0.9,
+            CONNECT_TOL * 0.9 * sc,
             SALVAGE_DIST_FACTOR,
             SALVAGE_LONG_SEG_FACTOR,
             SALVAGE_ANGLE_TOL_DEG,
+            min_total=min_total,
         )
         for comp in subclusters:
             bx = _bbox_from_segments(segments, comp)
             w = bx[2] - bx[0]
             h = bx[3] - bx[1]
             tlen = sum(segments[j].length() for j in comp)
-            if tlen < MIN_TOTAL_LENGTH:
+            if tlen < min_total:
                 continue
             if (
                 w > med_w * W_FACTOR
@@ -1512,11 +1557,20 @@ def run_pipeline(dxf_path, layers, model_path):
         state["segments"] = all_segments
 
         state.update({"step": 2, "step_label": "Grouping into digit clusters…"})
-        clusters = cluster_segments(all_segments, tol=CONNECT_TOL)
-        infos = analyze_clusters(all_segments, clusters)
+        # Derive all distance thresholds from THIS drawing's stroke scale so the
+        # pipeline works across maps of different sizes without hand-tuning.
+        scale = estimate_scale(all_segments)
+        # Exclude the cable strand line from clustering so it can't swallow
+        # digits or leak a stub into a digit crop.
+        cable = cable_segment_indices(all_segments, scale=scale)
+        print(f"[run_pipeline] adaptive scale={scale:.3f}  "
+              f"connect_tol={CONNECT_TOL * scale:.4f}  cable_segs={len(cable)}  "
+              f"(ref={REF_MEDIAN_SEGLEN})")
+        clusters = cluster_segments(all_segments, tol=CONNECT_TOL * scale, ignore=cable)
+        infos = analyze_clusters(all_segments, clusters, scale=scale)
 
         state.update({"step": 3, "step_label": "Identifying digit candidates…"})
-        candidates = build_candidates_robust(all_segments, infos)
+        candidates = build_candidates_robust(all_segments, infos, scale=scale)
         state["candidates"] = candidates
         state["total"] = len(candidates)
 
@@ -1540,16 +1594,34 @@ def run_pipeline(dxf_path, layers, model_path):
             }
         )
 
+        # Recognize the whole drawing in one batch so flip ambiguities (e.g.
+        # 19 vs 61) are resolved against the drawing-wide dominant orientation.
+        from app_python.services.strand_recognizer import recognize_batch
+
+        def _progress(done: int, total: int) -> None:
+            elapsed = time.time() - state["ocr_start_time"]
+            rate = done / elapsed if elapsed > 0 else 0
+            eta_secs = int((total - done) / rate) if rate > 0 else 0
+            if eta_secs >= 60:
+                eta_str = f"{eta_secs // 60}m {eta_secs % 60}s remaining"
+            elif eta_secs > 0:
+                eta_str = f"~{eta_secs}s remaining"
+            else:
+                eta_str = "almost done…"
+            state.update(
+                {
+                    "progress": done,
+                    "step_label": f"Reading digit {done} of {total} — {eta_str}",
+                }
+            )
+
+        batch = recognize_batch(crops, progress_cb=_progress)
+
         results = []
-
-        for i, (cand, crop) in enumerate(zip(candidates, crops)):
-            value, conf = predict_with_easyocr(crop)
-
+        for cand, crop, (value, conf) in zip(candidates, crops, batch):
             cx = (cand.bbox[0] + cand.bbox[2]) / 2
             cy = (cand.bbox[1] + cand.bbox[3]) / 2
-
             needs_review = (not value) or (conf < _MIN_CONF)
-
             results.append(
                 {
                     "digit_id": cand.digit_id,
@@ -1561,27 +1633,6 @@ def run_pipeline(dxf_path, layers, model_path):
                     "center_x": cx,
                     "center_y": cy,
                     "crop_b64": img_to_b64(crop),
-                }
-            )
-
-            done = i + 1
-            elapsed = time.time() - state["ocr_start_time"]
-            rate = done / elapsed if elapsed > 0 else 0
-            remaining = len(candidates) - done
-            eta_secs = int(remaining / rate) if rate > 0 else 0
-
-            if eta_secs >= 60:
-                eta_str = f"{eta_secs // 60}m {eta_secs % 60}s remaining"
-            elif eta_secs > 0:
-                eta_str = f"~{eta_secs}s remaining"
-            else:
-                eta_str = "almost done…"
-
-            state.update(
-                {
-                    "results": list(results),
-                    "progress": done,
-                    "step_label": f"Reading digit {done} of {len(candidates)} — {eta_str}",
                 }
             )
 
@@ -4053,11 +4104,14 @@ def v1_asbuilt_import():
 
 def _prewarm_ocr():
     try:
-        print("[startup] Pre-warming EasyOCR...")
+        print("[startup] Pre-warming strand recognizer (EasyOCR + TrOCR)...")
+        from app_python.services.strand_recognizer import prewarm as _sr_prewarm
+        _sr_prewarm()
+        # Keep the legacy singleton warm too (used by _easyocr_on_prepared)
         _load_easyocr()
-        print("[startup] EasyOCR ready.")
+        print("[startup] Strand recognizer ready.")
     except Exception as e:
-        print(f"[startup] EasyOCR pre-warm failed: {e}")
+        print(f"[startup] Strand recognizer pre-warm failed: {e}")
 
     if os.environ.get("REMOTE_TROCR_URL"):
         print("[startup] Pole TrOCR pre-warm skipped (remote mode)")
