@@ -4,16 +4,20 @@ Configuration for TelcoVantage Planner API integration.
 
 import os
 
+
+def _clean_url_env(name: str, default: str) -> str:
+    return (os.getenv(name, default) or default).strip().rstrip("/")
+
 # AsBuilt IQ API settings
-ASBUILT_API_BASE_URL = os.getenv(
+ASBUILT_API_BASE_URL = _clean_url_env(
     "ASBUILT_API_BASE_URL",
-    "https://purple-mink-495054.hostingersite.com/api/v1",
+    "https://telcovantage.com/api/v1",
 )
 
 # Planner API settings (legacy)
-PLANNER_API_BASE_URL = os.getenv(
+PLANNER_API_BASE_URL = _clean_url_env(
     "PLANNER_API_BASE_URL",
-    "https://disguisedly-enarthrodial-kristi.ngrok-free.dev/api/v1",
+    "https://telcovantage.com/api/v1",
 )
 
 # Authentication credentials (set via environment variables)

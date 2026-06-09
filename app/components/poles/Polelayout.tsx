@@ -631,17 +631,38 @@ export default function PoleLayout({
         }));
 
       // Remove OCR-detected "NPT" text annotations when GeoTool NPTs exist
-      const dedupedResult = newTags.length > 0
-        ? resultUpdated.filter((t: any) => t.name !== "NPT")
-        : resultUpdated;
+      const dedupedResult =
+        newTags.length > 0
+          ? resultUpdated.filter(
+              (t: any) =>
+                !(
+                  t.name === "NPT" &&
+                  t.source !== "geotool_npt" &&
+                  (t.map_latitude == null || t.map_longitude == null)
+                ),
+            )
+          : resultUpdated;
       const finalTags = [...dedupedResult, ...newTags] as typeof tags;
       setTags(finalTags);
+      onCacheUpdate({ poleTags: finalTags, poleDone: true });
+      window.postMessage(
+        {
+          type: "POLES_SYNC",
+          payload: {
+            poles: finalTags,
+            source: "geotool",
+          },
+        },
+        "*",
+      );
 
       const gpsPoles = finalTags
         .filter((p) => p.map_latitude != null && p.map_longitude != null)
         .map((p) => ({
           pole_id: p.pole_id,
           name: p.name,
+          layer: (p as any).layer,
+          source: (p as any).source,
           map_latitude: p.map_latitude,
           map_longitude: p.map_longitude,
           cad_x: p.cx,
@@ -655,7 +676,7 @@ export default function PoleLayout({
         }).catch(() => {});
       }
     }
-  }, [tags]);
+  }, [tags, onCacheUpdate]);
 
   useEffect(() => {
     window.addEventListener("message", handleGeoCoords);

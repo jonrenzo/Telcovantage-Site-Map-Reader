@@ -80,6 +80,7 @@ interface Props {
   boundary: BoundaryPoint[] | null;
   isMaskEnabled: boolean;
   onSpansChange?: (spans: CableSpanExport[]) => void;
+  onCacheUpdate?: (data: { poleTags?: PoleTag[]; poleDone?: boolean }) => void;
 }
 
 interface PartialDetail {
@@ -253,6 +254,42 @@ function pointToSegmentDistance(
   return Math.hypot(px - cx, py - cy);
 }
 
+function projectPointOntoSegment(
+  px: number,
+  py: number,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+) {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const len2 = dx * dx + dy * dy;
+
+  if (len2 < 1e-12) {
+    return {
+      t: 0,
+      x: x1,
+      y: y1,
+      distance: Math.hypot(px - x1, py - y1),
+      segmentLength: 0,
+    };
+  }
+
+  let t = ((px - x1) * dx + (py - y1) * dy) / len2;
+  t = Math.max(0, Math.min(1, t));
+  const x = x1 + t * dx;
+  const y = y1 + t * dy;
+
+  return {
+    t,
+    x,
+    y,
+    distance: Math.hypot(px - x, py - y),
+    segmentLength: Math.hypot(dx, dy),
+  };
+}
+
 function areSegmentsConnected(
   s1: RawSegment,
   s2: RawSegment,
@@ -264,6 +301,117 @@ function areSegmentsConnected(
     Math.hypot(s1.x1 - s2.x1, s1.y1 - s2.y1) < tol ||
     Math.hypot(s1.x1 - s2.x2, s1.y1 - s2.y2) < tol
   );
+}
+
+function orderConnectedSegments(segments: RawSegment[], tol = 0.5): RawSegment[] {
+  if (segments.length <= 1) return segments.slice();
+
+  const keyForPoint = (x: number, y: number) =>
+    `${Math.round(x / tol)},${Math.round(y / tol)}`;
+
+  const adjacency = new Map<
+    string,
+    Array<{ idx: number; atStart: boolean }>
+  >();
+
+  segments.forEach((seg, idx) => {
+    const startKey = keyForPoint(seg.x1, seg.y1);
+    const endKey = keyForPoint(seg.x2, seg.y2);
+    const startList = adjacency.get(startKey) ?? [];
+    startList.push({ idx, atStart: true });
+    adjacency.set(startKey, startList);
+
+    const endList = adjacency.get(endKey) ?? [];
+    endList.push({ idx, atStart: false });
+    adjacency.set(endKey, endList);
+  });
+
+  const degreeOneNode =
+    Array.from(adjacency.entries()).find(([, list]) => list.length === 1)?.[0] ??
+    null;
+
+  const used = new Set<number>();
+  const ordered: RawSegment[] = [];
+  let currentKey = degreeOneNode ?? keyForPoint(segments[0].x1, segments[0].y1);
+
+  const appendSegmentFromEntry = (entry: { idx: number; atStart: boolean }) => {
+    const seg = segments[entry.idx];
+    const oriented = entry.atStart
+      ? { x1: seg.x1, y1: seg.y1, x2: seg.x2, y2: seg.y2 }
+      : { x1: seg.x2, y1: seg.y2, x2: seg.x1, y2: seg.y1 };
+    ordered.push(oriented);
+    used.add(entry.idx);
+    currentKey = keyForPoint(oriented.x2, oriented.y2);
+  };
+
+  while (used.size < segments.length) {
+    const nextEntry = (adjacency.get(currentKey) ?? []).find(
+      (entry) => !used.has(entry.idx),
+    );
+
+    if (nextEntry) {
+      appendSegmentFromEntry(nextEntry);
+      continue;
+    }
+
+    const nextUnusedIdx = segments.findIndex((_, idx) => !used.has(idx));
+    if (nextUnusedIdx === -1) break;
+
+    const nextUnused = segments[nextUnusedIdx];
+    currentKey = keyForPoint(nextUnused.x1, nextUnused.y1);
+    appendSegmentFromEntry({ idx: nextUnusedIdx, atStart: true });
+  }
+
+  if (ordered.length !== segments.length) {
+    ordered.splice(0, ordered.length, ...segments);
+  }
+
+  let connectedPairs = 0;
+  for (let i = 0; i < ordered.length - 1; i++) {
+    if (areSegmentsConnected(ordered[i], ordered[i + 1], tol)) {
+      connectedPairs += 1;
+    }
+  }
+
+  const connectionRatio =
+    ordered.length > 1 ? connectedPairs / (ordered.length - 1) : 1;
+  if (connectionRatio >= 0.65) {
+    return ordered;
+  }
+
+  const endpoints = findSpanEndpoints(segments, tol);
+  if (!endpoints) {
+    return ordered;
+  }
+
+  const [startEndpoint, endEndpoint] = endpoints;
+  const dirX = endEndpoint.pt.x - startEndpoint.pt.x;
+  const dirY = endEndpoint.pt.y - startEndpoint.pt.y;
+  const dirLen = Math.hypot(dirX, dirY);
+  if (dirLen < 1e-9) {
+    return ordered;
+  }
+
+  const ux = dirX / dirLen;
+  const uy = dirY / dirLen;
+
+  return segments
+    .map((seg) => {
+      const startProj =
+        (seg.x1 - startEndpoint.pt.x) * ux + (seg.y1 - startEndpoint.pt.y) * uy;
+      const endProj =
+        (seg.x2 - startEndpoint.pt.x) * ux + (seg.y2 - startEndpoint.pt.y) * uy;
+      const oriented =
+        startProj <= endProj
+          ? { x1: seg.x1, y1: seg.y1, x2: seg.x2, y2: seg.y2 }
+          : { x1: seg.x2, y1: seg.y2, x2: seg.x1, y2: seg.y1 };
+      const midProj =
+        ((oriented.x1 + oriented.x2) / 2 - startEndpoint.pt.x) * ux +
+        ((oriented.y1 + oriented.y2) / 2 - startEndpoint.pt.y) * uy;
+      return { seg: oriented, midProj };
+    })
+    .sort((a, b) => a.midProj - b.midProj)
+    .map((entry) => entry.seg);
 }
 
 function findSafeCutIndex(
@@ -383,6 +531,7 @@ export default function DxfViewer({
   boundary,
   isMaskEnabled,
   onSpansChange,
+  onCacheUpdate,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
@@ -430,6 +579,7 @@ export default function DxfViewer({
   const fileCacheRef = useRef<Record<string, FileDataCache>>({});
   const nextSpanIdRef = useRef<number>(1);
   const exportPdfFnRef = useRef<(() => void) | null>(null);
+  const poleBreakFingerprintRef = useRef<string>("");
 
   const hasAutoConnectedRef = useRef(false);
   const autoConnectPolesRef = useRef<() => void>(() => {});
@@ -490,6 +640,381 @@ export default function DxfViewer({
   const [cableStatuses, setCableStatuses] = useState<
     Record<number, CableRecoveryStatus>
   >({});
+
+  const ensureGeoToolLayer = useCallback((poleList: PoleTag[]) => {
+    const hasGeoToolNpt = poleList.some(
+      (pole) => pole.layer === "geotool_npt" || pole.source === "geotool_npt",
+    );
+    if (!hasGeoToolNpt) return;
+
+    const hasGeoLayer = layersRef.current.some(
+      (layer) => layer.name === "geotool_npt",
+    );
+    if (!hasGeoLayer) {
+      const geoLayer: DxfLayerData = {
+        name: "geotool_npt",
+        visible: true,
+        color: "#f59e0b",
+        segmentCount: poleList.filter(
+          (pole) => pole.layer === "geotool_npt" || pole.source === "geotool_npt",
+        ).length,
+      };
+      layersRef.current = [...layersRef.current, geoLayer];
+      setLayers([...layersRef.current]);
+    }
+  }, []);
+
+  function mergeBackendGeoPoles(backendTags: PoleTag[]) {
+    const incoming = backendTags.filter(
+      (tag) =>
+        tag.layer === "geotool_npt" ||
+        tag.source === "geotool_npt" ||
+        (tag.map_latitude != null && tag.map_longitude != null),
+    );
+    if (!incoming.length) return false;
+
+    const coordKey = (pole: { cx: number; cy: number }) =>
+      `${pole.cx.toFixed(4)},${pole.cy.toFixed(4)}`;
+
+    const nextPoles = [...polesRef.current];
+    const byId = new Map<number, number>();
+    const byCoord = new Map<string, number>();
+    nextPoles.forEach((pole, idx) => {
+      byId.set(pole.pole_id, idx);
+      byCoord.set(coordKey(pole), idx);
+    });
+
+    let changed = false;
+
+    incoming.forEach((tag) => {
+      const idx = byId.get(tag.pole_id) ?? byCoord.get(coordKey(tag));
+      if (idx == null) {
+        nextPoles.push(tag);
+        const newIdx = nextPoles.length - 1;
+        byId.set(tag.pole_id, newIdx);
+        byCoord.set(coordKey(tag), newIdx);
+        changed = true;
+        return;
+      }
+
+      const existing = nextPoles[idx];
+      const merged = {
+        ...existing,
+        ...tag,
+        name: tag.name || existing.name,
+        layer: tag.layer || existing.layer,
+        source: tag.source || existing.source,
+        map_latitude: tag.map_latitude ?? existing.map_latitude,
+        map_longitude: tag.map_longitude ?? existing.map_longitude,
+      };
+
+      if (
+        merged.name !== existing.name ||
+        merged.layer !== existing.layer ||
+        merged.source !== existing.source ||
+        merged.cx !== existing.cx ||
+        merged.cy !== existing.cy ||
+        merged.map_latitude !== existing.map_latitude ||
+        merged.map_longitude !== existing.map_longitude
+      ) {
+        nextPoles[idx] = merged;
+        byCoord.set(coordKey(merged), idx);
+        changed = true;
+      }
+    });
+
+    const hasGeoToolNpt = nextPoles.some(
+      (pole) => pole.layer === "geotool_npt" || pole.source === "geotool_npt",
+    );
+    const dedupedPoles = hasGeoToolNpt
+      ? nextPoles.filter(
+          (pole) =>
+            !(
+              pole.name === "NPT" &&
+              pole.source !== "geotool_npt" &&
+              (pole.map_latitude == null || pole.map_longitude == null)
+            ),
+        )
+      : nextPoles;
+
+    if (dedupedPoles.length !== nextPoles.length) {
+      changed = true;
+    }
+    if (!changed) return false;
+
+    ensureGeoToolLayer(dedupedPoles);
+    polesRef.current = dedupedPoles;
+    setPoles(dedupedPoles);
+    onCacheUpdate?.({ poleTags: dedupedPoles, poleDone: true });
+    if (showPolesRef.current) redraw();
+    return true;
+  }
+
+  const normalizeSpansToPoleBreaks = useCallback((spans: CableSpan[]) => {
+    const CUT_TOLERANCE = 60;
+    const ENDPOINT_GUARD = 12;
+    const MIN_PART_LENGTH = 0.05;
+
+    const getNearestMeterValue = (cx: number, cy: number) => {
+      let nearest: { x: number; y: number; value: number } | null = null;
+      let minDist = Infinity;
+      for (const v of ocrMeterValuesRef.current) {
+        const dist = Math.hypot(cx - v.x, cy - v.y);
+        if (dist < minDist) {
+          minDist = dist;
+          nearest = v;
+        }
+      }
+      return nearest ? nearest.value : null;
+    };
+
+    let changed = false;
+    const normalized: CableSpan[] = [];
+    const nextStatuses = { ...cableStatusRef.current };
+    const nextPartialDetails = { ...partialDetails };
+    let statusChanged = false;
+    let partialChanged = false;
+
+    for (const span of spans) {
+      if (span.segments.length === 0) {
+        normalized.push(span);
+        continue;
+      }
+
+      const orderedSegments = orderConnectedSegments(span.segments);
+      const endpoints = findSpanEndpoints(orderedSegments);
+      if (!endpoints) {
+        normalized.push(span);
+        continue;
+      }
+
+      const [endpointA, endpointB] = endpoints;
+      const totalLength = orderedSegments.reduce(
+        (sum, seg) => sum + Math.hypot(seg.x2 - seg.x1, seg.y2 - seg.y1),
+        0,
+      );
+      if (totalLength < MIN_PART_LENGTH * 2) {
+        normalized.push(span);
+        continue;
+      }
+
+      const cuts: Array<{
+        segmentIndex: number;
+        t: number;
+        x: number;
+        y: number;
+        progress: number;
+        pole: PoleTag;
+      }> = [];
+
+      for (const pole of polesRef.current) {
+        if (
+          maskEnabledRef.current &&
+          boundaryRef.current &&
+          !isPointInPolygon(pole.cx, pole.cy, boundaryRef.current)
+        ) {
+          continue;
+        }
+
+        if (
+          pole.pole_id === span.from_pole_id ||
+          pole.pole_id === span.to_pole_id
+        ) {
+          continue;
+        }
+
+        const distToA = Math.hypot(pole.cx - endpointA.pt.x, pole.cy - endpointA.pt.y);
+        const distToB = Math.hypot(pole.cx - endpointB.pt.x, pole.cy - endpointB.pt.y);
+        if (distToA < ENDPOINT_GUARD || distToB < ENDPOINT_GUARD) {
+          continue;
+        }
+
+        let best:
+          | {
+              segmentIndex: number;
+              t: number;
+              x: number;
+              y: number;
+              distance: number;
+              progress: number;
+              pole: PoleTag;
+            }
+          | null = null;
+        let walked = 0;
+
+        for (let i = 0; i < orderedSegments.length; i++) {
+          const seg = orderedSegments[i];
+          const projection = projectPointOntoSegment(
+            pole.cx,
+            pole.cy,
+            seg.x1,
+            seg.y1,
+            seg.x2,
+            seg.y2,
+          );
+
+          const progress = walked + projection.segmentLength * projection.t;
+          if (
+            projection.distance <= CUT_TOLERANCE &&
+            progress > ENDPOINT_GUARD &&
+            totalLength - progress > ENDPOINT_GUARD &&
+            (!best || projection.distance < best.distance)
+          ) {
+            best = {
+              segmentIndex: i,
+              t: projection.t,
+              x: projection.x,
+              y: projection.y,
+              distance: projection.distance,
+              progress,
+              pole,
+            };
+          }
+
+          walked += projection.segmentLength;
+        }
+
+        if (!best) continue;
+        if (best.t <= 0.02 || best.t >= 0.98) continue;
+        cuts.push(best);
+      }
+
+      if (!cuts.length) {
+        normalized.push(span);
+        continue;
+      }
+
+      cuts.sort((a, b) => a.progress - b.progress);
+      const uniqueCuts = cuts.filter((cut, index) => {
+        if (index === 0) return true;
+        const prev = cuts[index - 1];
+        return (
+          cut.segmentIndex !== prev.segmentIndex ||
+          Math.abs(cut.t - prev.t) > 0.05 ||
+          Math.abs(cut.progress - prev.progress) > ENDPOINT_GUARD / 2
+        );
+      });
+
+      const cutsBySegment = new Map<number, typeof uniqueCuts>();
+      uniqueCuts.forEach((cut) => {
+        const existing = cutsBySegment.get(cut.segmentIndex) ?? [];
+        existing.push(cut);
+        cutsBySegment.set(cut.segmentIndex, existing);
+      });
+
+      const partSegments: RawSegment[][] = [];
+      const boundaryPoles: PoleTag[] = [];
+      let currentPart: RawSegment[] = [];
+
+      for (let i = 0; i < orderedSegments.length; i++) {
+        const seg = orderedSegments[i];
+        const segCuts = [...(cutsBySegment.get(i) ?? [])].sort(
+          (a, b) => a.t - b.t,
+        );
+
+        let startX = seg.x1;
+        let startY = seg.y1;
+
+        for (const cut of segCuts) {
+          if (Math.hypot(cut.x - startX, cut.y - startY) >= MIN_PART_LENGTH) {
+            currentPart.push({
+              x1: startX,
+              y1: startY,
+              x2: cut.x,
+              y2: cut.y,
+            });
+          }
+          if (currentPart.length > 0) {
+            partSegments.push(currentPart);
+            currentPart = [];
+          }
+          boundaryPoles.push(cut.pole);
+          startX = cut.x;
+          startY = cut.y;
+        }
+
+        if (
+          Math.hypot(seg.x2 - startX, seg.y2 - startY) >= MIN_PART_LENGTH
+        ) {
+          currentPart.push({
+            x1: startX,
+            y1: startY,
+            x2: seg.x2,
+            y2: seg.y2,
+          });
+        }
+      }
+
+      if (currentPart.length > 0) {
+        partSegments.push(currentPart);
+      }
+
+      if (partSegments.length < 2) {
+        normalized.push(span);
+        continue;
+      }
+
+      changed = true;
+      const prevStatus = cableStatusRef.current[span.span_id];
+      if (prevStatus) {
+        delete nextStatuses[span.span_id];
+        statusChanged = true;
+      }
+      if (partialDetails[span.span_id]) {
+        delete nextPartialDetails[span.span_id];
+        partialChanged = true;
+      }
+
+      partSegments.forEach((segments, index) => {
+        const metrics = computeSpanMetrics(segments);
+        const newSpanId = nextSpanIdRef.current++;
+        const isFirst = index === 0;
+        const isLast = index === partSegments.length - 1;
+        const boundaryFromPole = !isFirst ? boundaryPoles[index - 1] : null;
+        const boundaryToPole = !isLast ? boundaryPoles[index] : null;
+        const newSpan: CableSpan = {
+          ...span,
+          span_id: newSpanId,
+          segments,
+          segment_count: segments.length,
+          from_pole: isFirst
+            ? span.from_pole
+            : boundaryFromPole?.name ?? undefined,
+          to_pole: isLast
+            ? span.to_pole
+            : boundaryToPole?.name ?? undefined,
+          from_pole_id: isFirst
+            ? span.from_pole_id
+            : boundaryFromPole?.pole_id,
+          to_pole_id: isLast
+            ? span.to_pole_id
+            : boundaryToPole?.pole_id,
+          ...metrics,
+          meterValue: getNearestMeterValue(metrics.cx, metrics.cy),
+        };
+        normalized.push(newSpan);
+
+        if (prevStatus) {
+          nextStatuses[newSpanId] = prevStatus;
+          statusChanged = true;
+        }
+        if (prevStatus === "Partial" && partialDetails[span.span_id]) {
+          nextPartialDetails[newSpanId] = { ...partialDetails[span.span_id] };
+          partialChanged = true;
+        }
+      });
+    }
+
+    if (statusChanged) {
+      cableStatusRef.current = nextStatuses;
+      setCableStatuses(nextStatuses);
+    }
+    if (partialChanged) {
+      setPartialDetails(nextPartialDetails);
+    }
+
+    return { spans: normalized, changed };
+  }, [partialDetails]);
 
   // Helper to notify parent of span changes
   const notifySpansChange = useCallback(
@@ -669,6 +1194,10 @@ export default function DxfViewer({
       if (cableLayersRef.current.length > 0) {
         const spans = cableSpansRef.current;
         const spanMap = new Map(spans.map((s) => [s.span_id, s]));
+        const highlightedPoles = new Map<
+          number,
+          { fill: string; stroke: string; text: string }
+        >();
         const statusEntries = Object.entries(cableStatusRef.current);
 
         const drawSpanPath = (span: CableSpan) => {
@@ -736,6 +1265,13 @@ export default function DxfViewer({
                   marker: "rgba(59, 130, 246, 0.18)",
                   stroke: "rgba(37, 99, 235, 0.95)",
                 };
+            const poleStyle = {
+              fill: selectedStatus
+                ? style.marker.replace(/0\.\d+\)/, "0.9)")
+                : "rgba(59, 130, 246, 0.85)",
+              stroke: style.stroke,
+              text: selectedStatus ? style.stroke : "#1d4ed8",
+            };
             const runs = span.cable_runs || 1;
             const markerWidth = (12 + (runs - 1) * 12) / vp.scale;
 
@@ -756,6 +1292,13 @@ export default function DxfViewer({
             drawSpanPath(span);
             ctx.stroke();
             ctx.restore();
+
+            if (span.from_pole_id != null) {
+              highlightedPoles.set(span.from_pole_id, poleStyle);
+            }
+            if (span.to_pole_id != null) {
+              highlightedPoles.set(span.to_pole_id, poleStyle);
+            }
           }
         }
 
@@ -821,6 +1364,11 @@ export default function DxfViewer({
               !isPointInPolygon(span.cx, span.cy, currentBoundary)
             )
           ) {
+            const poleStyle = {
+              fill: "rgba(245, 158, 11, 0.9)",
+              stroke: "#f59e0b",
+              text: "#b45309",
+            };
             ctx.save();
             ctx.lineCap = "round";
             ctx.lineJoin = "round";
@@ -829,10 +1377,92 @@ export default function DxfViewer({
             drawSpanPath(span);
             ctx.stroke();
             ctx.restore();
+
+            if (span.from_pole_id != null) {
+              highlightedPoles.set(span.from_pole_id, poleStyle);
+            }
+            if (span.to_pole_id != null) {
+              highlightedPoles.set(span.to_pole_id, poleStyle);
+            }
           }
         }
-      }
 
+        // 4. Draw Poles
+        if (opts.showPoles) {
+          ctx.save();
+          const r = 12 / vp.scale;
+          for (const pole of polesRef.current) {
+            if (!isLayerVisible(pole.layer)) continue;
+
+            if (
+              isMaskOn &&
+              currentBoundary &&
+              !isPointInPolygon(pole.cx, pole.cy, currentBoundary)
+            )
+              continue;
+
+            const highlight = highlightedPoles.get(pole.pole_id);
+            const fillStyle = highlight?.fill ?? "rgba(245, 158, 11, 0.85)";
+            const strokeStyle = highlight?.stroke ?? "#fff";
+            const textStyle = highlight?.text ?? "#d97706";
+
+            ctx.beginPath();
+            ctx.arc(pole.cx, pole.cy, r, 0, 2 * Math.PI);
+            ctx.fillStyle = fillStyle;
+            ctx.fill();
+            ctx.strokeStyle = strokeStyle;
+            ctx.lineWidth = (highlight ? 3 : 2) / vp.scale;
+            ctx.stroke();
+
+            if (vp.scale > 0.8) {
+              ctx.save();
+              ctx.translate(pole.cx, pole.cy + r * 1.2);
+              ctx.scale(1, -1);
+              ctx.fillStyle = textStyle;
+              ctx.font = `bold ${Math.max(0.2, 0.5 / vp.scale)}px monospace`;
+              ctx.textAlign = "center";
+              ctx.textBaseline = "top";
+              ctx.fillText(pole.name || `POLE_${pole.pole_id}`, 0, 0);
+              ctx.restore();
+            }
+          }
+          ctx.restore();
+        }
+      } else if (opts.showPoles) {
+        ctx.save();
+        const r = 12 / vp.scale;
+        for (const pole of polesRef.current) {
+          if (!isLayerVisible(pole.layer)) continue;
+
+          if (
+            isMaskOn &&
+            currentBoundary &&
+            !isPointInPolygon(pole.cx, pole.cy, currentBoundary)
+          )
+            continue;
+
+          ctx.beginPath();
+          ctx.arc(pole.cx, pole.cy, r, 0, 2 * Math.PI);
+          ctx.fillStyle = "rgba(245, 158, 11, 0.85)";
+          ctx.fill();
+          ctx.strokeStyle = "#fff";
+          ctx.lineWidth = 2 / vp.scale;
+          ctx.stroke();
+
+          if (vp.scale > 0.8) {
+            ctx.save();
+            ctx.translate(pole.cx, pole.cy + r * 1.2);
+            ctx.scale(1, -1);
+            ctx.fillStyle = "#d97706";
+            ctx.font = `bold ${Math.max(0.2, 0.5 / vp.scale)}px monospace`;
+            ctx.textAlign = "center";
+            ctx.textBaseline = "top";
+            ctx.fillText(pole.name || `POLE_${pole.pole_id}`, 0, 0);
+            ctx.restore();
+          }
+        }
+        ctx.restore();
+      }
       // 3. Draw Equipment Actives
       if (opts.showActives) {
         ctx.save();
@@ -886,43 +1516,6 @@ export default function DxfViewer({
         ctx.restore();
       }
 
-      // 4. Draw Poles
-      if (opts.showPoles) {
-        ctx.save();
-        const r = 12 / vp.scale;
-        for (const pole of polesRef.current) {
-          if (!isLayerVisible(pole.layer)) continue;
-
-          // SKIP IF OUTSIDE BOUNDARY
-          if (
-            isMaskOn &&
-            currentBoundary &&
-            !isPointInPolygon(pole.cx, pole.cy, currentBoundary)
-          )
-            continue;
-
-          ctx.beginPath();
-          ctx.arc(pole.cx, pole.cy, r, 0, 2 * Math.PI);
-          ctx.fillStyle = "rgba(245, 158, 11, 0.85)";
-          ctx.fill();
-          ctx.strokeStyle = "#fff";
-          ctx.lineWidth = 2 / vp.scale;
-          ctx.stroke();
-
-          if (vp.scale > 0.8) {
-            ctx.save();
-            ctx.translate(pole.cx, pole.cy + r * 1.2);
-            ctx.scale(1, -1);
-            ctx.fillStyle = "#d97706";
-            ctx.font = `bold ${Math.max(0.2, 0.5 / vp.scale)}px monospace`;
-            ctx.textAlign = "center";
-            ctx.textBaseline = "top";
-            ctx.fillText(pole.name || `POLE_${pole.pole_id}`, 0, 0);
-            ctx.restore();
-          }
-        }
-        ctx.restore();
-      }
       ctx.restore();
 
       // 5. Draw Chips (Screen space)
@@ -990,13 +1583,95 @@ export default function DxfViewer({
     });
   }, [renderScene]);
 
+  const applyPoleBreakNormalization = useCallback(
+    (options?: { autoConnectAfter?: boolean }) => {
+      if (!cableSpansRef.current.length) {
+        if (options?.autoConnectAfter) {
+          autoConnectPolesRef.current();
+        }
+        return false;
+      }
+
+      const { spans: normalizedSpans, changed } = normalizeSpansToPoleBreaks(
+        cableSpansRef.current,
+      );
+
+      if (changed) {
+        cableSpansRef.current = normalizedSpans;
+        setCableSpans(normalizedSpans);
+        notifySpansChange(normalizedSpans);
+        hoveredSpanRef.current = null;
+        selectedSpanRef.current = null;
+        setHoveredSpanId(null);
+        setSelectedSpanId(null);
+        cancelMultiAction();
+        redraw();
+      }
+
+      if (options?.autoConnectAfter) {
+        setTimeout(() => {
+          autoConnectPolesRef.current();
+        }, 0);
+      }
+
+      return changed;
+    },
+    [normalizeSpansToPoleBreaks, notifySpansChange, redraw],
+  );
+
+  useEffect(() => {
+    if (
+      poleScanStatus !== "done" ||
+      polesRef.current.length === 0 ||
+      cableSpansRef.current.length === 0
+    ) {
+      return;
+    }
+
+    const relevantPoles = polesRef.current
+      .filter(
+        (pole) =>
+          pole.layer === "geotool_npt" ||
+          pole.source === "geotool_npt" ||
+          pole.map_latitude != null,
+      )
+      .map(
+        (pole) =>
+          `${pole.pole_id}:${pole.cx.toFixed(2)},${pole.cy.toFixed(2)}:${pole.name}`,
+      )
+      .sort()
+      .join("|");
+
+    const spanSignature = cableSpansRef.current
+      .map(
+        (span) =>
+          `${span.span_id}:${span.segment_count}:${span.from_pole_id ?? "x"}:${span.to_pole_id ?? "x"}`,
+      )
+      .sort()
+      .join("|");
+
+    const fingerprint = `${relevantPoles}__${spanSignature}`;
+    if (!relevantPoles || fingerprint === poleBreakFingerprintRef.current) {
+      return;
+    }
+
+    poleBreakFingerprintRef.current = fingerprint;
+    applyPoleBreakNormalization();
+  }, [applyPoleBreakNormalization, cableSpans.length, poleScanStatus, poles.length]);
+
   const autoConnectPoles = useCallback(() => {
     if (!polesRef.current.length || !cableSpansRef.current.length) return;
     const BUFFER_RADIUS = 30,
       RAY_MAX_DIST = 150,
       RAY_TOLERANCE = 15;
 
-    const newSpans = cableSpansRef.current.map((span) => {
+    const previousSpans = cableSpansRef.current.map((s) => ({ ...s }));
+    const previousDeleted = deletedSpansRef.current.map((d) => ({ ...d }));
+    const {
+      spans: spansForConnection,
+    } = normalizeSpansToPoleBreaks(cableSpansRef.current);
+
+    const newSpans = spansForConnection.map((span) => {
       if (span.segments.length === 0) return span;
       const endpoints = findSpanEndpoints(span.segments);
       if (!endpoints) return span;
@@ -1006,41 +1681,47 @@ export default function DxfViewer({
       const ptB = endpointB.pt;
       const ptB_in = endpointB.inward;
 
-      const findPoleForEndpoint = (
+      const findPoleCandidatesForEndpoint = (
         pt: { x: number; y: number },
         pt_in: { x: number; y: number },
-      ): { name: string; id: number } | null => {
-        let closestPole: PoleTag | null = null,
-          minDist = Infinity;
+      ): Array<{ pole: PoleTag; score: number }> => {
+        const bufferCandidates: Array<{ pole: PoleTag; score: number }> = [];
         for (const pole of polesRef.current) {
           if (
             maskEnabledRef.current &&
             boundaryRef.current &&
             !isPointInPolygon(pole.cx, pole.cy, boundaryRef.current)
-          )
+          ) {
             continue;
+          }
+
           const dist = Math.hypot(pole.cx - pt.x, pole.cy - pt.y);
-          if (dist < BUFFER_RADIUS && dist < minDist) {
-            minDist = dist;
-            closestPole = pole;
+          if (dist < BUFFER_RADIUS) {
+            bufferCandidates.push({ pole, score: dist });
           }
         }
-        if (closestPole) return { name: closestPole.name, id: closestPole.pole_id };
-        if (pt.x === pt_in.x && pt.y === pt_in.y) return null;
+
+        bufferCandidates.sort((a, b) => a.score - b.score);
+        if (bufferCandidates.length > 0) {
+          return bufferCandidates.slice(0, 4);
+        }
+
+        if (pt.x === pt_in.x && pt.y === pt_in.y) return [];
 
         const angle = Math.atan2(pt.y - pt_in.y, pt.x - pt_in.x);
-        const rayEndX = pt.x + Math.cos(angle) * RAY_MAX_DIST,
-          rayEndY = pt.y + Math.sin(angle) * RAY_MAX_DIST;
-        closestPole = null;
-        minDist = Infinity;
+        const rayEndX = pt.x + Math.cos(angle) * RAY_MAX_DIST;
+        const rayEndY = pt.y + Math.sin(angle) * RAY_MAX_DIST;
+        const rayCandidates: Array<{ pole: PoleTag; score: number }> = [];
 
         for (const pole of polesRef.current) {
           if (
             maskEnabledRef.current &&
             boundaryRef.current &&
             !isPointInPolygon(pole.cx, pole.cy, boundaryRef.current)
-          )
+          ) {
             continue;
+          }
+
           const distToRay = pointToSegmentDistance(
             pole.cx,
             pole.cy,
@@ -1051,36 +1732,60 @@ export default function DxfViewer({
           );
           if (distToRay < RAY_TOLERANCE) {
             const distToPole = Math.hypot(pole.cx - pt.x, pole.cy - pt.y);
-            if (distToPole < minDist) {
-              minDist = distToPole;
-              closestPole = pole;
-            }
+            rayCandidates.push({ pole, score: distToPole });
           }
         }
-        if (closestPole) return { name: closestPole.name, id: closestPole.pole_id };
-        return null;
+
+        rayCandidates.sort((a, b) => a.score - b.score);
+        return rayCandidates.slice(0, 4);
       };
 
-      const fromResult = findPoleForEndpoint(ptA, ptA_in);
-      const toResult = findPoleForEndpoint(ptB, ptB_in);
+      const fromCandidates = findPoleCandidatesForEndpoint(ptA, ptA_in);
+      const toCandidates = findPoleCandidatesForEndpoint(ptB, ptB_in);
+
+      let fromResult = fromCandidates[0]?.pole ?? null;
+      let toResult = toCandidates[0]?.pole ?? null;
+      let bestPair:
+        | { fromPole: PoleTag; toPole: PoleTag; score: number }
+        | null = null;
+
+      for (const fromCandidate of fromCandidates) {
+        for (const toCandidate of toCandidates) {
+          if (fromCandidate.pole.pole_id === toCandidate.pole.pole_id) continue;
+          const pairScore = fromCandidate.score + toCandidate.score;
+          if (!bestPair || pairScore < bestPair.score) {
+            bestPair = {
+              fromPole: fromCandidate.pole,
+              toPole: toCandidate.pole,
+              score: pairScore,
+            };
+          }
+        }
+      }
+
+      if (bestPair) {
+        fromResult = bestPair.fromPole;
+        toResult = bestPair.toPole;
+      }
+
       return {
         ...span,
         from_pole: fromResult?.name ?? span.from_pole,
-        from_pole_id: fromResult?.id ?? span.from_pole_id,
+        from_pole_id: fromResult?.pole_id ?? span.from_pole_id,
         to_pole: toResult?.name ?? span.to_pole,
-        to_pole_id: toResult?.id ?? span.to_pole_id,
+        to_pole_id: toResult?.pole_id ?? span.to_pole_id,
       };
     });
 
     splitHistoryRef.current.push({
-      prev: cableSpansRef.current.map((s) => ({ ...s })),
-      prevDeleted: deletedSpansRef.current.map((d) => ({ ...d })),
+      prev: previousSpans,
+      prevDeleted: previousDeleted,
     });
     cableSpansRef.current = newSpans;
     setCableSpans(newSpans);
     notifySpansChange(newSpans);
     redraw();
-  }, [redraw, notifySpansChange]);
+  }, [normalizeSpansToPoleBreaks, redraw, notifySpansChange]);
 
   useEffect(() => {
     autoConnectPolesRef.current = autoConnectPoles;
@@ -1171,15 +1876,32 @@ export default function DxfViewer({
           (data.status === "done" && poleScanStatus !== "done")
         ) {
           if (data.tags) {
+            ensureGeoToolLayer(data.tags);
             polesRef.current = data.tags;
             setPoles(data.tags);
+            onCacheUpdate?.({
+              poleTags: data.tags,
+              poleDone: data.status === "done",
+            });
             if (showPolesRef.current) redraw();
+          }
+        } else if (data.status === "done" && data.tags) {
+          const merged = mergeBackendGeoPoles(data.tags);
+          if (merged) {
+            applyPoleBreakNormalization();
           }
         }
       } catch (e) {}
     }, 2000);
     return () => clearInterval(poll);
-  }, [poleScanStatus, redraw]); // Added poleScanStatus to dependencies
+  }, [
+    ensureGeoToolLayer,
+    applyPoleBreakNormalization,
+    mergeBackendGeoPoles,
+    onCacheUpdate,
+    poleScanStatus,
+    redraw,
+  ]); // Added poleScanStatus to dependencies
 
   // ADD THIS NEW USEEFFECT
   useEffect(() => {
@@ -1658,7 +2380,10 @@ export default function DxfViewer({
             prev: cableSpansRef.current.map((s) => ({ ...s })),
             prevDeleted: deletedSpansRef.current.map((d) => ({ ...d })),
           });
-          const newSegments = [...targetSpan.segments, ...neighbor.segments];
+          const newSegments = orderConnectedSegments([
+            ...targetSpan.segments,
+            ...neighbor.segments,
+          ]);
           const nextId = nextSpanIdRef.current++;
           const m = computeSpanMetrics(newSegments);
           let nearestOcr = null;
@@ -1778,6 +2503,8 @@ export default function DxfViewer({
   }, [ocrResults, cableDataVersion, redraw, notifySpansChange]);
 
   const startMultiAction = (action: "runs" | "merge") => {
+    const normalized = applyPoleBreakNormalization();
+    if (normalized) return;
     if (selectedSpanId === null) return;
     pairingModeRef.current = true;
     setPairingMode(true);
@@ -1811,8 +2538,10 @@ export default function DxfViewer({
     const pairedSpansToMerge = cableSpansRef.current.filter((s) =>
       pIds.includes(s.span_id),
     );
-    const newSegments = [...mainSpan.segments];
-    pairedSpansToMerge.forEach((ps) => newSegments.push(...ps.segments));
+    const newSegments = orderConnectedSegments([
+      ...mainSpan.segments,
+      ...pairedSpansToMerge.flatMap((ps) => ps.segments),
+    ]);
     const m = computeSpanMetrics(newSegments);
     let mergedSpan: CableSpan;
     if (action === "runs") {
@@ -2062,36 +2791,33 @@ export default function DxfViewer({
             map_longitude: g.map_longitude,
           }));
 
-        // Register geotool_npt as a visible pseudo-layer so poles render (isLayerVisible) and appear in the layer panel
-        if (nptPoles.length > 0) {
-          const hasGeoLayer = layersRef.current.some((l) => l.name === "geotool_npt");
-          if (!hasGeoLayer) {
-            const geoLayer: DxfLayerData = {
-              name: "geotool_npt",
-              visible: true,
-              color: "#f59e0b",
-              segmentCount: nptPoles.length,
-            };
-            layersRef.current = [...layersRef.current, geoLayer];
-            setLayers([...layersRef.current]);
-          }
-        }
-
         // Remove OCR-detected "NPT" text annotations when GeoTool NPTs exist
         // Text labels like "NPT" are annotations, not actual poles — the GeoTool
         // discovers the real NPT circle symbols as separate poles at proper positions.
-        const dedupedUpdated = nptPoles.length > 0
-          ? updatedPoles.filter((p) => p.name !== "NPT")
-          : updatedPoles;
+        const dedupedUpdated =
+          nptPoles.length > 0
+            ? updatedPoles.filter(
+                (p) =>
+                  !(
+                    p.name === "NPT" &&
+                    p.source !== "geotool_npt" &&
+                    (p.map_latitude == null || p.map_longitude == null)
+                  ),
+              )
+            : updatedPoles;
         const allPoles = [...dedupedUpdated, ...nptPoles];
+        ensureGeoToolLayer(allPoles);
         polesRef.current = allPoles;
         setPoles(allPoles);
+        onCacheUpdate?.({ poleTags: allPoles, poleDone: true });
 
         const gpsPoles = allPoles
           .filter((p) => p.map_latitude != null && p.map_longitude != null)
           .map((p) => ({
             pole_id: p.pole_id,
             name: p.name,
+            layer: p.layer,
+            source: p.source,
             map_latitude: p.map_latitude,
             map_longitude: p.map_longitude,
             cad_x: p.cx,
@@ -2115,7 +2841,7 @@ export default function DxfViewer({
           }
         }
 
-        autoConnectPolesRef.current();
+        applyPoleBreakNormalization({ autoConnectAfter: true });
 
         alert("Coordinates successfully synced from Georeferencing tool!");
         redraw();
@@ -2170,13 +2896,39 @@ export default function DxfViewer({
 
         polesRef.current = updatedPoles;
         setPoles(updatedPoles);
+        onCacheUpdate?.({ poleTags: updatedPoles, poleDone: true });
         redraw();
+      }
+
+      if (event.data?.type === "POLES_SYNC") {
+        const payloadPoles = Array.isArray(event.data?.payload?.poles)
+          ? (event.data.payload.poles as PoleTag[])
+          : [];
+        if (!payloadPoles.length) return;
+
+        ensureGeoToolLayer(payloadPoles);
+        polesRef.current = payloadPoles;
+        setPoles(payloadPoles);
+        setPoleScanStatus("done");
+        onCacheUpdate?.({ poleTags: payloadPoles, poleDone: true });
+        if (showPolesRef.current) redraw();
+
+        if (cableSpansRef.current.length > 0) {
+          hasAutoConnectedRef.current = false;
+          applyPoleBreakNormalization({ autoConnectAfter: true });
+        }
       }
     };
 
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
-  }, [redraw, notifySpansChange]);
+  }, [
+    applyPoleBreakNormalization,
+    ensureGeoToolLayer,
+    notifySpansChange,
+    onCacheUpdate,
+    redraw,
+  ]);
 
   const showAll = useCallback(() => {
     setLayers((prev) => {

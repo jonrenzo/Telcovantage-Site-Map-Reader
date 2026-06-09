@@ -1,20 +1,24 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import type {
   PoleTag,
   AsbuiltSite,
   AsbuiltNode,
+  AsbuiltSubcontractor,
+  AsbuiltTeam,
   AsbuiltExportResult,
   CableSpanExport,
   ManualNodeForm,
   VerifyNodeResponse,
+  EquipmentShape,
 } from "../types";
 
 interface Props {
   cableSpans: CableSpanExport[];
   onClose: () => void;
   poleTags?: PoleTag[];
+  equipmentShapes?: EquipmentShape[];
   dxfPath?: string;
 }
 
@@ -35,10 +39,107 @@ const EMPTY_MANUAL_FORM: ManualNodeForm = {
   barangay_name: "",
 };
 
+type SpanComponentCounts = {
+  node: number;
+  amplifier: number;
+  extender: number;
+  tsc: number;
+  powersupply: number;
+  ps_housing: number;
+};
+
+const EMPTY_COMPONENTS: SpanComponentCounts = {
+  node: 0,
+  amplifier: 0,
+  extender: 0,
+  tsc: 0,
+  powersupply: 0,
+  ps_housing: 0,
+};
+
+function getEquipmentDisplayKind(shape: EquipmentShape): string {
+  if (shape.kind === "rectangle") {
+    const layer = shape.layer.toLowerCase();
+    if (layer.includes("node")) return "node";
+    if (layer.includes("amp") || layer.includes("amplifier")) return "amplifier";
+  }
+  return shape.kind;
+}
+
+function getEquipmentComponentKey(
+  shape: EquipmentShape,
+): keyof SpanComponentCounts | null {
+  const kind = getEquipmentDisplayKind(shape);
+  if (kind === "node") return "node";
+  if (kind === "amplifier") return "amplifier";
+  if (kind === "triangle") return "extender";
+  if (
+    kind === "circle" ||
+    kind === "square" ||
+    kind === "hexagon" ||
+    kind === "splitter"
+  ) {
+    return "tsc";
+  }
+  return null;
+}
+
+function pointToSegmentDistance(
+  px: number,
+  py: number,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+): number {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  if (dx === 0 && dy === 0) {
+    return Math.hypot(px - x1, py - y1);
+  }
+
+  const t = Math.max(
+    0,
+    Math.min(1, ((px - x1) * dx + (py - y1) * dy) / (dx * dx + dy * dy)),
+  );
+  const cx = x1 + t * dx;
+  const cy = y1 + t * dy;
+  return Math.hypot(px - cx, py - cy);
+}
+
+function mergePoleCollections(
+  cachedPoles: PoleTag[],
+  apiPoles: PoleTag[],
+): PoleTag[] {
+  const merged = new Map<number, PoleTag>();
+
+  for (const pole of apiPoles) {
+    merged.set(pole.pole_id, pole);
+  }
+
+  for (const pole of cachedPoles) {
+    const existing = merged.get(pole.pole_id);
+    if (!existing) {
+      merged.set(pole.pole_id, pole);
+      continue;
+    }
+
+    merged.set(pole.pole_id, {
+      ...existing,
+      ...pole,
+      map_latitude: pole.map_latitude ?? existing.map_latitude,
+      map_longitude: pole.map_longitude ?? existing.map_longitude,
+    });
+  }
+
+  return Array.from(merged.values());
+}
+
 export default function AsbuiltExportModal({
   cableSpans,
   onClose,
   poleTags = [],
+  equipmentShapes = [],
   dxfPath,
 }: Props) {
   const [step, setStep] = useState<Step>("gps_check");
@@ -47,12 +148,22 @@ export default function AsbuiltExportModal({
   const [selectedSiteId, setSelectedSiteId] = useState<number | null>(null);
   const [nodes, setNodes] = useState<AsbuiltNode[]>([]);
   const [selectedNode, setSelectedNode] = useState<AsbuiltNode | null>(null);
+  const [subcontractors, setSubcontractors] = useState<AsbuiltSubcontractor[]>(
+    [],
+  );
+  const [teams, setTeams] = useState<AsbuiltTeam[]>([]);
+  const [selectedSubcontractorId, setSelectedSubcontractorId] = useState<
+    number | null
+  >(null);
+  const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
   const [result, setResult] = useState<AsbuiltExportResult | null>(null);
   const [verifyResult, setVerifyResult] = useState<VerifyNodeResponse | null>(
     null,
   );
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loadingSubcontractors, setLoadingSubcontractors] = useState(false);
+  const [loadingTeams, setLoadingTeams] = useState(false);
 
   const [selectionMode, setSelectionMode] = useState<
     "existing" | "manual" | null
@@ -78,18 +189,21 @@ export default function AsbuiltExportModal({
         setStep("site_select");
       }
       setLoading(false);
-    } else {
-      loadPoles();
     }
+
+    loadPoles(poleTags);
   }, [poleTags]);
 
-  async function loadPoles() {
+  async function loadPoles(fallbackPoles: PoleTag[] = []) {
     setLoading(true);
     try {
       const res = await fetch("/api/v1/poles");
       const json = await res.json();
       if (json.ok && Array.isArray(json.data?.poles)) {
-        const poleList = json.data.poles as PoleTag[];
+        const poleList = mergePoleCollections(
+          fallbackPoles,
+          json.data.poles as PoleTag[],
+        );
         setPoles(poleList);
         const allGps = poleList.every(
           (p) => p.map_latitude != null && p.map_longitude != null,
@@ -99,13 +213,27 @@ export default function AsbuiltExportModal({
         } else {
           setStep("site_select");
         }
+      } else if (fallbackPoles.length > 0) {
+        setPoles(fallbackPoles);
+        const allGps = fallbackPoles.every(
+          (p) => p.map_latitude != null && p.map_longitude != null,
+        );
+        setStep(allGps ? "site_select" : "georef_warn");
       } else {
         setError(json.error || "No pole data available.");
         setStep("error");
       }
     } catch (e: any) {
-      setError(e.message || "Failed to load poles");
-      setStep("error");
+      if (fallbackPoles.length > 0) {
+        setPoles(fallbackPoles);
+        const allGps = fallbackPoles.every(
+          (p) => p.map_latitude != null && p.map_longitude != null,
+        );
+        setStep(allGps ? "site_select" : "georef_warn");
+      } else {
+        setError(e.message || "Failed to load poles");
+        setStep("error");
+      }
     } finally {
       setLoading(false);
     }
@@ -115,6 +243,12 @@ export default function AsbuiltExportModal({
     if (step !== "site_select") return;
     if (sites.length > 0) return;
     loadSites();
+  }, [step]);
+
+  useEffect(() => {
+    if (step !== "site_select") return;
+    if (subcontractors.length > 0) return;
+    loadSubcontractors();
   }, [step]);
 
   async function loadSites() {
@@ -144,8 +278,14 @@ export default function AsbuiltExportModal({
       setNodes([]);
       setSelectedNode(null);
       setSelectionMode(null);
+      setSelectedSubcontractorId(null);
+      setSelectedTeamId(null);
+      setTeams([]);
       return;
     }
+    setSelectedSubcontractorId(null);
+    setSelectedTeamId(null);
+    setTeams([]);
     loadNodes(selectedSiteId);
   }, [selectedSiteId]);
 
@@ -171,19 +311,122 @@ export default function AsbuiltExportModal({
     }
   }
 
+  async function loadSubcontractors() {
+    setLoadingSubcontractors(true);
+    try {
+      const res = await fetch("/api/v1/asbuilt/subcontractors");
+      const json = await res.json();
+      if (json.ok) {
+        setSubcontractors(
+          Array.isArray(json.data) ? (json.data as AsbuiltSubcontractor[]) : [],
+        );
+      } else {
+        setError(json.error || "Failed to load subcontractors");
+      }
+    } catch (e: any) {
+      setError(e.message || "Failed to load subcontractors");
+    } finally {
+      setLoadingSubcontractors(false);
+    }
+  }
+
+  async function loadTeams(subcontractorId: number | null) {
+    if (!subcontractorId) {
+      setTeams([]);
+      setSelectedTeamId(null);
+      return;
+    }
+
+    setLoadingTeams(true);
+    try {
+      const res = await fetch(
+        `/api/v1/asbuilt/teams?subcontractor_id=${subcontractorId}`,
+      );
+      const json = await res.json();
+      if (json.ok) {
+        const nextTeams = Array.isArray(json.data)
+          ? (json.data as AsbuiltTeam[])
+          : [];
+        setTeams(nextTeams);
+        setSelectedTeamId((current) =>
+          nextTeams.some((team) => team.id === current) ? current : null,
+        );
+      } else {
+        setError(json.error || "Failed to load teams");
+      }
+    } catch (e: any) {
+      setError(e.message || "Failed to load teams");
+    } finally {
+      setLoadingTeams(false);
+    }
+  }
+
+  useEffect(() => {
+    loadTeams(selectedSubcontractorId);
+  }, [selectedSubcontractorId]);
+
+  useEffect(() => {
+    if (selectionMode !== "existing" || !selectedNode) return;
+    setSelectedSubcontractorId(selectedNode.subcontractor_id ?? null);
+    setSelectedTeamId(selectedNode.team_id ?? null);
+  }, [selectionMode, selectedNode]);
+
   function buildPoleCodeMap() {
     const nameToCode: Record<string, string> = {};
-    const idToCode: Record<number, string> = {};
+    const idToSequenceIndex: Record<number, string> = {};
+    const nameToSequenceIndexes: Record<string, string[]> = {};
+    const polesByName: Record<
+      string,
+      Array<{
+        pole_id: number;
+        name: string;
+        sequenceIndex: string;
+        cx: number;
+        cy: number;
+      }>
+    > = {};
+    const georeferencedPoles: Array<{
+      pole_id: number;
+      name: string;
+      sequenceIndex: string;
+      cx: number;
+      cy: number;
+    }> = [];
 
+    let sequenceCounter = 0;
     for (const p of poles) {
       if (p.map_latitude == null || p.map_longitude == null) continue;
       const baseName = (p.name || "").trim().toUpperCase();
       if (!baseName) continue;
 
+      sequenceCounter += 1;
+      const sequenceIndex = `POLE-${String(sequenceCounter).padStart(4, "0")}`;
       nameToCode[baseName] = baseName;
-      idToCode[p.pole_id] = baseName;
+      idToSequenceIndex[p.pole_id] = sequenceIndex;
+      if (!nameToSequenceIndexes[baseName]) {
+        nameToSequenceIndexes[baseName] = [];
+      }
+      nameToSequenceIndexes[baseName].push(sequenceIndex);
+      const georeferencedPole = {
+        pole_id: p.pole_id,
+        name: baseName,
+        sequenceIndex,
+        cx: p.cx,
+        cy: p.cy,
+      };
+      georeferencedPoles.push(georeferencedPole);
+      if (!polesByName[baseName]) {
+        polesByName[baseName] = [];
+      }
+      polesByName[baseName].push(georeferencedPole);
     }
-    return { nameToCode, idToCode };
+    return {
+      nameToCode,
+      idToSequenceIndex,
+      nameToSequenceIndexes,
+      polesByName,
+      georeferencedPoles,
+    };
   }
 
   function getAreaData() {
@@ -214,56 +457,432 @@ export default function AsbuiltExportModal({
     setStep("posting");
 
     const areaData = getAreaData();
-    const { nameToCode, idToCode } = buildPoleCodeMap();
+    const {
+      nameToCode,
+      idToSequenceIndex,
+      nameToSequenceIndexes,
+      polesByName,
+      georeferencedPoles,
+    } =
+      buildPoleCodeMap();
 
-    const poleIndexByPoleId: Record<number, number> = {};
     const asbuiltPoles = poles
-      .filter((p) => p.map_latitude != null && p.map_longitude != null)
-      .map((p, idx) => {
-        const poleIndex = idx + 1; // 1-based sequential index
+      .filter((p) => {
         const baseName = (p.name || "").trim().toUpperCase();
-        poleIndexByPoleId[p.pole_id] = poleIndex;
+        return (
+          p.map_latitude != null &&
+          p.map_longitude != null &&
+          baseName.length > 0
+        );
+      })
+      .map((p) => {
+        const baseName = (p.name || "").trim().toUpperCase();
         return {
-          pole_index: poleIndex,
+          pole_index: idToSequenceIndex[p.pole_id],
           pole_code: nameToCode[baseName],
-          latitude: p.map_latitude!,
-          longitude: p.map_longitude!,
-          barangay_name: areaData.barangay_name,
+          lat: p.map_latitude!,
+          lng: p.map_longitude!,
         };
       });
+
+    const uniqueIndexByName = new Map<string, string>();
+    Object.entries(nameToSequenceIndexes).forEach(([name, indexes]) => {
+      if (indexes.length === 1) uniqueIndexByName.set(name, indexes[0]);
+    });
+
+    const pickNearestPole = <
+      T extends { sequenceIndex: string; cx: number; cy: number },
+    >(
+      candidates: T[],
+      x: number | null | undefined,
+      y: number | null | undefined,
+    ): { sequenceIndex: string; dist: number } | null => {
+      if (x == null || y == null) return null;
+      let best: { sequenceIndex: string; dist: number } | null = null;
+      for (const pole of candidates) {
+        const dist = Math.hypot(pole.cx - x, pole.cy - y);
+        if (!best || dist < best.dist) {
+          best = { sequenceIndex: pole.sequenceIndex, dist };
+        }
+      }
+      return best;
+    };
+
+    const collectNearestPoleCandidates = <
+      T extends { sequenceIndex: string; cx: number; cy: number },
+    >(
+      candidates: T[],
+      x: number | null | undefined,
+      y: number | null | undefined,
+      maxDistance = 80,
+      limit = 4,
+    ): string[] => {
+      if (x == null || y == null) return [];
+      return candidates
+        .map((pole) => ({
+          sequenceIndex: pole.sequenceIndex,
+          dist: Math.hypot(pole.cx - x, pole.cy - y),
+        }))
+        .filter((candidate) => candidate.dist <= maxDistance)
+        .sort((a, b) => a.dist - b.dist)
+        .slice(0, limit)
+        .map((candidate) => candidate.sequenceIndex);
+    };
+
+    const nearestSequenceIndex = (
+      x: number | null | undefined,
+      y: number | null | undefined,
+      maxDistance = 80,
+    ): string | undefined => {
+      const best = pickNearestPole(georeferencedPoles, x, y);
+      return best && best.dist <= maxDistance ? best.sequenceIndex : undefined;
+    };
+
+    const raySequenceIndex = (
+      endpointX: number | null | undefined,
+      endpointY: number | null | undefined,
+      inwardX: number | null | undefined,
+      inwardY: number | null | undefined,
+      candidateName: string | null | undefined,
+    ): string | undefined => {
+      if (
+        endpointX == null ||
+        endpointY == null ||
+        inwardX == null ||
+        inwardY == null
+      ) {
+        return undefined;
+      }
+
+      const dx = endpointX - inwardX;
+      const dy = endpointY - inwardY;
+      if (dx === 0 && dy === 0) return undefined;
+
+      const rayMaxDistance = 150;
+      const rayTolerance = 15;
+      const magnitude = Math.hypot(dx, dy);
+      const rayEndX = endpointX + (dx / magnitude) * rayMaxDistance;
+      const rayEndY = endpointY + (dy / magnitude) * rayMaxDistance;
+      const normalizedName = (candidateName || "").trim().toUpperCase();
+      const candidates =
+        polesByName[normalizedName]?.length
+          ? polesByName[normalizedName]
+          : georeferencedPoles;
+
+      let best: { sequenceIndex: string; dist: number } | null = null;
+      for (const pole of candidates) {
+        const distanceToRay = pointToSegmentDistance(
+          pole.cx,
+          pole.cy,
+          endpointX,
+          endpointY,
+          rayEndX,
+          rayEndY,
+        );
+        if (distanceToRay > rayTolerance) continue;
+        const distanceToEndpoint = Math.hypot(pole.cx - endpointX, pole.cy - endpointY);
+        if (!best || distanceToEndpoint < best.dist) {
+          best = { sequenceIndex: pole.sequenceIndex, dist: distanceToEndpoint };
+        }
+      }
+
+      return best?.sequenceIndex;
+    };
+
+    const collectRayPoleCandidates = (
+      endpointX: number | null | undefined,
+      endpointY: number | null | undefined,
+      inwardX: number | null | undefined,
+      inwardY: number | null | undefined,
+      candidateName: string | null | undefined,
+      limit = 4,
+    ): string[] => {
+      if (
+        endpointX == null ||
+        endpointY == null ||
+        inwardX == null ||
+        inwardY == null
+      ) {
+        return [];
+      }
+
+      const dx = endpointX - inwardX;
+      const dy = endpointY - inwardY;
+      if (dx === 0 && dy === 0) return [];
+
+      const rayMaxDistance = 150;
+      const rayTolerance = 15;
+      const magnitude = Math.hypot(dx, dy);
+      const rayEndX = endpointX + (dx / magnitude) * rayMaxDistance;
+      const rayEndY = endpointY + (dy / magnitude) * rayMaxDistance;
+      const normalizedName = (candidateName || "").trim().toUpperCase();
+      const candidates =
+        polesByName[normalizedName]?.length
+          ? polesByName[normalizedName]
+          : georeferencedPoles;
+
+      return candidates
+        .map((pole) => ({
+          sequenceIndex: pole.sequenceIndex,
+          distanceToRay: pointToSegmentDistance(
+            pole.cx,
+            pole.cy,
+            endpointX,
+            endpointY,
+            rayEndX,
+            rayEndY,
+          ),
+          distanceToEndpoint: Math.hypot(pole.cx - endpointX, pole.cy - endpointY),
+        }))
+        .filter((candidate) => candidate.distanceToRay <= rayTolerance)
+        .sort((a, b) => a.distanceToEndpoint - b.distanceToEndpoint)
+        .slice(0, limit)
+        .map((candidate) => candidate.sequenceIndex);
+    };
+
+    const buildSpanPoleCandidates = (
+      poleId: number | null | undefined,
+      poleName: string | null | undefined,
+      poleX: number | null | undefined,
+      poleY: number | null | undefined,
+      endpointX: number | null | undefined,
+      endpointY: number | null | undefined,
+      oppositeEndpointX: number | null | undefined,
+      oppositeEndpointY: number | null | undefined,
+    ): string[] => {
+      const candidates: string[] = [];
+      const pushCandidate = (value: string | undefined) => {
+        if (!value || candidates.includes(value)) return;
+        candidates.push(value);
+      };
+
+      if (poleId != null && idToSequenceIndex[poleId]) {
+        pushCandidate(idToSequenceIndex[poleId]);
+      }
+
+      const normalizedName = (poleName || "").trim().toUpperCase();
+      const namedCandidates = normalizedName ? (polesByName[normalizedName] ?? []) : [];
+
+      const byNamedPoleCoords = pickNearestPole(namedCandidates, poleX, poleY);
+      if (byNamedPoleCoords && byNamedPoleCoords.dist <= 80) {
+        pushCandidate(byNamedPoleCoords.sequenceIndex);
+      }
+      collectNearestPoleCandidates(namedCandidates, poleX, poleY).forEach(
+        pushCandidate,
+      );
+
+      const byNamedEndpointCoords = pickNearestPole(
+        namedCandidates,
+        endpointX,
+        endpointY,
+      );
+      if (byNamedEndpointCoords && byNamedEndpointCoords.dist <= 80) {
+        pushCandidate(byNamedEndpointCoords.sequenceIndex);
+      }
+      collectNearestPoleCandidates(namedCandidates, endpointX, endpointY).forEach(
+        pushCandidate,
+      );
+
+      const byPoleCoords = nearestSequenceIndex(poleX, poleY);
+      pushCandidate(byPoleCoords);
+      collectNearestPoleCandidates(georeferencedPoles, poleX, poleY).forEach(
+        pushCandidate,
+      );
+
+      const byEndpointCoords = nearestSequenceIndex(endpointX, endpointY);
+      pushCandidate(byEndpointCoords);
+      collectNearestPoleCandidates(
+        georeferencedPoles,
+        endpointX,
+        endpointY,
+      ).forEach(pushCandidate);
+
+      const byRay = raySequenceIndex(
+        endpointX,
+        endpointY,
+        oppositeEndpointX,
+        oppositeEndpointY,
+        poleName,
+      );
+      pushCandidate(byRay);
+      collectRayPoleCandidates(
+        endpointX,
+        endpointY,
+        oppositeEndpointX,
+        oppositeEndpointY,
+        poleName,
+      ).forEach(pushCandidate);
+
+      if (!normalizedName) return candidates;
+
+      const uniqueByName = uniqueIndexByName.get(normalizedName);
+      pushCandidate(uniqueByName);
+
+      const indexesByName = nameToSequenceIndexes[normalizedName] ?? [];
+      indexesByName.forEach((sequenceIndex) => {
+        pushCandidate(sequenceIndex);
+      });
+
+      return candidates;
+    };
+
+    const resolveDistinctSpanPoleIndexes = (
+      fromCandidates: string[],
+      toCandidates: string[],
+    ): { fromIndex?: string; toIndex?: string } => {
+      for (const fromIndex of fromCandidates) {
+        const distinctTo = toCandidates.find((toIndex) => toIndex !== fromIndex);
+        if (distinctTo) {
+          return { fromIndex, toIndex: distinctTo };
+        }
+      }
+
+      const fromIndex = fromCandidates[0];
+      const toIndex = toCandidates.find((candidate) => candidate !== fromIndex);
+      if (fromIndex || toIndex) {
+        return { fromIndex, toIndex: toIndex ?? toCandidates[0] };
+      }
+
+      return {};
+    };
+
+    const unresolvedSpans: number[] = [];
+    const unresolvedSpanDetails: string[] = [];
+    const spanComponentMap = new Map<number, SpanComponentCounts>();
+
+    const buildSpanGeometry = (span: CableSpanExport) => {
+      const x1 = span.from_pole_x ?? span.from_x;
+      const y1 = span.from_pole_y ?? span.from_y;
+      const x2 = span.to_pole_x ?? span.to_x;
+      const y2 = span.to_pole_y ?? span.to_y;
+      if (
+        x1 == null ||
+        y1 == null ||
+        x2 == null ||
+        y2 == null ||
+        !Number.isFinite(x1) ||
+        !Number.isFinite(y1) ||
+        !Number.isFinite(x2) ||
+        !Number.isFinite(y2)
+      ) {
+        return null;
+      }
+      return { x1, y1, x2, y2 };
+    };
+
+    const candidateSpans = cableSpans
+      .filter((s) => s.from_pole && s.to_pole)
+      .map((span) => ({ spanId: span.span_id, geometry: buildSpanGeometry(span) }))
+      .filter(
+        (
+          candidate,
+        ): candidate is {
+          spanId: number;
+          geometry: { x1: number; y1: number; x2: number; y2: number };
+        } => candidate.geometry != null,
+      );
+
+    for (const shape of equipmentShapes) {
+      const componentKey = getEquipmentComponentKey(shape);
+      if (!componentKey) continue;
+
+      let closestSpanId: number | null = null;
+      let closestDistance = Number.POSITIVE_INFINITY;
+      for (const candidate of candidateSpans) {
+        const distance = pointToSegmentDistance(
+          shape.cx,
+          shape.cy,
+          candidate.geometry.x1,
+          candidate.geometry.y1,
+          candidate.geometry.x2,
+          candidate.geometry.y2,
+        );
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          closestSpanId = candidate.spanId;
+        }
+      }
+
+      if (closestSpanId == null) continue;
+      const counts = spanComponentMap.get(closestSpanId) ?? {
+        ...EMPTY_COMPONENTS,
+      };
+      counts[componentKey] += 1;
+      spanComponentMap.set(closestSpanId, counts);
+    }
 
     const asbuiltSpans = cableSpans
       .filter((s) => s.from_pole && s.to_pole)
       .map((s) => {
-        const fromCode =
-          (s.from_pole_id != null ? idToCode[s.from_pole_id] : undefined) ||
-          nameToCode[s.from_pole!.toUpperCase()];
-        const toCode =
-          (s.to_pole_id != null ? idToCode[s.to_pole_id] : undefined) ||
-          nameToCode[s.to_pole!.toUpperCase()];
+        const fromCandidates = buildSpanPoleCandidates(
+          s.from_pole_id,
+          s.from_pole,
+          s.from_pole_x,
+          s.from_pole_y,
+          s.from_x,
+          s.from_y,
+          s.to_x,
+          s.to_y,
+        );
+        const toCandidates = buildSpanPoleCandidates(
+          s.to_pole_id,
+          s.to_pole,
+          s.to_pole_x,
+          s.to_pole_y,
+          s.to_x,
+          s.to_y,
+          s.from_x,
+          s.from_y,
+        );
+        const { fromIndex, toIndex } = resolveDistinctSpanPoleIndexes(
+          fromCandidates,
+          toCandidates,
+        );
+        if (!fromIndex || !toIndex || fromIndex === toIndex) {
+          unresolvedSpans.push(s.span_id);
+          const reason = !fromIndex && !toIndex
+            ? "no from/to pole candidates"
+            : !fromIndex
+              ? "no from-pole candidate"
+              : !toIndex
+                ? "no to-pole candidate"
+                : `both endpoints resolved to ${fromIndex}`;
+          unresolvedSpanDetails.push(`${s.span_id} (${reason})`);
+        }
+        const components = spanComponentMap.get(s.span_id) ?? EMPTY_COMPONENTS;
         return {
-          from_pole_code: fromCode,
-          to_pole_code: toCode,
-          from_pole_index:
-            s.from_pole_id != null
-              ? poleIndexByPoleId[s.from_pole_id]
-              : undefined,
-          to_pole_index:
-            s.to_pole_id != null
-              ? poleIndexByPoleId[s.to_pole_id]
-              : undefined,
+          from_pole_index: fromIndex,
+          to_pole_index: toIndex,
           strand_length: s.meter_value ?? s.total_length,
           number_of_runs: s.cable_runs || 1,
-          components: {
-            node: 0,
-            amplifier: 0,
-            extender: 0,
-            tsc: 0,
-            powersupply: 0,
-            ps_housing: 0,
-          },
+          components: { ...components },
         };
-      });
+      })
+      .filter(
+        (span) =>
+          typeof span.from_pole_index === "string" &&
+          typeof span.to_pole_index === "string" &&
+          span.from_pole_index !== span.to_pole_index,
+      );
+
+    if (asbuiltPoles.length === 0) {
+      setError(
+        "No valid poles are ready for AsBuilt export. Make sure your pole names and GPS coordinates are complete.",
+      );
+      setStep("error");
+      return;
+    }
+
+    if (unresolvedSpans.length > 0) {
+      setError(
+        `Unable to resolve ${unresolvedSpans.length} span endpoint(s) to poles. ` +
+          `Please re-run Insert Coordinates / Auto-Connect so every span has valid start and end poles. ` +
+          `Affected span IDs: ${unresolvedSpans.slice(0, 15).join(", ")}${unresolvedSpans.length > 15 ? "..." : ""}. ` +
+          `Diagnostics: ${unresolvedSpanDetails.slice(0, 8).join(", ")}${unresolvedSpanDetails.length > 8 ? "..." : ""}`,
+      );
+      setStep("error");
+      return;
+    }
 
     const payload: Record<string, any> = {
       node_id: targetNode.node_id,
@@ -276,10 +895,11 @@ export default function AsbuiltExportModal({
     if (areaData.region) payload.region = areaData.region;
     if (areaData.province) payload.province = areaData.province;
     if (areaData.city) payload.city = areaData.city;
-
+    if (selectedSubcontractorId) payload.subcontractor_id = selectedSubcontractorId;
+    if (selectedTeamId) payload.team_id = selectedTeamId;
 
     try {
-      const res = await fetch("/api/v1/asbuilt/import", {
+      const res = await fetch("/api/v1/asbuilt/import-by-sequence", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -324,6 +944,9 @@ export default function AsbuiltExportModal({
     setSelectionMode(null);
     setSelectedNode(null);
     setManualForm(EMPTY_MANUAL_FORM);
+    setSelectedSubcontractorId(null);
+    setSelectedTeamId(null);
+    setTeams([]);
     setStep("site_select");
   }
 
@@ -431,7 +1054,7 @@ export default function AsbuiltExportModal({
               </div>
               <div className="flex justify-end gap-3">
                 <button
-                  onClick={loadPoles}
+                  onClick={() => loadPoles(poleTags)}
                   disabled={loading}
                   className="px-4 py-2 text-sm font-semibold rounded-lg bg-accent text-white hover:bg-blue-700 transition-colors disabled:opacity-50"
                 >
@@ -784,26 +1407,93 @@ export default function AsbuiltExportModal({
                       : selectionMode === "manual" &&
                           manualForm.node_id &&
                           manualForm.node_name) && (
-                      <div className="bg-surface-2 rounded-xl px-4 py-3 space-y-1">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted">Site</span>
-                          <span className="font-semibold text-text">
-                            {selectedSite.name}
-                          </span>
+                      <div className="space-y-4">
+                        <div className="bg-surface-2 rounded-xl px-4 py-3 space-y-1">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted">Site</span>
+                            <span className="font-semibold text-text">
+                              {selectedSite.name}
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted">Node</span>
+                            <span className="font-semibold text-text">
+                              {selectionMode === "existing"
+                                ? selectedNode?.full_label || selectedNode?.name
+                                : `${manualForm.node_id} (${manualForm.node_name})`}
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted">Poles to send</span>
+                            <span className="font-semibold text-text">
+                              {gpsCount}
+                            </span>
+                          </div>
                         </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted">Node</span>
-                          <span className="font-semibold text-text">
-                            {selectionMode === "existing"
-                              ? selectedNode?.full_label || selectedNode?.name
-                              : `${manualForm.node_id} (${manualForm.node_name})`}
-                          </span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted">Poles to send</span>
-                          <span className="font-semibold text-text">
-                            {gpsCount}
-                          </span>
+
+                        <div className="rounded-xl border border-border bg-white p-4 space-y-3">
+                          <div>
+                            <p className="text-xs font-semibold text-muted uppercase tracking-wider">
+                              Assignment &amp; Field Routing
+                            </p>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs font-medium text-muted mb-1">
+                                Subcontractor
+                              </label>
+                              <select
+                                value={selectedSubcontractorId ?? ""}
+                                onChange={(e) => {
+                                  const value = e.target.value
+                                    ? Number(e.target.value)
+                                    : null;
+                                  setSelectedSubcontractorId(value);
+                                  setSelectedTeamId(null);
+                                }}
+                                className="w-full px-3 py-2 rounded-lg border border-border bg-white text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent"
+                              >
+                                <option value="">
+                                  {loadingSubcontractors
+                                    ? "Loading subcontractors..."
+                                    : "Unassigned"}
+                                </option>
+                                {subcontractors.map((subcon) => (
+                                  <option key={subcon.id} value={subcon.id}>
+                                    {subcon.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-muted mb-1">
+                                Field Team
+                              </label>
+                              <select
+                                value={selectedTeamId ?? ""}
+                                onChange={(e) =>
+                                  setSelectedTeamId(
+                                    e.target.value ? Number(e.target.value) : null,
+                                  )
+                                }
+                                disabled={!selectedSubcontractorId || loadingTeams}
+                                className="w-full px-3 py-2 rounded-lg border border-border bg-white text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-50"
+                              >
+                                <option value="">
+                                  {!selectedSubcontractorId
+                                    ? "Select subcon first"
+                                    : loadingTeams
+                                      ? "Loading teams..."
+                                      : "Unassigned"}
+                                </option>
+                                {teams.map((team) => (
+                                  <option key={team.id} value={team.id}>
+                                    {team.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     )}

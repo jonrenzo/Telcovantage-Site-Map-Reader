@@ -99,6 +99,21 @@ export interface AsbuiltNode {
     report_type?: string | null;
     source_file?: string | null;
     pole_count?:  number;
+    subcontractor_id?: number | null;
+    subcontractor?: string | null;
+    team_id?: number | null;
+    team?: string | null;
+}
+
+export interface AsbuiltSubcontractor {
+    id:   number;
+    name: string;
+}
+
+export interface AsbuiltTeam {
+    id:               number;
+    name:             string;
+    subcontractor_id: number;
 }
 
 export interface AsbuiltExportResult {
