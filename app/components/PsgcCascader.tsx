@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import SearchableSelect from "./SearchableSelect";
 
 // Free Philippine Standard Geographic Code API (static JSON, CORS-open).
 const PSGC_BASE = "https://psgc.gitlab.io/api";
@@ -21,9 +22,6 @@ interface Props {
   value: PsgcValue;
   onChange: (value: PsgcValue) => void;
 }
-
-const selectClass =
-  "w-full px-3 py-2 rounded-lg border border-border bg-white text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-50 disabled:bg-slate-50";
 
 // Region names come as "Region IV-A (CALABARZON)" — prefer the short form in parens.
 function shortRegionName(name: string): string {
@@ -164,86 +162,43 @@ export default function PsgcCascader({ value, onChange }: Props) {
         </p>
       )}
 
-      <div>
-        <label className="block text-xs font-medium text-muted mb-1">Region</label>
-        <select
-          className={selectClass}
+      {/* 2-column rows, same format as Node ID / Node Name */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <SearchableSelect
+          label="Region"
           value={regionCode}
-          disabled={busy === "regions"}
-          onChange={(e) => handleRegion(e.target.value)}
-        >
-          <option value="">
-            {busy === "regions" ? "Loading regions…" : "— Select region —"}
-          </option>
-          {regions.map((r) => (
-            <option key={r.code} value={r.code}>
-              {r.name}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div>
-        <label className="block text-xs font-medium text-muted mb-1">Province</label>
-        <select
-          className={selectClass}
+          options={regions}
+          loading={busy === "regions"}
+          onChange={(code) => handleRegion(code)}
+          placeholder="— Select region —"
+        />
+        <SearchableSelect
+          label="Province"
           value={provinceCode}
-          disabled={!regionCode || noProvinces || busy === "provinces"}
-          onChange={(e) => handleProvince(e.target.value)}
-        >
-          <option value="">
-            {busy === "provinces"
-              ? "Loading provinces…"
-              : noProvinces
-                ? "— Walang province (NCR) —"
-                : "— Select province —"}
-          </option>
-          {provinces.map((p) => (
-            <option key={p.code} value={p.code}>
-              {p.name}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div>
-        <label className="block text-xs font-medium text-muted mb-1">
-          City / Municipality
-        </label>
-        <select
-          className={selectClass}
+          options={provinces}
+          disabled={!regionCode || noProvinces}
+          loading={busy === "provinces"}
+          onChange={(code) => handleProvince(code)}
+          placeholder={noProvinces ? "— No province (NCR) —" : "— Select province —"}
+        />
+        <SearchableSelect
+          label="City / Municipality"
           value={cityCode}
-          disabled={(!provinceCode && !noProvinces) || busy === "cities"}
-          onChange={(e) => handleCity(e.target.value)}
-        >
-          <option value="">
-            {busy === "cities" ? "Loading cities…" : "— Select city / municipality —"}
-          </option>
-          {cities.map((c) => (
-            <option key={c.code} value={c.code}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div>
-        <label className="block text-xs font-medium text-muted mb-1">Barangay</label>
-        <select
-          className={selectClass}
+          options={cities}
+          disabled={!provinceCode && !noProvinces}
+          loading={busy === "cities"}
+          onChange={(code) => handleCity(code)}
+          placeholder="— Select city / municipality —"
+        />
+        <SearchableSelect
+          label="Barangay"
           value={barangayCode}
-          disabled={!cityCode || busy === "barangays"}
-          onChange={(e) => handleBarangay(e.target.value)}
-        >
-          <option value="">
-            {busy === "barangays" ? "Loading barangays…" : "— Select barangay —"}
-          </option>
-          {barangays.map((b) => (
-            <option key={b.code} value={b.code}>
-              {b.name}
-            </option>
-          ))}
-        </select>
+          options={barangays}
+          disabled={!cityCode}
+          loading={busy === "barangays"}
+          onChange={(code) => handleBarangay(code)}
+          placeholder="— Select barangay —"
+        />
       </div>
     </div>
   );

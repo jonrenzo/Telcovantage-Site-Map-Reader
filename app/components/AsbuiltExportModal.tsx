@@ -1038,11 +1038,11 @@ export default function AsbuiltExportModal({
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-gradient-to-r from-[#00704A]/[0.06] to-transparent">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-[#00704A] flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#00875a] to-[#00704A] flex items-center justify-center shadow-sm ring-1 ring-[#00704A]/20">
               <svg
-                className="w-4 h-4 text-white"
+                className="w-5 h-5 text-white"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -1051,9 +1051,14 @@ export default function AsbuiltExportModal({
                 <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
               </svg>
             </div>
-            <h2 className="text-lg font-bold text-text">
-              Export to AsBuilt IQ
-            </h2>
+            <div>
+              <h2 className="text-lg font-bold text-text leading-tight">
+                Export to AsBuilt IQ
+              </h2>
+              <p className="text-xs text-muted">
+                Push poles &amp; spans to the field tracker
+              </p>
+            </div>
           </div>
           <button
             onClick={onClose}
@@ -1410,7 +1415,13 @@ export default function AsbuiltExportModal({
                                 className="w-full px-3 py-2 rounded-lg border border-border bg-white text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent"
                               />
                             </div>
-                            <div className="col-span-2">
+                            <div className="col-span-2 pt-1">
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className="text-[11px] font-semibold text-muted uppercase tracking-wider">
+                                  Location
+                                </span>
+                                <span className="h-px flex-1 bg-border" />
+                              </div>
                               <PsgcCascader value={psgcArea} onChange={setPsgcArea} />
                             </div>
                           </div>
