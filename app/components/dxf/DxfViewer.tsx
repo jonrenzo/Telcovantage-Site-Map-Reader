@@ -32,6 +32,7 @@ interface PoleTag {
 
 interface CableSpan {
   span_id: number;
+  source_span_id?: number | null;
   layer: string;
   bbox: [number, number, number, number];
   cx: number;
@@ -41,6 +42,7 @@ interface CableSpan {
   meterValue?: number | null;
   cable_runs: number;
   segments: RawSegment[];
+  display_segments?: RawSegment[];
   from_pole?: string;
   to_pole?: string;
   from_pole_id?: number;
@@ -49,6 +51,7 @@ interface CableSpan {
 
 interface CableSpanExport {
   span_id: number;
+  source_span_id?: number | null;
   layer: string;
   bbox: [number, number, number, number];
   cx: number;
@@ -57,6 +60,7 @@ interface CableSpanExport {
   total_length: number;
   meter_value?: number | null;
   cable_runs: number;
+  display_segments?: RawSegment[];
   from_pole?: string | null;
   to_pole?: string | null;
   from_pole_id?: number | null;
@@ -102,6 +106,14 @@ interface FileDataCache {
   cableLayers: string[];
   spans: CableSpan[];
 }
+
+type PoleBreakOptions = {
+  targetSpanIds?: number[] | Set<number> | null;
+  anchorPoint?: { x: number; y: number } | null;
+  anchorPoleIds?: number[] | Set<number> | null;
+  anchorRadius?: number;
+  preserveExistingAssignments?: boolean;
+};
 
 function layerColor(name: string): string {
   const palette = [
@@ -290,6 +302,52 @@ function projectPointOntoSegment(
   };
 }
 
+function projectPointOntoPath(
+  px: number,
+  py: number,
+  segments: RawSegment[],
+) {
+  let best:
+    | {
+        segmentIndex: number;
+        t: number;
+        x: number;
+        y: number;
+        distance: number;
+        progress: number;
+        segmentLength: number;
+      }
+    | null = null;
+  let walked = 0;
+
+  for (let i = 0; i < segments.length; i++) {
+    const seg = segments[i];
+    const projection = projectPointOntoSegment(
+      px,
+      py,
+      seg.x1,
+      seg.y1,
+      seg.x2,
+      seg.y2,
+    );
+    const progress = walked + projection.segmentLength * projection.t;
+    if (!best || projection.distance < best.distance) {
+      best = {
+        segmentIndex: i,
+        t: projection.t,
+        x: projection.x,
+        y: projection.y,
+        distance: projection.distance,
+        progress,
+        segmentLength: projection.segmentLength,
+      };
+    }
+    walked += projection.segmentLength;
+  }
+
+  return best ? { ...best, totalLength: walked } : null;
+}
+
 function areSegmentsConnected(
   s1: RawSegment,
   s2: RawSegment,
@@ -414,6 +472,150 @@ function orderConnectedSegments(segments: RawSegment[], tol = 0.5): RawSegment[]
     .map((entry) => entry.seg);
 }
 
+function orderedSpanEndpointsFromSegments(
+  orderedSegments: RawSegment[],
+): [SpanEndpoint, SpanEndpoint] | null {
+  if (orderedSegments.length === 0) return null;
+
+  const first = orderedSegments[0];
+  const last = orderedSegments[orderedSegments.length - 1];
+
+  return [
+    {
+      pt: { x: first.x1, y: first.y1 },
+      inward: { x: first.x2, y: first.y2 },
+    },
+    {
+      pt: { x: last.x2, y: last.y2 },
+      inward: { x: last.x1, y: last.y1 },
+    },
+  ];
+}
+
+function getOrderedSpanEndpoints(
+  segments: RawSegment[],
+  tol = 0.5,
+): [SpanEndpoint, SpanEndpoint] | null {
+  const orderedSegments = orderConnectedSegments(segments, tol);
+  return orderedSpanEndpointsFromSegments(orderedSegments);
+}
+
+function splitBranchingSegments(
+  segments: RawSegment[],
+  tol = 0.5,
+  straightContinueAngleDeg = 135,
+): RawSegment[][] {
+  const validSegments = segments.filter(
+    (seg) => Math.hypot(seg.x2 - seg.x1, seg.y2 - seg.y1) > 1e-9,
+  );
+  if (validSegments.length <= 1) return validSegments.length ? [validSegments] : [];
+
+  const keyForPoint = (x: number, y: number) =>
+    `${Math.round(x / tol)},${Math.round(y / tol)}`;
+
+  const edgeNodes = new Map<number, { a: string; b: string }>();
+  const nodeIncidents = new Map<string, number[]>();
+
+  validSegments.forEach((seg, idx) => {
+    const a = keyForPoint(seg.x1, seg.y1);
+    const b = keyForPoint(seg.x2, seg.y2);
+    edgeNodes.set(idx, { a, b });
+    nodeIncidents.set(a, [...(nodeIncidents.get(a) ?? []), idx]);
+    nodeIncidents.set(b, [...(nodeIncidents.get(b) ?? []), idx]);
+  });
+
+  const vectorFromNode = (edge: number, node: string) => {
+    const nodes = edgeNodes.get(edge);
+    const seg = validSegments[edge];
+    if (!nodes || !seg) return { x: 0, y: 0 };
+    return node === nodes.a
+      ? { x: seg.x2 - seg.x1, y: seg.y2 - seg.y1 }
+      : { x: seg.x1 - seg.x2, y: seg.y1 - seg.y2 };
+  };
+
+  const angleBetween = (
+    a: { x: number; y: number },
+    b: { x: number; y: number },
+  ) => {
+    const lenA = Math.hypot(a.x, a.y);
+    const lenB = Math.hypot(b.x, b.y);
+    if (lenA <= 1e-9 || lenB <= 1e-9) return 180;
+    const dot = Math.max(-1, Math.min(1, (a.x * b.x + a.y * b.y) / (lenA * lenB)));
+    return (Math.acos(dot) * 180) / Math.PI;
+  };
+
+  const branchNodes = new Set<string>();
+  for (const [node, incident] of nodeIncidents.entries()) {
+    if (incident.length !== 2) {
+      branchNodes.add(node);
+      continue;
+    }
+    const angle = angleBetween(
+      vectorFromNode(incident[0], node),
+      vectorFromNode(incident[1], node),
+    );
+    if (angle < straightContinueAngleDeg) {
+      branchNodes.add(node);
+    }
+  }
+  if (branchNodes.size === 0) {
+    return [orderConnectedSegments(validSegments, tol)];
+  }
+
+  const visited = new Set<number>();
+  const paths: RawSegment[][] = [];
+
+  const walkPath = (startNode: string, startEdge: number): RawSegment[] => {
+    const path: RawSegment[] = [];
+    let currentNode = startNode;
+    let currentEdge = startEdge;
+
+    while (!visited.has(currentEdge)) {
+      const nodes = edgeNodes.get(currentEdge);
+      const seg = validSegments[currentEdge];
+      if (!nodes || !seg) break;
+
+      visited.add(currentEdge);
+      const oriented =
+        currentNode === nodes.a
+          ? { x1: seg.x1, y1: seg.y1, x2: seg.x2, y2: seg.y2 }
+          : { x1: seg.x2, y1: seg.y2, x2: seg.x1, y2: seg.y1 };
+      path.push(oriented);
+
+      const nextNode = currentNode === nodes.a ? nodes.b : nodes.a;
+      if (branchNodes.has(nextNode)) break;
+
+      const nextEdge = (nodeIncidents.get(nextNode) ?? []).find(
+        (edge) => !visited.has(edge),
+      );
+      if (nextEdge == null) break;
+
+      currentNode = nextNode;
+      currentEdge = nextEdge;
+    }
+
+    return path;
+  };
+
+  for (const node of branchNodes) {
+    for (const edge of nodeIncidents.get(node) ?? []) {
+      if (visited.has(edge)) continue;
+      const path = walkPath(node, edge);
+      if (path.length > 0) paths.push(path);
+    }
+  }
+
+  validSegments.forEach((_, edge) => {
+    if (visited.has(edge)) return;
+    const startNode = edgeNodes.get(edge)?.a;
+    if (!startNode) return;
+    const path = walkPath(startNode, edge);
+    if (path.length > 0) paths.push(path);
+  });
+
+  return paths.length ? paths : [orderConnectedSegments(validSegments, tol)];
+}
+
 function findSafeCutIndex(
   segs: RawSegment[],
   clickedIndex: number,
@@ -461,6 +663,493 @@ function findSafeCutIndex(
   if (endIdx === segs.length - 1) return startIdx - 1;
 
   return distToStart < distToEnd ? startIdx - 1 : endIdx;
+}
+
+function drawSolidSegments(ctx: CanvasRenderingContext2D, segments: RawSegment[]) {
+  ctx.beginPath();
+  for (const seg of segments) {
+    ctx.moveTo(seg.x1, seg.y1);
+    ctx.lineTo(seg.x2, seg.y2);
+  }
+}
+
+function distanceToSolidSegments(x: number, y: number, segments: RawSegment[]) {
+  if (segments.length === 0) return Infinity;
+  let best = Infinity;
+  for (const seg of segments) {
+    best = Math.min(
+      best,
+      pointToSegmentDistance(x, y, seg.x1, seg.y1, seg.x2, seg.y2),
+    );
+  }
+  return best;
+}
+
+function displaySegmentsForLogicalSegments(
+  displaySegments: RawSegment[] | undefined,
+  logicalSegments: RawSegment[],
+  tolerance = 0.1,
+): RawSegment[] {
+  if (!displaySegments?.length) return logicalSegments;
+
+  const filtered = displaySegments.filter((displaySeg) => {
+    const mx = (displaySeg.x1 + displaySeg.x2) / 2;
+    const my = (displaySeg.y1 + displaySeg.y2) / 2;
+    return logicalSegments.some(
+      (logicalSeg) =>
+        pointToSegmentDistance(
+          mx,
+          my,
+          logicalSeg.x1,
+          logicalSeg.y1,
+          logicalSeg.x2,
+          logicalSeg.y2,
+        ) <= tolerance,
+    );
+  });
+
+  return filtered.length ? filtered : logicalSegments;
+}
+
+function spanVisibleSegments(span: Pick<CableSpan, "display_segments" | "segments">) {
+  return span.display_segments?.length ? span.display_segments : span.segments;
+}
+
+const EXPORT_POLE_PATH_RADIUS = 1.5;
+const EXPORT_POLE_ENDPOINT_RADIUS = 2.5;
+
+function buildCableSpanExport(span: CableSpan, poles: PoleTag[]): CableSpanExport {
+  const endpoints = getOrderedSpanEndpoints(span.segments);
+  const fromEndpoint = endpoints?.[0];
+  const toEndpoint = endpoints?.[1];
+  const fromPole =
+    span.from_pole_id != null
+      ? poles.find((p) => p.pole_id === span.from_pole_id)
+      : null;
+  const toPole =
+    span.to_pole_id != null
+      ? poles.find((p) => p.pole_id === span.to_pole_id)
+      : null;
+
+  return {
+    span_id: span.span_id,
+    source_span_id: span.source_span_id ?? span.span_id,
+    layer: span.layer,
+    bbox: span.bbox,
+    cx: span.cx,
+    cy: span.cy,
+    segment_count: span.segment_count,
+    total_length: span.total_length,
+    meter_value: span.meterValue ?? null,
+    cable_runs: span.cable_runs,
+    display_segments: span.display_segments,
+    from_pole: span.from_pole ?? null,
+    to_pole: span.to_pole ?? null,
+    from_pole_id: span.from_pole_id ?? null,
+    to_pole_id: span.to_pole_id ?? null,
+    from_pole_x: fromPole?.cx ?? null,
+    from_pole_y: fromPole?.cy ?? null,
+    to_pole_x: toPole?.cx ?? null,
+    to_pole_y: toPole?.cy ?? null,
+    from_x: fromEndpoint?.pt.x ?? null,
+    from_y: fromEndpoint?.pt.y ?? null,
+    to_x: toEndpoint?.pt.x ?? null,
+    to_y: toEndpoint?.pt.y ?? null,
+  };
+}
+
+function collapseCableSpansForExport(
+  spans: CableSpan[],
+  poles: PoleTag[],
+): CableSpanExport[] {
+  const poleById = new Map(poles.map((pole) => [pole.pole_id, pole]));
+  const spansBySource = new Map<number, CableSpan[]>();
+
+  for (const span of spans) {
+    const sourceId = span.source_span_id ?? span.span_id;
+    const group = spansBySource.get(sourceId) ?? [];
+    group.push(span);
+    spansBySource.set(sourceId, group);
+  }
+
+  const nearestPoleToEndpoint = (x: number, y: number): PoleTag | null => {
+    let bestPole: PoleTag | null = null;
+    let bestDistance = Number.POSITIVE_INFINITY;
+    for (const pole of poles) {
+      const distance = Math.hypot(pole.cx - x, pole.cy - y);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestPole = pole;
+      }
+    }
+    return bestDistance <= EXPORT_POLE_ENDPOINT_RADIUS ? bestPole : null;
+  };
+
+  const collapsed: CableSpanExport[] = [];
+
+  for (const [sourceId, group] of spansBySource.entries()) {
+    if (group.length === 1) {
+      collapsed.push(buildCableSpanExport(group[0], poles));
+      continue;
+    }
+
+    const base = group.reduce((best, span) =>
+      span.span_id < best.span_id ? span : best,
+    );
+    const logicalSegments = group.flatMap((span) => span.segments ?? []);
+    if (!logicalSegments.length) {
+      collapsed.push(...group.map((span) => buildCableSpanExport(span, poles)));
+      continue;
+    }
+
+    const displaySegments = group.flatMap((span) => span.display_segments ?? []);
+    const visibleSegments = displaySegments.length
+      ? displaySegments
+      : logicalSegments;
+    const orderedLogicalSegments = orderConnectedSegments(logicalSegments);
+    const orderedVisibleSegments = orderConnectedSegments(visibleSegments);
+    const metrics = computeSpanMetrics(orderedLogicalSegments);
+    const endpoints =
+      orderedSpanEndpointsFromSegments(orderedVisibleSegments) ??
+      orderedSpanEndpointsFromSegments(orderedLogicalSegments);
+
+    type PoleProgress = {
+      pole: PoleTag;
+      progress: number;
+      distance: number;
+      assigned: boolean;
+    };
+
+    const candidates = new Map<number, PoleProgress>();
+    const addCandidate = (pole: PoleTag | null | undefined, assigned: boolean) => {
+      if (!pole) return;
+      const projection = projectPointOntoPath(
+        pole.cx,
+        pole.cy,
+        orderedLogicalSegments,
+      );
+      if (!projection) return;
+      const maxDistance = assigned
+        ? Math.max(EXPORT_POLE_PATH_RADIUS, EXPORT_POLE_ENDPOINT_RADIUS)
+        : EXPORT_POLE_PATH_RADIUS;
+      if (projection.distance > maxDistance) return;
+
+      const existing = candidates.get(pole.pole_id);
+      if (
+        !existing ||
+        (assigned && !existing.assigned) ||
+        projection.distance < existing.distance
+      ) {
+        candidates.set(pole.pole_id, {
+          pole,
+          progress: projection.progress,
+          distance: projection.distance,
+          assigned,
+        });
+      }
+    };
+
+    for (const span of group) {
+      addCandidate(
+        span.from_pole_id != null ? poleById.get(span.from_pole_id) : null,
+        true,
+      );
+      addCandidate(
+        span.to_pole_id != null ? poleById.get(span.to_pole_id) : null,
+        true,
+      );
+    }
+
+    for (const pole of poles) {
+      addCandidate(pole, false);
+    }
+
+    const sortedCandidates = Array.from(candidates.values()).sort(
+      (a, b) => a.progress - b.progress,
+    );
+    let fromPole: PoleTag | null = sortedCandidates[0]?.pole ?? null;
+    let toPole: PoleTag | null =
+      sortedCandidates.length > 1
+        ? sortedCandidates[sortedCandidates.length - 1].pole
+        : null;
+
+    if ((!fromPole || !toPole || fromPole.pole_id === toPole.pole_id) && endpoints) {
+      fromPole = nearestPoleToEndpoint(endpoints[0].pt.x, endpoints[0].pt.y);
+      toPole = nearestPoleToEndpoint(endpoints[1].pt.x, endpoints[1].pt.y);
+    }
+
+    if (fromPole && toPole && fromPole.pole_id === toPole.pole_id) {
+      toPole = null;
+    }
+
+    collapsed.push({
+      span_id: sourceId,
+      source_span_id: sourceId,
+      layer: base.layer,
+      bbox: metrics.bbox,
+      cx: metrics.cx,
+      cy: metrics.cy,
+      segment_count: orderedLogicalSegments.length,
+      total_length: metrics.total_length,
+      meter_value: null,
+      cable_runs: Math.max(...group.map((span) => span.cable_runs || 1)),
+      display_segments: displaySegments.length ? orderedVisibleSegments : undefined,
+      from_pole: fromPole?.name ?? null,
+      to_pole: toPole?.name ?? null,
+      from_pole_id: fromPole?.pole_id ?? null,
+      to_pole_id: toPole?.pole_id ?? null,
+      from_pole_x: fromPole?.cx ?? null,
+      from_pole_y: fromPole?.cy ?? null,
+      to_pole_x: toPole?.cx ?? null,
+      to_pole_y: toPole?.cy ?? null,
+      from_x: endpoints?.[0].pt.x ?? null,
+      from_y: endpoints?.[0].pt.y ?? null,
+      to_x: endpoints?.[1].pt.x ?? null,
+      to_y: endpoints?.[1].pt.y ?? null,
+    });
+  }
+
+  return collapsed;
+}
+
+function boundsFromSegments(
+  segments: RawSegment[],
+  fallback: [number, number, number, number],
+): [number, number, number, number] {
+  if (!segments.length) return fallback;
+  let minx = Infinity;
+  let miny = Infinity;
+  let maxx = -Infinity;
+  let maxy = -Infinity;
+  for (const s of segments) {
+    minx = Math.min(minx, s.x1, s.x2);
+    miny = Math.min(miny, s.y1, s.y2);
+    maxx = Math.max(maxx, s.x1, s.x2);
+    maxy = Math.max(maxy, s.y1, s.y2);
+  }
+  return [minx, miny, maxx, maxy];
+}
+
+function logicalSegmentsFromVisibleSegments(
+  visibleSegments: RawSegment[],
+  tol = 0.5,
+): RawSegment[] {
+  const ordered = orderConnectedSegments(visibleSegments, tol);
+  if (!ordered.length) return [];
+
+  const logical: RawSegment[] = [];
+  let currentX = ordered[0].x1;
+  let currentY = ordered[0].y1;
+
+  for (const seg of ordered) {
+    const gap = Math.hypot(seg.x1 - currentX, seg.y1 - currentY);
+    if (logical.length > 0 && gap > 0.02) {
+      logical.push({
+        x1: currentX,
+        y1: currentY,
+        x2: seg.x1,
+        y2: seg.y1,
+      });
+    }
+    logical.push(seg);
+    currentX = seg.x2;
+    currentY = seg.y2;
+  }
+
+  return logical;
+}
+
+const STRAIGHT_DASH_ANGLE_TOLERANCE = (4 * Math.PI) / 180;
+const STRAIGHT_DASH_OFFSET_TOLERANCE = 0.18;
+const STRAIGHT_DASH_MAX_GAP = 1.6;
+const STRAIGHT_DASH_MIN_LENGTH = 0.05;
+
+function normalizeLineAngle(angle: number) {
+  let normalized = angle % Math.PI;
+  if (normalized < 0) normalized += Math.PI;
+  return normalized;
+}
+
+function lineAngleDistance(a: number, b: number) {
+  const diff = Math.abs(a - b) % Math.PI;
+  return Math.min(diff, Math.PI - diff);
+}
+
+type StraightSpanCandidate = {
+  span: CableSpan;
+  displaySegments: RawSegment[];
+  angle: number;
+  offset: number;
+  start: number;
+  end: number;
+};
+
+function straightSpanCandidate(span: CableSpan): StraightSpanCandidate | null {
+  const displaySegments = spanVisibleSegments(span).filter(
+    (seg) => Math.hypot(seg.x2 - seg.x1, seg.y2 - seg.y1) >= STRAIGHT_DASH_MIN_LENGTH,
+  );
+  if (!displaySegments.length) return null;
+
+  const ordered = orderConnectedSegments(displaySegments);
+  const endpoints = orderedSpanEndpointsFromSegments(ordered);
+  if (!endpoints) return null;
+
+  let x1 = endpoints[0].pt.x;
+  let y1 = endpoints[0].pt.y;
+  let x2 = endpoints[1].pt.x;
+  let y2 = endpoints[1].pt.y;
+  let dx = x2 - x1;
+  let dy = y2 - y1;
+  if (dx < 0 || (Math.abs(dx) < 1e-9 && dy < 0)) {
+    [x1, x2] = [x2, x1];
+    [y1, y2] = [y2, y1];
+    dx = -dx;
+    dy = -dy;
+  }
+
+  const length = Math.hypot(dx, dy);
+  if (length < STRAIGHT_DASH_MIN_LENGTH) return null;
+
+  const ux = dx / length;
+  const uy = dy / length;
+  const nx = -uy;
+  const ny = ux;
+  const angle = normalizeLineAngle(Math.atan2(uy, ux));
+  const projections = ordered.flatMap((seg) => [
+    seg.x1 * ux + seg.y1 * uy,
+    seg.x2 * ux + seg.y2 * uy,
+  ]);
+  const offsets = ordered.flatMap((seg) => [
+    seg.x1 * nx + seg.y1 * ny,
+    seg.x2 * nx + seg.y2 * ny,
+  ]);
+
+  return {
+    span,
+    displaySegments,
+    angle,
+    offset: offsets.reduce((sum, value) => sum + value, 0) / offsets.length,
+    start: Math.min(...projections),
+    end: Math.max(...projections),
+  };
+}
+
+function mergeStraightDashedSpans(spans: CableSpan[]): CableSpan[] {
+  const byLayer = new Map<string, StraightSpanCandidate[]>();
+  const passthrough: CableSpan[] = [];
+
+  for (const span of spans) {
+    const candidate = straightSpanCandidate(span);
+    if (!candidate) {
+      passthrough.push(span);
+      continue;
+    }
+    const layerCandidates = byLayer.get(span.layer) ?? [];
+    layerCandidates.push(candidate);
+    byLayer.set(span.layer, layerCandidates);
+  }
+
+  const buildMergedSpan = (candidates: StraightSpanCandidate[]) => {
+    if (candidates.length === 1) return candidates[0].span;
+
+    const orderedCandidates = [...candidates].sort((a, b) => a.start - b.start);
+    const orderedDisplay = orderConnectedSegments(
+      orderedCandidates.flatMap((candidate) => candidate.displaySegments),
+    );
+    const logicalSegments = logicalSegmentsFromVisibleSegments(orderedDisplay);
+    if (!logicalSegments.length) return orderedCandidates[0].span;
+
+    const base = orderedCandidates.reduce((best, candidate) =>
+      candidate.span.span_id < best.span.span_id ? candidate : best,
+    ).span;
+    const firstSpan = orderedCandidates[0].span;
+    const lastSpan = orderedCandidates[orderedCandidates.length - 1].span;
+    const metrics = computeSpanMetrics(logicalSegments);
+
+    return {
+      ...base,
+      span_id: base.span_id,
+      source_span_id: base.source_span_id ?? base.span_id,
+      segments: logicalSegments,
+      display_segments: orderedDisplay,
+      segment_count: logicalSegments.length,
+      cable_runs: Math.max(
+        ...orderedCandidates.map((candidate) => candidate.span.cable_runs || 1),
+      ),
+      from_pole: firstSpan.from_pole ?? base.from_pole,
+      to_pole: lastSpan.to_pole ?? base.to_pole,
+      from_pole_id: firstSpan.from_pole_id ?? base.from_pole_id,
+      to_pole_id: lastSpan.to_pole_id ?? base.to_pole_id,
+      meterValue:
+        orderedCandidates.find((candidate) => candidate.span.meterValue != null)
+          ?.span.meterValue ?? base.meterValue,
+      ...metrics,
+    };
+  };
+
+  const merged: CableSpan[] = [...passthrough];
+
+  for (const candidates of byLayer.values()) {
+    const sorted = [...candidates].sort((a, b) => {
+      const angleDiff = a.angle - b.angle;
+      if (Math.abs(angleDiff) > 1e-6) return angleDiff;
+      const offsetDiff = a.offset - b.offset;
+      if (Math.abs(offsetDiff) > 1e-6) return offsetDiff;
+      return a.start - b.start;
+    });
+
+    const clusters: StraightSpanCandidate[][] = [];
+    for (const candidate of sorted) {
+      let target: StraightSpanCandidate[] | null = null;
+      for (const cluster of clusters) {
+        const reference = cluster[0];
+        const minStart = Math.min(...cluster.map((item) => item.start));
+        const maxEnd = Math.max(...cluster.map((item) => item.end));
+        const gap =
+          candidate.start > maxEnd
+            ? candidate.start - maxEnd
+            : minStart > candidate.end
+              ? minStart - candidate.end
+              : 0;
+        if (
+          lineAngleDistance(candidate.angle, reference.angle) <=
+            STRAIGHT_DASH_ANGLE_TOLERANCE &&
+          Math.abs(candidate.offset - reference.offset) <=
+            STRAIGHT_DASH_OFFSET_TOLERANCE &&
+          gap <= STRAIGHT_DASH_MAX_GAP
+        ) {
+          target = cluster;
+          break;
+        }
+      }
+
+      if (target) {
+        target.push(candidate);
+      } else {
+        clusters.push([candidate]);
+      }
+    }
+
+    for (const cluster of clusters) {
+      const orderedCluster = [...cluster].sort((a, b) => a.start - b.start);
+      let run: StraightSpanCandidate[] = [];
+      let previous: StraightSpanCandidate | null = null;
+      for (const candidate of orderedCluster) {
+        if (
+          previous &&
+          candidate.start - previous.end > STRAIGHT_DASH_MAX_GAP
+        ) {
+          merged.push(buildMergedSpan(run));
+          run = [];
+        }
+        run.push(candidate);
+        previous = candidate;
+      }
+      if (run.length) merged.push(buildMergedSpan(run));
+    }
+  }
+
+  return merged;
 }
 
 function drawRoundedRect(
@@ -568,6 +1257,7 @@ export default function DxfViewer({
   const cableLayersRef = useRef<string[]>([]);
 
   const hoveredSpanRef = useRef<number | null>(null);
+  const hoveredPoleRef = useRef<number | null>(null);
   const selectedSpanRef = useRef<number | null>(null);
   const cableStatusRef = useRef<Record<number, CableRecoveryStatus>>({});
   const ocrMeterValuesRef = useRef<{ x: number; y: number; value: number }[]>(
@@ -582,7 +1272,9 @@ export default function DxfViewer({
   const poleBreakFingerprintRef = useRef<string>("");
 
   const hasAutoConnectedRef = useRef(false);
-  const autoConnectPolesRef = useRef<() => void>(() => {});
+  const autoConnectPolesRef = useRef<
+    (options?: { preserveExistingAssignments?: boolean }) => void
+  >(() => {});
 
   useEffect(() => {
     if (onExportPdfRef) {
@@ -624,6 +1316,21 @@ export default function DxfViewer({
     "idle" | "from" | "to"
   >("idle");
   const poleConnectModeRef = useRef<"idle" | "from" | "to">("idle");
+  const [poleEditMode, setPoleEditMode] = useState<"idle" | "add" | "delete">(
+    "idle",
+  );
+  const poleEditModeRef = useRef<"idle" | "add" | "delete">("idle");
+  const [autoCutMode, setAutoCutMode] = useState<"idle" | "pickSpan" | "pickPole">(
+    "idle",
+  );
+  const autoCutModeRef = useRef<"idle" | "pickSpan" | "pickPole">("idle");
+  const [cutHereMode, setCutHereMode] = useState(false);
+  const cutHereModeRef = useRef(false);
+  const pendingAutoCutRef = useRef<{
+    spanId: number;
+    sourceSpanId: number;
+    cutPoleIds: number[];
+  } | null>(null);
 
   const [cableSpans, setCableSpans] = useState<CableSpan[]>([]);
   const [layers, setLayers] = useState<DxfLayerData[]>([]);
@@ -632,7 +1339,12 @@ export default function DxfViewer({
   const [cableDataVersion, setCableDataVersion] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [hoveredSpanId, setHoveredSpanId] = useState<number | null>(null);
+  const [hoveredPoleId, setHoveredPoleId] = useState<number | null>(null);
   const [selectedSpanId, setSelectedSpanId] = useState<number | null>(null);
+  const [autoCutNotice, setAutoCutNotice] = useState<string | null>(null);
+  const autoCutNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
 
   // UPDATED TO ARRAY FOR MULTIPLE LAYERS
   const [cableLayerNames, setCableLayerNames] = useState<string[]>([]);
@@ -640,6 +1352,17 @@ export default function DxfViewer({
   const [cableStatuses, setCableStatuses] = useState<
     Record<number, CableRecoveryStatus>
   >({});
+
+  const showAutoCutNotice = useCallback((message: string) => {
+    setAutoCutNotice(message);
+    if (autoCutNoticeTimerRef.current) {
+      clearTimeout(autoCutNoticeTimerRef.current);
+    }
+    autoCutNoticeTimerRef.current = setTimeout(() => {
+      setAutoCutNotice(null);
+      autoCutNoticeTimerRef.current = null;
+    }, 2600);
+  }, []);
 
   const ensureGeoToolLayer = useCallback((poleList: PoleTag[]) => {
     const hasGeoToolNpt = poleList.some(
@@ -750,10 +1473,23 @@ export default function DxfViewer({
     return true;
   }
 
-  const normalizeSpansToPoleBreaks = useCallback((spans: CableSpan[]) => {
-    const CUT_TOLERANCE = 60;
-    const ENDPOINT_GUARD = 12;
+  const normalizeSpansToPoleBreaks = useCallback((
+    spans: CableSpan[],
+    options?: PoleBreakOptions,
+  ) => {
+    const CUT_TOLERANCE = 0.75;
+    const ENDPOINT_GUARD = 0.2;
     const MIN_PART_LENGTH = 0.05;
+    const targetSpanIds = options?.targetSpanIds
+      ? new Set(options.targetSpanIds)
+      : null;
+    const anchorPoleIds = options?.anchorPoleIds
+      ? new Set(options.anchorPoleIds)
+      : null;
+    const anchorPoint = options?.anchorPoint ?? null;
+    const anchorRadius = options?.anchorRadius ?? 140;
+    const preserveExistingAssignments =
+      options?.preserveExistingAssignments === true;
 
     const getNearestMeterValue = (cx: number, cy: number) => {
       let nearest: { x: number; y: number; value: number } | null = null;
@@ -776,13 +1512,32 @@ export default function DxfViewer({
     let partialChanged = false;
 
     for (const span of spans) {
+      const matchesTarget =
+        !targetSpanIds ||
+        targetSpanIds.has(span.span_id) ||
+        (span.source_span_id != null && targetSpanIds.has(span.source_span_id));
+      if (!matchesTarget) {
+        normalized.push(span);
+        continue;
+      }
+
+      if (
+        preserveExistingAssignments &&
+        (span.from_pole_id != null || span.from_pole) &&
+        (span.to_pole_id != null || span.to_pole)
+      ) {
+        normalized.push(span);
+        continue;
+      }
+
       if (span.segments.length === 0) {
         normalized.push(span);
         continue;
       }
 
+      const visibleSegments = spanVisibleSegments(span);
       const orderedSegments = orderConnectedSegments(span.segments);
-      const endpoints = findSpanEndpoints(orderedSegments);
+      const endpoints = getOrderedSpanEndpoints(visibleSegments);
       if (!endpoints) {
         normalized.push(span);
         continue;
@@ -823,59 +1578,55 @@ export default function DxfViewer({
           continue;
         }
 
+        if (anchorPoint || anchorPoleIds) {
+          const isExplicitAnchor = anchorPoleIds?.has(pole.pole_id) ?? false;
+          const isNearAnchor = anchorPoint
+            ? Math.hypot(pole.cx - anchorPoint.x, pole.cy - anchorPoint.y) <=
+              anchorRadius
+            : false;
+          if (!isExplicitAnchor && !isNearAnchor) {
+            continue;
+          }
+        }
+
         const distToA = Math.hypot(pole.cx - endpointA.pt.x, pole.cy - endpointA.pt.y);
         const distToB = Math.hypot(pole.cx - endpointB.pt.x, pole.cy - endpointB.pt.y);
         if (distToA < ENDPOINT_GUARD || distToB < ENDPOINT_GUARD) {
           continue;
         }
 
-        let best:
-          | {
-              segmentIndex: number;
-              t: number;
-              x: number;
-              y: number;
-              distance: number;
-              progress: number;
-              pole: PoleTag;
-            }
-          | null = null;
-        let walked = 0;
-
-        for (let i = 0; i < orderedSegments.length; i++) {
-          const seg = orderedSegments[i];
-          const projection = projectPointOntoSegment(
-            pole.cx,
-            pole.cy,
-            seg.x1,
-            seg.y1,
-            seg.x2,
-            seg.y2,
-          );
-
-          const progress = walked + projection.segmentLength * projection.t;
-          if (
-            projection.distance <= CUT_TOLERANCE &&
-            progress > ENDPOINT_GUARD &&
-            totalLength - progress > ENDPOINT_GUARD &&
-            (!best || projection.distance < best.distance)
-          ) {
-            best = {
-              segmentIndex: i,
-              t: projection.t,
-              x: projection.x,
-              y: projection.y,
-              distance: projection.distance,
-              progress,
-              pole,
-            };
-          }
-
-          walked += projection.segmentLength;
+        const isExplicitAnchor = anchorPoleIds?.has(pole.pole_id) ?? false;
+        const maxCutDistance = isExplicitAnchor
+          ? Math.max(CUT_TOLERANCE, 1.5)
+          : CUT_TOLERANCE;
+        const visibleProjection = projectPointOntoPath(
+          pole.cx,
+          pole.cy,
+          orderConnectedSegments(visibleSegments),
+        );
+        if (!visibleProjection || visibleProjection.distance > maxCutDistance) {
+          continue;
         }
 
-        if (!best) continue;
-        if (best.t <= 0.02 || best.t >= 0.98) continue;
+        const pathProjection = projectPointOntoPath(
+          pole.cx,
+          pole.cy,
+          orderedSegments,
+        );
+        if (
+          !pathProjection ||
+          pathProjection.progress <= ENDPOINT_GUARD ||
+          totalLength - pathProjection.progress <= ENDPOINT_GUARD
+        ) {
+          continue;
+        }
+
+        const best = { ...pathProjection, pole };
+        // Do NOT reject cuts that land near a segment endpoint. Poles very often
+        // sit exactly on a polyline vertex/junction (t≈0 or t≈1). The span-level
+        // ENDPOINT_GUARD above already keeps cuts away from the span's two ends, so
+        // a vertex cut here is valid — and is exactly what lets a junction pole
+        // split the cable.
         cuts.push(best);
       }
 
@@ -975,7 +1726,12 @@ export default function DxfViewer({
         const newSpan: CableSpan = {
           ...span,
           span_id: newSpanId,
+          source_span_id: span.source_span_id ?? span.span_id,
           segments,
+          display_segments: displaySegmentsForLogicalSegments(
+            span.display_segments,
+            segments,
+          ),
           segment_count: segments.length,
           from_pole: isFirst
             ? span.from_pole
@@ -1020,43 +1776,7 @@ export default function DxfViewer({
   const notifySpansChange = useCallback(
     (spans: CableSpan[]) => {
       if (!onSpansChange) return;
-      const exportSpans: CableSpanExport[] = spans.map((s) => {
-        const endpoints = findSpanEndpoints(s.segments);
-        const fromEndpoint = endpoints?.[0];
-        const toEndpoint = endpoints?.[1];
-        const fromPole =
-          s.from_pole_id != null
-            ? polesRef.current.find((p) => p.pole_id === s.from_pole_id)
-            : null;
-        const toPole =
-          s.to_pole_id != null
-            ? polesRef.current.find((p) => p.pole_id === s.to_pole_id)
-            : null;
-
-        return {
-          span_id: s.span_id,
-          layer: s.layer,
-          bbox: s.bbox,
-          cx: s.cx,
-          cy: s.cy,
-          segment_count: s.segment_count,
-          total_length: s.total_length,
-          meter_value: s.meterValue ?? null,
-          cable_runs: s.cable_runs,
-          from_pole: s.from_pole ?? null,
-          to_pole: s.to_pole ?? null,
-          from_pole_id: s.from_pole_id ?? null,
-          to_pole_id: s.to_pole_id ?? null,
-          from_pole_x: fromPole?.cx ?? null,
-          from_pole_y: fromPole?.cy ?? null,
-          to_pole_x: toPole?.cx ?? null,
-          to_pole_y: toPole?.cy ?? null,
-          from_x: fromEndpoint?.pt.x ?? null,
-          from_y: fromEndpoint?.pt.y ?? null,
-          to_x: toEndpoint?.pt.x ?? null,
-          to_y: toEndpoint?.pt.y ?? null,
-        };
-      });
+      const exportSpans = collapseCableSpansForExport(spans, polesRef.current);
       onSpansChange(exportSpans);
     },
     [onSpansChange],
@@ -1201,11 +1921,7 @@ export default function DxfViewer({
         const statusEntries = Object.entries(cableStatusRef.current);
 
         const drawSpanPath = (span: CableSpan) => {
-          ctx.beginPath();
-          for (const seg of span.segments) {
-            ctx.moveTo(seg.x1, seg.y1);
-            ctx.lineTo(seg.x2, seg.y2);
-          }
+          drawSolidSegments(ctx, span.segments);
         };
 
         // Render statuses
@@ -1402,19 +2118,28 @@ export default function DxfViewer({
               continue;
 
             const highlight = highlightedPoles.get(pole.pole_id);
-            const fillStyle = highlight?.fill ?? "rgba(245, 158, 11, 0.85)";
-            const strokeStyle = highlight?.stroke ?? "#fff";
-            const textStyle = highlight?.text ?? "#d97706";
+            const isHoveredPole = hoveredPoleRef.current === pole.pole_id;
+            const fillStyle = isHoveredPole
+              ? "rgba(59, 130, 246, 0.92)"
+              : (highlight?.fill ?? "rgba(245, 158, 11, 0.85)");
+            const strokeStyle = isHoveredPole
+              ? "#dbeafe"
+              : (highlight?.stroke ?? "#fff");
+            const textStyle = isHoveredPole
+              ? "#1d4ed8"
+              : (highlight?.text ?? "#d97706");
 
             ctx.beginPath();
             ctx.arc(pole.cx, pole.cy, r, 0, 2 * Math.PI);
             ctx.fillStyle = fillStyle;
             ctx.fill();
             ctx.strokeStyle = strokeStyle;
-            ctx.lineWidth = (highlight ? 3 : 2) / vp.scale;
+            ctx.lineWidth = (isHoveredPole ? 4 : highlight ? 3 : 2) / vp.scale;
             ctx.stroke();
 
-            if (vp.scale > 0.8) {
+            // Force the pole label to render at all useful zoom levels so
+            // inserted NPTs never show as a bare, unreadable circle.
+            if (vp.scale > 0.05) {
               ctx.save();
               ctx.translate(pole.cx, pole.cy + r * 1.2);
               ctx.scale(1, -1);
@@ -1441,19 +2166,23 @@ export default function DxfViewer({
           )
             continue;
 
+          const isHoveredPole = hoveredPoleRef.current === pole.pole_id;
           ctx.beginPath();
           ctx.arc(pole.cx, pole.cy, r, 0, 2 * Math.PI);
-          ctx.fillStyle = "rgba(245, 158, 11, 0.85)";
+          ctx.fillStyle = isHoveredPole
+            ? "rgba(59, 130, 246, 0.92)"
+            : "rgba(245, 158, 11, 0.85)";
           ctx.fill();
-          ctx.strokeStyle = "#fff";
-          ctx.lineWidth = 2 / vp.scale;
+          ctx.strokeStyle = isHoveredPole ? "#dbeafe" : "#fff";
+          ctx.lineWidth = (isHoveredPole ? 4 : 2) / vp.scale;
           ctx.stroke();
 
-          if (vp.scale > 0.8) {
+          // Force the pole label to render at all useful zoom levels.
+          if (vp.scale > 0.05) {
             ctx.save();
             ctx.translate(pole.cx, pole.cy + r * 1.2);
             ctx.scale(1, -1);
-            ctx.fillStyle = "#d97706";
+            ctx.fillStyle = isHoveredPole ? "#1d4ed8" : "#d97706";
             ctx.font = `bold ${Math.max(0.2, 0.5 / vp.scale)}px monospace`;
             ctx.textAlign = "center";
             ctx.textBaseline = "top";
@@ -1584,16 +2313,30 @@ export default function DxfViewer({
   }, [renderScene]);
 
   const applyPoleBreakNormalization = useCallback(
-    (options?: { autoConnectAfter?: boolean }) => {
+    (
+      options?: PoleBreakOptions & {
+        autoConnectAfter?: boolean;
+        preserveExistingAssignments?: boolean;
+      },
+    ) => {
       if (!cableSpansRef.current.length) {
         if (options?.autoConnectAfter) {
-          autoConnectPolesRef.current();
+          autoConnectPolesRef.current({
+            preserveExistingAssignments: options.preserveExistingAssignments,
+          });
         }
         return false;
       }
 
       const { spans: normalizedSpans, changed } = normalizeSpansToPoleBreaks(
         cableSpansRef.current,
+        {
+          targetSpanIds: options?.targetSpanIds ?? null,
+          anchorPoint: options?.anchorPoint ?? null,
+          anchorPoleIds: options?.anchorPoleIds ?? null,
+          anchorRadius: options?.anchorRadius,
+          preserveExistingAssignments: options?.preserveExistingAssignments,
+        },
       );
 
       if (changed) {
@@ -1610,7 +2353,9 @@ export default function DxfViewer({
 
       if (options?.autoConnectAfter) {
         setTimeout(() => {
-          autoConnectPolesRef.current();
+          autoConnectPolesRef.current({
+            preserveExistingAssignments: options.preserveExistingAssignments,
+          });
         }, 0);
       }
 
@@ -1619,61 +2364,109 @@ export default function DxfViewer({
     [normalizeSpansToPoleBreaks, notifySpansChange, redraw],
   );
 
-  useEffect(() => {
-    if (
-      poleScanStatus !== "done" ||
-      polesRef.current.length === 0 ||
-      cableSpansRef.current.length === 0
-    ) {
-      return;
-    }
+    const applyPoleUpdate = useCallback(
+      (
+        action: "ADD" | "UPDATE" | "DELETE",
+        pole: Partial<PoleTag> & { pole_id: number },
+      options?: {
+        autoConnectAfter?: boolean;
+        preserveExistingAssignments?: boolean;
+      },
+      ) => {
+      let updatedPoles = [...polesRef.current];
 
-    const relevantPoles = polesRef.current
-      .filter(
-        (pole) =>
-          pole.layer === "geotool_npt" ||
-          pole.source === "geotool_npt" ||
-          pole.map_latitude != null,
-      )
-      .map(
-        (pole) =>
-          `${pole.pole_id}:${pole.cx.toFixed(2)},${pole.cy.toFixed(2)}:${pole.name}`,
-      )
-      .sort()
-      .join("|");
+      if (action === "ADD") {
+        updatedPoles.push(pole as PoleTag);
+      } else if (action === "UPDATE") {
+        updatedPoles = updatedPoles.map((p) =>
+          p.pole_id === pole.pole_id ? { ...p, ...pole } : p,
+        );
 
-    const spanSignature = cableSpansRef.current
-      .map(
-        (span) =>
-          `${span.span_id}:${span.segment_count}:${span.from_pole_id ?? "x"}:${span.to_pole_id ?? "x"}`,
-      )
-      .sort()
-      .join("|");
+        if (pole.name) {
+          const renamedId = pole.pole_id;
+          const newSpans = cableSpansRef.current.map((span) => {
+            let updated = { ...span };
+            if (updated.from_pole_id === renamedId) updated.from_pole = pole.name;
+            if (updated.to_pole_id === renamedId) updated.to_pole = pole.name;
+            return updated;
+          });
+          cableSpansRef.current = newSpans;
+          setCableSpans(newSpans);
+          notifySpansChange(newSpans);
+        }
+      } else if (action === "DELETE") {
+        updatedPoles = updatedPoles.filter((p) => p.pole_id !== pole.pole_id);
 
-    const fingerprint = `${relevantPoles}__${spanSignature}`;
-    if (!relevantPoles || fingerprint === poleBreakFingerprintRef.current) {
-      return;
-    }
+        const deletedId = pole.pole_id;
+        const newSpans = cableSpansRef.current.map((span) => {
+          let updated = { ...span };
+          if (updated.from_pole_id === deletedId) {
+            updated.from_pole = undefined;
+            updated.from_pole_id = undefined;
+          }
+          if (updated.to_pole_id === deletedId) {
+            updated.to_pole = undefined;
+            updated.to_pole_id = undefined;
+          }
+          return updated;
+        });
+        cableSpansRef.current = newSpans;
+        setCableSpans(newSpans);
+        notifySpansChange(newSpans);
+      }
 
-    poleBreakFingerprintRef.current = fingerprint;
-    applyPoleBreakNormalization();
-  }, [applyPoleBreakNormalization, cableSpans.length, poleScanStatus, poles.length]);
+      ensureGeoToolLayer(updatedPoles);
+      polesRef.current = updatedPoles;
+      setPoles(updatedPoles);
+      onCacheUpdate?.({ poleTags: updatedPoles, poleDone: true });
 
-  const autoConnectPoles = useCallback(() => {
+      if (options?.autoConnectAfter && cableSpansRef.current.length > 0) {
+        hasAutoConnectedRef.current = false;
+        applyPoleBreakNormalization({
+          autoConnectAfter: true,
+          preserveExistingAssignments: options.preserveExistingAssignments,
+        });
+      } else {
+        redraw();
+      }
+    },
+    [
+      applyPoleBreakNormalization,
+      ensureGeoToolLayer,
+      notifySpansChange,
+      onCacheUpdate,
+      redraw,
+    ],
+  );
+
+  const autoConnectPoles = useCallback((
+    options?: { preserveExistingAssignments?: boolean },
+  ) => {
     if (!polesRef.current.length || !cableSpansRef.current.length) return;
-    const BUFFER_RADIUS = 30,
-      RAY_MAX_DIST = 150,
-      RAY_TOLERANCE = 15;
+    const preserveExistingAssignments =
+      options?.preserveExistingAssignments === true;
+    const BUFFER_RADIUS = 60, // raised 30→60 so an NPT sitting near the cable end
+      // is found directly instead of ray-casting onward to a far pole (T600/POLE_027)
+      LOCAL_RADIUS = 85,
+      RAY_MAX_DIST = 110,
+      RAY_TOLERANCE = 10;
+
+    const normalizePoleName = (value?: string | null) =>
+      (value || "").trim().toUpperCase();
 
     const previousSpans = cableSpansRef.current.map((s) => ({ ...s }));
     const previousDeleted = deletedSpansRef.current.map((d) => ({ ...d }));
-    const {
-      spans: spansForConnection,
-    } = normalizeSpansToPoleBreaks(cableSpansRef.current);
+    const spansForConnection = cableSpansRef.current;
 
     const newSpans = spansForConnection.map((span) => {
+      const hasExistingFrom = !!(span.from_pole_id != null || span.from_pole);
+      const hasExistingTo = !!(span.to_pole_id != null || span.to_pole);
+      if (preserveExistingAssignments && hasExistingFrom && hasExistingTo) {
+        return span;
+      }
+
       if (span.segments.length === 0) return span;
-      const endpoints = findSpanEndpoints(span.segments);
+      const endpoints = getOrderedSpanEndpoints(span.segments);
       if (!endpoints) return span;
       const [endpointA, endpointB] = endpoints;
       const ptA = endpointA.pt;
@@ -1681,12 +2474,14 @@ export default function DxfViewer({
       const ptB = endpointB.pt;
       const ptB_in = endpointB.inward;
 
-      const findPoleCandidatesForEndpoint = (
+      const collectPoleCandidatesForEndpoint = (
+        poles: PoleTag[],
         pt: { x: number; y: number },
         pt_in: { x: number; y: number },
       ): Array<{ pole: PoleTag; score: number }> => {
         const bufferCandidates: Array<{ pole: PoleTag; score: number }> = [];
-        for (const pole of polesRef.current) {
+        const localCandidates: Array<{ pole: PoleTag; score: number }> = [];
+        for (const pole of poles) {
           if (
             maskEnabledRef.current &&
             boundaryRef.current &&
@@ -1698,12 +2493,21 @@ export default function DxfViewer({
           const dist = Math.hypot(pole.cx - pt.x, pole.cy - pt.y);
           if (dist < BUFFER_RADIUS) {
             bufferCandidates.push({ pole, score: dist });
+            continue;
+          }
+          if (dist < LOCAL_RADIUS) {
+            localCandidates.push({ pole, score: dist });
           }
         }
 
         bufferCandidates.sort((a, b) => a.score - b.score);
         if (bufferCandidates.length > 0) {
           return bufferCandidates.slice(0, 4);
+        }
+
+        localCandidates.sort((a, b) => a.score - b.score);
+        if (localCandidates.length > 0) {
+          return localCandidates.slice(0, 4);
         }
 
         if (pt.x === pt_in.x && pt.y === pt_in.y) return [];
@@ -1713,7 +2517,7 @@ export default function DxfViewer({
         const rayEndY = pt.y + Math.sin(angle) * RAY_MAX_DIST;
         const rayCandidates: Array<{ pole: PoleTag; score: number }> = [];
 
-        for (const pole of polesRef.current) {
+        for (const pole of poles) {
           if (
             maskEnabledRef.current &&
             boundaryRef.current &&
@@ -1737,35 +2541,125 @@ export default function DxfViewer({
         }
 
         rayCandidates.sort((a, b) => a.score - b.score);
-        return rayCandidates.slice(0, 4);
+        if (rayCandidates.length > 0) {
+          return rayCandidates.slice(0, 4);
+        }
+
+        return poles
+          .map((pole) => ({
+            pole,
+            score: Math.hypot(pole.cx - pt.x, pole.cy - pt.y),
+          }))
+          .sort((a, b) => a.score - b.score)
+          .slice(0, 4);
       };
 
-      const fromCandidates = findPoleCandidatesForEndpoint(ptA, ptA_in);
-      const toCandidates = findPoleCandidatesForEndpoint(ptB, ptB_in);
-
-      let fromResult = fromCandidates[0]?.pole ?? null;
-      let toResult = toCandidates[0]?.pole ?? null;
-      let bestPair:
-        | { fromPole: PoleTag; toPole: PoleTag; score: number }
-        | null = null;
-
-      for (const fromCandidate of fromCandidates) {
-        for (const toCandidate of toCandidates) {
-          if (fromCandidate.pole.pole_id === toCandidate.pole.pole_id) continue;
-          const pairScore = fromCandidate.score + toCandidate.score;
-          if (!bestPair || pairScore < bestPair.score) {
-            bestPair = {
-              fromPole: fromCandidate.pole,
-              toPole: toCandidate.pole,
-              score: pairScore,
-            };
+      const findPoleCandidatesForEndpoint = (
+        pt: { x: number; y: number },
+        pt_in: { x: number; y: number },
+        preferredName?: string | null,
+      ): Array<{ pole: PoleTag; score: number }> => {
+        const normalizedName = normalizePoleName(preferredName);
+        if (normalizedName) {
+          const namedPoles = polesRef.current.filter(
+            (pole) => normalizePoleName(pole.name) === normalizedName,
+          );
+          if (namedPoles.length > 0) {
+            const namedCandidates = collectPoleCandidatesForEndpoint(
+              namedPoles,
+              pt,
+              pt_in,
+            );
+            if (namedCandidates.length > 0) {
+              return namedCandidates;
+            }
           }
         }
-      }
 
-      if (bestPair) {
-        fromResult = bestPair.fromPole;
-        toResult = bestPair.toPole;
+        return collectPoleCandidatesForEndpoint(polesRef.current, pt, pt_in);
+      };
+
+      const fromCandidates = findPoleCandidatesForEndpoint(
+        ptA,
+        ptA_in,
+        preserveExistingAssignments ? span.from_pole : null,
+      );
+      const toCandidates = findPoleCandidatesForEndpoint(
+        ptB,
+        ptB_in,
+        preserveExistingAssignments ? span.to_pole : null,
+      );
+
+      const existingFromPole =
+        preserveExistingAssignments && span.from_pole_id != null
+          ? polesRef.current.find((pole) => pole.pole_id === span.from_pole_id) ?? null
+          : null;
+      const existingToPole =
+        preserveExistingAssignments && span.to_pole_id != null
+          ? polesRef.current.find((pole) => pole.pole_id === span.to_pole_id) ?? null
+          : null;
+
+      let fromResult = existingFromPole ?? fromCandidates[0]?.pole ?? null;
+      let toResult = existingToPole ?? toCandidates[0]?.pole ?? null;
+      const fromLocked =
+        preserveExistingAssignments &&
+        (existingFromPole != null ||
+          (existingFromPole == null &&
+            typeof span.from_pole === "string" &&
+            span.from_pole.trim().length > 0));
+      const toLocked =
+        preserveExistingAssignments &&
+        (existingToPole != null ||
+          (existingToPole == null &&
+            typeof span.to_pole === "string" &&
+            span.to_pole.trim().length > 0));
+
+      if (!fromLocked && !toLocked) {
+        // Pair each endpoint with its OWN nearest pole independently. Candidates
+        // are already sorted by distance, so [0] is the nearest to that endpoint.
+        // (User-selected default: nearest-per-endpoint instead of summing.)
+        const nearestFrom = fromCandidates[0] ?? null;
+        const nearestTo = toCandidates[0] ?? null;
+
+        if (nearestFrom && nearestTo) {
+          if (nearestFrom.pole.pole_id === nearestTo.pole.pole_id) {
+            // Both ends resolved to the same pole — keep it on the endpoint it is
+            // closer to, and bump the other end to its next distinct candidate.
+            if (nearestFrom.score <= nearestTo.score) {
+              fromResult = nearestFrom.pole;
+              toResult =
+                toCandidates.find(
+                  (c) => c.pole.pole_id !== nearestFrom.pole.pole_id,
+                )?.pole ?? toResult;
+            } else {
+              toResult = nearestTo.pole;
+              fromResult =
+                fromCandidates.find(
+                  (c) => c.pole.pole_id !== nearestTo.pole.pole_id,
+                )?.pole ?? fromResult;
+            }
+          } else {
+            fromResult = nearestFrom.pole;
+            toResult = nearestTo.pole;
+          }
+        } else {
+          fromResult = nearestFrom?.pole ?? fromResult;
+          toResult = nearestTo?.pole ?? toResult;
+        }
+      } else if (fromLocked && !toLocked) {
+        const distinctToCandidate = toCandidates.find(
+          (candidate) => candidate.pole.pole_id !== existingFromPole?.pole_id,
+        );
+        if (distinctToCandidate) {
+          toResult = distinctToCandidate.pole;
+        }
+      } else if (!fromLocked && toLocked) {
+        const distinctFromCandidate = fromCandidates.find(
+          (candidate) => candidate.pole.pole_id !== existingToPole?.pole_id,
+        );
+        if (distinctFromCandidate) {
+          fromResult = distinctFromCandidate.pole;
+        }
       }
 
       return {
@@ -1785,7 +2679,7 @@ export default function DxfViewer({
     setCableSpans(newSpans);
     notifySpansChange(newSpans);
     redraw();
-  }, [normalizeSpansToPoleBreaks, redraw, notifySpansChange]);
+  }, [redraw, notifySpansChange]);
 
   useEffect(() => {
     autoConnectPolesRef.current = autoConnectPoles;
@@ -1852,6 +2746,9 @@ export default function DxfViewer({
   useEffect(() => {
     return () => {
       if (activesPollRef.current) clearInterval(activesPollRef.current);
+      if (autoCutNoticeTimerRef.current) {
+        clearTimeout(autoCutNoticeTimerRef.current);
+      }
     };
   }, []);
 
@@ -1888,7 +2785,9 @@ export default function DxfViewer({
         } else if (data.status === "done" && data.tags) {
           const merged = mergeBackendGeoPoles(data.tags);
           if (merged) {
-            applyPoleBreakNormalization();
+            // autoConnectAfter so spans terminating at a freshly-merged NPT get
+            // their from/to pole assigned (otherwise NPT spans stay unlabeled).
+            applyPoleBreakNormalization({ autoConnectAfter: true });
           }
         }
       } catch (e) {}
@@ -1926,6 +2825,17 @@ export default function DxfViewer({
     const next = !showPoles;
     setShowPoles(next);
     showPolesRef.current = next;
+    if (!next) {
+      hoveredPoleRef.current = null;
+      setHoveredPoleId(null);
+      pendingAutoCutRef.current = null;
+      autoCutModeRef.current = "idle";
+      setAutoCutMode("idle");
+      cutHereModeRef.current = false;
+      setCutHereMode(false);
+      poleEditModeRef.current = "idle";
+      setPoleEditMode("idle");
+    }
     redraw();
   };
 
@@ -2047,7 +2957,10 @@ export default function DxfViewer({
 
       let bestId: number | null = null,
         bestDist = Infinity;
-      const hoverTolWorld = 8 / Math.max(vpRef.current.scale, 1e-9);
+      const hoverTolWorld = Math.max(
+        8 / Math.max(vpRef.current.scale, 1e-9),
+        18,
+      );
 
       for (const span of cableSpansRef.current) {
         if (!isLayerVisible(span.layer)) continue;
@@ -2059,7 +2972,8 @@ export default function DxfViewer({
         )
           continue;
 
-        const [mnx, mny, mxx, mxy] = span.bbox;
+        const hitSegments = span.segments;
+        const [mnx, mny, mxx, mxy] = boundsFromSegments(hitSegments, span.bbox);
         if (
           worldX < mnx - hoverTolWorld ||
           worldX > mxx + hoverTolWorld ||
@@ -2068,19 +2982,10 @@ export default function DxfViewer({
         )
           continue;
 
-        for (const s of span.segments) {
-          const d = pointToSegmentDistance(
-            worldX,
-            worldY,
-            s.x1,
-            s.y1,
-            s.x2,
-            s.y2,
-          );
-          if (d < bestDist) {
-            bestDist = d;
-            bestId = span.span_id;
-          }
+        const d = distanceToSolidSegments(worldX, worldY, hitSegments);
+        if (d < bestDist) {
+          bestDist = d;
+          bestId = span.span_id;
         }
       }
       return bestDist <= hoverTolWorld ? bestId : null;
@@ -2088,50 +2993,157 @@ export default function DxfViewer({
     [isLayerVisible],
   );
 
+  const findNearestPole = useCallback(
+    (
+      worldX: number,
+      worldY: number,
+      radius = 20 / Math.max(vpRef.current.scale, 1e-9),
+    ) => {
+      let best: PoleTag | null = null;
+      let bestDist = Infinity;
+      for (const pole of polesRef.current) {
+        if (!isLayerVisible(pole.layer)) continue;
+        if (
+          maskEnabledRef.current &&
+          boundaryRef.current &&
+          !isPointInPolygon(pole.cx, pole.cy, boundaryRef.current)
+        ) {
+          continue;
+        }
+        const dist = Math.hypot(pole.cx - worldX, pole.cy - worldY);
+        if (dist < radius && dist < bestDist) {
+          best = pole;
+          bestDist = dist;
+        }
+      }
+      return best;
+    },
+    [isLayerVisible],
+  );
+
+  // Find the detected pole nearest a cut point (respecting the boundary mask) so
+  // a freshly cut span can pair to the pole sitting at the cut, instantly.
+  const findPoleNearCut = useCallback(
+    (x: number, y: number, radius = 60): PoleTag | null => {
+      let best: PoleTag | null = null;
+      let bestDist = Infinity;
+      for (const pole of polesRef.current) {
+        if (
+          maskEnabledRef.current &&
+          boundaryRef.current &&
+          !isPointInPolygon(pole.cx, pole.cy, boundaryRef.current)
+        ) {
+          continue;
+        }
+        const d = Math.hypot(pole.cx - x, pole.cy - y);
+        if (d < radius && d < bestDist) {
+          bestDist = d;
+          best = pole;
+        }
+      }
+      return best;
+    },
+    [],
+  );
+
   const splitCableSpan = useCallback(
-    (spanId: number, cursorWorld?: { x: number; y: number }) => {
+    (
+      spanId: number,
+      cursorWorld?: { x: number; y: number },
+      forcedCutPole?: PoleTag | null,
+      options?: {
+        preserveOuterPoleIds?: number[] | Set<number>;
+        cutPoleRadius?: number;
+      },
+    ) => {
       const spans = cableSpansRef.current;
       const spanIndex = spans.findIndex((s) => s.span_id === spanId);
-      if (spanIndex === -1) return;
+      if (spanIndex === -1) return false;
       const span = spans[spanIndex];
-      const segs = span.segments;
-      if (segs.length < 2) return;
-      let splitIndex: number | null = Math.floor(segs.length / 2);
+      const segs = orderConnectedSegments(span.segments);
+      if (segs.length === 0) return false;
 
-      if (cursorWorld) {
-        let minDist = Infinity;
-        let closestIdx = splitIndex;
-        for (let i = 0; i < segs.length; i++) {
-          const s = segs[i];
-          const d = pointToSegmentDistance(
-            cursorWorld.x,
-            cursorWorld.y,
-            s.x1,
-            s.y1,
-            s.x2,
-            s.y2,
-          );
-          if (d < minDist) {
-            minDist = d;
-            closestIdx = i;
+      const totalLength = segs.reduce(
+        (sum, s) => sum + Math.hypot(s.x2 - s.x1, s.y2 - s.y1),
+        0,
+      );
+      if (totalLength <= 0.1) return false;
+
+      const fallbackSegment = segs[Math.floor(segs.length / 2)];
+      const targetPoint =
+        cursorWorld ??
+        {
+          x: (fallbackSegment.x1 + fallbackSegment.x2) / 2,
+          y: (fallbackSegment.y1 + fallbackSegment.y2) / 2,
+        };
+
+      let best:
+        | {
+            segmentIndex: number;
+            t: number;
+            x: number;
+            y: number;
+            progress: number;
+            distance: number;
           }
-        }
-        splitIndex = findSafeCutIndex(
-          segs,
-          closestIdx,
-          cursorWorld.x,
-          cursorWorld.y,
+        | null = null;
+      let walked = 0;
+      for (let i = 0; i < segs.length; i++) {
+        const s = segs[i];
+        const projection = projectPointOntoSegment(
+          targetPoint.x,
+          targetPoint.y,
+          s.x1,
+          s.y1,
+          s.x2,
+          s.y2,
         );
+        const progress = walked + projection.segmentLength * projection.t;
+        if (!best || projection.distance < best.distance) {
+          best = {
+            segmentIndex: i,
+            t: projection.t,
+            x: projection.x,
+            y: projection.y,
+            progress,
+            distance: projection.distance,
+          };
+        }
+        walked += projection.segmentLength;
       }
-      if (
-        splitIndex === null ||
-        splitIndex < 0 ||
-        splitIndex >= segs.length - 1
-      )
-        return;
 
-      const firstHalf = segs.slice(0, splitIndex + 1);
-      const secondHalf = segs.slice(splitIndex + 1);
+      if (!best || best.progress <= 0.05 || totalLength - best.progress <= 0.05) {
+        return false;
+      }
+
+      const MIN_SEGMENT_LENGTH = 0.05;
+      const firstHalf: RawSegment[] = [];
+      const secondHalf: RawSegment[] = [];
+      for (let i = 0; i < segs.length; i++) {
+        const s = segs[i];
+        if (i < best.segmentIndex) {
+          firstHalf.push(s);
+          continue;
+        }
+        if (i > best.segmentIndex) {
+          secondHalf.push(s);
+          continue;
+        }
+
+        const firstLength = Math.hypot(best.x - s.x1, best.y - s.y1);
+        const secondLength = Math.hypot(s.x2 - best.x, s.y2 - best.y);
+        if (firstLength >= MIN_SEGMENT_LENGTH) {
+          firstHalf.push({ x1: s.x1, y1: s.y1, x2: best.x, y2: best.y });
+        }
+        if (secondLength >= MIN_SEGMENT_LENGTH) {
+          secondHalf.push({ x1: best.x, y1: best.y, x2: s.x2, y2: s.y2 });
+        }
+      }
+
+      if (firstHalf.length === 0 || secondHalf.length === 0) {
+        return false;
+      }
+
       const newId1 = nextSpanIdRef.current++;
       const newId2 = nextSpanIdRef.current++;
 
@@ -2148,29 +3160,51 @@ export default function DxfViewer({
         return nearest ? nearest.value : null;
       };
 
+      const cutPole =
+        forcedCutPole ?? findPoleNearCut(best.x, best.y, options?.cutPoleRadius ?? 1.5);
+      const preserveOuterPoleIds = options?.preserveOuterPoleIds
+        ? new Set(options.preserveOuterPoleIds)
+        : null;
+      const keepOuterPole = (poleId?: number) =>
+        !preserveOuterPoleIds || (poleId != null && preserveOuterPoleIds.has(poleId));
+
       const m1 = computeSpanMetrics(firstHalf);
       const m2 = computeSpanMetrics(secondHalf);
       const newSpan1: CableSpan = {
         ...span,
         span_id: newId1,
+        source_span_id: span.source_span_id ?? span.span_id,
         segments: firstHalf,
+        display_segments: displaySegmentsForLogicalSegments(
+          span.display_segments,
+          firstHalf,
+        ),
         segment_count: firstHalf.length,
-        from_pole: span.from_pole,
-        to_pole: undefined,
-        from_pole_id: span.from_pole_id,
-        to_pole_id: undefined,
+        from_pole: keepOuterPole(span.from_pole_id) ? span.from_pole : undefined,
+        to_pole: cutPole?.name ?? undefined,
+        from_pole_id: keepOuterPole(span.from_pole_id)
+          ? span.from_pole_id
+          : undefined,
+        to_pole_id: cutPole?.pole_id,
         ...m1,
         meterValue: getNearestMeterValue(m1.cx, m1.cy),
       };
       const newSpan2: CableSpan = {
         ...span,
         span_id: newId2,
+        source_span_id: span.source_span_id ?? span.span_id,
         segments: secondHalf,
+        display_segments: displaySegmentsForLogicalSegments(
+          span.display_segments,
+          secondHalf,
+        ),
         segment_count: secondHalf.length,
-        from_pole: undefined,
-        to_pole: span.to_pole,
-        from_pole_id: undefined,
-        to_pole_id: span.to_pole_id,
+        from_pole: cutPole?.name ?? undefined,
+        to_pole: keepOuterPole(span.to_pole_id) ? span.to_pole : undefined,
+        from_pole_id: cutPole?.pole_id,
+        to_pole_id: keepOuterPole(span.to_pole_id)
+          ? span.to_pole_id
+          : undefined,
         ...m2,
         meterValue: getNearestMeterValue(m2.cx, m2.cy),
       };
@@ -2208,8 +3242,9 @@ export default function DxfViewer({
       hoveredSpanRef.current = null;
       setHoveredSpanId(null);
       redraw();
+      return true;
     },
-    [redraw, partialDetails],
+    [redraw, partialDetails, findPoleNearCut],
   );
 
   const cutAdjacentSpans = useCallback(() => {
@@ -2278,17 +3313,22 @@ export default function DxfViewer({
             madeCuts = true;
             const firstHalf = span.segments.slice(0, safeIdx + 1);
             const secondHalf = span.segments.slice(safeIdx + 1);
+            const cutPole = findPoleNearCut(targetPt.x, targetPt.y);
             const m1 = computeSpanMetrics(firstHalf);
             const m2 = computeSpanMetrics(secondHalf);
             const span1: CableSpan = {
               ...span,
               span_id: nextSpanIdRef.current++,
               segments: firstHalf,
+              display_segments: displaySegmentsForLogicalSegments(
+                span.display_segments,
+                firstHalf,
+              ),
               segment_count: firstHalf.length,
               from_pole: span.from_pole,
-              to_pole: undefined,
+              to_pole: cutPole?.name ?? undefined,
               from_pole_id: span.from_pole_id,
-              to_pole_id: undefined,
+              to_pole_id: cutPole?.pole_id,
               ...m1,
               meterValue: getNearestMeterValue(m1.cx, m1.cy),
             };
@@ -2296,10 +3336,14 @@ export default function DxfViewer({
               ...span,
               span_id: nextSpanIdRef.current++,
               segments: secondHalf,
+              display_segments: displaySegmentsForLogicalSegments(
+                span.display_segments,
+                secondHalf,
+              ),
               segment_count: secondHalf.length,
-              from_pole: undefined,
+              from_pole: cutPole?.name ?? undefined,
               to_pole: span.to_pole,
-              from_pole_id: undefined,
+              from_pole_id: cutPole?.pole_id,
               to_pole_id: span.to_pole_id,
               ...m2,
               meterValue: getNearestMeterValue(m2.cx, m2.cy),
@@ -2344,7 +3388,7 @@ export default function DxfViewer({
       notifySpansChange(newSpans);
       redraw();
     }
-  }, [partialDetails, redraw, notifySpansChange]);
+  }, [partialDetails, redraw, notifySpansChange, findPoleNearCut]);
 
   const onDoubleClick = (e: React.MouseEvent) => {
     const rect = canvasRef.current?.getBoundingClientRect();
@@ -2399,6 +3443,14 @@ export default function DxfViewer({
             ...targetSpan,
             span_id: nextId,
             segments: newSegments,
+            display_segments: [
+              ...(targetSpan.display_segments?.length
+                ? targetSpan.display_segments
+                : targetSpan.segments),
+              ...(neighbor.display_segments?.length
+                ? neighbor.display_segments
+                : neighbor.segments),
+            ],
             segment_count: newSegments.length,
             from_pole: targetSpan.from_pole || neighbor.from_pole,
             to_pole: targetSpan.to_pole || neighbor.to_pole,
@@ -2552,6 +3604,14 @@ export default function DxfViewer({
       mergedSpan = {
         ...mainSpan,
         segments: newSegments,
+        display_segments: [
+          ...(mainSpan.display_segments?.length
+            ? mainSpan.display_segments
+            : mainSpan.segments),
+          ...pairedSpansToMerge.flatMap((ps) =>
+            ps.display_segments?.length ? ps.display_segments : ps.segments,
+          ),
+        ],
         segment_count: newSegments.length,
         cable_runs: (mainSpan.cable_runs || 1) + totalRunsToAdd,
         bbox: m.bbox,
@@ -2559,15 +3619,36 @@ export default function DxfViewer({
         cy: m.cy,
       };
     } else {
+      // Physically combine the spans and SUM their lengths (as the dialog says).
+      const allMerged = [mainSpan, ...pairedSpansToMerge];
+      const summedLength = allMerged.reduce(
+        (sum, s) => sum + (s.total_length || 0),
+        0,
+      );
+      const hasMeter = allMerged.some((s) => s.meterValue != null);
+      const summedMeter = hasMeter
+        ? allMerged.reduce(
+            (sum, s) => sum + (s.meterValue ?? s.total_length ?? 0),
+            0,
+          )
+        : null;
       mergedSpan = {
         ...mainSpan,
         segments: newSegments,
+        display_segments: [
+          ...(mainSpan.display_segments?.length
+            ? mainSpan.display_segments
+            : mainSpan.segments),
+          ...pairedSpansToMerge.flatMap((ps) =>
+            ps.display_segments?.length ? ps.display_segments : ps.segments,
+          ),
+        ],
         segment_count: newSegments.length,
         bbox: m.bbox,
         cx: m.cx,
         cy: m.cy,
-        total_length: mainSpan.total_length,
-        meterValue: mainSpan.meterValue,
+        total_length: summedLength,
+        meterValue: summedMeter,
       };
     }
     const newSpans = cableSpansRef.current.filter(
@@ -2623,6 +3704,11 @@ export default function DxfViewer({
     setCableStatuses({});
     hoveredSpanRef.current = null;
     selectedSpanRef.current = null;
+    cutHereModeRef.current = false;
+    setCutHereMode(false);
+    pendingAutoCutRef.current = null;
+    autoCutModeRef.current = "idle";
+    setAutoCutMode("idle");
     cableSpansRef.current = [];
     cableLayersRef.current = [];
     cableStatusRef.current = {};
@@ -2671,10 +3757,12 @@ export default function DxfViewer({
         );
         layersRef.current = layerData;
         setLayers(layerData);
-        const spans: CableSpan[] = (cableData.spans ?? []).map((s: any) => ({
+        const rawSpans: CableSpan[] = (cableData.spans ?? []).map((s: any) => ({
           ...s,
+          source_span_id: s.source_span_id ?? s.original_span_id ?? s.span_id,
           cable_runs: s.cable_runs || 1,
         }));
+        const spans = rawSpans;
         const maxId = spans.reduce((max, s) => Math.max(max, s.span_id), 0);
         nextSpanIdRef.current = maxId + 1;
         cableSpansRef.current = spans;
@@ -2737,48 +3825,63 @@ export default function DxfViewer({
       if (event.data?.type === "GEO_COORDINATES") {
         const geoData = event.data.payload as any[];
         const TOLERANCE = 5.0;
+        const nextPoles = polesRef.current.map((pole) => ({ ...pole }));
+        const byId = new Map<number, number>();
+        nextPoles.forEach((pole, idx) => {
+          byId.set(pole.pole_id, idx);
+        });
+
         const matchedGeo = new Set<number>();
-        const updatedPoles = polesRef.current.map((pole) => {
-          let bestDist = Infinity;
-          let bestLat = 0;
-          let bestLon = 0;
+        const findNearestPoleIndex = (cadX: number, cadY: number) => {
           let bestIdx = -1;
-          geoData.forEach((geoPoint: any, idx: number) => {
-            const dist = Math.hypot(
-              pole.cx - geoPoint.cad_x,
-              pole.cy - geoPoint.cad_y,
-            );
+          let bestDist = Infinity;
+          nextPoles.forEach((pole, idx) => {
+            const dist = Math.hypot(pole.cx - cadX, pole.cy - cadY);
             if (dist < TOLERANCE && dist < bestDist) {
               bestDist = dist;
-              bestLat = geoPoint.map_latitude;
-              bestLon = geoPoint.map_longitude;
               bestIdx = idx;
             }
           });
-          if (bestIdx >= 0) {
-            matchedGeo.add(bestIdx);
-            return { ...pole, map_latitude: bestLat, map_longitude: bestLon };
-          }
-          return pole;
-        });
+          return bestIdx;
+        };
 
-        // Build a set of existing CAD coordinates to avoid creating duplicates
-        const existingCoords = new Set(
-          polesRef.current.map((p) => `${p.cx.toFixed(4)},${p.cy.toFixed(4)}`),
-        );
+        geoData.forEach((geoPoint: any, idx: number) => {
+          if (geoPoint?.map_latitude == null || geoPoint?.map_longitude == null) {
+            return;
+          }
+
+          const hasNumericPoleId = typeof geoPoint.pole_id === "number";
+          let poleIdx = hasNumericPoleId
+            ? (byId.get(geoPoint.pole_id) ?? -1)
+            : -1;
+
+          if (!hasNumericPoleId && poleIdx < 0) {
+            poleIdx = findNearestPoleIndex(geoPoint.cad_x, geoPoint.cad_y);
+          }
+
+          if (poleIdx >= 0) {
+            matchedGeo.add(idx);
+            nextPoles[poleIdx] = {
+              ...nextPoles[poleIdx],
+              map_latitude: geoPoint.map_latitude,
+              map_longitude: geoPoint.map_longitude,
+            };
+          }
+        });
 
         const nptPoles = geoData
           .filter((_: any, idx: number) => !matchedGeo.has(idx))
           .filter((g: any) => g.map_latitude != null && g.map_longitude != null)
-          .filter(
-            (g: any) =>
-              !existingCoords.has(
-                `${(g.cad_x ?? 0).toFixed(4)},${(g.cad_y ?? 0).toFixed(4)}`,
-              ),
-          )
+          .filter((g: any) => {
+            const hasNumericPoleId = typeof g.pole_id === "number";
+            if (hasNumericPoleId) {
+              return byId.get(g.pole_id) == null;
+            }
+            return findNearestPoleIndex(g.cad_x, g.cad_y) < 0;
+          })
           .map((g: any) => ({
             pole_id: g.pole_id,
-            name: g.name,
+            name: g.name || "NPT",
             cx: g.cad_x,
             cy: g.cad_y,
             bbox: [0, 0, 0, 0] as [number, number, number, number],
@@ -2796,7 +3899,7 @@ export default function DxfViewer({
         // discovers the real NPT circle symbols as separate poles at proper positions.
         const dedupedUpdated =
           nptPoles.length > 0
-            ? updatedPoles.filter(
+            ? nextPoles.filter(
                 (p) =>
                   !(
                     p.name === "NPT" &&
@@ -2804,7 +3907,7 @@ export default function DxfViewer({
                     (p.map_latitude == null || p.map_longitude == null)
                   ),
               )
-            : updatedPoles;
+            : nextPoles;
         const allPoles = [...dedupedUpdated, ...nptPoles];
         ensureGeoToolLayer(allPoles);
         polesRef.current = allPoles;
@@ -2841,7 +3944,10 @@ export default function DxfViewer({
           }
         }
 
-        applyPoleBreakNormalization({ autoConnectAfter: true });
+        applyPoleBreakNormalization({
+          autoConnectAfter: true,
+          preserveExistingAssignments: true,
+        });
 
         alert("Coordinates successfully synced from Georeferencing tool!");
         redraw();
@@ -2850,54 +3956,7 @@ export default function DxfViewer({
       // 2. Real-Time Pole Updates & Cascading Span Updates
       if (event.data?.type === "POLE_UPDATE") {
         const { action, pole } = event.data.payload;
-        let updatedPoles = [...polesRef.current];
-
-        if (action === "ADD") {
-          updatedPoles.push(pole);
-        } else if (action === "UPDATE") {
-          updatedPoles = updatedPoles.map((p) =>
-            p.pole_id === pole.pole_id ? { ...p, ...pole } : p,
-          );
-
-          // CASCADE RENAME TO CABLE SPANS - match by pole_id
-          if (pole.name) {
-            const renamedId = pole.pole_id;
-            const newSpans = cableSpansRef.current.map((span) => {
-              let updated = { ...span };
-              if (updated.from_pole_id === renamedId) updated.from_pole = pole.name;
-              if (updated.to_pole_id === renamedId) updated.to_pole = pole.name;
-              return updated;
-            });
-            cableSpansRef.current = newSpans;
-            setCableSpans(newSpans);
-            notifySpansChange(newSpans);
-          }
-        } else if (action === "DELETE") {
-          updatedPoles = updatedPoles.filter((p) => p.pole_id !== pole.pole_id);
-
-          // CASCADE DELETE TO CABLE SPANS
-          const deletedId = pole.pole_id;
-          const newSpans = cableSpansRef.current.map((span) => {
-            let updated = { ...span };
-            if (updated.from_pole_id === deletedId) {
-              updated.from_pole = undefined;
-              updated.from_pole_id = undefined;
-            }
-            if (updated.to_pole_id === deletedId) {
-              updated.to_pole = undefined;
-              updated.to_pole_id = undefined;
-            }
-            return updated;
-          });
-          cableSpansRef.current = newSpans;
-          setCableSpans(newSpans);
-          notifySpansChange(newSpans);
-        }
-
-        polesRef.current = updatedPoles;
-        setPoles(updatedPoles);
-        onCacheUpdate?.({ poleTags: updatedPoles, poleDone: true });
-        redraw();
+        applyPoleUpdate(action, pole);
       }
 
       if (event.data?.type === "POLES_SYNC") {
@@ -2915,7 +3974,10 @@ export default function DxfViewer({
 
         if (cableSpansRef.current.length > 0) {
           hasAutoConnectedRef.current = false;
-          applyPoleBreakNormalization({ autoConnectAfter: true });
+          applyPoleBreakNormalization({
+            autoConnectAfter: true,
+            preserveExistingAssignments: true,
+          });
         }
       }
     };
@@ -2924,8 +3986,8 @@ export default function DxfViewer({
     return () => window.removeEventListener("message", handleMessage);
   }, [
     applyPoleBreakNormalization,
+    applyPoleUpdate,
     ensureGeoToolLayer,
-    notifySpansChange,
     onCacheUpdate,
     redraw,
   ]);
@@ -2944,8 +4006,10 @@ export default function DxfViewer({
       const next = prev.map((l) => ({ ...l, visible: false }));
       layersRef.current = next;
       hoveredSpanRef.current = null;
+      hoveredPoleRef.current = null;
       selectedSpanRef.current = null;
       setHoveredSpanId(null);
+      setHoveredPoleId(null);
       setSelectedSpanId(null);
       cancelMultiAction();
       redraw();
@@ -2980,15 +4044,46 @@ export default function DxfViewer({
     }
     if (tooltipRef.current) {
       tooltipRef.current.style.display =
-        hoveredSpanRef.current !== null ? "flex" : "none";
+        hoveredPoleRef.current !== null || hoveredSpanRef.current !== null
+          ? "flex"
+          : "none";
       tooltipRef.current.style.left = `${e.clientX + 15}px`;
       tooltipRef.current.style.top = `${e.clientY + 15}px`;
     }
     const { x, y } = screenToWorld(sx, sy);
+    const poleHit =
+      showPolesRef.current &&
+      poleEditModeRef.current === "idle" &&
+      !cutHereModeRef.current &&
+      autoCutModeRef.current !== "pickSpan"
+        ? findNearestPole(x, y)
+        : null;
+    const poleHitId = poleHit?.pole_id ?? null;
+    let poleHoverChanged = false;
+    if (poleHitId !== hoveredPoleRef.current) {
+      hoveredPoleRef.current = poleHitId;
+      setHoveredPoleId(poleHitId);
+      poleHoverChanged = true;
+    }
+
+    if (poleHitId !== null) {
+      if (hoveredSpanRef.current !== null) {
+        hoveredSpanRef.current = null;
+        setHoveredSpanId(null);
+      }
+      redraw();
+      return;
+    }
+
     const hitId = findNearestCableSpan(x, y);
     if (hitId !== hoveredSpanRef.current) {
       hoveredSpanRef.current = hitId;
       setHoveredSpanId(hitId);
+      redraw();
+      return;
+    }
+
+    if (poleHoverChanged) {
       redraw();
     }
   };
@@ -3003,6 +4098,153 @@ export default function DxfViewer({
     const sx = e.clientX - rect.left;
     const sy = e.clientY - rect.top;
     const { x, y } = screenToWorld(sx, sy);
+
+    if (cutHereModeRef.current) {
+      const targetSpanId = findNearestCableSpan(x, y);
+      if (targetSpanId == null) {
+        showAutoCutNotice("Click directly on the blue cable where you want to cut.");
+        return;
+      }
+      const changed = splitCableSpan(targetSpanId, { x, y }, null, {
+        cutPoleRadius: 1.5,
+      });
+      if (!changed) {
+        showAutoCutNotice(
+          "That point is too close to the span end. Click slightly inside the cable segment.",
+        );
+        return;
+      }
+      cutHereModeRef.current = false;
+      setCutHereMode(false);
+      showAutoCutNotice("Span cut at clicked point.");
+      return;
+    }
+
+    if (autoCutModeRef.current === "pickSpan") {
+      const targetSpanId = findNearestCableSpan(x, y);
+      if (targetSpanId == null) {
+        showAutoCutNotice("Click directly on the cable span you want to auto-cut.");
+        return;
+      }
+      const targetSpan = cableSpansRef.current.find(
+        (span) => span.span_id === targetSpanId,
+      );
+      pendingAutoCutRef.current = {
+        spanId: targetSpanId,
+        sourceSpanId: targetSpan?.source_span_id ?? targetSpanId,
+        cutPoleIds: [],
+      };
+      selectedSpanRef.current = targetSpanId;
+      setSelectedSpanId(targetSpanId);
+      autoCutModeRef.current = "pickPole";
+      setAutoCutMode("pickPole");
+      showAutoCutNotice("Line selected. Click each pole along this line to split it.");
+      redraw();
+      return;
+    }
+
+    if (autoCutModeRef.current === "pickPole") {
+      const clickedPole = findNearestPole(x, y);
+      const pending = pendingAutoCutRef.current;
+      if (!pending) {
+        autoCutModeRef.current = "idle";
+        setAutoCutMode("idle");
+        return;
+      }
+      if (!clickedPole) {
+        showAutoCutNotice("Click the nearby pole that should guide the cut area.");
+        return;
+      }
+      const targetSourceId = pending.sourceSpanId;
+      let targetSpanId = pending.spanId;
+      let bestSpanDistance = Infinity;
+      for (const span of cableSpansRef.current) {
+        const sourceId = span.source_span_id ?? span.span_id;
+        if (sourceId !== targetSourceId) continue;
+        for (const segment of spanVisibleSegments(span)) {
+          const distance = pointToSegmentDistance(
+            clickedPole.cx,
+            clickedPole.cy,
+            segment.x1,
+            segment.y1,
+            segment.x2,
+            segment.y2,
+          );
+          if (distance < bestSpanDistance) {
+            bestSpanDistance = distance;
+            targetSpanId = span.span_id;
+          }
+        }
+      }
+      const changed = splitCableSpan(
+        targetSpanId,
+        { x: clickedPole.cx, y: clickedPole.cy },
+        clickedPole,
+        { preserveOuterPoleIds: pending.cutPoleIds },
+      );
+      if (!changed) {
+        showAutoCutNotice(
+          "No cut point found near that pole. Try clicking the exact pole circle closest to the line.",
+        );
+        return;
+      }
+      pendingAutoCutRef.current = {
+        spanId: targetSpanId,
+        sourceSpanId: targetSourceId,
+        cutPoleIds: Array.from(
+          new Set([...pending.cutPoleIds, clickedPole.pole_id]),
+        ),
+      };
+      autoCutModeRef.current = "pickPole";
+      setAutoCutMode("pickPole");
+      showAutoCutNotice("Cut added. Click another pole on the same line, or press Cancel.");
+      redraw();
+      return;
+    }
+
+    if (showPolesRef.current && poleEditModeRef.current === "add") {
+      const existingPole = findNearestPole(x, y);
+      if (existingPole) {
+        alert(`A pole already exists near this location: ${existingPole.name}`);
+        return;
+      }
+
+      const enteredName = window.prompt("Enter pole name", "NPT");
+      if (enteredName == null) return;
+      const trimmedName = enteredName.trim().toUpperCase() || "NPT";
+      const nextPoleId =
+        polesRef.current.length > 0
+          ? Math.max(...polesRef.current.map((pole) => pole.pole_id)) + 1
+          : 1;
+      const newPole: PoleTag = {
+        pole_id: nextPoleId,
+        name: trimmedName,
+        cx: x,
+        cy: y,
+        bbox: [x - 0.75, y - 0.75, x + 0.75, y + 0.75],
+        layer: "geotool_npt",
+        source: trimmedName === "NPT" ? "geotool_npt" : "manual_dxf",
+      };
+      applyPoleUpdate("ADD", newPole, { autoConnectAfter: true });
+      poleEditModeRef.current = "idle";
+      setPoleEditMode("idle");
+      return;
+    }
+
+    if (showPolesRef.current && poleEditModeRef.current === "delete") {
+      const clickedPole = findNearestPole(x, y);
+      if (!clickedPole) {
+        alert("No pole found at that location.");
+        return;
+      }
+      if (!window.confirm(`Delete pole "${clickedPole.name}"?`)) {
+        return;
+      }
+      applyPoleUpdate("DELETE", clickedPole);
+      poleEditModeRef.current = "idle";
+      setPoleEditMode("idle");
+      return;
+    }
 
     if (
       showPolesRef.current &&
@@ -3074,11 +4316,17 @@ export default function DxfViewer({
   const onMouseLeave = () => {
     panRef.current.active = false;
     if (tooltipRef.current) tooltipRef.current.style.display = "none";
+    if (hoveredPoleRef.current !== null) {
+      hoveredPoleRef.current = null;
+      setHoveredPoleId(null);
+    }
     if (hoveredSpanRef.current !== null) {
       hoveredSpanRef.current = null;
       setHoveredSpanId(null);
       redraw();
+      return;
     }
+    redraw();
   };
 
   const onWheel = (e: React.WheelEvent) => {
@@ -3366,12 +4614,15 @@ export default function DxfViewer({
     for (const span of cableSpansRef.current) {
       if (!isLayerVisible(span.layer)) continue;
       const runs = span.cable_runs || 1;
+      const renderSegments = span.display_segments?.length
+        ? span.display_segments
+        : span.segments;
 
       ctx.save();
       ctx.strokeStyle = "rgba(220, 38, 38, 0.25)";
       ctx.lineWidth = (8 + (runs - 1) * 8) / exportVp.scale;
       ctx.beginPath();
-      for (const seg of span.segments) {
+      for (const seg of renderSegments) {
         ctx.moveTo(seg.x1, seg.y1);
         ctx.lineTo(seg.x2, seg.y2);
       }
@@ -3382,7 +4633,7 @@ export default function DxfViewer({
       ctx.strokeStyle = "rgba(220, 38, 38, 0.95)";
       ctx.lineWidth = 1.5 / exportVp.scale;
       ctx.beginPath();
-      for (const seg of span.segments) {
+      for (const seg of renderSegments) {
         ctx.moveTo(seg.x1, seg.y1);
         ctx.lineTo(seg.x2, seg.y2);
       }
@@ -3551,13 +4802,24 @@ export default function DxfViewer({
       : null;
   const hoveredSpanStatus =
     hoveredSpanId !== null ? cableStatuses[hoveredSpanId] : null;
-
+  const hoveredPoleData =
+    hoveredPoleId !== null
+      ? polesRef.current.find((pole) => pole.pole_id === hoveredPoleId) ?? null
+      : null;
   const canvasCursor = panRef.current.active
     ? "grabbing"
-    : poleConnectModeRef.current !== "idle"
+    : cutHereModeRef.current
+      ? "crosshair"
+    : autoCutModeRef.current !== "idle"
+      ? "crosshair"
+      : poleEditModeRef.current !== "idle"
+      ? "crosshair"
+      : poleConnectModeRef.current !== "idle"
       ? "crosshair"
       : pairingModeRef.current
         ? "crosshair"
+        : hoveredPoleId !== null
+          ? "pointer"
         : hoveredSpanId !== null
           ? "pointer"
           : "grab";
@@ -3578,7 +4840,59 @@ export default function DxfViewer({
         </div>
       )}
 
-      {hoveredSpanData && !panRef.current.active && (
+      {hoveredPoleData && !panRef.current.active && (
+        <div
+          ref={tooltipRef}
+          className="fixed z-50 pointer-events-none bg-slate-900/95 backdrop-blur-md text-slate-200 p-3 rounded-lg shadow-xl text-xs flex flex-col gap-1.5 border border-slate-700/50 min-w-[220px] transition-opacity duration-150"
+          style={{ left: 0, top: 0, display: "none" }}
+        >
+          <div className="font-semibold text-[13px] text-white mb-1 border-b border-slate-700 pb-1.5">
+            Pole Details
+          </div>
+          <div className="flex justify-between gap-4">
+            <span className="text-slate-400">ID:</span>
+            <span className="font-mono text-white">
+              {hoveredPoleData.pole_id}
+            </span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span className="text-slate-400">Name:</span>
+            <span className="font-mono text-white">
+              {hoveredPoleData.name || `POLE_${hoveredPoleData.pole_id}`}
+            </span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span className="text-slate-400">Layer:</span>
+            <span className="font-mono text-white truncate max-w-[120px]">
+              {hoveredPoleData.layer}
+            </span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span className="text-slate-400">Source:</span>
+            <span className="font-mono text-white">
+              {hoveredPoleData.source}
+            </span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span className="text-slate-400">CAD:</span>
+            <span className="font-mono text-white">
+              {hoveredPoleData.cx.toFixed(2)}, {hoveredPoleData.cy.toFixed(2)}
+            </span>
+          </div>
+          {(hoveredPoleData.map_latitude != null ||
+            hoveredPoleData.map_longitude != null) && (
+            <div className="flex justify-between gap-4">
+              <span className="text-slate-400">GPS:</span>
+              <span className="font-mono text-white">
+                {hoveredPoleData.map_latitude?.toFixed(6) ?? "?"},{" "}
+                {hoveredPoleData.map_longitude?.toFixed(6) ?? "?"}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {!hoveredPoleData && hoveredSpanData && !panRef.current.active && (
         <div
           ref={tooltipRef}
           className="fixed z-50 pointer-events-none bg-slate-900/95 backdrop-blur-md text-slate-200 p-3 rounded-lg shadow-xl text-xs flex flex-col gap-1.5 border border-slate-700/50 min-w-[220px] transition-opacity duration-150"
@@ -3682,63 +4996,167 @@ export default function DxfViewer({
         />
       )}
 
-      {!loading && !error && poleScanStatus === "done" && (
-        <button
-          onClick={autoConnectPoles}
-          className="absolute bottom-[8.5rem] right-6 z-10 bg-white/95 backdrop-blur border border-blue-200 shadow-lg px-5 py-2.5 rounded-full font-semibold text-sm text-blue-700 hover:bg-blue-50 transition-all flex items-center gap-2"
-        >
-          ⚡ Auto-Connect Cables
-        </button>
-      )}
-
-      {!loading && !error && poleScanStatus === "done" && (
-        <button
-          onClick={() => {
-            // Open the tool in a new tab, passing the file path
-            window.open(
-              `http://localhost:8000/?dxf_path=${encodeURIComponent(dxfPath)}`,
-              "_blank",
-            );
-          }}
-          className="absolute bottom-[12.5rem] right-6 z-10 bg-indigo-600 shadow-lg px-5 py-2.5 rounded-full font-semibold text-sm text-white hover:bg-indigo-700 transition-all flex items-center gap-2"
-        >
-          🌍 Insert Coordinates
-        </button>
-      )}
-
       {!loading && !error && (
-        <button
-          onClick={togglePoles}
-          disabled={poleScanStatus !== "done"}
-          className={`absolute bottom-[4.5rem] right-6 z-10 bg-white/95 backdrop-blur border border-slate-200 shadow-lg px-5 py-2.5 rounded-full font-semibold text-sm flex items-center gap-2 transition-all ${poleScanStatus !== "done" ? "opacity-50 cursor-not-allowed" : "text-slate-700 hover:bg-slate-50"}`}
+        <div
+          className={`absolute bottom-6 z-10 flex flex-col items-end gap-4 ${selectedSpan ? "right-[23rem]" : "right-6"}`}
         >
-          {poleScanStatus === "processing" ? (
+          {poleScanStatus === "done" && (
             <>
-              <div className="w-4 h-4 border-2 border-slate-300 border-t-amber-500 rounded-full animate-spin" />
-              Scanning Poles...
+              <button
+                onClick={() => {
+                  pendingAutoCutRef.current = null;
+                  autoCutModeRef.current = "idle";
+                  setAutoCutMode("idle");
+                  cutHereModeRef.current = false;
+                  setCutHereMode(false);
+                  showPolesRef.current = true;
+                  setShowPoles(true);
+                  poleEditModeRef.current =
+                    poleEditMode === "add" ? "idle" : "add";
+                  setPoleEditMode((prev) => (prev === "add" ? "idle" : "add"));
+                  redraw();
+                }}
+                className={`w-52 justify-center bg-white/95 backdrop-blur border shadow-lg px-5 py-2.5 rounded-full font-semibold text-sm transition-all flex items-center gap-2 ${poleEditMode === "add" ? "border-emerald-300 text-emerald-700 hover:bg-emerald-50" : "border-slate-200 text-slate-700 hover:bg-slate-50"}`}
+              >
+                ➕ Add Pole
+              </button>
+              <button
+                onClick={() => {
+                  pendingAutoCutRef.current = null;
+                  autoCutModeRef.current = "idle";
+                  setAutoCutMode("idle");
+                  cutHereModeRef.current = false;
+                  setCutHereMode(false);
+                  showPolesRef.current = true;
+                  setShowPoles(true);
+                  poleEditModeRef.current =
+                    poleEditMode === "delete" ? "idle" : "delete";
+                  setPoleEditMode((prev) =>
+                    prev === "delete" ? "idle" : "delete",
+                  );
+                  redraw();
+                }}
+                className={`w-52 justify-center bg-white/95 backdrop-blur border shadow-lg px-5 py-2.5 rounded-full font-semibold text-sm transition-all flex items-center gap-2 ${poleEditMode === "delete" ? "border-red-300 text-red-700 hover:bg-red-50" : "border-slate-200 text-slate-700 hover:bg-slate-50"}`}
+              >
+                🗑️ Delete Pole
+              </button>
+              <button
+                onClick={() => {
+                  window.open(
+                    `http://localhost:8000/?dxf_path=${encodeURIComponent(dxfPath)}`,
+                    "_blank",
+                  );
+                }}
+                className="w-52 justify-center bg-indigo-600 shadow-lg px-5 py-2.5 rounded-full font-semibold text-sm text-white hover:bg-indigo-700 transition-all flex items-center gap-2"
+              >
+                🌍 Insert Coordinates
+              </button>
+              <button
+                onClick={() => autoConnectPoles()}
+                className="w-52 justify-center bg-white/95 backdrop-blur border border-blue-200 shadow-lg px-5 py-2.5 rounded-full font-semibold text-sm text-blue-700 hover:bg-blue-50 transition-all flex items-center gap-2"
+              >
+                ⚡ Auto-Connect Cables
+              </button>
+              <button
+                onClick={() => {
+                  const next = !cutHereModeRef.current;
+                  pendingAutoCutRef.current = null;
+                  autoCutModeRef.current = "idle";
+                  setAutoCutMode("idle");
+                  poleEditModeRef.current = "idle";
+                  setPoleEditMode("idle");
+                  cutHereModeRef.current = next;
+                  setCutHereMode(next);
+                  if (next) {
+                    showAutoCutNotice(
+                      "Cut Here mode: click the blue cable exactly where it should split.",
+                    );
+                  }
+                  redraw();
+                }}
+                className={`w-52 justify-center bg-white/95 backdrop-blur border shadow-lg px-5 py-2.5 rounded-full font-semibold text-sm transition-all flex items-center gap-2 ${cutHereMode ? "border-sky-300 text-sky-700 hover:bg-sky-50" : "border-slate-200 text-slate-700 hover:bg-slate-50"}`}
+              >
+                {cutHereMode ? "✖ Cancel Cut Here" : "✂ Cut Here"}
+              </button>
+              <button
+                onClick={() => {
+                  if (autoCutModeRef.current === "idle") {
+                    cutHereModeRef.current = false;
+                    setCutHereMode(false);
+                    poleEditModeRef.current = "idle";
+                    setPoleEditMode("idle");
+                    pendingAutoCutRef.current = null;
+                    autoCutModeRef.current = "pickSpan";
+                    setAutoCutMode("pickSpan");
+                  } else {
+                    pendingAutoCutRef.current = null;
+                    autoCutModeRef.current = "idle";
+                    setAutoCutMode("idle");
+                  }
+                }}
+                className="w-52 justify-center bg-white/95 backdrop-blur border border-rose-200 shadow-lg px-5 py-2.5 rounded-full font-semibold text-sm text-rose-700 hover:bg-rose-50 transition-all flex items-center gap-2"
+              >
+                {autoCutMode === "idle"
+                  ? "✂️ Auto Cut Spans"
+                  : autoCutMode === "pickSpan"
+                    ? "✖ Cancel Auto Cut"
+                    : "✖ Cancel Pole Pick"}
+              </button>
             </>
-          ) : showPoles ? (
-            "📍 Hide Poles"
-          ) : (
-            "📍 Display Poles"
           )}
-        </button>
+
+          <button
+            onClick={togglePoles}
+            disabled={poleScanStatus !== "done"}
+            className={`w-52 justify-center bg-white/95 backdrop-blur border border-slate-200 shadow-lg px-5 py-2.5 rounded-full font-semibold text-sm flex items-center gap-2 transition-all ${poleScanStatus !== "done" ? "opacity-50 cursor-not-allowed" : "text-slate-700 hover:bg-slate-50"}`}
+          >
+            {poleScanStatus === "processing" ? (
+              <>
+                <div className="w-4 h-4 border-2 border-slate-300 border-t-amber-500 rounded-full animate-spin" />
+                Scanning Poles...
+              </>
+            ) : showPoles ? (
+              "📍 Hide Poles"
+            ) : (
+              "📍 Display Poles"
+            )}
+          </button>
+          <button
+            onClick={toggleActives}
+            disabled={activesLoading}
+            className="w-52 justify-center bg-white/95 backdrop-blur border border-slate-200 shadow-lg px-5 py-2.5 rounded-full font-semibold text-sm text-slate-700 hover:bg-slate-50 transition-all flex items-center gap-2"
+          >
+            {activesLoading ? (
+              <div className="w-4 h-4 border-2 border-slate-300 border-t-purple-500 rounded-full animate-spin" />
+            ) : showActives ? (
+              "👁️ Hide Actives"
+            ) : (
+              "🔌 Show Actives"
+            )}
+          </button>
+        </div>
       )}
 
-      {!loading && !error && (
-        <button
-          onClick={toggleActives}
-          disabled={activesLoading}
-          className="absolute bottom-6 right-6 z-10 bg-white/95 backdrop-blur border border-slate-200 shadow-lg px-5 py-2.5 rounded-full font-semibold text-sm text-slate-700 hover:bg-slate-50 transition-all flex items-center gap-2"
-        >
-          {activesLoading ? (
-            <div className="w-4 h-4 border-2 border-slate-300 border-t-purple-500 rounded-full animate-spin" />
-          ) : showActives ? (
-            "👁️ Hide Actives"
-          ) : (
-            "🔌 Show Actives"
-          )}
-        </button>
+      {!loading &&
+        !error &&
+        (poleEditMode !== "idle" || autoCutMode !== "idle" || cutHereMode) && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 bg-white/95 backdrop-blur border border-slate-200 shadow-lg px-4 py-2 rounded-full text-sm font-semibold text-slate-700">
+          {cutHereMode
+            ? "Cut Here mode: click the exact spot on the blue cable"
+            : autoCutMode === "pickSpan"
+            ? "Auto Cut mode: click the cable line you want to cut"
+            : autoCutMode === "pickPole"
+              ? "Auto Cut mode: now click the nearby pole that should guide the cut"
+            : poleEditMode === "add"
+            ? "Add Pole mode: click on the DXF viewer to place a pole"
+            : "Delete Pole mode: click an existing pole to remove it"}
+        </div>
+      )}
+
+      {!loading && !error && autoCutNotice && (
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-10 bg-amber-50/95 backdrop-blur border border-amber-200 shadow-lg px-4 py-2 rounded-full text-sm font-semibold text-amber-800">
+          {autoCutNotice}
+        </div>
       )}
 
       {deletedSpans.length > 0 && !loading && !error && (

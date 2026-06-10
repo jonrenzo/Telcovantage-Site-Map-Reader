@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import PsgcCascader, { type PsgcValue } from "./PsgcCascader";
 import type {
   PoleTag,
   AsbuiltSite,
@@ -57,6 +58,26 @@ const EMPTY_COMPONENTS: SpanComponentCounts = {
   ps_housing: 0,
 };
 
+type ResolvedAsbuiltSpan = {
+  span_id: number;
+  source_span_id?: number | null;
+  from_pole_index: string;
+  to_pole_index: string;
+  strand_length: number;
+  number_of_runs: number;
+  components: SpanComponentCounts;
+};
+
+type PendingResolvedAsbuiltSpan = {
+  span_id: number;
+  source_span_id?: number | null;
+  from_pole_index?: string;
+  to_pole_index?: string;
+  strand_length: number;
+  number_of_runs: number;
+  components: SpanComponentCounts;
+};
+
 function getEquipmentDisplayKind(shape: EquipmentShape): string {
   if (shape.kind === "rectangle") {
     const layer = shape.layer.toLowerCase();
@@ -105,6 +126,23 @@ function pointToSegmentDistance(
   const cx = x1 + t * dx;
   const cy = y1 + t * dy;
   return Math.hypot(px - cx, py - cy);
+}
+
+function normalizeSpanPairKey(fromIndex: string, toIndex: string): string {
+  return [fromIndex, toIndex].sort().join("::");
+}
+
+function compareResolvedSpanPriority(
+  left: ResolvedAsbuiltSpan,
+  right: ResolvedAsbuiltSpan,
+): number {
+  if (left.number_of_runs !== right.number_of_runs) {
+    return left.number_of_runs - right.number_of_runs;
+  }
+  if (left.strand_length !== right.strand_length) {
+    return left.strand_length - right.strand_length;
+  }
+  return right.span_id - left.span_id;
 }
 
 function mergePoleCollections(
@@ -170,6 +208,16 @@ export default function AsbuiltExportModal({
   >(null);
   const [manualForm, setManualForm] =
     useState<ManualNodeForm>(EMPTY_MANUAL_FORM);
+
+  // Shared PSGC area (region/province/city/barangay) used by BOTH the manual node
+  // form and the existing-node path, so location is picked from dropdowns, not typed.
+  const EMPTY_PSGC: PsgcValue = {
+    region: "",
+    province: "",
+    city: "",
+    barangay_name: "",
+  };
+  const [psgcArea, setPsgcArea] = useState<PsgcValue>(EMPTY_PSGC);
 
   const derivedNodeId = (() => {
     if (!dxfPath) return "";
@@ -430,19 +478,12 @@ export default function AsbuiltExportModal({
   }
 
   function getAreaData() {
-    if (selectionMode === "manual") {
-      return {
-        region: manualForm.region,
-        province: manualForm.province,
-        city: manualForm.city,
-        barangay_name: manualForm.barangay_name,
-      };
-    }
+    // Both manual and existing-node paths now pick location from the PSGC dropdowns.
     return {
-      region: "",
-      province: "",
-      city: "",
-      barangay_name: "",
+      region: psgcArea.region,
+      province: psgcArea.province,
+      city: psgcArea.city,
+      barangay_name: psgcArea.barangay_name,
     };
   }
 
@@ -811,7 +852,7 @@ export default function AsbuiltExportModal({
       spanComponentMap.set(closestSpanId, counts);
     }
 
-    const asbuiltSpans = cableSpans
+    const resolvedSpanCandidates: PendingResolvedAsbuiltSpan[] = cableSpans
       .filter((s) => s.from_pole && s.to_pole)
       .map((s) => {
         const fromCandidates = buildSpanPoleCandidates(
@@ -851,6 +892,8 @@ export default function AsbuiltExportModal({
         }
         const components = spanComponentMap.get(s.span_id) ?? EMPTY_COMPONENTS;
         return {
+          span_id: s.span_id,
+          source_span_id: s.source_span_id ?? s.span_id,
           from_pole_index: fromIndex,
           to_pole_index: toIndex,
           strand_length: s.meter_value ?? s.total_length,
@@ -859,11 +902,50 @@ export default function AsbuiltExportModal({
         };
       })
       .filter(
-        (span) =>
-          typeof span.from_pole_index === "string" &&
-          typeof span.to_pole_index === "string" &&
-          span.from_pole_index !== span.to_pole_index,
+        Boolean,
       );
+
+    const resolvedSpans = resolvedSpanCandidates.filter(
+      (span): span is ResolvedAsbuiltSpan =>
+        typeof span.from_pole_index === "string" &&
+        typeof span.to_pole_index === "string" &&
+        span.from_pole_index !== span.to_pole_index,
+    );
+
+    const duplicateSpanGroups = new Map<string, ResolvedAsbuiltSpan[]>();
+    for (const span of resolvedSpans) {
+      const key = normalizeSpanPairKey(
+        span.from_pole_index,
+        span.to_pole_index,
+      );
+      const group = duplicateSpanGroups.get(key) ?? [];
+      group.push(span);
+      duplicateSpanGroups.set(key, group);
+    }
+
+    const asbuiltSpans = Array.from(duplicateSpanGroups.values()).map((group) =>
+      group.reduce((best, candidate) =>
+        compareResolvedSpanPriority(candidate, best) > 0 ? candidate : best,
+      ),
+    );
+
+    const droppedDuplicateSpanIds = Array.from(duplicateSpanGroups.values())
+      .filter((group) => group.length > 1)
+      .flatMap((group) => {
+        const kept = group.reduce((best, candidate) =>
+          compareResolvedSpanPriority(candidate, best) > 0 ? candidate : best,
+        );
+        return group
+          .filter((span) => span.span_id !== kept.span_id)
+          .map((span) => span.span_id);
+      });
+
+    if (droppedDuplicateSpanIds.length > 0) {
+      console.warn(
+        "[AsBuilt export] Dropping duplicate span uploads for identical pole pairs:",
+        droppedDuplicateSpanIds,
+      );
+    }
 
     if (asbuiltPoles.length === 0) {
       setError(
@@ -895,6 +977,7 @@ export default function AsbuiltExportModal({
     if (areaData.region) payload.region = areaData.region;
     if (areaData.province) payload.province = areaData.province;
     if (areaData.city) payload.city = areaData.city;
+    if (areaData.barangay_name) payload.barangay_name = areaData.barangay_name;
     if (selectedSubcontractorId) payload.subcontractor_id = selectedSubcontractorId;
     if (selectedTeamId) payload.team_id = selectedTeamId;
 
@@ -944,6 +1027,7 @@ export default function AsbuiltExportModal({
     setSelectionMode(null);
     setSelectedNode(null);
     setManualForm(EMPTY_MANUAL_FORM);
+    setPsgcArea(EMPTY_PSGC);
     setSelectedSubcontractorId(null);
     setSelectedTeamId(null);
     setTeams([]);
@@ -1326,73 +1410,8 @@ export default function AsbuiltExportModal({
                                 className="w-full px-3 py-2 rounded-lg border border-border bg-white text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent"
                               />
                             </div>
-                            <div>
-                              <label className="block text-xs font-medium text-muted mb-1">
-                                Region
-                              </label>
-                              <input
-                                type="text"
-                                value={manualForm.region}
-                                onChange={(e) =>
-                                  setManualForm((f) => ({
-                                    ...f,
-                                    region: e.target.value,
-                                  }))
-                                }
-                                placeholder='e.g. "CALABARZON"'
-                                className="w-full px-3 py-2 rounded-lg border border-border bg-white text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-xs font-medium text-muted mb-1">
-                                Province
-                              </label>
-                              <input
-                                type="text"
-                                value={manualForm.province}
-                                onChange={(e) =>
-                                  setManualForm((f) => ({
-                                    ...f,
-                                    province: e.target.value,
-                                  }))
-                                }
-                                placeholder='e.g. "LAGUNA"'
-                                className="w-full px-3 py-2 rounded-lg border border-border bg-white text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-xs font-medium text-muted mb-1">
-                                City
-                              </label>
-                              <input
-                                type="text"
-                                value={manualForm.city}
-                                onChange={(e) =>
-                                  setManualForm((f) => ({
-                                    ...f,
-                                    city: e.target.value,
-                                  }))
-                                }
-                                placeholder='e.g. "STA. ROSA"'
-                                className="w-full px-3 py-2 rounded-lg border border-border bg-white text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-xs font-medium text-muted mb-1">
-                                Barangay Name
-                              </label>
-                              <input
-                                type="text"
-                                value={manualForm.barangay_name}
-                                onChange={(e) =>
-                                  setManualForm((f) => ({
-                                    ...f,
-                                    barangay_name: e.target.value,
-                                  }))
-                                }
-                                placeholder='e.g. "Balibago"'
-                                className="w-full px-3 py-2 rounded-lg border border-border bg-white text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent"
-                              />
+                            <div className="col-span-2">
+                              <PsgcCascader value={psgcArea} onChange={setPsgcArea} />
                             </div>
                           </div>
                         </div>
@@ -1430,6 +1449,17 @@ export default function AsbuiltExportModal({
                             </span>
                           </div>
                         </div>
+
+                        {/* PSGC location for an EXISTING backend node (manual mode
+                            already has these dropdowns in its form above). */}
+                        {selectionMode === "existing" && (
+                          <div className="rounded-xl border border-border bg-white p-4 space-y-3">
+                            <p className="text-xs font-semibold text-muted uppercase tracking-wider">
+                              Area / Location (PSGC)
+                            </p>
+                            <PsgcCascader value={psgcArea} onChange={setPsgcArea} />
+                          </div>
+                        )}
 
                         <div className="rounded-xl border border-border bg-white p-4 space-y-3">
                           <div>

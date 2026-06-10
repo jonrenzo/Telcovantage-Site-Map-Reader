@@ -62,6 +62,7 @@ export interface PoleTag {
 
 export interface CableSpanExport {
     span_id: number;
+    source_span_id?: number | null;
     layer: string;
     bbox: [number, number, number, number];
     cx: number;
@@ -70,6 +71,7 @@ export interface CableSpanExport {
     total_length: number;
     meter_value?: number | null;
     cable_runs: number;
+    display_segments?: Segment[];
     from_pole?: string | null;
     to_pole?: string | null;
     from_pole_id?: number | null;

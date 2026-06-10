@@ -589,35 +589,60 @@ export default function PoleLayout({
     if (e.data?.type === "GEO_COORDINATES" && Array.isArray(e.data.payload)) {
       const geoPayload = e.data.payload as any[];
       const TOLERANCE = 5.0;
-      const matchedGeo = new Set<number>();
+      const nextTags = tags.map((tag) => ({ ...tag }));
+      const byId = new Map<number, number>();
+      nextTags.forEach((tag, idx) => {
+        byId.set(tag.pole_id, idx);
+      });
 
-      const resultUpdated = tags.map((t) => {
-        let bestDist = Infinity;
-        let bestLat = 0;
-        let bestLon = 0;
+      const matchedGeo = new Set<number>();
+      const findNearestTagIndex = (cadX: number, cadY: number) => {
         let bestIdx = -1;
-        geoPayload.forEach((g: any, idx: number) => {
-          const dist = Math.hypot(t.cx - g.cad_x, t.cy - g.cad_y);
+        let bestDist = Infinity;
+        nextTags.forEach((tag, idx) => {
+          const dist = Math.hypot(tag.cx - cadX, tag.cy - cadY);
           if (dist < TOLERANCE && dist < bestDist) {
             bestDist = dist;
-            bestLat = g.map_latitude;
-            bestLon = g.map_longitude;
             bestIdx = idx;
           }
         });
-        if (bestIdx >= 0) {
-          matchedGeo.add(bestIdx);
-          return { ...t, map_latitude: bestLat, map_longitude: bestLon };
+        return bestIdx;
+      };
+
+      geoPayload.forEach((g: any, idx: number) => {
+        if (g?.map_latitude == null || g?.map_longitude == null) {
+          return;
         }
-        return t;
+
+        const hasNumericPoleId = typeof g.pole_id === "number";
+        let tagIdx = hasNumericPoleId ? (byId.get(g.pole_id) ?? -1) : -1;
+        if (!hasNumericPoleId && tagIdx < 0) {
+          tagIdx = findNearestTagIndex(g.cad_x, g.cad_y);
+        }
+
+        if (tagIdx >= 0) {
+          matchedGeo.add(idx);
+          nextTags[tagIdx] = {
+            ...nextTags[tagIdx],
+            map_latitude: g.map_latitude,
+            map_longitude: g.map_longitude,
+          };
+        }
       });
 
       const newTags = geoPayload
         .filter((_: any, idx: number) => !matchedGeo.has(idx))
         .filter((g: any) => g.map_latitude != null && g.map_longitude != null)
+        .filter((g: any) => {
+          const hasNumericPoleId = typeof g.pole_id === "number";
+          if (hasNumericPoleId) {
+            return byId.get(g.pole_id) == null;
+          }
+          return findNearestTagIndex(g.cad_x, g.cad_y) < 0;
+        })
         .map((g: any) => ({
           pole_id: g.pole_id,
-          name: g.name,
+          name: g.name || "NPT",
           cx: g.cad_x,
           cy: g.cad_y,
           bbox: [0, 0, 0, 0] as [number, number, number, number],
@@ -633,7 +658,7 @@ export default function PoleLayout({
       // Remove OCR-detected "NPT" text annotations when GeoTool NPTs exist
       const dedupedResult =
         newTags.length > 0
-          ? resultUpdated.filter(
+          ? nextTags.filter(
               (t: any) =>
                 !(
                   t.name === "NPT" &&
@@ -641,7 +666,7 @@ export default function PoleLayout({
                   (t.map_latitude == null || t.map_longitude == null)
                 ),
             )
-          : resultUpdated;
+          : nextTags;
       const finalTags = [...dedupedResult, ...newTags] as typeof tags;
       setTags(finalTags);
       onCacheUpdate({ poleTags: finalTags, poleDone: true });
