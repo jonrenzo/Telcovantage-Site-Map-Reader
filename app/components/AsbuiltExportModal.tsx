@@ -145,6 +145,10 @@ function compareResolvedSpanPriority(
   return right.span_id - left.span_id;
 }
 
+function normalizeNodeId(value?: string | null): string {
+  return (value || "").trim().toUpperCase();
+}
+
 function mergePoleCollections(
   cachedPoles: PoleTag[],
   apiPoles: PoleTag[],
@@ -494,6 +498,21 @@ export default function AsbuiltExportModal({
         : selectedNode;
     if (!targetNode || !targetNode.node_id || !targetNode.name) return;
     if (!selectedSiteId) return;
+
+    if (selectionMode === "manual") {
+      const duplicateNode = nodes.find(
+        (node) => normalizeNodeId(node.node_id) === normalizeNodeId(targetNode.node_id),
+      );
+      if (duplicateNode) {
+        setError(
+          `Node ID "${targetNode.node_id}" already exists in this site as ` +
+            `"${duplicateNode.full_label || duplicateNode.name || duplicateNode.node_id}". ` +
+            "Choose the existing node or use a different Node ID.",
+        );
+        setStep("error");
+        return;
+      }
+    }
 
     setStep("posting");
 
@@ -1022,6 +1041,14 @@ export default function AsbuiltExportModal({
 
   const selectedSite = sites.find((s) => s.id === selectedSiteId);
   const spanCount = cableSpans.filter((s) => s.from_pole && s.to_pole).length;
+  const duplicateManualNode =
+    selectionMode === "manual" && normalizeNodeId(manualForm.node_id)
+      ? nodes.find(
+          (node) =>
+            normalizeNodeId(node.node_id) === normalizeNodeId(manualForm.node_id),
+        ) ?? null
+      : null;
+  const hasDuplicateManualNode = duplicateManualNode != null;
 
   function resetToSiteSelect() {
     setSelectionMode(null);
@@ -1395,8 +1422,20 @@ export default function AsbuiltExportModal({
                                   }))
                                 }
                                 placeholder='e.g. "TY1501"'
-                                className="w-full px-3 py-2 rounded-lg border border-border bg-white text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent"
+                                className={`w-full px-3 py-2 rounded-lg border bg-white text-sm text-text focus:outline-none focus:ring-2 ${
+                                  hasDuplicateManualNode
+                                    ? "border-red-300 focus:ring-red-400"
+                                    : "border-border focus:ring-accent"
+                                }`}
                               />
+                              {hasDuplicateManualNode && (
+                                <p className="mt-1 text-xs text-red-600">
+                                  Node ID already exists in this site
+                                  {duplicateManualNode?.name
+                                    ? `: ${duplicateManualNode.name}`
+                                    : "."}
+                                </p>
+                              )}
                             </div>
                             <div className="col-span-2 sm:col-span-1">
                               <label className="block text-xs font-medium text-muted mb-1">
@@ -1553,7 +1592,9 @@ export default function AsbuiltExportModal({
                         !selectionMode ||
                         (selectionMode === "existing" && !selectedNode) ||
                         (selectionMode === "manual" &&
-                          (!manualForm.node_id || !manualForm.node_name))
+                          (!manualForm.node_id ||
+                            !manualForm.node_name ||
+                            hasDuplicateManualNode))
                       }
                       className="px-5 py-2 text-sm font-semibold rounded-lg bg-[#00704A] text-white hover:bg-[#005a3a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >

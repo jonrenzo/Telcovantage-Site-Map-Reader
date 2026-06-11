@@ -2445,14 +2445,9 @@ export default function DxfViewer({
     if (!polesRef.current.length || !cableSpansRef.current.length) return;
     const preserveExistingAssignments =
       options?.preserveExistingAssignments === true;
-    const BUFFER_RADIUS = 60, // raised 30→60 so an NPT sitting near the cable end
-      // is found directly instead of ray-casting onward to a far pole (T600/POLE_027)
-      LOCAL_RADIUS = 85,
-      RAY_MAX_DIST = 110,
-      RAY_TOLERANCE = 10;
-
-    const normalizePoleName = (value?: string | null) =>
-      (value || "").trim().toUpperCase();
+    const BUFFER_RADIUS = 30;
+    const RAY_MAX_DIST = 150;
+    const RAY_TOLERANCE = 15;
 
     const previousSpans = cableSpansRef.current.map((s) => ({ ...s }));
     const previousDeleted = deletedSpansRef.current.map((d) => ({ ...d }));
@@ -2466,7 +2461,7 @@ export default function DxfViewer({
       }
 
       if (span.segments.length === 0) return span;
-      const endpoints = getOrderedSpanEndpoints(span.segments);
+      const endpoints = findSpanEndpoints(span.segments);
       if (!endpoints) return span;
       const [endpointA, endpointB] = endpoints;
       const ptA = endpointA.pt;
@@ -2474,14 +2469,14 @@ export default function DxfViewer({
       const ptB = endpointB.pt;
       const ptB_in = endpointB.inward;
 
-      const collectPoleCandidatesForEndpoint = (
-        poles: PoleTag[],
+      const findPoleForEndpoint = (
         pt: { x: number; y: number },
         pt_in: { x: number; y: number },
-      ): Array<{ pole: PoleTag; score: number }> => {
-        const bufferCandidates: Array<{ pole: PoleTag; score: number }> = [];
-        const localCandidates: Array<{ pole: PoleTag; score: number }> = [];
-        for (const pole of poles) {
+      ): PoleTag | null => {
+        let closestPole: PoleTag | null = null;
+        let minDist = Infinity;
+
+        for (const pole of polesRef.current) {
           if (
             maskEnabledRef.current &&
             boundaryRef.current &&
@@ -2491,33 +2486,23 @@ export default function DxfViewer({
           }
 
           const dist = Math.hypot(pole.cx - pt.x, pole.cy - pt.y);
-          if (dist < BUFFER_RADIUS) {
-            bufferCandidates.push({ pole, score: dist });
-            continue;
-          }
-          if (dist < LOCAL_RADIUS) {
-            localCandidates.push({ pole, score: dist });
+          if (dist < BUFFER_RADIUS && dist < minDist) {
+            minDist = dist;
+            closestPole = pole;
           }
         }
 
-        bufferCandidates.sort((a, b) => a.score - b.score);
-        if (bufferCandidates.length > 0) {
-          return bufferCandidates.slice(0, 4);
-        }
+        if (closestPole) return closestPole;
 
-        localCandidates.sort((a, b) => a.score - b.score);
-        if (localCandidates.length > 0) {
-          return localCandidates.slice(0, 4);
-        }
-
-        if (pt.x === pt_in.x && pt.y === pt_in.y) return [];
+        if (pt.x === pt_in.x && pt.y === pt_in.y) return null;
 
         const angle = Math.atan2(pt.y - pt_in.y, pt.x - pt_in.x);
         const rayEndX = pt.x + Math.cos(angle) * RAY_MAX_DIST;
         const rayEndY = pt.y + Math.sin(angle) * RAY_MAX_DIST;
-        const rayCandidates: Array<{ pole: PoleTag; score: number }> = [];
+        closestPole = null;
+        minDist = Infinity;
 
-        for (const pole of poles) {
+        for (const pole of polesRef.current) {
           if (
             maskEnabledRef.current &&
             boundaryRef.current &&
@@ -2536,131 +2521,24 @@ export default function DxfViewer({
           );
           if (distToRay < RAY_TOLERANCE) {
             const distToPole = Math.hypot(pole.cx - pt.x, pole.cy - pt.y);
-            rayCandidates.push({ pole, score: distToPole });
-          }
-        }
-
-        rayCandidates.sort((a, b) => a.score - b.score);
-        if (rayCandidates.length > 0) {
-          return rayCandidates.slice(0, 4);
-        }
-
-        return poles
-          .map((pole) => ({
-            pole,
-            score: Math.hypot(pole.cx - pt.x, pole.cy - pt.y),
-          }))
-          .sort((a, b) => a.score - b.score)
-          .slice(0, 4);
-      };
-
-      const findPoleCandidatesForEndpoint = (
-        pt: { x: number; y: number },
-        pt_in: { x: number; y: number },
-        preferredName?: string | null,
-      ): Array<{ pole: PoleTag; score: number }> => {
-        const normalizedName = normalizePoleName(preferredName);
-        if (normalizedName) {
-          const namedPoles = polesRef.current.filter(
-            (pole) => normalizePoleName(pole.name) === normalizedName,
-          );
-          if (namedPoles.length > 0) {
-            const namedCandidates = collectPoleCandidatesForEndpoint(
-              namedPoles,
-              pt,
-              pt_in,
-            );
-            if (namedCandidates.length > 0) {
-              return namedCandidates;
+            if (distToPole < minDist) {
+              minDist = distToPole;
+              closestPole = pole;
             }
           }
         }
 
-        return collectPoleCandidatesForEndpoint(polesRef.current, pt, pt_in);
+        return closestPole;
       };
 
-      const fromCandidates = findPoleCandidatesForEndpoint(
-        ptA,
-        ptA_in,
-        preserveExistingAssignments ? span.from_pole : null,
-      );
-      const toCandidates = findPoleCandidatesForEndpoint(
-        ptB,
-        ptB_in,
-        preserveExistingAssignments ? span.to_pole : null,
-      );
-
-      const existingFromPole =
-        preserveExistingAssignments && span.from_pole_id != null
-          ? polesRef.current.find((pole) => pole.pole_id === span.from_pole_id) ?? null
-          : null;
-      const existingToPole =
-        preserveExistingAssignments && span.to_pole_id != null
-          ? polesRef.current.find((pole) => pole.pole_id === span.to_pole_id) ?? null
-          : null;
-
-      let fromResult = existingFromPole ?? fromCandidates[0]?.pole ?? null;
-      let toResult = existingToPole ?? toCandidates[0]?.pole ?? null;
-      const fromLocked =
-        preserveExistingAssignments &&
-        (existingFromPole != null ||
-          (existingFromPole == null &&
-            typeof span.from_pole === "string" &&
-            span.from_pole.trim().length > 0));
-      const toLocked =
-        preserveExistingAssignments &&
-        (existingToPole != null ||
-          (existingToPole == null &&
-            typeof span.to_pole === "string" &&
-            span.to_pole.trim().length > 0));
-
-      if (!fromLocked && !toLocked) {
-        // Pair each endpoint with its OWN nearest pole independently. Candidates
-        // are already sorted by distance, so [0] is the nearest to that endpoint.
-        // (User-selected default: nearest-per-endpoint instead of summing.)
-        const nearestFrom = fromCandidates[0] ?? null;
-        const nearestTo = toCandidates[0] ?? null;
-
-        if (nearestFrom && nearestTo) {
-          if (nearestFrom.pole.pole_id === nearestTo.pole.pole_id) {
-            // Both ends resolved to the same pole — keep it on the endpoint it is
-            // closer to, and bump the other end to its next distinct candidate.
-            if (nearestFrom.score <= nearestTo.score) {
-              fromResult = nearestFrom.pole;
-              toResult =
-                toCandidates.find(
-                  (c) => c.pole.pole_id !== nearestFrom.pole.pole_id,
-                )?.pole ?? toResult;
-            } else {
-              toResult = nearestTo.pole;
-              fromResult =
-                fromCandidates.find(
-                  (c) => c.pole.pole_id !== nearestTo.pole.pole_id,
-                )?.pole ?? fromResult;
-            }
-          } else {
-            fromResult = nearestFrom.pole;
-            toResult = nearestTo.pole;
-          }
-        } else {
-          fromResult = nearestFrom?.pole ?? fromResult;
-          toResult = nearestTo?.pole ?? toResult;
-        }
-      } else if (fromLocked && !toLocked) {
-        const distinctToCandidate = toCandidates.find(
-          (candidate) => candidate.pole.pole_id !== existingFromPole?.pole_id,
-        );
-        if (distinctToCandidate) {
-          toResult = distinctToCandidate.pole;
-        }
-      } else if (!fromLocked && toLocked) {
-        const distinctFromCandidate = fromCandidates.find(
-          (candidate) => candidate.pole.pole_id !== existingToPole?.pole_id,
-        );
-        if (distinctFromCandidate) {
-          fromResult = distinctFromCandidate.pole;
-        }
-      }
+      const fromResult =
+        preserveExistingAssignments && hasExistingFrom
+          ? null
+          : findPoleForEndpoint(ptA, ptA_in);
+      const toResult =
+        preserveExistingAssignments && hasExistingTo
+          ? null
+          : findPoleForEndpoint(ptB, ptB_in);
 
       return {
         ...span,
