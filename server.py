@@ -4262,15 +4262,16 @@ def v1_asbuilt_import_by_sequence():
 
     spans = body.get("spans")
     skipped_spans = 0
+    span_defaults = {
+        "node": 0,
+        "amplifier": 0,
+        "extender": 0,
+        "tsc": 0,
+        "powersupply": 0,
+        "ps_housing": 0,
+    }
+    component_totals = dict(span_defaults)
     if spans and isinstance(spans, list):
-        span_defaults = {
-            "node": 0,
-            "amplifier": 0,
-            "extender": 0,
-            "tsc": 0,
-            "powersupply": 0,
-            "ps_housing": 0,
-        }
         cleaned = []
         for s in spans:
             if not isinstance(s, dict):
@@ -4290,6 +4291,14 @@ def v1_asbuilt_import_by_sequence():
             comp = dict(span_defaults)
             if isinstance(s.get("components"), dict):
                 comp.update(s["components"])
+            for key in span_defaults:
+                try:
+                    count = int(comp.get(key) or 0)
+                except (TypeError, ValueError):
+                    count = 0
+                if count < 0:
+                    count = 0
+                comp[key] = count
             strand_length = _safe_float(s.get("strand_length"))
             try:
                 number_of_runs = int(s.get("number_of_runs", 1))
@@ -4299,6 +4308,8 @@ def v1_asbuilt_import_by_sequence():
             if strand_length is None or number_of_runs < 1:
                 skipped_spans += 1
                 continue
+            for key in span_defaults:
+                component_totals[key] += comp[key]
             cleaned.append(
                 {
                     "from_pole_index": frm,
@@ -4318,59 +4329,53 @@ def v1_asbuilt_import_by_sequence():
         "spans": len(payload.get("spans", [])),
         "skipped_poles": skipped_poles,
         "skipped_spans": skipped_spans,
+        "components": component_totals,
     }
 
     try:
-        from app_python.services.asbuilt_api import import_data_by_sequence
+        from app_python.services.asbuilt_api import get_nodes, import_data_by_sequence
 
-        chunk_size = 25
-        spans_payload = payload.get("spans", [])
-        if not spans_payload:
-            result = import_data_by_sequence(payload)
-            return _v1_ok(result)
-
-        node_result = None
-        created_poles: set[str] = set()
-        updated_poles: set[str] = set()
-        created_spans: set[str] = set()
-        updated_spans: set[str] = set()
-        combined_errors: list[str] = []
-
-        for chunk_start in range(0, len(spans_payload), chunk_size):
-            chunk_number = (chunk_start // chunk_size) + 1
-            chunk_spans = spans_payload[chunk_start : chunk_start + chunk_size]
-            chunk_payload = dict(payload)
-            chunk_payload["spans"] = chunk_spans
-            print(
-                f"[asbuilt-sequence] Sending chunk {chunk_number} "
-                f"with {len(chunk_spans)} spans and {len(cleaned_poles)} poles"
+        area_id = body.get("area_id")
+        if area_id:
+            nodes_response = get_nodes(int(area_id))
+            nodes_payload = (
+                nodes_response.get("nodes")
+                if isinstance(nodes_response, dict)
+                else nodes_response
             )
+            if isinstance(nodes_payload, dict):
+                nodes_payload = nodes_payload.get("nodes", [])
+            if not isinstance(nodes_payload, list):
+                nodes_payload = []
 
-            chunk_result = import_data_by_sequence(chunk_payload)
-            chunk_data = chunk_result.get("data", {}) if isinstance(chunk_result, dict) else {}
-            if chunk_data.get("node"):
-                node_result = chunk_data["node"]
-            created_poles.update(chunk_data.get("poles_created", []) or [])
-            updated_poles.update(chunk_data.get("poles_updated", []) or [])
-            created_spans.update(chunk_data.get("spans_created", []) or [])
-            updated_spans.update(chunk_data.get("spans_updated", []) or [])
-            combined_errors.extend(chunk_data.get("errors", []) or [])
+            normalized_node_id = str(node_id).strip().upper()
+            duplicate_node = next(
+                (
+                    node
+                    for node in nodes_payload
+                    if str(node.get("node_id", "")).strip().upper()
+                    == normalized_node_id
+                ),
+                None,
+            )
+            if duplicate_node:
+                existing_label = (
+                    duplicate_node.get("full_label")
+                    or duplicate_node.get("name")
+                    or duplicate_node.get("node_id")
+                )
+                existing_db_id = duplicate_node.get("id")
+                return _v1_err(
+                    "Node ID already exists in the selected site before import. "
+                    f"Existing node: {existing_label}"
+                    f"{f' (database id {existing_db_id})' if existing_db_id else ''}. "
+                    "Delete that partial/old node first or use a fresh exact Node ID.",
+                    409,
+                )
 
-        return _v1_ok(
-            {
-                "message": "AsBuilt sequence import completed.",
-                "data": {
-                    "node": node_result,
-                    "poles_created": sorted(created_poles),
-                    "poles_updated": sorted(updated_poles),
-                    "spans_created": sorted(created_spans),
-                    "spans_updated": sorted(updated_spans),
-                    "total_poles": len(cleaned_poles),
-                    "total_spans": len(created_spans) + len(updated_spans),
-                    "errors": combined_errors,
-                },
-            }
-        )
+        print(f"[asbuilt-sequence] Sending import. Summary={payload_summary}")
+        result = import_data_by_sequence(payload)
+        return _v1_ok(result)
     except Exception as e:
         status = 502
         detail = str(e)

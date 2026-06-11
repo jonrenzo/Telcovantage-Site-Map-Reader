@@ -58,6 +58,40 @@ const EMPTY_COMPONENTS: SpanComponentCounts = {
   ps_housing: 0,
 };
 
+const COMPONENT_KEYS = Object.keys(
+  EMPTY_COMPONENTS,
+) as Array<keyof SpanComponentCounts>;
+
+const COMPONENT_LABELS: Record<keyof SpanComponentCounts, string> = {
+  node: "Node",
+  amplifier: "Amplifier",
+  extender: "Line Extender",
+  tsc: "Taps / Splitters",
+  powersupply: "Power Supply",
+  ps_housing: "PS Housing",
+};
+
+const EQUIPMENT_KIND_LABELS: Record<string, string> = {
+  circle: "2 Way Tap",
+  splitter: "Splitter",
+  square: "4 Way Tap",
+  hexagon: "8 Way Tap",
+  node: "Node",
+  amplifier: "Amplifier",
+  rectangle: "Node / Amplifier",
+  triangle: "Line Extender",
+};
+
+const EQUIPMENT_KIND_ORDER = [
+  "circle",
+  "splitter",
+  "square",
+  "hexagon",
+  "node",
+  "amplifier",
+  "triangle",
+];
+
 type ResolvedAsbuiltSpan = {
   span_id: number;
   source_span_id?: number | null;
@@ -76,6 +110,11 @@ type PendingResolvedAsbuiltSpan = {
   strand_length: number;
   number_of_runs: number;
   components: SpanComponentCounts;
+};
+
+type DuplicateNodeMatch = {
+  node: AsbuiltNode;
+  site: AsbuiltSite | null;
 };
 
 function getEquipmentDisplayKind(shape: EquipmentShape): string {
@@ -103,6 +142,37 @@ function getEquipmentComponentKey(
     return "tsc";
   }
   return null;
+}
+
+function sumComponentCounts(counts: SpanComponentCounts): number {
+  return Object.values(counts).reduce((sum, value) => sum + value, 0);
+}
+
+function addComponentCounts(
+  target: SpanComponentCounts,
+  source: SpanComponentCounts,
+): SpanComponentCounts {
+  const next = { ...target };
+  for (const key of COMPONENT_KEYS) {
+    next[key] += source[key] ?? 0;
+  }
+  return next;
+}
+
+function buildEquipmentComponentPreview(shapes: EquipmentShape[]) {
+  const components: SpanComponentCounts = { ...EMPTY_COMPONENTS };
+  const byKind: Record<string, number> = {};
+
+  for (const shape of shapes) {
+    const componentKey = getEquipmentComponentKey(shape);
+    if (!componentKey) continue;
+
+    components[componentKey] += 1;
+    const kind = getEquipmentDisplayKind(shape);
+    byKind[kind] = (byKind[kind] ?? 0) + 1;
+  }
+
+  return { components, byKind };
 }
 
 function pointToSegmentDistance(
@@ -212,6 +282,9 @@ export default function AsbuiltExportModal({
   >(null);
   const [manualForm, setManualForm] =
     useState<ManualNodeForm>(EMPTY_MANUAL_FORM);
+  const [selectedSiteDuplicateManualNode, setSelectedSiteDuplicateManualNode] =
+    useState<DuplicateNodeMatch | null>(null);
+  const [checkingManualNodeId, setCheckingManualNodeId] = useState(false);
 
   // Shared PSGC area (region/province/city/barangay) used by BOTH the manual node
   // form and the existing-node path, so location is picked from dropdowns, not typed.
@@ -341,26 +414,47 @@ export default function AsbuiltExportModal({
     loadNodes(selectedSiteId);
   }, [selectedSiteId]);
 
+  async function fetchNodesForSite(areaId: number): Promise<AsbuiltNode[]> {
+    const res = await fetch(`/api/v1/asbuilt/sites/${areaId}/nodes`);
+    const json = await res.json();
+    if (!json.ok) {
+      throw new Error(json.error || "Failed to load nodes");
+    }
+    const data = json.data;
+    return (data?.nodes as AsbuiltNode[]) || [];
+  }
+
   async function loadNodes(areaId: number) {
     setLoading(true);
     setNodes([]);
     setSelectedNode(null);
     setSelectionMode(null);
     try {
-      const res = await fetch(`/api/v1/asbuilt/sites/${areaId}/nodes`);
-      const json = await res.json();
-      if (json.ok) {
-        const data = json.data;
-        const nodeList = (data?.nodes as AsbuiltNode[]) || [];
-        setNodes(nodeList);
-      } else {
-        setError(json.error || "Failed to load nodes");
-      }
+      const nodeList = await fetchNodesForSite(areaId);
+      setNodes(nodeList);
     } catch (e: any) {
       setError(e.message);
     } finally {
       setLoading(false);
     }
+  }
+
+  async function findDuplicateNodeInSelectedSite(
+    nodeId: string,
+  ): Promise<DuplicateNodeMatch | null> {
+    const normalizedNodeId = normalizeNodeId(nodeId);
+    if (!normalizedNodeId || !selectedSiteId) return null;
+
+    const siteNodes = await fetchNodesForSite(selectedSiteId);
+    const duplicate = siteNodes.find(
+      (node) => normalizeNodeId(node.node_id) === normalizedNodeId,
+    );
+    if (!duplicate) return null;
+
+    return {
+      node: duplicate,
+      site: sites.find((site) => site.id === selectedSiteId) ?? null,
+    };
   }
 
   async function loadSubcontractors() {
@@ -422,6 +516,40 @@ export default function AsbuiltExportModal({
     setSelectedSubcontractorId(selectedNode.subcontractor_id ?? null);
     setSelectedTeamId(selectedNode.team_id ?? null);
   }, [selectionMode, selectedNode]);
+
+  useEffect(() => {
+    const normalizedNodeId = normalizeNodeId(manualForm.node_id);
+    if (selectionMode !== "manual" || !normalizedNodeId || sites.length === 0) {
+      setSelectedSiteDuplicateManualNode(null);
+      setCheckingManualNodeId(false);
+      return;
+    }
+
+    let cancelled = false;
+    setCheckingManualNodeId(true);
+    setSelectedSiteDuplicateManualNode(null);
+    const timer = setTimeout(async () => {
+      try {
+        const duplicate = await findDuplicateNodeInSelectedSite(manualForm.node_id);
+        if (!cancelled) {
+          setSelectedSiteDuplicateManualNode(duplicate);
+        }
+      } catch {
+        if (!cancelled) {
+          setSelectedSiteDuplicateManualNode(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setCheckingManualNodeId(false);
+        }
+      }
+    }, 350);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [selectionMode, manualForm.node_id, selectedSiteId, sites]);
 
   function buildPoleCodeMap() {
     const nameToCode: Record<string, string> = {};
@@ -500,14 +628,26 @@ export default function AsbuiltExportModal({
     if (!selectedSiteId) return;
 
     if (selectionMode === "manual") {
-      const duplicateNode = nodes.find(
-        (node) => normalizeNodeId(node.node_id) === normalizeNodeId(targetNode.node_id),
-      );
+      setCheckingManualNodeId(true);
+      let duplicateNode: DuplicateNodeMatch | null = null;
+      try {
+        duplicateNode = await findDuplicateNodeInSelectedSite(targetNode.node_id);
+      } catch (e: any) {
+        setCheckingManualNodeId(false);
+        setError(
+          e?.message ||
+            "Unable to validate whether this Node ID already exists. Please try again.",
+        );
+        setStep("error");
+        return;
+      }
+      setCheckingManualNodeId(false);
       if (duplicateNode) {
         setError(
-          `Node ID "${targetNode.node_id}" already exists in this site as ` +
-            `"${duplicateNode.full_label || duplicateNode.name || duplicateNode.node_id}". ` +
-            "Choose the existing node or use a different Node ID.",
+          `Node ID "${targetNode.node_id}" already exists` +
+            `${duplicateNode.site ? ` in site "${duplicateNode.site.name}"` : ""} ` +
+            `as "${duplicateNode.node.full_label || duplicateNode.node.name || duplicateNode.node.node_id}". ` +
+            "Node IDs must be unique inside the selected site. For split nodes, use a distinct exact ID like LP-1234A, LP-1234B, or LP-1234C.",
         );
         setStep("error");
         return;
@@ -942,11 +1082,20 @@ export default function AsbuiltExportModal({
       duplicateSpanGroups.set(key, group);
     }
 
-    const asbuiltSpans = Array.from(duplicateSpanGroups.values()).map((group) =>
-      group.reduce((best, candidate) =>
+    const asbuiltSpans = Array.from(duplicateSpanGroups.values()).map((group) => {
+      const kept = group.reduce((best, candidate) =>
         compareResolvedSpanPriority(candidate, best) > 0 ? candidate : best,
-      ),
-    );
+      );
+      const mergedComponents = group.reduce(
+        (counts, span) => addComponentCounts(counts, span.components),
+        { ...EMPTY_COMPONENTS },
+      );
+
+      return {
+        ...kept,
+        components: mergedComponents,
+      };
+    });
 
     const droppedDuplicateSpanIds = Array.from(duplicateSpanGroups.values())
       .filter((group) => group.length > 1)
@@ -969,6 +1118,33 @@ export default function AsbuiltExportModal({
     if (asbuiltPoles.length === 0) {
       setError(
         "No valid poles are ready for AsBuilt export. Make sure your pole names and GPS coordinates are complete.",
+      );
+      setStep("error");
+      return;
+    }
+
+    const equipmentComponentTotal = sumComponentCounts(
+      buildEquipmentComponentPreview(equipmentShapes).components,
+    );
+    const payloadComponentTotal = asbuiltSpans.reduce(
+      (total, span) => total + sumComponentCounts(span.components),
+      0,
+    );
+
+    if (equipmentComponentTotal > 0 && asbuiltSpans.length === 0) {
+      setError(
+        `${equipmentComponentTotal} equipment collectable(s) were detected, but no cable spans are ready for export. ` +
+          "Twinbackend stores collectables on span summaries, so exporting now would upload poles only and all expected component counts would stay at 0. " +
+          "Run Auto-Connect Cables and make sure the modal shows spans before posting to AsBuilt IQ.",
+      );
+      setStep("error");
+      return;
+    }
+
+    if (equipmentComponentTotal > 0 && payloadComponentTotal === 0) {
+      setError(
+        `${equipmentComponentTotal} equipment collectable(s) were detected, but none could be attached to exported spans. ` +
+          "Run Auto-Connect Cables again so every collectable can attach to its nearest cable span before posting.",
       );
       setStep("error");
       return;
@@ -1041,14 +1217,32 @@ export default function AsbuiltExportModal({
 
   const selectedSite = sites.find((s) => s.id === selectedSiteId);
   const spanCount = cableSpans.filter((s) => s.from_pole && s.to_pole).length;
-  const duplicateManualNode =
+  const componentPreview = buildEquipmentComponentPreview(equipmentShapes);
+  const componentTotalCount = sumComponentCounts(componentPreview.components);
+  const componentCategoryEntries = (
+    Object.entries(componentPreview.components) as Array<
+      [keyof SpanComponentCounts, number]
+    >
+  ).filter(([, count]) => count > 0);
+  const equipmentKindEntries = EQUIPMENT_KIND_ORDER.map((kind) => [
+    kind,
+    componentPreview.byKind[kind] ?? 0,
+  ] as const).filter(([, count]) => count > 0);
+  const localDuplicateManualNode =
     selectionMode === "manual" && normalizeNodeId(manualForm.node_id)
       ? nodes.find(
           (node) =>
             normalizeNodeId(node.node_id) === normalizeNodeId(manualForm.node_id),
         ) ?? null
       : null;
-  const hasDuplicateManualNode = duplicateManualNode != null;
+  const duplicateManualNodeMatch =
+    selectedSiteDuplicateManualNode ??
+    (localDuplicateManualNode
+      ? { node: localDuplicateManualNode, site: selectedSite ?? null }
+      : null);
+  const duplicateManualNode = duplicateManualNodeMatch?.node ?? null;
+  const duplicateManualNodeSite = duplicateManualNodeMatch?.site ?? null;
+  const hasDuplicateManualNode = duplicateManualNodeMatch != null;
 
   function resetToSiteSelect() {
     setSelectionMode(null);
@@ -1219,8 +1413,18 @@ export default function AsbuiltExportModal({
                     <span className="text-sm text-emerald-800">
                       <strong>{gpsCount}</strong> poles with GPS coordinates
                       ready &middot; <strong>{spanCount}</strong> spans
+                      &middot; <strong>{componentTotalCount}</strong>{" "}
+                      collectables
                     </span>
                   </div>
+                  {componentTotalCount > 0 && spanCount === 0 && (
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                      <strong>{componentTotalCount}</strong> collectables are
+                      detected, but there are no connected spans ready for
+                      export. Run <strong>Auto-Connect Cables</strong> first so
+                      these counts can be saved to backend span summaries.
+                    </div>
+                  )}
 
                   {/* Site selector */}
                   <div>
@@ -1428,11 +1632,23 @@ export default function AsbuiltExportModal({
                                     : "border-border focus:ring-accent"
                                 }`}
                               />
+                              {checkingManualNodeId && !hasDuplicateManualNode && (
+                                <p className="mt-1 text-xs text-muted">
+                                  Checking Node ID in this site...
+                                </p>
+                              )}
                               {hasDuplicateManualNode && (
                                 <p className="mt-1 text-xs text-red-600">
                                   Node ID already exists in this site
-                                  {duplicateManualNode?.name
-                                    ? `: ${duplicateManualNode.name}`
+                                  {duplicateManualNodeSite
+                                    ? ` under ${duplicateManualNodeSite.name}`
+                                    : ""}
+                                  {duplicateManualNode
+                                    ? `: ${
+                                        duplicateManualNode.full_label ||
+                                        duplicateManualNode.name ||
+                                        duplicateManualNode.node_id
+                                      }`
                                     : "."}
                                 </p>
                               )}
@@ -1498,6 +1714,70 @@ export default function AsbuiltExportModal({
                               {gpsCount}
                             </span>
                           </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted">Collectables</span>
+                            <span className="font-semibold text-text">
+                              {componentTotalCount}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-4 space-y-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <p className="text-xs font-semibold text-emerald-800 uppercase tracking-wider">
+                                Equipment Collectables
+                              </p>
+                              <p className="text-xs text-emerald-700 mt-0.5">
+                                Preview total for this node export
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-2xl font-bold text-emerald-900">
+                                {componentTotalCount}
+                              </p>
+                              <p className="text-[10px] text-emerald-700">
+                                total
+                              </p>
+                            </div>
+                          </div>
+
+                          {componentTotalCount > 0 ? (
+                            <div className="space-y-3">
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                {componentCategoryEntries.map(([key, count]) => (
+                                  <div
+                                    key={key}
+                                    className="rounded-lg bg-white/80 border border-emerald-100 px-3 py-2"
+                                  >
+                                    <p className="text-[10px] text-muted truncate">
+                                      {COMPONENT_LABELS[key]}
+                                    </p>
+                                    <p className="text-sm font-bold text-text">
+                                      {count}
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
+                              <div className="flex flex-wrap gap-1.5">
+                                {equipmentKindEntries.map(([kind, count]) => (
+                                  <span
+                                    key={kind}
+                                    className="rounded-full bg-white/80 border border-emerald-100 px-2.5 py-1 text-[11px] text-emerald-800"
+                                  >
+                                    {EQUIPMENT_KIND_LABELS[kind] ?? kind}:{" "}
+                                    <strong>{count}</strong>
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          ) : (
+                            <p className="text-xs text-emerald-700">
+                              No equipment collectables are cached yet. Run the
+                              Equipment scan first if this node should include
+                              component counts.
+                            </p>
+                          )}
                         </div>
 
                         {/* PSGC location for an EXISTING backend node (manual mode
@@ -1630,7 +1910,8 @@ export default function AsbuiltExportModal({
                 Posting to AsBuilt IQ...
               </p>
               <p className="text-xs text-muted">
-                {gpsCount} poles, {spanCount} spans
+                {gpsCount} poles, {spanCount} spans, {componentTotalCount}{" "}
+                collectables
               </p>
             </div>
           )}

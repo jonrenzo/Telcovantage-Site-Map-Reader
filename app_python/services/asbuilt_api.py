@@ -1,10 +1,10 @@
 import requests
-from requests.exceptions import ConnectionError, RequestException, Timeout
+from requests.exceptions import ConnectionError, Timeout
 from app_python.planner_config import ASBUILT_API_BASE_URL
 
 ASBUILT_API_KEY = "asbuilt-iq-secret-key-2026"
 API_TIMEOUT = 30
-IMPORT_RETRIES = 2
+IMPORT_API_TIMEOUT = 120
 DOCUMENTED_ASBUILT_FALLBACK_URL = "https://purple-mink-495054.hostingersite.com/api/v1"
 
 def _headers():
@@ -25,7 +25,13 @@ def _candidate_base_urls() -> list[str]:
     return urls
 
 
-def _request(method: str, path: str, *, json: dict | None = None):
+def _request(
+    method: str,
+    path: str,
+    *,
+    json: dict | None = None,
+    timeout: int = API_TIMEOUT,
+):
     last_error = None
     request_path = path if path.startswith("/") else f"/{path}"
     for base_url in _candidate_base_urls():
@@ -36,7 +42,7 @@ def _request(method: str, path: str, *, json: dict | None = None):
                 url,
                 json=json,
                 headers=_headers(),
-                timeout=API_TIMEOUT,
+                timeout=timeout,
             )
         except (ConnectionError, Timeout) as exc:
             last_error = exc
@@ -78,44 +84,34 @@ def get_teams(subcontractor_id: int | None = None):
 
 
 def import_data_by_sequence(payload: dict):
-    last_error = None
-    for attempt in range(1, IMPORT_RETRIES + 2):
-        try:
-            resp = _request("POST", "/asbuilt/import-by-sequence", json=payload)
-            resp.raise_for_status()
-            return resp.json()
-        except (ConnectionError, Timeout) as exc:
-            last_error = exc
-            if attempt > IMPORT_RETRIES:
-                raise ConnectionError(
-                    "The AsBuilt sequence import server closed the connection unexpectedly. "
-                    "Please retry. If it keeps happening, the remote AsBuilt API may be crashing "
-                    "while processing this payload."
-                ) from exc
-        except RequestException:
-            raise
-
-    if last_error is not None:
-        raise last_error
+    try:
+        resp = _request(
+            "POST",
+            "/asbuilt/import-by-sequence",
+            json=payload,
+            timeout=IMPORT_API_TIMEOUT,
+        )
+        resp.raise_for_status()
+        return resp.json()
+    except (ConnectionError, Timeout) as exc:
+        raise ConnectionError(
+            "The AsBuilt sequence import server did not return a response in time. "
+            "The request may still have reached AsBuilt, so check the Node ID before retrying."
+        ) from exc
 
 
 def import_data(payload: dict):
-    last_error = None
-    for attempt in range(1, IMPORT_RETRIES + 2):
-        try:
-            resp = _request("POST", "/asbuilt/import", json=payload)
-            resp.raise_for_status()
-            return resp.json()
-        except (ConnectionError, Timeout) as exc:
-            last_error = exc
-            if attempt > IMPORT_RETRIES:
-                raise ConnectionError(
-                    "The AsBuilt import server closed the connection unexpectedly. "
-                    "Please retry. If it keeps happening, the remote AsBuilt API may be crashing "
-                    "while processing this payload."
-                ) from exc
-        except RequestException:
-            raise
-
-    if last_error is not None:
-        raise last_error
+    try:
+        resp = _request(
+            "POST",
+            "/asbuilt/import",
+            json=payload,
+            timeout=IMPORT_API_TIMEOUT,
+        )
+        resp.raise_for_status()
+        return resp.json()
+    except (ConnectionError, Timeout) as exc:
+        raise ConnectionError(
+            "The AsBuilt import server did not return a response in time. "
+            "The request may still have reached AsBuilt, so check the Node ID before retrying."
+        ) from exc
