@@ -4466,7 +4466,10 @@ def _can_bind_port(host: str, port: int) -> bool:
 def _resolve_runtime_port() -> int:
     raw_port = os.environ.get("PORT")
     if raw_port:
-        return int(raw_port)
+        try:
+            return int(raw_port)
+        except ValueError:
+            print(f"[startup] Invalid PORT={raw_port!r}; falling back to default.")
 
     default_port = 5000
     fallback_port = 5050
