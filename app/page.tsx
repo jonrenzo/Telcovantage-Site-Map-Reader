@@ -67,6 +67,9 @@ export default function Home() {
 
   const pdfExportRef = useRef<(() => void) | null>(null);
   const verificationExportRef = useRef<(() => void) | null>(null);
+  const autoZeroOcrRef = useRef<((results: DigitResult[]) => DigitResult[]) | null>(null);
+  const resultsRef = useRef<DigitResult[]>([]);
+  useEffect(() => { resultsRef.current = results; }, [results]);
 
   const pipeline = usePipeline();
   const { getCache, setCache } = useSessionCache();
@@ -356,6 +359,13 @@ export default function Home() {
   const handleRestoreCancel = useCallback(() => {
     setRestoreSummary(null);
     setPendingOpts(null);
+  }, []);
+
+  const handleAutoZeroOcr = useCallback(() => {
+    if (autoZeroOcrRef.current) {
+      const updated = autoZeroOcrRef.current(resultsRef.current);
+      setResults(updated);
+    }
   }, []);
 
   useEffect(() => {
@@ -670,6 +680,7 @@ export default function Home() {
                 segments={segments}
                 boundary={globalBoundary}
                 isMaskEnabled={isMaskEnabled}
+                onAutoZeroOcr={handleAutoZeroOcr}
               />
             </div>
 
@@ -691,6 +702,7 @@ export default function Home() {
                   setRestoredDxfSegments(null);
                   setRestoredCableSpans(null);
                 }}
+                autoZeroOcrRef={autoZeroOcrRef}
               />
             </div>
 

@@ -56,6 +56,7 @@ interface Props {
   // --- NEW: Add the boundary props ---
   boundary: BoundaryPoint[] | null;
   isMaskEnabled: boolean;
+  onAutoZeroOcr?: () => void;
 }
 
 export default function ReviewLayout({
@@ -65,6 +66,7 @@ export default function ReviewLayout({
   segments,
   boundary, // NEW
   isMaskEnabled, // NEW
+  onAutoZeroOcr,
 }: Props) {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [filterMode, setFilterMode] = useState<FilterMode>("all");
@@ -235,6 +237,7 @@ export default function ReviewLayout({
               setManualValue("");
               setSelectedId(null);
             }}
+            onAutoZeroOcr={onAutoZeroOcr}
           />
         </div>
       </div>

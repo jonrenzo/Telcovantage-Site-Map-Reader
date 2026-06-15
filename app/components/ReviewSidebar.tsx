@@ -11,6 +11,7 @@ interface Props {
   onOpenReviewModal: () => void;
   manualMode: boolean;
   onToggleManual: () => void;
+  onAutoZeroOcr?: () => void;
 }
 
 const FILTERS: { key: FilterMode; label: string }[] = [
@@ -81,6 +82,7 @@ export default function ReviewSidebar({
   onOpenReviewModal,
   manualMode,
   onToggleManual,
+  onAutoZeroOcr,
 }: Props) {
   const filtered = results.filter((r) => {
     if (filterMode === "review") return r.needs_review;
@@ -136,6 +138,27 @@ export default function ReviewSidebar({
         >
           {toReview > 0 ? `⚠ Check ${toReview} Uncertain` : "✓ All confident"}
         </button>
+      </div>
+
+      {/* ── Auto-zero without cables ── */}
+      <div className="px-5 py-2 border-b border-border flex-shrink-0">
+        <button
+          onClick={onAutoZeroOcr}
+          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold border-[1.5px] 
+            bg-slate-50 text-slate-600 border-slate-200 
+            hover:bg-slate-100 transition-colors"
+          title="Set OCR values to 0 for digits with no nearby cable"
+        >
+          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M4 7V4h16v3" />
+            <path d="M9 20h6" />
+            <path d="M12 4v16" />
+          </svg>
+          Auto-zero without cables
+        </button>
+        <p className="text-[9px] text-muted-2 text-center mt-1">
+          Sets digit → 0 when no cable (cable/tx56) is nearby
+        </p>
       </div>
 
       {/* ── Add Manually button ── */}

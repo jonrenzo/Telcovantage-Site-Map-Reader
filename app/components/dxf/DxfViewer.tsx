@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useCallback, useState } from "react";
-import type { DxfLayerData, EquipmentShape } from "../../types";
+import type { DigitResult, DxfLayerData, EquipmentShape } from "../../types";
 import DxfToolbar from "./DxfToolbar";
 import DxfLayerPanel from "./DxfLayerPanel";
 import { isPointInPolygon } from "../../page";
@@ -83,6 +83,7 @@ interface Props {
   initialSegments?: Record<string, RawSegment[]>;
   initialCableSpans?: CableSpan[];
   onInitialDataConsumed?: () => void;
+  autoZeroOcrRef?: React.MutableRefObject<((results: DigitResult[]) => DigitResult[]) | null>;
 }
 
 interface PartialDetail {
@@ -269,6 +270,41 @@ function areSegmentsConnected(
   );
 }
 
+function computeAutoZeroThreshold(cableSpans: CableSpan[]): number {
+  const lengths: number[] = [];
+  for (const span of cableSpans) {
+    for (const seg of span.segments) {
+      lengths.push(Math.hypot(seg.x2 - seg.x1, seg.y2 - seg.y1));
+    }
+  }
+  if (lengths.length === 0) return 50;
+  lengths.sort((a, b) => a - b);
+  const medianLen = lengths[Math.floor(lengths.length / 2)];
+  return medianLen * 3;
+}
+
+function autoZeroOcrWithoutCables(
+  ocrResults: DigitResult[],
+  cableSegments: RawSegment[],
+  threshold: number,
+): DigitResult[] {
+  return ocrResults.map((r) => {
+    if (r.corrected_value !== null) return r;
+    let minDist = Infinity;
+    for (const seg of cableSegments) {
+      const d = pointToSegmentDistance(
+        r.center_x, r.center_y,
+        seg.x1, seg.y1, seg.x2, seg.y2,
+      );
+      if (d < minDist) minDist = d;
+    }
+    if (minDist > threshold) {
+      return { ...r, corrected_value: "0", needs_review: false };
+    }
+    return r;
+  });
+}
+
 function findSafeCutIndex(
   segs: RawSegment[],
   clickedIndex: number,
@@ -389,6 +425,7 @@ export default function DxfViewer({
   initialSegments,
   initialCableSpans,
   onInitialDataConsumed,
+  autoZeroOcrRef,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
@@ -1782,6 +1819,22 @@ export default function DxfViewer({
     notifySpansChange([...cableSpansRef.current]);
     redraw();
   }, [ocrResults, cableDataVersion, redraw, notifySpansChange]);
+
+  useEffect(() => {
+    if (autoZeroOcrRef && cableSpansRef.current.length > 0) {
+      autoZeroOcrRef.current = (results: DigitResult[]) => {
+        const allCableSegments: RawSegment[] = [];
+        for (const span of cableSpansRef.current) {
+          for (const seg of span.segments) {
+            allCableSegments.push(seg);
+          }
+        }
+        if (allCableSegments.length === 0) return results;
+        const threshold = computeAutoZeroThreshold(cableSpansRef.current);
+        return autoZeroOcrWithoutCables(results, allCableSegments, threshold);
+      };
+    }
+  }, [cableDataVersion, autoZeroOcrRef]);
 
   const startMultiAction = (action: "runs" | "merge") => {
     if (selectedSpanId === null) return;
