@@ -84,7 +84,9 @@ interface Props {
   boundary: BoundaryPoint[] | null;
   isMaskEnabled: boolean;
   onSpansChange?: (spans: CableSpanExport[]) => void;
-  onCacheUpdate?: (data: { poleTags?: PoleTag[]; poleDone?: boolean }) => void;
+  initialSegments?: Record<string, RawSegment[]>;
+  initialCableSpans?: CableSpan[];
+  onInitialDataConsumed?: () => void;
 }
 
 interface PartialDetail {
@@ -1220,7 +1222,9 @@ export default function DxfViewer({
   boundary,
   isMaskEnabled,
   onSpansChange,
-  onCacheUpdate,
+  initialSegments,
+  initialCableSpans,
+  onInitialDataConsumed,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
@@ -3595,6 +3599,47 @@ export default function DxfViewer({
     setCableLayerNames([]);
 
     hasAutoConnectedRef.current = false;
+
+    // Restore mode: use pre-loaded segment and cable span data from Supabase
+    if (initialSegments && Object.keys(initialSegments).length > 0) {
+      segmentsRef.current = initialSegments;
+      let minx = Infinity, miny = Infinity, maxx = -Infinity, maxy = -Infinity;
+      for (const segs of Object.values(initialSegments)) {
+        for (const s of segs) {
+          minx = Math.min(minx, s.x1, s.x2);
+          miny = Math.min(miny, s.y1, s.y2);
+          maxx = Math.max(maxx, s.x1, s.x2);
+          maxy = Math.max(maxy, s.y1, s.y2);
+        }
+      }
+      boundsRef.current = { minx, miny, maxx, maxy };
+      const layerData: DxfLayerData[] = Object.keys(initialSegments).map((name) => ({
+        name,
+        visible: true,
+        color: layerColor(name),
+        segmentCount: (initialSegments[name] ?? []).length,
+      }));
+      layersRef.current = layerData;
+      setLayers(layerData);
+
+      const spans: CableSpan[] = (initialCableSpans ?? []).map((s) => ({
+        ...s,
+        cable_runs: s.cable_runs || 1,
+      }));
+      const maxId = spans.reduce((max, s) => Math.max(max, s.span_id), 0);
+      nextSpanIdRef.current = maxId + 1;
+      cableSpansRef.current = spans;
+      setCableSpans(spans);
+      notifySpansChange(spans);
+      const cableLayers = [...new Set(spans.map((s) => s.layer).filter((l): l is string => Boolean(l)))];
+      cableLayersRef.current = cableLayers;
+      setCableLayerNames(cableLayers);
+      setCableDataVersion((v) => v + 1);
+      setLoading(false);
+      onInitialDataConsumed?.();
+      setTimeout(fitView, 50);
+      return;
+    }
 
     Promise.all([
       fetch("/api/dxf_segments").then((r) => r.json()),

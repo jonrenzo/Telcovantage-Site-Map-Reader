@@ -1,9 +1,13 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import type { CableSpanExport, DigitResult, Segment, Step } from "./types";
+import type { CableSpanExport, DigitResult, EquipmentShape, PoleTag, Segment, Step } from "./types";
 import { usePipeline } from "./hooks/usePipeline";
 import { useSessionCache } from "./hooks/useSessionCache";
+import { useDatabase } from "./hooks/useDatabase";
+import { useAutoSave } from "./hooks/useAutoSave";
+import { supabase } from "./lib/supabase";
+import type { SessionSummary, FullSession, Pole as DbPole, EquipmentShape as DbEquipmentShape } from "./lib/supabase";
 import Header from "./components/Header";
 import LoadScreen from "./components/LoadScreen";
 import ProcessingScreen from "./components/ProcessingScreen";
@@ -12,6 +16,7 @@ import DxfViewer from "./components/dxf/DxfViewer";
 import EquipmentLayout from "./components/equipment/EquipmentLayout";
 import PoleLayout from "./components/poles/Polelayout";
 import AsbuiltExportModal from "./components/AsbuiltExportModal";
+import SessionRestoreDialog from "./components/SessionRestoreDialog";
 
 interface BoundaryPoint {
   x: number;
@@ -57,12 +62,53 @@ export default function Home() {
   );
   const [isMaskEnabled, setIsMaskEnabled] = useState<boolean>(true);
   const [cableSpans, setCableSpans] = useState<CableSpanExport[]>([]);
+  const [restoredDxfSegments, setRestoredDxfSegments] = useState<Record<string, { x1: number; y1: number; x2: number; y2: number }[]> | null>(null);
+  const [restoredCableSpans, setRestoredCableSpans] = useState<any[] | null>(null);
 
   const pdfExportRef = useRef<(() => void) | null>(null);
   const verificationExportRef = useRef<(() => void) | null>(null);
 
   const pipeline = usePipeline();
   const { getCache, setCache } = useSessionCache();
+  const db = useDatabase();
+
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const sessionIdRef = useRef<string | null>(null);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [saveError, setSaveError] = useState<string | null>(null);
+  // keep useAutoSave wired for the interval-based fallback only
+  useAutoSave({ sessionId });
+
+  // Restore-from-Supabase dialog state
+  const [restoreSummary, setRestoreSummary] = useState<SessionSummary | null>(null);
+  const [pendingOpts, setPendingOpts] = useState<{
+    dxfPath: string;
+    layers: string[];
+    allLayers: string[];
+  } | null>(null);
+
+  // Keep ref in sync so async save callbacks always read the latest sessionId
+  // without needing to be in a useCallback dep array.
+  useEffect(() => { sessionIdRef.current = sessionId; }, [sessionId]);
+
+  const resolveSessionId = useCallback(async (path: string) => {
+    if (!db) return;
+    try {
+      const existing = await db.checkForExistingSession(path);
+      if (existing) {
+        console.log("[session] reusing existing session:", existing.session.id);
+        sessionIdRef.current = existing.session.id;
+        setSessionId(existing.session.id);
+      } else {
+        const { session } = await db.getOrCreateSessionForFile(path);
+        console.log("[session] created new session:", session.id);
+        sessionIdRef.current = session.id;
+        setSessionId(session.id);
+      }
+    } catch (e) {
+      console.warn("[session] could not resolve session:", e);
+    }
+  }, [db]);
 
   const handleCacheUpdate = useCallback(
     (path: string, data: any) => {
@@ -70,12 +116,72 @@ export default function Home() {
       if (data.boundary !== undefined) {
         setGlobalBoundary(data.boundary);
       }
+      // Direct persist — use ref so we always see the current sessionId
+      // without depending on closure capture timing.
+      const sid = sessionIdRef.current;
+      console.log("[cache-update] sid=", sid, "poleTags=", data.poleTags?.length ?? 0, "shapes=", data.shapes?.length ?? 0);
+      if (!sid || !db) {
+        console.warn("[cache-update] skipping save — no sessionId or db");
+        return;
+      }
+
+      setSaveStatus("saving");
+      setSaveError(null);
+
+      const saves: Promise<unknown>[] = [];
+
+      if (data.poleTags && data.poleTags.length > 0) {
+        const dbPoles: DbPole[] = (data.poleTags as PoleTag[]).map((p) => ({
+          id: "",
+          session_id: sid,
+          pole_id: p.pole_id,
+          name: p.name,
+          corrected_name: null,
+          cx: p.cx,
+          cy: p.cy,
+          bbox: p.bbox,
+          layer: p.layer,
+          source: p.source,
+          ocr_conf: p.ocr_conf ?? null,
+          needs_review: p.needs_review ?? false,
+        }));
+        saves.push(db.savePoles(sid, dbPoles));
+      }
+
+      if (data.shapes && data.shapes.length > 0) {
+        const dbShapes: DbEquipmentShape[] = (data.shapes as EquipmentShape[]).map((s, idx) => ({
+          id: "",
+          session_id: sid,
+          shape_id: s.shape_id ?? idx,
+          kind: s.kind,
+          layer: s.layer,
+          cx: s.cx,
+          cy: s.cy,
+          bbox: s.bbox,
+        }));
+        saves.push(db.saveEquipmentShapes(sid, dbShapes));
+      }
+
+      if (data.boundary && data.boundary.length > 0) {
+        saves.push(db.saveBoundary(sid, data.boundary));
+      }
+
+      if (saves.length > 0) {
+        Promise.all(saves)
+          .then(() => setSaveStatus("saved"))
+          .catch((e) => {
+            console.error("[save]", e);
+            setSaveStatus("error");
+            setSaveError(e instanceof Error ? e.message : "Save failed");
+          });
+      } else {
+        setSaveStatus("idle");
+      }
     },
-    [setCache],
+    [setCache, db],
   );
 
   const handleStartProcessing = useCallback(
-    // --- CHANGED: Expecting 'layers: string[]' instead of 'layer: string' ---
     async (opts: {
       dxfPath: string;
       layers: string[];
@@ -86,23 +192,171 @@ export default function Home() {
       setDxfPath(opts.dxfPath);
       setLayers(opts.allLayers);
 
+      // 1. Fast path: local session cache
       if (cached && cached.results.length > 0) {
         setResults(cached.results);
         setSegments(cached.segments);
-
-        if (cached.boundary) {
-          setGlobalBoundary(cached.boundary);
-        }
-
+        if (cached.boundary) setGlobalBoundary(cached.boundary);
+        resolveSessionId(opts.dxfPath);
         setStep(3);
         return;
       }
 
+      // 2. Durable path: check Supabase for a saved session
+      if (supabase && db) {
+        try {
+          const summary = await db.getSessionSummary(opts.dxfPath);
+          const hasSavedData = summary && (
+            summary.counts.digit_results > 0 ||
+            summary.counts.poles > 0 ||
+            summary.counts.equipment_shapes > 0 ||
+            summary.counts.cable_spans > 0
+          );
+          if (hasSavedData) {
+            sessionIdRef.current = summary!.session.id;
+            setSessionId(summary!.session.id);
+            setPendingOpts(opts);
+            setRestoreSummary(summary!);
+            return;
+          }
+        } catch {
+          // Supabase unavailable or no session — fall through to pipeline
+        }
+      }
+
+      resolveSessionId(opts.dxfPath);
       setStep(2);
       await pipeline.run(opts);
     },
-    [pipeline, getCache],
+    [pipeline, getCache, db, resolveSessionId],
   );
+
+  const handleRestoreLoad = useCallback(async () => {
+    if (!restoreSummary || !pendingOpts || !db) return;
+    setRestoreSummary(null);
+
+    try {
+      const full: FullSession = await db.loadSession(restoreSummary.session.id);
+      console.log("[restore] session:", restoreSummary.session.id, "poles:", full.poles.length, "equipment:", full.equipment_shapes.length, "digits:", full.digit_results.length);
+
+      // Map Supabase DigitResult → app DigitResult
+      const results: DigitResult[] = full.digit_results.map((r) => ({
+        digit_id: r.digit_id,
+        value: r.value ?? "?",
+        corrected_value: r.corrected_value,
+        confidence: r.confidence ?? 0,
+        needs_review: r.needs_review,
+        bbox: (r.bbox ?? [0, 0, 0, 0]) as [number, number, number, number],
+        center_x: r.center_x ?? 0,
+        center_y: r.center_y ?? 0,
+        crop_b64: null,
+        manual: r.manual,
+      }));
+
+      // Pick segments for the strand layer (for ReviewLayout)
+      const strandLayer = full.config?.strand_layer;
+      const segments: Segment[] = strandLayer && full.dxf_segments[strandLayer]
+        ? full.dxf_segments[strandLayer]
+        : Object.values(full.dxf_segments)[0] ?? [];
+
+      // Map Supabase Pole → PoleTag
+      const poleTags: PoleTag[] = full.poles.map((p) => ({
+        pole_id: p.pole_id,
+        name: p.corrected_name ?? p.name ?? "UNKNOWN",
+        cx: p.cx ?? 0,
+        cy: p.cy ?? 0,
+        bbox: (p.bbox ?? [0, 0, 0, 0]) as [number, number, number, number],
+        layer: p.layer ?? "",
+        source: p.source ?? "text",
+        crop_b64: null,
+        ocr_conf: p.ocr_conf,
+        needs_review: p.needs_review,
+      }));
+
+      // Map Supabase EquipmentShape → app EquipmentShape
+      const shapes: EquipmentShape[] = full.equipment_shapes.map((e) => ({
+        shape_id: e.shape_id,
+        kind: e.kind as EquipmentShape["kind"],
+        bbox: (e.bbox ?? [0, 0, 0, 0]) as [number, number, number, number],
+        cx: e.cx,
+        cy: e.cy,
+        layer: e.layer,
+      }));
+
+      // Map Supabase CableSpan → DxfViewer CableSpan format
+      const restoredSpans = full.cable_spans.map((s) => ({
+        span_id: s.span_id,
+        layer: s.layer ?? "",
+        bbox: (s.bbox ?? [0, 0, 0, 0]) as [number, number, number, number],
+        cx: s.cx ?? 0,
+        cy: s.cy ?? 0,
+        segment_count: s.segments?.length ?? 0,
+        total_length: s.total_length ?? 0,
+        meterValue: s.meter_value,
+        cable_runs: s.cable_runs ?? 1,
+        segments: (s.segments ?? []).map((seg) => ({
+          x1: seg.x1, y1: seg.y1, x2: seg.x2, y2: seg.y2,
+        })),
+        from_pole: s.from_pole ?? undefined,
+        to_pole: s.to_pole ?? undefined,
+      }));
+
+      if (full.boundary) setGlobalBoundary(full.boundary);
+
+      // Always seed cache with saved poles/equipment/boundary so tabs have
+      // them even if we need to run the OCR pipeline for fresh digits.
+      setCache(pendingOpts.dxfPath, {
+        poleTags,
+        poleLayer: full.config?.pole_layer ?? null,
+        poleLayers: full.config?.pole_layer ? [full.config.pole_layer] : [],
+        poleDone: full.poles.length > 0,
+        shapes,
+        boundary: full.boundary ?? null,
+        equipmentDone: full.equipment_shapes.length > 0,
+      });
+
+      sessionIdRef.current = restoreSummary.session.id;
+      setSessionId(restoreSummary.session.id);
+
+      // If no saved OCR digits, run the pipeline so the Review tab has data.
+      // Poles/equipment are already in cache and will appear after step 3.
+      if (full.digit_results.length === 0) {
+        console.log("[restore] no saved digits — running OCR pipeline with pre-loaded poles");
+        setStep(2);
+        await pipeline.run(pendingOpts);
+        return;
+      }
+
+      // Full restore: everything came from DB.
+      setCache(pendingOpts.dxfPath, { results, segments });
+      console.log("[restore] cache written — poleDone:", full.poles.length > 0, "path:", pendingOpts.dxfPath, "dxfPath state:", dxfPath);
+      setRestoredDxfSegments(full.dxf_segments);
+      setRestoredCableSpans(restoredSpans);
+      setResults(results);
+      setSegments(segments);
+      setStep(3);
+    } catch (err) {
+      console.error("[restore] failed to load session:", err);
+      setStep(2);
+      await pipeline.run(pendingOpts);
+    } finally {
+      setPendingOpts(null);
+    }
+  }, [restoreSummary, pendingOpts, db, pipeline, setCache]);
+
+  const handleRestoreRescan = useCallback(async () => {
+    if (!pendingOpts) return;
+    const opts = pendingOpts;
+    setRestoreSummary(null);
+    setPendingOpts(null);
+    setStep(2);
+    await pipeline.run(opts);
+  }, [pendingOpts, pipeline]);
+
+  const handleRestoreCancel = useCallback(() => {
+    setRestoreSummary(null);
+    setPendingOpts(null);
+  }, []);
 
   useEffect(() => {
     if (
@@ -295,6 +549,10 @@ export default function Home() {
     setGlobalBoundary(null);
     setIsMaskEnabled(true);
     setCableSpans([]);
+    setRestoredDxfSegments(null);
+    setRestoredCableSpans(null);
+    sessionIdRef.current = null;
+    setSessionId(null);
   }, [pipeline]);
 
   const TABS = [
@@ -312,6 +570,15 @@ export default function Home() {
         exporting={exporting}
         onExport={handleExport}
       />
+
+      {restoreSummary && (
+        <SessionRestoreDialog
+          summary={restoreSummary}
+          onLoadSaved={handleRestoreLoad}
+          onRescanFresh={handleRestoreRescan}
+          onCancel={handleRestoreCancel}
+        />
+      )}
 
       {step === 1 && <LoadScreen onStartProcessing={handleStartProcessing} />}
 
@@ -346,28 +613,50 @@ export default function Home() {
               ))}
             </div>
 
-            {globalBoundary && (
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-xs font-semibold text-muted">
-                  Boundary Mask:
-                </span>
-                <button
-                  onClick={() => setIsMaskEnabled(!isMaskEnabled)}
-                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 ${
-                    isMaskEnabled ? "bg-green-500" : "bg-slate-300"
+            <div className="flex items-center gap-4 mb-2">
+              {sessionId && saveStatus !== "idle" && (
+                <div
+                  className={`flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                    saveStatus === "saving"
+                      ? "bg-amber-50 text-amber-600"
+                      : saveStatus === "saved"
+                        ? "bg-green-50 text-green-600"
+                        : "bg-red-50 text-red-600"
                   }`}
+                  title={saveStatus === "error" ? (saveError ?? "Save failed") : undefined}
                 >
-                  <span
-                    className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
-                      isMaskEnabled ? "translate-x-4.5" : "translate-x-1"
+                  {saveStatus === "saving" && (
+                    <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                  )}
+                  {saveStatus === "saving" ? "Saving…" : saveStatus === "saved" ? "✓ Saved" : "⚠ Save failed"}
+                </div>
+              )}
+              {globalBoundary && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-muted">
+                    Boundary Mask:
+                  </span>
+                  <button
+                    onClick={() => setIsMaskEnabled(!isMaskEnabled)}
+                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 ${
+                      isMaskEnabled ? "bg-green-500" : "bg-slate-300"
                     }`}
-                  />
-                </button>
-                <span className="text-[10px] font-mono text-muted w-8">
-                  {isMaskEnabled ? "ON" : "OFF"}
-                </span>
-              </div>
-            )}
+                  >
+                    <span
+                      className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                        isMaskEnabled ? "translate-x-4.5" : "translate-x-1"
+                      }`}
+                    />
+                  </button>
+                  <span className="text-[10px] font-mono text-muted w-8">
+                    {isMaskEnabled ? "ON" : "OFF"}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="flex-1 flex overflow-hidden">
@@ -396,7 +685,12 @@ export default function Home() {
                 boundary={globalBoundary}
                 isMaskEnabled={isMaskEnabled}
                 onSpansChange={handleSpansChange}
-                onCacheUpdate={(data) => handleCacheUpdate(dxfPath, data)}
+                initialSegments={restoredDxfSegments ?? undefined}
+                initialCableSpans={restoredCableSpans ?? undefined}
+                onInitialDataConsumed={() => {
+                  setRestoredDxfSegments(null);
+                  setRestoredCableSpans(null);
+                }}
               />
             </div>
 
