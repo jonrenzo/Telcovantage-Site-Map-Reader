@@ -1134,7 +1134,7 @@ export default function AsbuiltExportModal({
     if (equipmentComponentTotal > 0 && asbuiltSpans.length === 0) {
       setError(
         `${equipmentComponentTotal} equipment collectable(s) were detected, but no cable spans are ready for export. ` +
-          "Twinbackend stores collectables on span summaries, so exporting now would upload poles only and all expected component counts would stay at 0. " +
+          "The backend stores collectables on span summaries, so exporting now would upload poles only and all expected component counts would stay at 0. " +
           "Run Auto-Connect Cables and make sure the modal shows spans before posting to AsBuilt IQ.",
       );
       setStep("error");
