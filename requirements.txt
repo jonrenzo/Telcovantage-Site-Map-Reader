@@ -63,4 +63,7 @@ pyparsing==3.3.2
 # ── Geocoding ─────────────────────────────────────────────────────────────
 geopy>=2.4.0
 
+# ── Supabase (headless server-side persistence) ───────────────────────────────
+supabase>=2.4.0
+
 gunicorn==22.0.0

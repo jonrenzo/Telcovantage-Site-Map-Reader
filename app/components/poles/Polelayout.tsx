@@ -196,6 +196,7 @@ export default function PoleLayout({
 
   // ── Restore from cache on mount if available, otherwise stay idle ────────
   useEffect(() => {
+    console.log("[PoleLayout mount] cachedData:", cachedData ? `poleDone=${cachedData.poleDone} tags=${cachedData.poleTags?.length}` : "null");
     if (cachedData?.poleDone) {
       setTags(cachedData.poleTags);
       setScannedLayers(

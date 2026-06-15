@@ -46,6 +46,12 @@ from PIL import Image
 
 from app_python.planner_config import DEFAULT_PROJECT_ID, ENABLE_PLANNER_INTEGRATION
 from app_python.services.planner_auth import auth
+from app_python.services.session_store import (
+    compute_checksum,
+    get_or_create_project_session,
+    save_full_results,
+    session_has_user_edits,
+)
 
 app = Flask(__name__, static_folder="frontend/dist", static_url_path="")
 CORS(app)
@@ -2727,6 +2733,225 @@ INDEX_FILE = UPLOADS_DIR / "index.json"
 # job_id -> { status: "pending"|"converting"|"done"|"error", path?, error? }
 CONVERT_JOBS: Dict[str, dict] = {}
 
+# ── Precompute job queue ──────────────────────────────────────────────────────
+# checksum -> { status: "queued"|"processing"|"done"|"error", session_id?, error? }
+_PRECOMPUTE_JOBS: Dict[str, dict] = {}
+_PRECOMPUTE_QUEUE: "queue.Queue[str]" = None  # lazily initialised below
+
+
+import queue as _queue_mod
+
+_PRECOMPUTE_QUEUE = _queue_mod.Queue()
+
+
+def _precompute_worker():
+    """Serial background worker that processes one DXF precompute job at a time."""
+    while True:
+        checksum = _PRECOMPUTE_QUEUE.get()
+        job = _PRECOMPUTE_JOBS.get(checksum)
+        if not job:
+            continue
+        dxf_path = job.get("dxf_path", "")
+        try:
+            _run_precompute(checksum, dxf_path)
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            _PRECOMPUTE_JOBS[checksum].update({"status": "error", "error": str(e)})
+        finally:
+            _PRECOMPUTE_QUEUE.task_done()
+
+
+threading.Thread(target=_precompute_worker, daemon=True).start()
+
+
+def _run_precompute(checksum: str, dxf_path: str):
+    """
+    Full headless pipeline for one DXF file:
+      strand OCR → poles → equipment → cable spans → dxf segments
+    Writes everything to Supabase via session_store.
+    """
+    job = _PRECOMPUTE_JOBS[checksum]
+    job.update({"status": "processing"})
+
+    # ── get/create Supabase project+session ───────────────────────────────────
+    project_id, session_id, is_new = get_or_create_project_session(dxf_path, checksum)
+
+    if session_id and not is_new and session_has_user_edits(session_id):
+        print(f"[precompute] {dxf_path}: session {session_id} has user edits — skipping overwrite")
+        job.update({"status": "done", "session_id": session_id, "skipped": True})
+        return
+
+    layers = list_layers(dxf_path)
+    doc = ezdxf.readfile(dxf_path)
+
+    # ── dxf segments (all layers) ─────────────────────────────────────────────
+    all_segments_by_layer: Dict[str, list] = {}
+    for lyr in layers:
+        segs = extract_stroke_segments(doc, lyr, include_circles=False)
+        all_segments_by_layer[lyr] = [
+            {"x1": s.x1, "y1": s.y1, "x2": s.x2, "y2": s.y2,
+             "is_hatch": getattr(s, "is_hatch", False)}
+            for s in segs
+        ]
+
+    # ── strand OCR (auto-detect strand layer) ─────────────────────────────────
+    strand_patterns = ["strand", "wire", "drop", "fiber", "fibre"]
+    strand_layers = [
+        l for l in layers
+        if any(p in l.lower() for p in strand_patterns)
+    ]
+    # Fallback: pick a layer that has the most digit-like clusters
+    if not strand_layers:
+        strand_layers = [layers[0]] if layers else []
+
+    digit_results: list = []
+    if strand_layers:
+        all_segs: list = []
+        for lyr in strand_layers:
+            segs_raw = extract_stroke_segments(doc, lyr, include_circles=False)
+            all_segs.extend(segs_raw)
+
+        if all_segs:
+            scale = estimate_scale(all_segs)
+            cable = cable_segment_indices(all_segs, scale=scale)
+            clusters = cluster_segments(all_segs, tol=CONNECT_TOL * scale, ignore=cable)
+            infos = analyze_clusters(all_segs, clusters, scale=scale)
+            candidates = build_candidates_robust(all_segs, infos, scale=scale)
+
+            if candidates:
+                crops = [render_crop(all_segs, cand) for cand in candidates]
+                from app_python.services.strand_recognizer import recognize_batch
+                batch = recognize_batch(crops)
+                for cand, crop, (value, conf) in zip(candidates, crops, batch):
+                    cx = (cand.bbox[0] + cand.bbox[2]) / 2
+                    cy = (cand.bbox[1] + cand.bbox[3]) / 2
+                    needs_review = (not value) or (conf < _MIN_CONF)
+                    digit_results.append({
+                        "digit_id": cand.digit_id,
+                        "value": value if value else "?",
+                        "corrected_value": None,
+                        "confidence": round(conf, 4),
+                        "needs_review": needs_review,
+                        "bbox": list(cand.bbox),
+                        "center_x": cx,
+                        "center_y": cy,
+                    })
+                digit_results = _post_ocr_validate(digit_results)
+
+    # ── poles ─────────────────────────────────────────────────────────────────
+    pole_layer_names = _find_pole_layer_names(layers)
+    poles: list = []
+    if pole_layer_names:
+        global_pole_id = 0
+        for layer_name in pole_layer_names:
+            matches = _poleid.find_pole_labels(doc, layer_name, config=POLE_CONFIG)
+            for lab, _circ in matches:
+                bbox = list(lab.bbox) if lab.bbox else [lab.x, lab.y, lab.x, lab.y]
+                source = getattr(lab, "source", "text")
+                display_name = _poleid.clean_label(lab.text)
+                poles.append({
+                    "pole_id": global_pole_id,
+                    "name": display_name,
+                    "cx": round(lab.x, 4),
+                    "cy": round(lab.y, 4),
+                    "bbox": [round(v, 4) for v in bbox],
+                    "layer": layer_name,
+                    "source": source,
+                    "ocr_conf": None,
+                    "needs_review": False,
+                })
+                global_pole_id += 1
+
+    # ── equipment shapes ──────────────────────────────────────────────────────
+    # Reuse the same detection logic as _run_full_scan but without touching SCAN_STATE
+    KIND_LAYER_MAP = {
+        "circle": ["splitter", "tapoff", "tap-off", "tap_off", "splt"],
+        "hexagon": ["tapoff", "tap-off", "tap_off"],
+        "rectangle": ["node", "amplifier", "amp"],
+        "square": ["tapoff", "tap-off", "tap_off"],
+        "triangle": ["extender", "extend"],
+    }
+    layer_kind_targets: Dict[str, list] = {}
+    for layer in layers:
+        l_lower = layer.lower()
+        kinds_for_layer = [
+            kind for kind, keywords in KIND_LAYER_MAP.items()
+            if any(kw in l_lower for kw in keywords)
+        ]
+        if kinds_for_layer:
+            layer_kind_targets[layer] = kinds_for_layer
+
+    all_shapes: list = []
+    for layer, allowed_kinds in layer_kind_targets.items():
+        try:
+            shapes = extract_equipment_shapes(doc, layer, **SHAPE_CONFIG)
+            for s in shapes:
+                if s.kind not in allowed_kinds:
+                    continue
+                all_shapes.append({
+                    "shape_id": -1,
+                    "kind": s.kind,
+                    "bbox": list(s.bbox),
+                    "cx": s.cx,
+                    "cy": s.cy,
+                    "layer": layer,
+                })
+        except Exception:
+            pass
+
+    # dedup + re-id
+    DEDUP_EPS = 0.5
+    all_shapes.sort(key=lambda s: (s["kind"], s["cx"], s["cy"]))
+    deduped: list = []
+    for s in all_shapes:
+        if not deduped:
+            deduped.append(s)
+            continue
+        prev = deduped[-1]
+        if (s["kind"] == prev["kind"]
+                and abs(s["cx"] - prev["cx"]) < DEDUP_EPS
+                and abs(s["cy"] - prev["cy"]) < DEDUP_EPS):
+            continue
+        deduped.append(s)
+    deduped.sort(key=lambda s: (-s["cy"], s["cx"]))
+    for i, s in enumerate(deduped):
+        s["shape_id"] = i
+
+    # ── cable spans ───────────────────────────────────────────────────────────
+    cable_layer_names = find_cable_layer_names(layers)
+    cable_spans: list = []
+    if cable_layer_names:
+        cable_spans = build_cable_spans(doc, cable_layer_names, connect_tol=CABLE_CONNECT_TOL)
+        if digit_results:
+            cable_spans = assign_meter_values_to_spans(cable_spans, digit_results)
+
+    # ── persist ───────────────────────────────────────────────────────────────
+    if session_id:
+        save_full_results(
+            session_id,
+            digit_results=digit_results,
+            poles=poles,
+            equipment_shapes=deduped,
+            cable_spans=cable_spans,
+            dxf_segments_by_layer=all_segments_by_layer,
+            strand_layers=strand_layers,
+            pole_layers=pole_layer_names,
+            equipment_layers=list(layer_kind_targets.keys()),
+        )
+
+    job.update({
+        "status": "done",
+        "session_id": session_id,
+        "counts": {
+            "digits": len(digit_results),
+            "poles": len(poles),
+            "shapes": len(deduped),
+            "spans": len(cable_spans),
+        },
+    })
+    print(f"[precompute] done: {dxf_path}")
+
 
 def _run_pdf_conversion(job_id: str, pdf_path: str, folder: str):
     """
@@ -2935,6 +3160,18 @@ def api_upload():
             }
         )
         _write_index(data)
+
+        # Enqueue headless precompute (Supabase must be configured)
+        try:
+            checksum = compute_checksum(save_path)
+            existing = _PRECOMPUTE_JOBS.get(checksum, {})
+            if existing.get("status") not in ("queued", "processing", "done"):
+                _PRECOMPUTE_JOBS[checksum] = {"status": "queued", "dxf_path": save_path}
+                _PRECOMPUTE_QUEUE.put(checksum)
+                print(f"[upload] precompute queued for {fname} ({checksum[:8]})")
+        except Exception as _pc_err:
+            print(f"[upload] precompute enqueue failed (non-fatal): {_pc_err}")
+
         return jsonify({"path": save_path})
 
     except Exception as e:
@@ -2956,6 +3193,53 @@ def api_convert_status():
     job = CONVERT_JOBS[job_id]
 
     return jsonify(job)
+
+
+@app.route("/api/precompute/status", methods=["GET"])
+def api_precompute_status():
+    """Poll the precompute status for a DXF file (by path or checksum)."""
+    dxf_path = request.args.get("dxf_path", "")
+    checksum = request.args.get("checksum", "")
+
+    if dxf_path and not checksum:
+        try:
+            checksum = compute_checksum(dxf_path)
+        except Exception as e:
+            return jsonify({"error": str(e)}), 400
+
+    if not checksum:
+        return jsonify({"error": "dxf_path or checksum is required"}), 400
+
+    job = _PRECOMPUTE_JOBS.get(checksum)
+    if not job:
+        return jsonify({"status": "not_queued", "checksum": checksum})
+
+    return jsonify({**job, "checksum": checksum})
+
+
+@app.route("/api/precompute/trigger", methods=["POST"])
+def api_precompute_trigger():
+    """Manually trigger (or re-trigger) precompute for a DXF file."""
+    data = request.get_json() or {}
+    dxf_path = data.get("dxf_path", "")
+    force = bool(data.get("force", False))
+
+    if not dxf_path or not Path(dxf_path).exists():
+        return jsonify({"error": "valid dxf_path is required"}), 400
+
+    try:
+        checksum = compute_checksum(dxf_path)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+    existing = _PRECOMPUTE_JOBS.get(checksum, {})
+    if existing.get("status") in ("queued", "processing") and not force:
+        return jsonify({"ok": True, "queued": False, "status": existing["status"],
+                        "checksum": checksum})
+
+    _PRECOMPUTE_JOBS[checksum] = {"status": "queued", "dxf_path": dxf_path}
+    _PRECOMPUTE_QUEUE.put(checksum)
+    return jsonify({"ok": True, "queued": True, "checksum": checksum})
 
 
 # ─────────────────────────────────────────────────────────────────────────────
