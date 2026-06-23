@@ -74,7 +74,6 @@ export default function ReviewLayout({
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [theme, setTheme] = useState<ColorTheme>("default");
   const [labelMode, setLabelMode] = useState<LabelMode>("strand");
-  const [markerScale, setMarkerScale] = useState(1); // Dot marker size multiplier
 
   // Manual placement state
   const [manualMode, setManualMode] = useState(false);
@@ -257,7 +256,6 @@ export default function ReviewLayout({
           // --- NEW: Pass boundary props down to MapCanvas ---
           boundary={boundary}
           isMaskEnabled={isMaskEnabled}
-          markerScale={markerScale}
         />
 
         {selectedResult && !manualMode && (
@@ -357,28 +355,6 @@ export default function ReviewLayout({
                   {label}
                 </div>
               ))}
-
-              {/* ── Marker size slider ── */}
-              <div className="mt-1 pt-2 border-t border-border">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[11px] font-medium text-muted">
-                    Marker size
-                  </span>
-                  <span className="text-[11px] font-semibold tabular-nums text-[#1e293b]">
-                    {markerScale.toFixed(1)}×
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  min={0.3}
-                  max={3}
-                  step={0.1}
-                  value={markerScale}
-                  onChange={(e) => setMarkerScale(Number(e.target.value))}
-                  className="w-36 accent-[#16a34a] cursor-pointer"
-                  aria-label="Adjust marker size"
-                />
-              </div>
             </>
           ) : (
             <></>
