@@ -5,7 +5,7 @@ from app_python.planner_config import ASBUILT_API_BASE_URL
 ASBUILT_API_KEY = "asbuilt-iq-secret-key-2026"
 API_TIMEOUT = 30
 IMPORT_API_TIMEOUT = 120
-DOCUMENTED_ASBUILT_FALLBACK_URL = "https://purple-mink-495054.hostingersite.com/api/v1"
+DOCUMENTED_ASBUILT_FALLBACK_URL = "https://lightgreen-koala-653522.hostingersite.com/api/v1"
 
 def _headers():
     return {

@@ -4420,7 +4420,17 @@ def _prewarm_ocr():
 
 
 app.register_blueprint(public_api)
-_prewarm_ocr()
+
+
+def _start_background_prewarm():
+    if os.environ.get("DISABLE_OCR_PREWARM", "").lower() in ("1", "true", "yes"):
+        print("[startup] OCR pre-warm disabled.")
+        return
+
+    threading.Thread(target=_prewarm_ocr, name="ocr-prewarm", daemon=True).start()
+
+
+_start_background_prewarm()
 
 _geotool_proc = None
 
