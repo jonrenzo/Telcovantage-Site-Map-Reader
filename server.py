@@ -47,6 +47,12 @@ from PIL import Image
 
 from app_python.planner_config import DEFAULT_PROJECT_ID, ENABLE_PLANNER_INTEGRATION
 from app_python.services.planner_auth import auth
+from app_python.services.session_store import (
+    compute_checksum,
+    get_or_create_project_session,
+    save_full_results,
+    session_has_user_edits,
+)
 
 app = Flask(__name__, static_folder="frontend/dist", static_url_path="")
 CORS(app)
@@ -136,6 +142,73 @@ SALVAGE_LONG_SEG_FACTOR = 1.8
 SALVAGE_ANGLE_TOL_DEG = 20.0
 CABLE_CONNECT_TOL = 0.10
 
+# ── adaptive scale ────────────────────────────────────────────────────────────
+# The absolute thresholds above (CONNECT_TOL, MIN_TOTAL_LENGTH, EPS_THIN,
+# LONG_DIM) were calibrated for drawings whose median stroke length is
+# REF_MEDIAN_SEGLEN. Different maps are drawn at different scales, so instead of
+# hand-editing CONNECT_TOL per map we measure each drawing's own stroke size and
+# scale every distance threshold by the same factor. estimate_scale() returns
+# that multiplier (1.0 == reference scale). Overridable via env for tuning.
+REF_MEDIAN_SEGLEN = float(os.environ.get("STRAND_REF_SEGLEN", "0.0125"))
+
+
+def estimate_scale(segments) -> float:
+    """Per-drawing scale multiplier = median stroke length / reference length.
+
+    Robust to map scale: a drawing drawn 10x larger has ~10x longer strokes and
+    therefore a ~10x larger connect tolerance, digit-length floor, etc. Cable
+    polylines are a minority of segments, so the median tracks the digit strokes.
+    """
+    lens = [s.length() for s in segments if s.length() > 1e-9]
+    if not lens:
+        return 1.0
+    return float(np.median(lens)) / REF_MEDIAN_SEGLEN
+
+
+# A segment longer than this multiple of the median stroke length is a cable
+# "seed" — clearly part of the strand line, not a digit. Digit strokes top out
+# around ~10x median while cable seeds are ~15-120x median (empty valley between).
+CABLE_SEG_FACTOR = 20.0
+
+
+def cable_segment_indices(segments, scale=None) -> set:
+    """Indices of segments forming the cable strand line, excluded from digit
+    clustering so the cable can't swallow digits or leak a stub into a crop.
+
+    The cable strand is drawn in a distinct ACI color (e.g. 254) covering both
+    its long runs AND its short corner pieces, while digits are a different color
+    (usually BYLAYER). We auto-detect the cable color as the dominant color among
+    the over-long "seed" segments, then exclude EVERY segment of that color. This
+    cleanly drops cable corner fragments (no junk candidates) while keeping digits
+    that sit on the cable (they are a different color), which geometry alone
+    cannot do.
+
+    Falls back to removing just the long seeds when color is not discriminative
+    (cable shares the digits' color), so it never removes a whole drawing.
+    """
+    from collections import Counter
+
+    # Toggle: set STRAND_CABLE_SEPARATION=0 to disable cable exclusion entirely
+    # (digits on the cable stay missing, but no cable-fragment false positives).
+    if os.environ.get("STRAND_CABLE_SEPARATION", "1") == "0":
+        return set()
+
+    lens = [s.length() for s in segments if s.length() > 1e-9]
+    if not lens:
+        return set()
+    med = float(np.median(lens))
+    seeds = [i for i, s in enumerate(segments) if s.length() > CABLE_SEG_FACTOR * med]
+    if not seeds:
+        return set()
+
+    cable_color, _ = Counter(segments[i].color for i in seeds).most_common(1)[0]
+    same_color = {i for i, s in enumerate(segments) if s.color == cable_color}
+    # Use color only when the cable color is a clear minority (otherwise it is
+    # also the digit color and excluding it would wipe out real digits).
+    if len(same_color) <= 0.6 * len(segments):
+        return same_color
+    return set(seeds)
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # DATA CLASSES
@@ -149,6 +222,7 @@ class Seg:
     x2: float
     y2: float
     is_hatch: bool = False  # Added flag to identify hatch boundaries
+    color: int = 256  # ACI color (256 = BYLAYER); used to tell cable from digits
 
     def p1(self):
         return (self.x1, self.y1)
@@ -207,7 +281,10 @@ _OCR_ROTATION_PAIRS = [
 ]
 
 _FAST_ACCEPT_CONF = 0.95
-_MIN_CONF = 0.98
+# Confidence from strand_recognizer is a vote-share / agreement score (0-1),
+# not a raw single-pass softmax. 0.50 means "the winning value carried at least
+# a majority of the weighted votes"; below that we flag for human review.
+_MIN_CONF = 0.50
 _MAX_STRAND_VALUE = 75
 _STRAND_RE = _re.compile(r"^\d{1,2}$")
 
@@ -254,11 +331,15 @@ def _rotate_crop(img: np.ndarray, degrees: int) -> np.ndarray:
 
     from PIL import Image as _PILImage
 
-    orig_h, orig_w = img.shape[:2]
+    # expand=True grows the canvas to fit the rotated content; pad to square
+    # so the caller always gets a square image (no squish back to orig dims).
     pil = _PILImage.fromarray(img)
     rotated = pil.rotate(-degrees, resample=_PILImage.BICUBIC, expand=True, fillcolor=0)
-    rotated = rotated.resize((orig_w, orig_h), _PILImage.BICUBIC)
-    return np.array(rotated)
+    rw, rh = rotated.size
+    side = max(rw, rh)
+    sq = _PILImage.new("L", (side, side), 0)
+    sq.paste(rotated, ((side - rw) // 2, (side - rh) // 2))
+    return np.array(sq)
 
 
 def _easyocr_on_prepared(img: np.ndarray) -> Tuple[str, float]:
@@ -295,64 +376,13 @@ def _easyocr_on_prepared(img: np.ndarray) -> Tuple[str, float]:
 
 
 def predict_with_easyocr(crop_np: np.ndarray) -> Tuple[str, float]:
-    CONF_GAP_THRESHOLD = 0.08
-    STRONG_PAIR_CONF = 0.80
-
-    best_text = ""
-    best_conf = 0.0
-    best_valid = False
-    strong_winners: List[Tuple[str, float]] = []
-
-    def _run_angle(degrees: int) -> Tuple[str, float, bool]:
-        rotated = _rotate_crop(crop_np, degrees)
-        inverted = cv2.bitwise_not(rotated)
-        padded = cv2.copyMakeBorder(
-            inverted, 16, 16, 16, 16, cv2.BORDER_CONSTANT, value=255
-        )
-        text, conf = _easyocr_on_prepared(padded)
-        valid = _is_valid_strand(text)
-        return text, conf, valid
-
-    def _better(t1, c1, v1, t2, c2, v2) -> bool:
-        if v2 and not v1:
-            return True
-        if not v2:
-            return False
-        if len(t2) == 2 and len(t1) != 2:
-            return True
-        if len(t2) != 2 and len(t1) == 2:
-            return False
-        return c2 > c1
-
-    for deg_a, deg_b in _OCR_ROTATION_PAIRS:
-        ta, ca, va = _run_angle(deg_a)
-        tb, cb, vb = _run_angle(deg_b)
-
-        pt, pc, pv = (tb, cb, vb) if _better(ta, ca, va, tb, cb, vb) else (ta, ca, va)
-        if not pv:
-            continue
-
-        if len(pt) == 2 and pc >= STRONG_PAIR_CONF:
-            strong_winners.append((pt, pc))
-
-        if not best_valid:
-            best_text, best_conf, best_valid = pt, pc, True
-        else:
-            if _better(best_text, best_conf, True, pt, pc, True):
-                if len(pt) == 2 and len(best_text) != 2:
-                    best_text, best_conf = pt, pc
-                elif len(pt) == len(best_text) and pc > best_conf + CONF_GAP_THRESHOLD:
-                    best_text, best_conf = pt, pc
-
-        if best_valid and len(best_text) == 2 and best_conf >= _FAST_ACCEPT_CONF:
-            break
-
-    if len(strong_winners) >= 2:
-        unique_vals = set(t for t, _ in strong_winners)
-        if len(unique_vals) > 1:
-            best_conf = min(best_conf, 0.40)
-
-    return best_text, round(best_conf, 4)
+    """
+    Delegate to strand_recognizer which applies the full 4-layer accuracy
+    pipeline (aspect-correct rasterization, multi-variant rendering, dual-engine
+    ensemble EasyOCR+TrOCR, domain-constrained voting over 1-75).
+    """
+    from app_python.services.strand_recognizer import recognize
+    return recognize(crop_np)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -415,6 +445,13 @@ def extract_stroke_segments(doc, layer_name, include_circles=True):
         for e in space:
             if getattr(e.dxf, "layer", None) != layer_name:
                 continue
+            # Tag every segment from this entity with its ACI color so the cable
+            # strand line (a distinct color) can be told apart from the digits.
+            try:
+                col = int(e.dxf.color)
+            except Exception:
+                col = 256
+            seg_start = len(segments)
             t = e.dxftype()
             if t == "LINE":
                 p1, p2 = e.dxf.start, e.dxf.end
@@ -495,12 +532,17 @@ def extract_stroke_segments(doc, layer_name, include_circles=True):
                                 )
                 except Exception:
                     pass
+            for s in segments[seg_start:]:
+                s.color = col
     return segments
 
 
-def cluster_segments(segments, tol):
+def cluster_segments(segments, tol=None, ignore=None):
     if not segments:
         return []
+    if tol is None:
+        tol = CONNECT_TOL * estimate_scale(segments)
+    ignore = ignore or set()
     tol2 = tol * tol
     cell_size = tol
 
@@ -508,9 +550,9 @@ def cluster_segments(segments, tol):
         return (int(math.floor(p[0] / cell_size)), int(math.floor(p[1] / cell_size)))
 
     grid = {}
-    endpoints = [(i, s.p1()) for i, s in enumerate(segments)] + [
-        (i, s.p2()) for i, s in enumerate(segments)
-    ]
+    endpoints = [
+        (i, s.p1()) for i, s in enumerate(segments) if i not in ignore
+    ] + [(i, s.p2()) for i, s in enumerate(segments) if i not in ignore]
     for si, p in endpoints:
         grid.setdefault(cell_key(p), []).append((si, p))
     adj = [[] for _ in range(len(segments))]
@@ -521,7 +563,8 @@ def cluster_segments(segments, tol):
                 for sj, q in grid.get((ck[0] + dx, ck[1] + dy), []):
                     if sj != si and _dist2(p, q) <= tol2:
                         adj[si].append(sj)
-    visited = [False] * len(segments)
+    # Ignored (cable) segments never seed or join a cluster.
+    visited = [(i in ignore) for i in range(len(segments))]
     clusters = []
     for i in range(len(segments)):
         if visited[i]:
@@ -596,21 +639,25 @@ def is_renderable_cluster(segments, info):
     return any(segments[si].length() > 1e-6 for si in info.seg_indices)
 
 
-def analyze_clusters(segments, clusters):
+def analyze_clusters(segments, clusters, scale=None):
     infos = []
-    ep_tol = CONNECT_TOL * ENDPOINT_TOL_SCALE
+    sc = scale if scale is not None else estimate_scale(segments)
+    ep_tol = CONNECT_TOL * sc * ENDPOINT_TOL_SCALE
+    min_total = MIN_TOTAL_LENGTH * sc
+    eps_thin = EPS_THIN * sc
+    long_dim = LONG_DIM * sc
     for cid, idxs in enumerate(clusters):
         minx, miny, maxx, maxy = _bbox_from_segments(segments, idxs)
         w = maxx - minx
         h = maxy - miny
         total_len = sum(segments[i].length() for i in idxs)
-        if total_len < MIN_TOTAL_LENGTH:
+        if total_len < min_total:
             continue
         comp = cluster_complexity(segments, idxs)
         dom = dominant_direction_ratio(segments, idxs)
         ep = endpoint_count(segments, idxs, tol=ep_tol)
-        thin = min(w, h) < EPS_THIN
-        longish = max(w, h) > LONG_DIM
+        thin = min(w, h) < eps_thin
+        longish = max(w, h) > long_dim
         few = len(idxs) < MIN_SEGS_FOR_DIGIT
         if (
             (thin and longish and comp < COMPLEX_MIN)
@@ -642,7 +689,8 @@ def _point_line_dist(p, c, d):
 
 
 def salvage_remove_dominant_line(
-    segments, idxs, connect_tol, dist_factor, long_seg_factor, angle_tol_deg
+    segments, idxs, connect_tol, dist_factor, long_seg_factor, angle_tol_deg,
+    min_total=MIN_TOTAL_LENGTH,
 ):
     if len(idxs) < 4:
         return [idxs]
@@ -687,12 +735,12 @@ def salvage_remove_dominant_line(
     subclusters = [
         c
         for c in subclusters
-        if sum(segments[i].length() for i in c) >= MIN_TOTAL_LENGTH
+        if sum(segments[i].length() for i in c) >= min_total
     ]
     return subclusters if subclusters else [idxs]
 
 
-def _split_by_gap(segments, info, med_w, med_h):
+def _split_by_gap(segments, info, med_w, med_h, min_total=MIN_TOTAL_LENGTH):
     mids_x = []
     mids_y = []
     for i in info.seg_indices:
@@ -731,7 +779,7 @@ def _split_by_gap(segments, info, med_w, med_h):
             w = bx[2] - bx[0]
             h = bx[3] - bx[1]
             tlen = sum(segments[j].length() for j in half)
-            if tlen < MIN_TOTAL_LENGTH or w < 1e-9 or h < 1e-9:
+            if tlen < min_total or w < 1e-9 or h < 1e-9:
                 continue
             results.append(
                 ClusterInfo(info.cluster_id, half, bx, w, h, tlen, "digit_candidate")
@@ -755,7 +803,9 @@ def _split_by_gap(segments, info, med_w, med_h):
     return [info]
 
 
-def build_candidates_robust(segments, infos):
+def build_candidates_robust(segments, infos, scale=None):
+    sc = scale if scale is not None else estimate_scale(segments)
+    min_total = MIN_TOTAL_LENGTH * sc
     prelim = [
         i
         for i in infos
@@ -790,23 +840,24 @@ def build_candidates_robust(segments, infos):
             or not aspect_ok(i.width, i.height)
         )
         if not too_big:
-            for split in _split_by_gap(segments, i, med_w, med_h):
+            for split in _split_by_gap(segments, i, med_w, med_h, min_total=min_total):
                 final_infos.append(split)
             continue
         subclusters = salvage_remove_dominant_line(
             segments,
             i.seg_indices,
-            CONNECT_TOL * 0.9,
+            CONNECT_TOL * 0.9 * sc,
             SALVAGE_DIST_FACTOR,
             SALVAGE_LONG_SEG_FACTOR,
             SALVAGE_ANGLE_TOL_DEG,
+            min_total=min_total,
         )
         for comp in subclusters:
             bx = _bbox_from_segments(segments, comp)
             w = bx[2] - bx[0]
             h = bx[3] - bx[1]
             tlen = sum(segments[j].length() for j in comp)
-            if tlen < MIN_TOTAL_LENGTH:
+            if tlen < min_total:
                 continue
             if (
                 w > med_w * W_FACTOR
@@ -1516,11 +1567,20 @@ def run_pipeline(dxf_path, layers, model_path):
         state["segments"] = all_segments
 
         state.update({"step": 2, "step_label": "Grouping into digit clusters…"})
-        clusters = cluster_segments(all_segments, tol=CONNECT_TOL)
-        infos = analyze_clusters(all_segments, clusters)
+        # Derive all distance thresholds from THIS drawing's stroke scale so the
+        # pipeline works across maps of different sizes without hand-tuning.
+        scale = estimate_scale(all_segments)
+        # Exclude the cable strand line from clustering so it can't swallow
+        # digits or leak a stub into a digit crop.
+        cable = cable_segment_indices(all_segments, scale=scale)
+        print(f"[run_pipeline] adaptive scale={scale:.3f}  "
+              f"connect_tol={CONNECT_TOL * scale:.4f}  cable_segs={len(cable)}  "
+              f"(ref={REF_MEDIAN_SEGLEN})")
+        clusters = cluster_segments(all_segments, tol=CONNECT_TOL * scale, ignore=cable)
+        infos = analyze_clusters(all_segments, clusters, scale=scale)
 
         state.update({"step": 3, "step_label": "Identifying digit candidates…"})
-        candidates = build_candidates_robust(all_segments, infos)
+        candidates = build_candidates_robust(all_segments, infos, scale=scale)
         state["candidates"] = candidates
         state["total"] = len(candidates)
 
@@ -1544,16 +1604,34 @@ def run_pipeline(dxf_path, layers, model_path):
             }
         )
 
+        # Recognize the whole drawing in one batch so flip ambiguities (e.g.
+        # 19 vs 61) are resolved against the drawing-wide dominant orientation.
+        from app_python.services.strand_recognizer import recognize_batch
+
+        def _progress(done: int, total: int) -> None:
+            elapsed = time.time() - state["ocr_start_time"]
+            rate = done / elapsed if elapsed > 0 else 0
+            eta_secs = int((total - done) / rate) if rate > 0 else 0
+            if eta_secs >= 60:
+                eta_str = f"{eta_secs // 60}m {eta_secs % 60}s remaining"
+            elif eta_secs > 0:
+                eta_str = f"~{eta_secs}s remaining"
+            else:
+                eta_str = "almost done…"
+            state.update(
+                {
+                    "progress": done,
+                    "step_label": f"Reading digit {done} of {total} — {eta_str}",
+                }
+            )
+
+        batch = recognize_batch(crops, progress_cb=_progress)
+
         results = []
-
-        for i, (cand, crop) in enumerate(zip(candidates, crops)):
-            value, conf = predict_with_easyocr(crop)
-
+        for cand, crop, (value, conf) in zip(candidates, crops, batch):
             cx = (cand.bbox[0] + cand.bbox[2]) / 2
             cy = (cand.bbox[1] + cand.bbox[3]) / 2
-
             needs_review = (not value) or (conf < _MIN_CONF)
-
             results.append(
                 {
                     "digit_id": cand.digit_id,
@@ -1565,27 +1643,6 @@ def run_pipeline(dxf_path, layers, model_path):
                     "center_x": cx,
                     "center_y": cy,
                     "crop_b64": img_to_b64(crop),
-                }
-            )
-
-            done = i + 1
-            elapsed = time.time() - state["ocr_start_time"]
-            rate = done / elapsed if elapsed > 0 else 0
-            remaining = len(candidates) - done
-            eta_secs = int(remaining / rate) if rate > 0 else 0
-
-            if eta_secs >= 60:
-                eta_str = f"{eta_secs // 60}m {eta_secs % 60}s remaining"
-            elif eta_secs > 0:
-                eta_str = f"~{eta_secs}s remaining"
-            else:
-                eta_str = "almost done…"
-
-            state.update(
-                {
-                    "results": list(results),
-                    "progress": done,
-                    "step_label": f"Reading digit {done} of {len(candidates)} — {eta_str}",
                 }
             )
 
@@ -2680,6 +2737,225 @@ INDEX_FILE = UPLOADS_DIR / "index.json"
 # job_id -> { status: "pending"|"converting"|"done"|"error", path?, error? }
 CONVERT_JOBS: Dict[str, dict] = {}
 
+# ── Precompute job queue ──────────────────────────────────────────────────────
+# checksum -> { status: "queued"|"processing"|"done"|"error", session_id?, error? }
+_PRECOMPUTE_JOBS: Dict[str, dict] = {}
+_PRECOMPUTE_QUEUE: "queue.Queue[str]" = None  # lazily initialised below
+
+
+import queue as _queue_mod
+
+_PRECOMPUTE_QUEUE = _queue_mod.Queue()
+
+
+def _precompute_worker():
+    """Serial background worker that processes one DXF precompute job at a time."""
+    while True:
+        checksum = _PRECOMPUTE_QUEUE.get()
+        job = _PRECOMPUTE_JOBS.get(checksum)
+        if not job:
+            continue
+        dxf_path = job.get("dxf_path", "")
+        try:
+            _run_precompute(checksum, dxf_path)
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            _PRECOMPUTE_JOBS[checksum].update({"status": "error", "error": str(e)})
+        finally:
+            _PRECOMPUTE_QUEUE.task_done()
+
+
+threading.Thread(target=_precompute_worker, daemon=True).start()
+
+
+def _run_precompute(checksum: str, dxf_path: str):
+    """
+    Full headless pipeline for one DXF file:
+      strand OCR → poles → equipment → cable spans → dxf segments
+    Writes everything to Supabase via session_store.
+    """
+    job = _PRECOMPUTE_JOBS[checksum]
+    job.update({"status": "processing"})
+
+    # ── get/create Supabase project+session ───────────────────────────────────
+    project_id, session_id, is_new = get_or_create_project_session(dxf_path, checksum)
+
+    if session_id and not is_new and session_has_user_edits(session_id):
+        print(f"[precompute] {dxf_path}: session {session_id} has user edits — skipping overwrite")
+        job.update({"status": "done", "session_id": session_id, "skipped": True})
+        return
+
+    layers = list_layers(dxf_path)
+    doc = ezdxf.readfile(dxf_path)
+
+    # ── dxf segments (all layers) ─────────────────────────────────────────────
+    all_segments_by_layer: Dict[str, list] = {}
+    for lyr in layers:
+        segs = extract_stroke_segments(doc, lyr, include_circles=False)
+        all_segments_by_layer[lyr] = [
+            {"x1": s.x1, "y1": s.y1, "x2": s.x2, "y2": s.y2,
+             "is_hatch": getattr(s, "is_hatch", False)}
+            for s in segs
+        ]
+
+    # ── strand OCR (auto-detect strand layer) ─────────────────────────────────
+    strand_patterns = ["strand", "wire", "drop", "fiber", "fibre"]
+    strand_layers = [
+        l for l in layers
+        if any(p in l.lower() for p in strand_patterns)
+    ]
+    # Fallback: pick a layer that has the most digit-like clusters
+    if not strand_layers:
+        strand_layers = [layers[0]] if layers else []
+
+    digit_results: list = []
+    if strand_layers:
+        all_segs: list = []
+        for lyr in strand_layers:
+            segs_raw = extract_stroke_segments(doc, lyr, include_circles=False)
+            all_segs.extend(segs_raw)
+
+        if all_segs:
+            scale = estimate_scale(all_segs)
+            cable = cable_segment_indices(all_segs, scale=scale)
+            clusters = cluster_segments(all_segs, tol=CONNECT_TOL * scale, ignore=cable)
+            infos = analyze_clusters(all_segs, clusters, scale=scale)
+            candidates = build_candidates_robust(all_segs, infos, scale=scale)
+
+            if candidates:
+                crops = [render_crop(all_segs, cand) for cand in candidates]
+                from app_python.services.strand_recognizer import recognize_batch
+                batch = recognize_batch(crops)
+                for cand, crop, (value, conf) in zip(candidates, crops, batch):
+                    cx = (cand.bbox[0] + cand.bbox[2]) / 2
+                    cy = (cand.bbox[1] + cand.bbox[3]) / 2
+                    needs_review = (not value) or (conf < _MIN_CONF)
+                    digit_results.append({
+                        "digit_id": cand.digit_id,
+                        "value": value if value else "?",
+                        "corrected_value": None,
+                        "confidence": round(conf, 4),
+                        "needs_review": needs_review,
+                        "bbox": list(cand.bbox),
+                        "center_x": cx,
+                        "center_y": cy,
+                    })
+                digit_results = _post_ocr_validate(digit_results)
+
+    # ── poles ─────────────────────────────────────────────────────────────────
+    pole_layer_names = _find_pole_layer_names(layers)
+    poles: list = []
+    if pole_layer_names:
+        global_pole_id = 0
+        for layer_name in pole_layer_names:
+            matches = _poleid.find_pole_labels(doc, layer_name, config=POLE_CONFIG)
+            for lab, _circ in matches:
+                bbox = list(lab.bbox) if lab.bbox else [lab.x, lab.y, lab.x, lab.y]
+                source = getattr(lab, "source", "text")
+                display_name = _poleid.clean_label(lab.text)
+                poles.append({
+                    "pole_id": global_pole_id,
+                    "name": display_name,
+                    "cx": round(lab.x, 4),
+                    "cy": round(lab.y, 4),
+                    "bbox": [round(v, 4) for v in bbox],
+                    "layer": layer_name,
+                    "source": source,
+                    "ocr_conf": None,
+                    "needs_review": False,
+                })
+                global_pole_id += 1
+
+    # ── equipment shapes ──────────────────────────────────────────────────────
+    # Reuse the same detection logic as _run_full_scan but without touching SCAN_STATE
+    KIND_LAYER_MAP = {
+        "circle": ["splitter", "tapoff", "tap-off", "tap_off", "splt"],
+        "hexagon": ["tapoff", "tap-off", "tap_off"],
+        "rectangle": ["node", "amplifier", "amp"],
+        "square": ["tapoff", "tap-off", "tap_off"],
+        "triangle": ["extender", "extend"],
+    }
+    layer_kind_targets: Dict[str, list] = {}
+    for layer in layers:
+        l_lower = layer.lower()
+        kinds_for_layer = [
+            kind for kind, keywords in KIND_LAYER_MAP.items()
+            if any(kw in l_lower for kw in keywords)
+        ]
+        if kinds_for_layer:
+            layer_kind_targets[layer] = kinds_for_layer
+
+    all_shapes: list = []
+    for layer, allowed_kinds in layer_kind_targets.items():
+        try:
+            shapes = extract_equipment_shapes(doc, layer, **SHAPE_CONFIG)
+            for s in shapes:
+                if s.kind not in allowed_kinds:
+                    continue
+                all_shapes.append({
+                    "shape_id": -1,
+                    "kind": s.kind,
+                    "bbox": list(s.bbox),
+                    "cx": s.cx,
+                    "cy": s.cy,
+                    "layer": layer,
+                })
+        except Exception:
+            pass
+
+    # dedup + re-id
+    DEDUP_EPS = 0.5
+    all_shapes.sort(key=lambda s: (s["kind"], s["cx"], s["cy"]))
+    deduped: list = []
+    for s in all_shapes:
+        if not deduped:
+            deduped.append(s)
+            continue
+        prev = deduped[-1]
+        if (s["kind"] == prev["kind"]
+                and abs(s["cx"] - prev["cx"]) < DEDUP_EPS
+                and abs(s["cy"] - prev["cy"]) < DEDUP_EPS):
+            continue
+        deduped.append(s)
+    deduped.sort(key=lambda s: (-s["cy"], s["cx"]))
+    for i, s in enumerate(deduped):
+        s["shape_id"] = i
+
+    # ── cable spans ───────────────────────────────────────────────────────────
+    cable_layer_names = find_cable_layer_names(layers)
+    cable_spans: list = []
+    if cable_layer_names:
+        cable_spans = build_cable_spans(doc, cable_layer_names, connect_tol=CABLE_CONNECT_TOL)
+        if digit_results:
+            cable_spans = assign_meter_values_to_spans(cable_spans, digit_results)
+
+    # ── persist ───────────────────────────────────────────────────────────────
+    if session_id:
+        save_full_results(
+            session_id,
+            digit_results=digit_results,
+            poles=poles,
+            equipment_shapes=deduped,
+            cable_spans=cable_spans,
+            dxf_segments_by_layer=all_segments_by_layer,
+            strand_layers=strand_layers,
+            pole_layers=pole_layer_names,
+            equipment_layers=list(layer_kind_targets.keys()),
+        )
+
+    job.update({
+        "status": "done",
+        "session_id": session_id,
+        "counts": {
+            "digits": len(digit_results),
+            "poles": len(poles),
+            "shapes": len(deduped),
+            "spans": len(cable_spans),
+        },
+    })
+    print(f"[precompute] done: {dxf_path}")
+
 
 def _run_pdf_conversion(job_id: str, pdf_path: str, folder: str):
     """
@@ -2888,6 +3164,18 @@ def api_upload():
             }
         )
         _write_index(data)
+
+        # Enqueue headless precompute (Supabase must be configured)
+        try:
+            checksum = compute_checksum(save_path)
+            existing = _PRECOMPUTE_JOBS.get(checksum, {})
+            if existing.get("status") not in ("queued", "processing", "done"):
+                _PRECOMPUTE_JOBS[checksum] = {"status": "queued", "dxf_path": save_path}
+                _PRECOMPUTE_QUEUE.put(checksum)
+                print(f"[upload] precompute queued for {fname} ({checksum[:8]})")
+        except Exception as _pc_err:
+            print(f"[upload] precompute enqueue failed (non-fatal): {_pc_err}")
+
         return jsonify({"path": save_path})
 
     except Exception as e:
@@ -2909,6 +3197,53 @@ def api_convert_status():
     job = CONVERT_JOBS[job_id]
 
     return jsonify(job)
+
+
+@app.route("/api/precompute/status", methods=["GET"])
+def api_precompute_status():
+    """Poll the precompute status for a DXF file (by path or checksum)."""
+    dxf_path = request.args.get("dxf_path", "")
+    checksum = request.args.get("checksum", "")
+
+    if dxf_path and not checksum:
+        try:
+            checksum = compute_checksum(dxf_path)
+        except Exception as e:
+            return jsonify({"error": str(e)}), 400
+
+    if not checksum:
+        return jsonify({"error": "dxf_path or checksum is required"}), 400
+
+    job = _PRECOMPUTE_JOBS.get(checksum)
+    if not job:
+        return jsonify({"status": "not_queued", "checksum": checksum})
+
+    return jsonify({**job, "checksum": checksum})
+
+
+@app.route("/api/precompute/trigger", methods=["POST"])
+def api_precompute_trigger():
+    """Manually trigger (or re-trigger) precompute for a DXF file."""
+    data = request.get_json() or {}
+    dxf_path = data.get("dxf_path", "")
+    force = bool(data.get("force", False))
+
+    if not dxf_path or not Path(dxf_path).exists():
+        return jsonify({"error": "valid dxf_path is required"}), 400
+
+    try:
+        checksum = compute_checksum(dxf_path)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+    existing = _PRECOMPUTE_JOBS.get(checksum, {})
+    if existing.get("status") in ("queued", "processing") and not force:
+        return jsonify({"ok": True, "queued": False, "status": existing["status"],
+                        "checksum": checksum})
+
+    _PRECOMPUTE_JOBS[checksum] = {"status": "queued", "dxf_path": dxf_path}
+    _PRECOMPUTE_QUEUE.put(checksum)
+    return jsonify({"ok": True, "queued": True, "checksum": checksum})
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -4400,11 +4735,14 @@ def v1_asbuilt_import_by_sequence():
 
 def _prewarm_ocr():
     try:
-        print("[startup] Pre-warming EasyOCR...")
+        print("[startup] Pre-warming strand recognizer (EasyOCR + TrOCR)...")
+        from app_python.services.strand_recognizer import prewarm as _sr_prewarm
+        _sr_prewarm()
+        # Keep the legacy singleton warm too (used by _easyocr_on_prepared)
         _load_easyocr()
-        print("[startup] EasyOCR ready.")
+        print("[startup] Strand recognizer ready.")
     except Exception as e:
-        print(f"[startup] EasyOCR pre-warm failed: {e}")
+        print(f"[startup] Strand recognizer pre-warm failed: {e}")
 
     if os.environ.get("REMOTE_TROCR_URL"):
         print("[startup] Pole TrOCR pre-warm skipped (remote mode)")
@@ -4476,7 +4814,10 @@ def _can_bind_port(host: str, port: int) -> bool:
 def _resolve_runtime_port() -> int:
     raw_port = os.environ.get("PORT")
     if raw_port:
-        return int(raw_port)
+        try:
+            return int(raw_port)
+        except ValueError:
+            print(f"[startup] Invalid PORT={raw_port!r}; falling back to default.")
 
     default_port = 5000
     fallback_port = 5050

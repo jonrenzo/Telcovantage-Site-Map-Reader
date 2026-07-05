@@ -1,11 +1,18 @@
+import os
+
 import requests
 from requests.exceptions import ConnectionError, Timeout
+
 from app_python.planner_config import ASBUILT_API_BASE_URL
 
 ASBUILT_API_KEY = "asbuilt-iq-secret-key-2026"
 API_TIMEOUT = 30
 IMPORT_API_TIMEOUT = 120
-DOCUMENTED_ASBUILT_FALLBACK_URL = "https://lightgreen-koala-653522.hostingersite.com/api/v1"
+ASBUILT_API_FALLBACK_URL = (
+    os.getenv("ASBUILT_API_FALLBACK_URL")
+    or "https://lightgreen-koala-653522.hostingersite.com/api/v1"
+).strip().rstrip("/")
+
 
 def _headers():
     return {
@@ -18,7 +25,7 @@ def _headers():
 
 def _candidate_base_urls() -> list[str]:
     urls: list[str] = []
-    for url in (ASBUILT_API_BASE_URL, DOCUMENTED_ASBUILT_FALLBACK_URL):
+    for url in (ASBUILT_API_BASE_URL, ASBUILT_API_FALLBACK_URL):
         normalized = (url or "").strip().rstrip("/")
         if normalized and normalized not in urls:
             urls.append(normalized)
