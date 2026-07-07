@@ -1,0 +1,35 @@
+{
+  "node_id": "CODEXSEQ1",
+  "node_name": "CODEX SEQ TEST",
+  "area_id": 2,
+  "poles": [
+    {
+      "pole_index": "NPT-1",
+      "pole_code": "NPT",
+      "lat": 14.5995,
+      "lng": 120.9842
+    },
+    {
+      "pole_index": "NPT-2",
+      "pole_code": "NPT",
+      "lat": 14.6001,
+      "lng": 120.9848
+    }
+  ],
+  "spans": [
+    {
+      "from_pole_index": "NPT-1",
+      "to_pole_index": "NPT-2",
+      "strand_length": 50.5,
+      "number_of_runs": 1,
+      "components": {
+        "node": 0,
+        "amplifier": 0,
+        "extender": 0,
+        "tsc": 0,
+        "powersupply": 0,
+        "ps_housing": 0
+      }
+    }
+  ]
+}

@@ -23,6 +23,7 @@ import io
 import json
 import math
 import os
+import socket
 import shutil as _shutil
 import subprocess
 import sys
@@ -307,9 +308,12 @@ def _load_easyocr():
             return _easyocr_reader
 
         import easyocr
+        import torch
 
         print("[ocr] Loading EasyOCR reader (first-time download may take ~30s)...")
-        _easyocr_reader = easyocr.Reader(["en"], gpu=False)
+        use_gpu = bool(torch.cuda.is_available())
+        print(f"[ocr] EasyOCR device: {'cuda' if use_gpu else 'cpu'}")
+        _easyocr_reader = easyocr.Reader(["en"], gpu=use_gpu)
         print("[ocr] EasyOCR ready.")
 
     return _easyocr_reader
@@ -4033,6 +4037,8 @@ def v1_poles_georeference():
         lat = p.get("map_latitude")
         lon = p.get("map_longitude")
         name = p.get("name", "NPT")
+        layer = p.get("layer", "geotool_npt")
+        source = p.get("source", "geotool_npt")
 
         if lat is None or lon is None:
             continue
@@ -4043,6 +4049,8 @@ def v1_poles_georeference():
             tag_map[pid_key]["map_longitude"] = lon
             tag_map[pid_key]["cx"] = p.get("cad_x", tag_map[pid_key].get("cx", 0))
             tag_map[pid_key]["cy"] = p.get("cad_y", tag_map[pid_key].get("cy", 0))
+            tag_map[pid_key]["layer"] = layer or tag_map[pid_key].get("layer", "geotool_npt")
+            tag_map[pid_key]["source"] = source or tag_map[pid_key].get("source", "geotool_npt")
             updated += 1
         else:
             # UPSERT: Insert newly discovered NPTs from the geotool
@@ -4052,8 +4060,8 @@ def v1_poles_georeference():
                 "cx": p.get("cad_x", 0),
                 "cy": p.get("cad_y", 0),
                 "bbox": [0, 0, 0, 0],
-                "layer": POLE_STATE.get("layer", "geotool_discovery"),
-                "source": "geotool_npt",
+                "layer": layer or "geotool_npt",
+                "source": source or "geotool_npt",
                 "ocr_conf": 1.0,
                 "needs_review": False,
                 "crop_b64": None,
@@ -4244,6 +4252,31 @@ def v1_asbuilt_node(node_id: int):
         return _v1_err(str(e), 502)
 
 
+@public_api.route("/asbuilt/subcontractors", methods=["GET"])
+def v1_asbuilt_subcontractors():
+    """Proxy to AsBuilt IQ API — list all subcontractors."""
+    try:
+        from app_python.services.asbuilt_api import get_subcontractors
+
+        subcontractors = get_subcontractors()
+        return _v1_ok(subcontractors)
+    except Exception as e:
+        return _v1_err(str(e), 502)
+
+
+@public_api.route("/asbuilt/teams", methods=["GET"])
+def v1_asbuilt_teams():
+    """Proxy to AsBuilt IQ API — list teams, optionally filtered by subcontractor."""
+    try:
+        from app_python.services.asbuilt_api import get_teams
+
+        subcontractor_id = request.args.get("subcontractor_id", type=int)
+        teams = get_teams(subcontractor_id)
+        return _v1_ok(teams)
+    except Exception as e:
+        return _v1_err(str(e), 502)
+
+
 @public_api.route("/asbuilt/import", methods=["POST"])
 def v1_asbuilt_import():
     """
@@ -4317,16 +4350,77 @@ def v1_asbuilt_import():
     if not poles or not isinstance(poles, list) or len(poles) == 0:
         return _v1_err("poles array is required", 400)
 
+    def _safe_float(value: Any) -> Optional[float]:
+        try:
+            num = float(value)
+        except (TypeError, ValueError):
+            return None
+        if not math.isfinite(num):
+            return None
+        return num
+
+    # Normalize and validate poles before sending them to the remote API.
+    cleaned_poles = []
+    seen_pole_codes = set()
+    skipped_poles = 0
+    for raw_pole in poles:
+        if not isinstance(raw_pole, dict):
+            skipped_poles += 1
+            continue
+
+        pole_code = (raw_pole.get("pole_code") or "").strip().upper()
+        latitude = _safe_float(raw_pole.get("latitude"))
+        longitude = _safe_float(raw_pole.get("longitude"))
+        if not pole_code or latitude is None or longitude is None:
+            skipped_poles += 1
+            continue
+        if pole_code in seen_pole_codes:
+            skipped_poles += 1
+            continue
+
+        seen_pole_codes.add(pole_code)
+        cleaned_pole = {
+            "pole_code": pole_code,
+            "latitude": latitude,
+            "longitude": longitude,
+        }
+
+        pole_index = raw_pole.get("pole_index")
+        if pole_index is not None:
+            cleaned_pole["pole_index"] = pole_index
+
+        for field in ("region", "province", "city", "barangay_code", "barangay_name"):
+            val = raw_pole.get(field)
+            if val not in (None, ""):
+                cleaned_pole[field] = val
+
+        cleaned_poles.append(cleaned_pole)
+
+    if not cleaned_poles:
+        return _v1_err(
+            "No valid poles were available for AsBuilt export. "
+            "Each pole needs a name/code plus valid latitude and longitude.",
+            400,
+        )
+
     # Build payload — frontend already handles format, area data, and dedup
     payload: dict[str, Any] = {
         "node_id": node_id,
         "node_name": node_name,
         "area_id": body.get("area_id"),
-        "poles": poles,
+        "poles": cleaned_poles,
     }
 
     # Pass through optional area fields
-    for field in ("region", "province", "city", "barangay_code", "barangay_name"):
+    for field in (
+        "region",
+        "province",
+        "city",
+        "barangay_code",
+        "barangay_name",
+        "subcontractor_id",
+        "team_id",
+    ):
         val = body.get(field)
         if val:
             payload[field] = val
@@ -4343,25 +4437,58 @@ def v1_asbuilt_import():
             "ps_housing": 0,
         }
         cleaned = []
+        skipped_spans = 0
         for s in spans:
+            if not isinstance(s, dict):
+                skipped_spans += 1
+                continue
             frm = (s.get("from_pole_code") or "").strip().upper()
             to = (s.get("to_pole_code") or "").strip().upper()
-            if not frm or not to or frm == to:
+            if (
+                not frm
+                or not to
+                or frm == to
+                or frm not in seen_pole_codes
+                or to not in seen_pole_codes
+            ):
+                skipped_spans += 1
                 continue
             comp = dict(span_defaults)
             if isinstance(s.get("components"), dict):
                 comp.update(s["components"])
+            strand_length = _safe_float(s.get("strand_length"))
+            try:
+                from_index = int(s.get("from_pole_index"))
+                to_index = int(s.get("to_pole_index"))
+                number_of_runs = int(s.get("number_of_runs", 1))
+            except (TypeError, ValueError):
+                skipped_spans += 1
+                continue
+            if from_index < 1 or to_index < 1 or number_of_runs < 1:
+                skipped_spans += 1
+                continue
             cleaned.append(
                 {
                     "from_pole_code": frm,
                     "to_pole_code": to,
-                    "strand_length": s.get("strand_length", 0),
-                    "number_of_runs": s.get("number_of_runs", 1),
+                    "from_pole_index": from_index,
+                    "to_pole_index": to_index,
+                    "strand_length": strand_length if strand_length is not None else 0.0,
+                    "number_of_runs": number_of_runs,
                     "components": comp,
                 }
             )
         if cleaned:
             payload["spans"] = cleaned
+
+    payload_summary = {
+        "node_id": node_id,
+        "area_id": body.get("area_id"),
+        "poles": len(cleaned_poles),
+        "spans": len(payload.get("spans", [])),
+        "skipped_poles": skipped_poles,
+        "skipped_spans": skipped_spans if spans and isinstance(spans, list) else 0,
+    }
 
     try:
         from app_python.services.asbuilt_api import import_data
@@ -4378,7 +4505,227 @@ def v1_asbuilt_import():
                 detail = resp.json()
             except Exception:
                 detail = str(e)
-        return _v1_err(f"AsBuilt API error ({status}): {detail}", status)
+        print(f"[asbuilt] Import failed. Summary={payload_summary} Error={detail}")
+        return _v1_err(
+            f"AsBuilt API error ({status}): {detail}. Payload summary: {payload_summary}",
+            status,
+        )
+
+
+@public_api.route("/asbuilt/import-by-sequence", methods=["POST"])
+def v1_asbuilt_import_by_sequence():
+    body = request.get_json(silent=True) or {}
+    node_id = body.get("node_id")
+    if not node_id:
+        return _v1_err("node_id (VARCHAR) is required", 400)
+    node_name = body.get("node_name")
+    if not node_name:
+        return _v1_err("node_name is required", 400)
+
+    poles = body.get("poles")
+    if not poles or not isinstance(poles, list) or len(poles) == 0:
+        return _v1_err("poles array is required", 400)
+
+    def _safe_float(value: Any) -> Optional[float]:
+        try:
+            num = float(value)
+        except (TypeError, ValueError):
+            return None
+        if not math.isfinite(num):
+            return None
+        return num
+
+    cleaned_poles = []
+    seen_pole_indexes = set()
+    skipped_poles = 0
+    for raw_pole in poles:
+        if not isinstance(raw_pole, dict):
+            skipped_poles += 1
+            continue
+
+        pole_index = str(raw_pole.get("pole_index") or "").strip().upper()
+        pole_code = str(raw_pole.get("pole_code") or "").strip().upper()
+        latitude = _safe_float(raw_pole.get("lat", raw_pole.get("latitude")))
+        longitude = _safe_float(raw_pole.get("lng", raw_pole.get("longitude")))
+        if not pole_index or not pole_code or latitude is None or longitude is None:
+            skipped_poles += 1
+            continue
+        if pole_index in seen_pole_indexes:
+            skipped_poles += 1
+            continue
+
+        seen_pole_indexes.add(pole_index)
+        cleaned_pole = {
+            "pole_index": pole_index,
+            "pole_code": pole_code,
+            "lat": latitude,
+            "lng": longitude,
+        }
+
+        for field in ("region", "province", "city"):
+            val = raw_pole.get(field)
+            if val not in (None, ""):
+                cleaned_pole[field] = val
+
+        cleaned_poles.append(cleaned_pole)
+
+    if not cleaned_poles:
+        return _v1_err(
+            "No valid poles were available for AsBuilt export. "
+            "Each pole needs a unique pole_index, pole_code, latitude, and longitude.",
+            400,
+        )
+
+    payload: dict[str, Any] = {
+        "node_id": node_id,
+        "node_name": node_name,
+        "area_id": body.get("area_id"),
+        "poles": cleaned_poles,
+    }
+
+    for field in (
+        "region",
+        "province",
+        "city",
+        "barangay_name",
+        "subcontractor_id",
+        "team_id",
+    ):
+        val = body.get(field)
+        if val:
+            payload[field] = val
+
+    spans = body.get("spans")
+    skipped_spans = 0
+    span_defaults = {
+        "node": 0,
+        "amplifier": 0,
+        "extender": 0,
+        "tsc": 0,
+        "powersupply": 0,
+        "ps_housing": 0,
+    }
+    component_totals = dict(span_defaults)
+    if spans and isinstance(spans, list):
+        cleaned = []
+        for s in spans:
+            if not isinstance(s, dict):
+                skipped_spans += 1
+                continue
+            frm = str(s.get("from_pole_index") or "").strip().upper()
+            to = str(s.get("to_pole_index") or "").strip().upper()
+            if (
+                not frm
+                or not to
+                or frm == to
+                or frm not in seen_pole_indexes
+                or to not in seen_pole_indexes
+            ):
+                skipped_spans += 1
+                continue
+            comp = dict(span_defaults)
+            if isinstance(s.get("components"), dict):
+                comp.update(s["components"])
+            for key in span_defaults:
+                try:
+                    count = int(comp.get(key) or 0)
+                except (TypeError, ValueError):
+                    count = 0
+                if count < 0:
+                    count = 0
+                comp[key] = count
+            strand_length = _safe_float(s.get("strand_length"))
+            try:
+                number_of_runs = int(s.get("number_of_runs", 1))
+            except (TypeError, ValueError):
+                skipped_spans += 1
+                continue
+            if strand_length is None or number_of_runs < 1:
+                skipped_spans += 1
+                continue
+            for key in span_defaults:
+                component_totals[key] += comp[key]
+            cleaned.append(
+                {
+                    "from_pole_index": frm,
+                    "to_pole_index": to,
+                    "strand_length": strand_length,
+                    "number_of_runs": number_of_runs,
+                    "components": comp,
+                }
+            )
+        if cleaned:
+            payload["spans"] = cleaned
+
+    payload_summary = {
+        "node_id": node_id,
+        "area_id": body.get("area_id"),
+        "poles": len(cleaned_poles),
+        "spans": len(payload.get("spans", [])),
+        "skipped_poles": skipped_poles,
+        "skipped_spans": skipped_spans,
+        "components": component_totals,
+    }
+
+    try:
+        from app_python.services.asbuilt_api import get_nodes, import_data_by_sequence
+
+        area_id = body.get("area_id")
+        if area_id:
+            nodes_response = get_nodes(int(area_id))
+            nodes_payload = (
+                nodes_response.get("nodes")
+                if isinstance(nodes_response, dict)
+                else nodes_response
+            )
+            if isinstance(nodes_payload, dict):
+                nodes_payload = nodes_payload.get("nodes", [])
+            if not isinstance(nodes_payload, list):
+                nodes_payload = []
+
+            normalized_node_id = str(node_id).strip().upper()
+            duplicate_node = next(
+                (
+                    node
+                    for node in nodes_payload
+                    if str(node.get("node_id", "")).strip().upper()
+                    == normalized_node_id
+                ),
+                None,
+            )
+            if duplicate_node:
+                existing_label = (
+                    duplicate_node.get("full_label")
+                    or duplicate_node.get("name")
+                    or duplicate_node.get("node_id")
+                )
+                existing_db_id = duplicate_node.get("id")
+                return _v1_err(
+                    "Node ID already exists in the selected site before import. "
+                    f"Existing node: {existing_label}"
+                    f"{f' (database id {existing_db_id})' if existing_db_id else ''}. "
+                    "Delete that partial/old node first or use a fresh exact Node ID.",
+                    409,
+                )
+
+        print(f"[asbuilt-sequence] Sending import. Summary={payload_summary}")
+        result = import_data_by_sequence(payload)
+        return _v1_ok(result)
+    except Exception as e:
+        status = 502
+        detail = str(e)
+        resp = getattr(e, "response", None)
+        if resp is not None:
+            status = resp.status_code
+            try:
+                detail = resp.json()
+            except Exception:
+                detail = str(e)
+        print(f"[asbuilt-sequence] Import failed. Summary={payload_summary} Error={detail}")
+        return _v1_err(
+            f"AsBuilt sequence API error ({status}): {detail}. Payload summary: {payload_summary}",
+            status,
+        )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -4411,7 +4758,17 @@ def _prewarm_ocr():
 
 
 app.register_blueprint(public_api)
-_prewarm_ocr()
+
+
+def _start_background_prewarm():
+    if os.environ.get("DISABLE_OCR_PREWARM", "").lower() in ("1", "true", "yes"):
+        print("[startup] OCR pre-warm disabled.")
+        return
+
+    threading.Thread(target=_prewarm_ocr, name="ocr-prewarm", daemon=True).start()
+
+
+_start_background_prewarm()
 
 _geotool_proc = None
 
@@ -4444,8 +4801,39 @@ def main():
     app.run(host="localhost", port=args.port, debug=True, threaded=True)
 
 
+def _can_bind_port(host: str, port: int) -> bool:
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            sock.bind((host, port))
+        return True
+    except OSError:
+        return False
+
+
+def _resolve_runtime_port() -> int:
+    raw_port = os.environ.get("PORT")
+    if raw_port:
+        try:
+            return int(raw_port)
+        except ValueError:
+            print(f"[startup] Invalid PORT={raw_port!r}; falling back to default.")
+
+    default_port = 5000
+    fallback_port = 5050
+
+    if _can_bind_port("0.0.0.0", default_port):
+        return default_port
+
+    print(
+        f"[startup] Port {default_port} is unavailable on this machine. "
+        f"Falling back to {fallback_port}."
+    )
+    return fallback_port
+
+
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
+    port = _resolve_runtime_port()
     print(f"\n{'=' * 50}")
     print(f"  CAD OCR – Flask Backend  (EasyOCR engine)")
     print(f"  http://localhost:{port}")

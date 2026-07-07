@@ -1,0 +1,1890 @@
+{
+  "project_id": 1,
+  "node": {
+    "node_id": "TY1401",
+    "node_name": "TY1401",
+    "total_strand_length": 3935.4924558197217,
+    "expected_cable": 3935.4924558197217,
+    "node_count": 1,
+    "date_start": "2026-06-11",
+    "amplifier": 0,
+    "extender": 0,
+    "tsc": 0
+  },
+  "poles": [
+    {
+      "pole_code": "TY1401-P0",
+      "pole_name": "4-1",
+      "_base_name": "4",
+      "pole_id": 0,
+      "map_latitude": 33.0489,
+      "map_longitude": 20.6891
+    },
+    {
+      "pole_code": "TY1401-P1",
+      "pole_name": "G13-928",
+      "_base_name": "G13-928",
+      "pole_id": 1,
+      "map_latitude": 33.0467,
+      "map_longitude": 22.507
+    },
+    {
+      "pole_code": "TY1401-P2",
+      "pole_name": "G13-930",
+      "_base_name": "G13-930",
+      "pole_id": 2,
+      "map_latitude": 32.7423,
+      "map_longitude": 25.1924
+    },
+    {
+      "pole_code": "TY1401-P3",
+      "pole_name": "1-1",
+      "_base_name": "1",
+      "pole_id": 3,
+      "map_latitude": 32.682,
+      "map_longitude": 23.8999
+    },
+    {
+      "pole_code": "TY1401-P4",
+      "pole_name": "G13-931",
+      "_base_name": "G13-931",
+      "pole_id": 4,
+      "map_latitude": 32.6298,
+      "map_longitude": 26.187
+    },
+    {
+      "pole_code": "TY1401-P5",
+      "pole_name": "1-2",
+      "_base_name": "1",
+      "pole_id": 5,
+      "map_latitude": 32.2212,
+      "map_longitude": 18.3957
+    },
+    {
+      "pole_code": "TY1401-P6",
+      "pole_name": "G13-859",
+      "_base_name": "G13-859",
+      "pole_id": 6,
+      "map_latitude": 30.4238,
+      "map_longitude": 17.2839
+    },
+    {
+      "pole_code": "TY1401-P7",
+      "pole_name": "G13-856",
+      "_base_name": "G13-856",
+      "pole_id": 7,
+      "map_latitude": 30.4142,
+      "map_longitude": 15.2144
+    },
+    {
+      "pole_code": "TY1401-P8",
+      "pole_name": "G13-861-1",
+      "_base_name": "G13-861",
+      "pole_id": 8,
+      "map_latitude": 30.2132,
+      "map_longitude": 19.7941
+    },
+    {
+      "pole_code": "TY1401-P9",
+      "pole_name": "G13-934",
+      "_base_name": "G13-934",
+      "pole_id": 9,
+      "map_latitude": 30.0611,
+      "map_longitude": 21.2686
+    },
+    {
+      "pole_code": "TY1401-P10",
+      "pole_name": "G13-854",
+      "_base_name": "G13-854",
+      "pole_id": 10,
+      "map_latitude": 30.032,
+      "map_longitude": 16.8463
+    },
+    {
+      "pole_code": "TY1401-P11",
+      "pole_name": "G13-933",
+      "_base_name": "G13-933",
+      "pole_id": 11,
+      "map_latitude": 29.4916,
+      "map_longitude": 23.5099
+    },
+    {
+      "pole_code": "TY1401-P12",
+      "pole_name": "G13-932",
+      "_base_name": "G13-932",
+      "pole_id": 12,
+      "map_latitude": 29.0917,
+      "map_longitude": 25.9791
+    },
+    {
+      "pole_code": "TY1401-P13",
+      "pole_name": "558-99",
+      "_base_name": "558-99",
+      "pole_id": 13,
+      "map_latitude": 28.416,
+      "map_longitude": 18.6206
+    },
+    {
+      "pole_code": "TY1401-P14",
+      "pole_name": "G13-853",
+      "_base_name": "G13-853",
+      "pole_id": 14,
+      "map_latitude": 28.2828,
+      "map_longitude": 15.7893
+    },
+    {
+      "pole_code": "TY1401-P15",
+      "pole_name": "G13-857",
+      "_base_name": "G13-857",
+      "pole_id": 15,
+      "map_latitude": 28.2286,
+      "map_longitude": 15.1096
+    },
+    {
+      "pole_code": "TY1401-P16",
+      "pole_name": "G13-861-2",
+      "_base_name": "G13-861",
+      "pole_id": 16,
+      "map_latitude": 28.1971,
+      "map_longitude": 21.1288
+    },
+    {
+      "pole_code": "TY1401-P17",
+      "pole_name": "G13-958",
+      "_base_name": "G13-958",
+      "pole_id": 17,
+      "map_latitude": 27.605,
+      "map_longitude": 13.4273
+    },
+    {
+      "pole_code": "TY1401-P18",
+      "pole_name": "G13-1212",
+      "_base_name": "G13-1212",
+      "pole_id": 18,
+      "map_latitude": 26.6729,
+      "map_longitude": 18.3816
+    },
+    {
+      "pole_code": "TY1401-P19",
+      "pole_name": "G13-1104",
+      "_base_name": "G13-1104",
+      "pole_id": 19,
+      "map_latitude": 26.6461,
+      "map_longitude": 9.5386
+    },
+    {
+      "pole_code": "TY1401-P20",
+      "pole_name": "G13-805",
+      "_base_name": "G13-805",
+      "pole_id": 20,
+      "map_latitude": 26.3165,
+      "map_longitude": 10.8125
+    },
+    {
+      "pole_code": "TY1401-P21",
+      "pole_name": "G13-862",
+      "_base_name": "G13-862",
+      "pole_id": 21,
+      "map_latitude": 26.3099,
+      "map_longitude": 21.4604
+    },
+    {
+      "pole_code": "TY1401-P22",
+      "pole_name": "1-3",
+      "_base_name": "1",
+      "pole_id": 22,
+      "map_latitude": 26.177,
+      "map_longitude": 15.998
+    },
+    {
+      "pole_code": "TY1401-P23",
+      "pole_name": "1-4",
+      "_base_name": "1",
+      "pole_id": 23,
+      "map_latitude": 26.0269,
+      "map_longitude": 20.2888
+    },
+    {
+      "pole_code": "TY1401-P24",
+      "pole_name": "G13-1105",
+      "_base_name": "G13-1105",
+      "pole_id": 24,
+      "map_latitude": 25.8974,
+      "map_longitude": 12.6452
+    },
+    {
+      "pole_code": "TY1401-P25",
+      "pole_name": "1-5",
+      "_base_name": "1",
+      "pole_id": 25,
+      "map_latitude": 24.9865,
+      "map_longitude": 19.6758
+    },
+    {
+      "pole_code": "TY1401-P26",
+      "pole_name": "G13-863",
+      "_base_name": "G13-863",
+      "pole_id": 26,
+      "map_latitude": 24.9571,
+      "map_longitude": 21.7147
+    },
+    {
+      "pole_code": "TY1401-P27",
+      "pole_name": "69-89",
+      "_base_name": "69-89",
+      "pole_id": 27,
+      "map_latitude": 24.7778,
+      "map_longitude": 14.9887
+    },
+    {
+      "pole_code": "TY1401-P28",
+      "pole_name": "POLE_028",
+      "_base_name": "POLE_028",
+      "pole_id": 28,
+      "map_latitude": 24.2565,
+      "map_longitude": 9.0782
+    },
+    {
+      "pole_code": "TY1401-P29",
+      "pole_name": "POLE_029",
+      "_base_name": "POLE_029",
+      "pole_id": 29,
+      "map_latitude": 23.8899,
+      "map_longitude": 11.9345
+    },
+    {
+      "pole_code": "TY1401-P30",
+      "pole_name": "F13-467",
+      "_base_name": "F13-467",
+      "pole_id": 30,
+      "map_latitude": 23.8774,
+      "map_longitude": 18.6042
+    },
+    {
+      "pole_code": "TY1401-P31",
+      "pole_name": "G13-865",
+      "_base_name": "G13-865",
+      "pole_id": 31,
+      "map_latitude": 23.7814,
+      "map_longitude": 19.4838
+    },
+    {
+      "pole_code": "TY1401-P32",
+      "pole_name": "1-6",
+      "_base_name": "1",
+      "pole_id": 32,
+      "map_latitude": 23.45,
+      "map_longitude": 21.6773
+    },
+    {
+      "pole_code": "TY1401-P33",
+      "pole_name": "G13-826",
+      "_base_name": "G13-826",
+      "pole_id": 33,
+      "map_latitude": 23.3077,
+      "map_longitude": 14.1272
+    },
+    {
+      "pole_code": "TY1401-P34",
+      "pole_name": "FB45",
+      "_base_name": "FB45",
+      "pole_id": 34,
+      "map_latitude": 22.7137,
+      "map_longitude": 18.1434
+    },
+    {
+      "pole_code": "TY1401-P35",
+      "pole_name": "03-469",
+      "_base_name": "03-469",
+      "pole_id": 35,
+      "map_latitude": 22.5805,
+      "map_longitude": 15.4264
+    },
+    {
+      "pole_code": "TY1401-P36",
+      "pole_name": "G13-97",
+      "_base_name": "G13-97",
+      "pole_id": 36,
+      "map_latitude": 22.478,
+      "map_longitude": 15.7413
+    },
+    {
+      "pole_code": "TY1401-P37",
+      "pole_name": "1-7",
+      "_base_name": "1",
+      "pole_id": 37,
+      "map_latitude": 22.1573,
+      "map_longitude": 17.9829
+    },
+    {
+      "pole_code": "TY1401-P38",
+      "pole_name": "G13-906",
+      "_base_name": "G13-906",
+      "pole_id": 38,
+      "map_latitude": 21.9329,
+      "map_longitude": 20.6073
+    },
+    {
+      "pole_code": "TY1401-P39",
+      "pole_name": "F13-281",
+      "_base_name": "F13-281",
+      "pole_id": 39,
+      "map_latitude": 21.9152,
+      "map_longitude": 10.6928
+    },
+    {
+      "pole_code": "TY1401-P40",
+      "pole_name": "F13-355",
+      "_base_name": "F13-355",
+      "pole_id": 40,
+      "map_latitude": 21.7921,
+      "map_longitude": 12.5058
+    },
+    {
+      "pole_code": "TY1401-P41",
+      "pole_name": "POLE_041",
+      "_base_name": "POLE_041",
+      "pole_id": 41,
+      "map_latitude": 21.6361,
+      "map_longitude": 3.6632
+    },
+    {
+      "pole_code": "TY1401-P42",
+      "pole_name": "F13-278",
+      "_base_name": "F13-278",
+      "pole_id": 42,
+      "map_latitude": 21.4943,
+      "map_longitude": 8.778
+    },
+    {
+      "pole_code": "TY1401-P43",
+      "pole_name": "F13-277",
+      "_base_name": "F13-277",
+      "pole_id": 43,
+      "map_latitude": 21.4797,
+      "map_longitude": 7.2893
+    },
+    {
+      "pole_code": "TY1401-P44",
+      "pole_name": "G13-917",
+      "_base_name": "G13-917",
+      "pole_id": 44,
+      "map_latitude": 21.3817,
+      "map_longitude": 21.4333
+    },
+    {
+      "pole_code": "TY1401-P45",
+      "pole_name": "F13-35",
+      "_base_name": "F13-35",
+      "pole_id": 45,
+      "map_latitude": 21.1458,
+      "map_longitude": 17.0962
+    },
+    {
+      "pole_code": "TY1401-P46",
+      "pole_name": "F13-300",
+      "_base_name": "F13-300",
+      "pole_id": 46,
+      "map_latitude": 21.004,
+      "map_longitude": 14.0483
+    },
+    {
+      "pole_code": "TY1401-P47",
+      "pole_name": "F3-250",
+      "_base_name": "F3-250",
+      "pole_id": 47,
+      "map_latitude": 20.8017,
+      "map_longitude": 5.058
+    },
+    {
+      "pole_code": "TY1401-P48",
+      "pole_name": "G13-908",
+      "_base_name": "G13-908",
+      "pole_id": 48,
+      "map_latitude": 20.7826,
+      "map_longitude": 22.2796
+    },
+    {
+      "pole_code": "TY1401-P49",
+      "pole_name": "F13-286",
+      "_base_name": "F13-286",
+      "pole_id": 49,
+      "map_latitude": 20.5592,
+      "map_longitude": 6.1651
+    },
+    {
+      "pole_code": "TY1401-P50",
+      "pole_name": "F13-354",
+      "_base_name": "F13-354",
+      "pole_id": 50,
+      "map_latitude": 20.5207,
+      "map_longitude": 11.2903
+    },
+    {
+      "pole_code": "TY1401-P51",
+      "pole_name": "F3-444",
+      "_base_name": "F3-444",
+      "pole_id": 51,
+      "map_latitude": 20.4664,
+      "map_longitude": 16.8382
+    },
+    {
+      "pole_code": "TY1401-P52",
+      "pole_name": "F13-299",
+      "_base_name": "F13-299",
+      "pole_id": 52,
+      "map_latitude": 20.4515,
+      "map_longitude": 15.12
+    },
+    {
+      "pole_code": "TY1401-P53",
+      "pole_name": "POLE_053",
+      "_base_name": "POLE_053",
+      "pole_id": 53,
+      "map_latitude": 19.9556,
+      "map_longitude": 6.5805
+    },
+    {
+      "pole_code": "TY1401-P54",
+      "pole_name": "G13-252",
+      "_base_name": "G13-252",
+      "pole_id": 54,
+      "map_latitude": 19.8806,
+      "map_longitude": 8.7088
+    },
+    {
+      "pole_code": "TY1401-P55",
+      "pole_name": "1-8",
+      "_base_name": "1",
+      "pole_id": 55,
+      "map_latitude": 19.8389,
+      "map_longitude": 4.0306
+    },
+    {
+      "pole_code": "TY1401-P56",
+      "pole_name": "F13-470",
+      "_base_name": "F13-470",
+      "pole_id": 56,
+      "map_latitude": 19.7013,
+      "map_longitude": 16.1208
+    },
+    {
+      "pole_code": "TY1401-P57",
+      "pole_name": "F13-459",
+      "_base_name": "F13-459",
+      "pole_id": 57,
+      "map_latitude": 19.5195,
+      "map_longitude": 19.7841
+    },
+    {
+      "pole_code": "TY1401-P58",
+      "pole_name": "F13-301",
+      "_base_name": "F13-301",
+      "pole_id": 58,
+      "map_latitude": 19.5074,
+      "map_longitude": 13.0687
+    },
+    {
+      "pole_code": "TY1401-P59",
+      "pole_name": "F13-464",
+      "_base_name": "F13-464",
+      "pole_id": 59,
+      "map_latitude": 19.4261,
+      "map_longitude": 5.0168
+    },
+    {
+      "pole_code": "TY1401-P60",
+      "pole_name": "G13-282",
+      "_base_name": "G13-282",
+      "pole_id": 60,
+      "map_latitude": 19.3173,
+      "map_longitude": 8.5983
+    },
+    {
+      "pole_code": "TY1401-P61",
+      "pole_name": "F13-461",
+      "_base_name": "F13-461",
+      "pole_id": 61,
+      "map_latitude": 19.1442,
+      "map_longitude": 17.5156
+    },
+    {
+      "pole_code": "TY1401-P62",
+      "pole_name": "G13-1070",
+      "_base_name": "G13-1070",
+      "pole_id": 62,
+      "map_latitude": 18.9962,
+      "map_longitude": 21.1848
+    },
+    {
+      "pole_code": "TY1401-P63",
+      "pole_name": "F13-298",
+      "_base_name": "F13-298",
+      "pole_id": 63,
+      "map_latitude": 18.9445,
+      "map_longitude": 14.1255
+    },
+    {
+      "pole_code": "TY1401-P64",
+      "pole_name": "F3-443",
+      "_base_name": "F3-443",
+      "pole_id": 64,
+      "map_latitude": 18.7501,
+      "map_longitude": 15.735
+    },
+    {
+      "pole_code": "TY1401-P65",
+      "pole_name": "F13-469",
+      "_base_name": "F13-469",
+      "pole_id": 65,
+      "map_latitude": 18.5006,
+      "map_longitude": 15.4223
+    },
+    {
+      "pole_code": "TY1401-P66",
+      "pole_name": "F13-289",
+      "_base_name": "F13-289",
+      "pole_id": 66,
+      "map_latitude": 18.233,
+      "map_longitude": 8.4485
+    },
+    {
+      "pole_code": "TY1401-P67",
+      "pole_name": "POLE_067",
+      "_base_name": "POLE_067",
+      "pole_id": 67,
+      "map_latitude": 18.1601,
+      "map_longitude": 6.7389
+    },
+    {
+      "pole_code": "TY1401-P68",
+      "pole_name": "F13-309",
+      "_base_name": "F13-309",
+      "pole_id": 68,
+      "map_latitude": 18.0121,
+      "map_longitude": 12.1055
+    },
+    {
+      "pole_code": "TY1401-P69",
+      "pole_name": "FI5-451",
+      "_base_name": "FI5-451",
+      "pole_id": 69,
+      "map_latitude": 17.6122,
+      "map_longitude": 16.5067
+    },
+    {
+      "pole_code": "TY1401-P70",
+      "pole_name": "F13-287",
+      "_base_name": "F13-287",
+      "pole_id": 70,
+      "map_latitude": 17.4433,
+      "map_longitude": 6.2823
+    },
+    {
+      "pole_code": "TY1401-P71",
+      "pole_name": "F3-442",
+      "_base_name": "F3-442",
+      "pole_id": 71,
+      "map_latitude": 17.3662,
+      "map_longitude": 14.8437
+    },
+    {
+      "pole_code": "TY1401-P72",
+      "pole_name": "1-9",
+      "_base_name": "1",
+      "pole_id": 72,
+      "map_latitude": 17.2056,
+      "map_longitude": 13.1688
+    },
+    {
+      "pole_code": "TY1401-P73",
+      "pole_name": "G3-177",
+      "_base_name": "G3-177",
+      "pole_id": 73,
+      "map_latitude": 17.2036,
+      "map_longitude": 19.9925
+    },
+    {
+      "pole_code": "TY1401-P74",
+      "pole_name": "4-2",
+      "_base_name": "4",
+      "pole_id": 74,
+      "map_latitude": 17.1723,
+      "map_longitude": 4.5268
+    },
+    {
+      "pole_code": "TY1401-P75",
+      "pole_name": "F13-290",
+      "_base_name": "F13-290",
+      "pole_id": 75,
+      "map_latitude": 17.0082,
+      "map_longitude": 9.9383
+    },
+    {
+      "pole_code": "TY1401-P76",
+      "pole_name": "F3-293",
+      "_base_name": "F3-293",
+      "pole_id": 76,
+      "map_latitude": 16.7423,
+      "map_longitude": 14.2258
+    },
+    {
+      "pole_code": "TY1401-P77",
+      "pole_name": "F13-284",
+      "_base_name": "F13-284",
+      "pole_id": 77,
+      "map_latitude": 16.5301,
+      "map_longitude": 5.7632
+    },
+    {
+      "pole_code": "TY1401-P78",
+      "pole_name": "F13-454",
+      "_base_name": "F13-454",
+      "pole_id": 78,
+      "map_latitude": 16.3362,
+      "map_longitude": 7.6021
+    },
+    {
+      "pole_code": "TY1401-P79",
+      "pole_name": "F13-482",
+      "_base_name": "F13-482",
+      "pole_id": 79,
+      "map_latitude": 15.9609,
+      "map_longitude": 15.363
+    },
+    {
+      "pole_code": "TY1401-P80",
+      "pole_name": "G13-1072",
+      "_base_name": "G13-1072",
+      "pole_id": 80,
+      "map_latitude": 15.5711,
+      "map_longitude": 18.5498
+    },
+    {
+      "pole_code": "TY1401-P81",
+      "pole_name": "F13-291",
+      "_base_name": "F13-291",
+      "pole_id": 81,
+      "map_latitude": 15.5356,
+      "map_longitude": 11.7928
+    },
+    {
+      "pole_code": "TY1401-P82",
+      "pole_name": "F3-453",
+      "_base_name": "F3-453",
+      "pole_id": 82,
+      "map_latitude": 15.4689,
+      "map_longitude": 8.8843
+    },
+    {
+      "pole_code": "TY1401-P83",
+      "pole_name": "1-10",
+      "_base_name": "1",
+      "pole_id": 83,
+      "map_latitude": 15.3751,
+      "map_longitude": 5.0335
+    },
+    {
+      "pole_code": "TY1401-P84",
+      "pole_name": "9",
+      "_base_name": "9",
+      "pole_id": 84,
+      "map_latitude": 15.3662,
+      "map_longitude": 3.4343
+    },
+    {
+      "pole_code": "TY1401-P85",
+      "pole_name": "PT6527",
+      "_base_name": "PT6527",
+      "pole_id": 85,
+      "map_latitude": 15.0248,
+      "map_longitude": 6.8181
+    },
+    {
+      "pole_code": "TY1401-P86",
+      "pole_name": "F13-452",
+      "_base_name": "F13-452",
+      "pole_id": 86,
+      "map_latitude": 14.8705,
+      "map_longitude": 11.2111
+    },
+    {
+      "pole_code": "TY1401-P87",
+      "pole_name": "POLE_087",
+      "_base_name": "POLE_087",
+      "pole_id": 87,
+      "map_latitude": 14.697,
+      "map_longitude": 13.0926
+    },
+    {
+      "pole_code": "TY1401-P88",
+      "pole_name": "1-11",
+      "_base_name": "1",
+      "pole_id": 88,
+      "map_latitude": 14.6057,
+      "map_longitude": 7.7751
+    },
+    {
+      "pole_code": "TY1401-P89",
+      "pole_name": "1-12",
+      "_base_name": "1",
+      "pole_id": 89,
+      "map_latitude": 14.0678,
+      "map_longitude": 12.831
+    },
+    {
+      "pole_code": "TY1401-P90",
+      "pole_name": "G13-1073",
+      "_base_name": "G13-1073",
+      "pole_id": 90,
+      "map_latitude": 13.9756,
+      "map_longitude": 17.5071
+    },
+    {
+      "pole_code": "TY1401-P91",
+      "pole_name": "POLE_091",
+      "_base_name": "POLE_091",
+      "pole_id": 91,
+      "map_latitude": 13.5815,
+      "map_longitude": 4.7367
+    },
+    {
+      "pole_code": "TY1401-P92",
+      "pole_name": "F13-451",
+      "_base_name": "F13-451",
+      "pole_id": 92,
+      "map_latitude": 13.5383,
+      "map_longitude": 14.6116
+    },
+    {
+      "pole_code": "TY1401-P93",
+      "pole_name": "F13-296",
+      "_base_name": "F13-296",
+      "pole_id": 93,
+      "map_latitude": 13.517,
+      "map_longitude": 9.4426
+    },
+    {
+      "pole_code": "TY1401-P94",
+      "pole_name": "F13-294",
+      "_base_name": "F13-294",
+      "pole_id": 94,
+      "map_latitude": 13.4736,
+      "map_longitude": 12.2243
+    },
+    {
+      "pole_code": "TY1401-P95",
+      "pole_name": "POLE_095",
+      "_base_name": "POLE_095",
+      "pole_id": 95,
+      "map_latitude": 13.3126,
+      "map_longitude": 8.0541
+    },
+    {
+      "pole_code": "TY1401-P96",
+      "pole_name": "POLE_096",
+      "_base_name": "POLE_096",
+      "pole_id": 96,
+      "map_latitude": 12.7085,
+      "map_longitude": 10.621
+    },
+    {
+      "pole_code": "TY1401-P97",
+      "pole_name": "F13-497",
+      "_base_name": "F13-497",
+      "pole_id": 97,
+      "map_latitude": 12.5104,
+      "map_longitude": 13.0666
+    },
+    {
+      "pole_code": "TY1401-P98",
+      "pole_name": "POLE_098",
+      "_base_name": "POLE_098",
+      "pole_id": 98,
+      "map_latitude": 12.3103,
+      "map_longitude": 15.9793
+    },
+    {
+      "pole_code": "TY1401-P99",
+      "pole_name": "POLE_099",
+      "_base_name": "POLE_099",
+      "pole_id": 99,
+      "map_latitude": 12.2498,
+      "map_longitude": 6.0488
+    },
+    {
+      "pole_code": "TY1401-P100",
+      "pole_name": "G13-1974",
+      "_base_name": "G13-1974",
+      "pole_id": 100,
+      "map_latitude": 12.0032,
+      "map_longitude": 13.9879
+    },
+    {
+      "pole_code": "TY1401-P101",
+      "pole_name": "POLE_101",
+      "_base_name": "POLE_101",
+      "pole_id": 101,
+      "map_latitude": 11.7703,
+      "map_longitude": 9.4162
+    },
+    {
+      "pole_code": "TY1401-P102",
+      "pole_name": "POLE_102",
+      "_base_name": "POLE_102",
+      "pole_id": 102,
+      "map_latitude": 11.5743,
+      "map_longitude": 11.5943
+    },
+    {
+      "pole_code": "TY1401-P103",
+      "pole_name": "POLE_103",
+      "_base_name": "POLE_103",
+      "pole_id": 103,
+      "map_latitude": 11.5278,
+      "map_longitude": 7.981
+    },
+    {
+      "pole_code": "TY1401-P104",
+      "pole_name": "F13-498",
+      "_base_name": "F13-498",
+      "pole_id": 104,
+      "map_latitude": 11.2735,
+      "map_longitude": 10.8775
+    },
+    {
+      "pole_code": "TY1401-P105",
+      "pole_name": "POLE_105",
+      "_base_name": "POLE_105",
+      "pole_id": 105,
+      "map_latitude": 11.1719,
+      "map_longitude": 9.7058
+    },
+    {
+      "pole_code": "TY1401-P106",
+      "pole_name": "T9-84",
+      "_base_name": "T9-84",
+      "pole_id": 106,
+      "map_latitude": 10.782,
+      "map_longitude": 5.6006
+    },
+    {
+      "pole_code": "TY1401-P107",
+      "pole_name": "POLE_107",
+      "_base_name": "POLE_107",
+      "pole_id": 107,
+      "map_latitude": 9.6958,
+      "map_longitude": 9.1319
+    },
+    {
+      "pole_code": "TY1401-P108",
+      "pole_name": "POLE_108",
+      "_base_name": "POLE_108",
+      "pole_id": 108,
+      "map_latitude": 9.4498,
+      "map_longitude": 10.6815
+    },
+    {
+      "pole_code": "TY1401-P109",
+      "pole_name": "F16-516",
+      "_base_name": "F16-516",
+      "pole_id": 109,
+      "map_latitude": 9.2783,
+      "map_longitude": 6.9409
+    },
+    {
+      "pole_code": "TY1401-P110",
+      "pole_name": "4-3",
+      "_base_name": "4",
+      "pole_id": 110,
+      "map_latitude": 8.1592,
+      "map_longitude": 11.9867
+    },
+    {
+      "pole_code": "TY1401-P111",
+      "pole_name": "F13-624",
+      "_base_name": "F13-624",
+      "pole_id": 111,
+      "map_latitude": 7.2418,
+      "map_longitude": 7.9357
+    },
+    {
+      "pole_code": "TY1401-P112",
+      "pole_name": "POLE_112",
+      "_base_name": "POLE_112",
+      "pole_id": 112,
+      "map_latitude": 7.016,
+      "map_longitude": 11.8174
+    },
+    {
+      "pole_code": "TY1401-P113",
+      "pole_name": "NPT-1",
+      "_base_name": "NPT",
+      "pole_id": 113,
+      "map_latitude": 18.14714397396555,
+      "map_longitude": 7.025754773644446
+    },
+    {
+      "pole_code": "TY1401-P114",
+      "pole_name": "NPT-2",
+      "_base_name": "NPT",
+      "pole_id": 114,
+      "map_latitude": 24.03518512628197,
+      "map_longitude": 12.20906486621676
+    }
+  ],
+  "pole_spans": [
+    {
+      "from_pole_code": "TY1401-P0",
+      "to_pole_code": "TY1401-P5",
+      "pole_span_code": "TY1401-TY1401-P0-TY1401-P5",
+      "length_meters": 43.0,
+      "runs": 1,
+      "expected_cable": 43.0
+    },
+    {
+      "from_pole_code": "TY1401-P0",
+      "to_pole_code": "TY1401-P1",
+      "pole_span_code": "TY1401-TY1401-P0-TY1401-P1",
+      "length_meters": 40.0,
+      "runs": 1,
+      "expected_cable": 40.0
+    },
+    {
+      "from_pole_code": "TY1401-P3",
+      "to_pole_code": "TY1401-P2",
+      "pole_span_code": "TY1401-TY1401-P3-TY1401-P2",
+      "length_meters": 29.0,
+      "runs": 1,
+      "expected_cable": 29.0
+    },
+    {
+      "from_pole_code": "TY1401-P2",
+      "to_pole_code": "TY1401-P4",
+      "pole_span_code": "TY1401-TY1401-P2-TY1401-P4",
+      "length_meters": 22.0,
+      "runs": 1,
+      "expected_cable": 22.0
+    },
+    {
+      "from_pole_code": "TY1401-P9",
+      "to_pole_code": "TY1401-P1",
+      "pole_span_code": "TY1401-TY1401-P9-TY1401-P1",
+      "length_meters": 2.409314613096915,
+      "runs": 1,
+      "expected_cable": 2.409314613096915
+    },
+    {
+      "from_pole_code": "TY1401-P6",
+      "to_pole_code": "TY1401-P5",
+      "pole_span_code": "TY1401-TY1401-P6-TY1401-P5",
+      "length_meters": 3.883842011825682,
+      "runs": 1,
+      "expected_cable": 3.883842011825682
+    },
+    {
+      "from_pole_code": "TY1401-P6",
+      "to_pole_code": "TY1401-P5",
+      "pole_span_code": "TY1401-TY1401-P6-TY1401-P5-2",
+      "length_meters": 44.0,
+      "runs": 1,
+      "expected_cable": 44.0
+    },
+    {
+      "from_pole_code": "TY1401-P9",
+      "to_pole_code": "TY1401-P11",
+      "pole_span_code": "TY1401-TY1401-P9-TY1401-P11",
+      "length_meters": 40.0,
+      "runs": 1,
+      "expected_cable": 40.0
+    },
+    {
+      "from_pole_code": "TY1401-P11",
+      "to_pole_code": "TY1401-P12",
+      "pole_span_code": "TY1401-TY1401-P11-TY1401-P12",
+      "length_meters": 45.0,
+      "runs": 1,
+      "expected_cable": 45.0
+    },
+    {
+      "from_pole_code": "TY1401-P6",
+      "to_pole_code": "TY1401-P8",
+      "pole_span_code": "TY1401-TY1401-P6-TY1401-P8",
+      "length_meters": 40.0,
+      "runs": 1,
+      "expected_cable": 40.0
+    },
+    {
+      "from_pole_code": "TY1401-P6",
+      "to_pole_code": "TY1401-P10",
+      "pole_span_code": "TY1401-TY1401-P6-TY1401-P10",
+      "length_meters": 2.0,
+      "runs": 1,
+      "expected_cable": 2.0
+    },
+    {
+      "from_pole_code": "TY1401-P7",
+      "to_pole_code": "TY1401-P10",
+      "pole_span_code": "TY1401-TY1401-P7-TY1401-P10",
+      "length_meters": 36.0,
+      "runs": 1,
+      "expected_cable": 36.0
+    },
+    {
+      "from_pole_code": "TY1401-P7",
+      "to_pole_code": "TY1401-P15",
+      "pole_span_code": "TY1401-TY1401-P7-TY1401-P15",
+      "length_meters": 39.0,
+      "runs": 1,
+      "expected_cable": 39.0
+    },
+    {
+      "from_pole_code": "TY1401-P8",
+      "to_pole_code": "TY1401-P16",
+      "pole_span_code": "TY1401-TY1401-P8-TY1401-P16",
+      "length_meters": 44.0,
+      "runs": 1,
+      "expected_cable": 44.0
+    },
+    {
+      "from_pole_code": "TY1401-P15",
+      "to_pole_code": "TY1401-P17",
+      "pole_span_code": "TY1401-TY1401-P15-TY1401-P17",
+      "length_meters": 38.0,
+      "runs": 1,
+      "expected_cable": 38.0
+    },
+    {
+      "from_pole_code": "TY1401-P10",
+      "to_pole_code": "TY1401-P13",
+      "pole_span_code": "TY1401-TY1401-P10-TY1401-P13",
+      "length_meters": 42.0,
+      "runs": 1,
+      "expected_cable": 42.0
+    },
+    {
+      "from_pole_code": "TY1401-P18",
+      "to_pole_code": "TY1401-P13",
+      "pole_span_code": "TY1401-TY1401-P18-TY1401-P13",
+      "length_meters": 29.0,
+      "runs": 1,
+      "expected_cable": 29.0
+    },
+    {
+      "from_pole_code": "TY1401-P23",
+      "to_pole_code": "TY1401-P16",
+      "pole_span_code": "TY1401-TY1401-P23-TY1401-P16",
+      "length_meters": 1.1478970445914574,
+      "runs": 1,
+      "expected_cable": 1.1478970445914574
+    },
+    {
+      "from_pole_code": "TY1401-P16",
+      "to_pole_code": "TY1401-P23",
+      "pole_span_code": "TY1401-TY1401-P16-TY1401-P23-2",
+      "length_meters": 40.0,
+      "runs": 1,
+      "expected_cable": 40.0
+    },
+    {
+      "from_pole_code": "TY1401-P22",
+      "to_pole_code": "TY1401-P14",
+      "pole_span_code": "TY1401-TY1401-P22-TY1401-P14",
+      "length_meters": 33.0,
+      "runs": 1,
+      "expected_cable": 33.0
+    },
+    {
+      "from_pole_code": "TY1401-P18",
+      "to_pole_code": "TY1401-P22",
+      "pole_span_code": "TY1401-TY1401-P18-TY1401-P22",
+      "length_meters": 23.0,
+      "runs": 1,
+      "expected_cable": 23.0
+    },
+    {
+      "from_pole_code": "TY1401-P25",
+      "to_pole_code": "TY1401-P23",
+      "pole_span_code": "TY1401-TY1401-P25-TY1401-P23",
+      "length_meters": 31.0,
+      "runs": 1,
+      "expected_cable": 31.0
+    },
+    {
+      "from_pole_code": "TY1401-P27",
+      "to_pole_code": "TY1401-P33",
+      "pole_span_code": "TY1401-TY1401-P27-TY1401-P33",
+      "length_meters": 46.0,
+      "runs": 1,
+      "expected_cable": 46.0
+    },
+    {
+      "from_pole_code": "TY1401-P19",
+      "to_pole_code": "TY1401-P20",
+      "pole_span_code": "TY1401-TY1401-P19-TY1401-P20",
+      "length_meters": 29.0,
+      "runs": 1,
+      "expected_cable": 29.0
+    },
+    {
+      "from_pole_code": "TY1401-P23",
+      "to_pole_code": "TY1401-P26",
+      "pole_span_code": "TY1401-TY1401-P23-TY1401-P26",
+      "length_meters": 30.0,
+      "runs": 1,
+      "expected_cable": 30.0
+    },
+    {
+      "from_pole_code": "TY1401-P37",
+      "to_pole_code": "TY1401-P16",
+      "pole_span_code": "TY1401-TY1401-P37-TY1401-P16",
+      "length_meters": 5.069865070052864,
+      "runs": 1,
+      "expected_cable": 5.069865070052864
+    },
+    {
+      "from_pole_code": "TY1401-P24",
+      "to_pole_code": "TY1401-P27",
+      "pole_span_code": "TY1401-TY1401-P24-TY1401-P27",
+      "length_meters": 43.0,
+      "runs": 1,
+      "expected_cable": 43.0
+    },
+    {
+      "from_pole_code": "TY1401-P30",
+      "to_pole_code": "TY1401-P25",
+      "pole_span_code": "TY1401-TY1401-P30-TY1401-P25",
+      "length_meters": 34.0,
+      "runs": 1,
+      "expected_cable": 34.0
+    },
+    {
+      "from_pole_code": "TY1401-P20",
+      "to_pole_code": "TY1401-P28",
+      "pole_span_code": "TY1401-TY1401-P20-TY1401-P28",
+      "length_meters": 44.0,
+      "runs": 1,
+      "expected_cable": 44.0
+    },
+    {
+      "from_pole_code": "TY1401-P26",
+      "to_pole_code": "TY1401-P32",
+      "pole_span_code": "TY1401-TY1401-P26-TY1401-P32",
+      "length_meters": 28.0,
+      "runs": 1,
+      "expected_cable": 28.0
+    },
+    {
+      "from_pole_code": "TY1401-P27",
+      "to_pole_code": "TY1401-P35",
+      "pole_span_code": "TY1401-TY1401-P27-TY1401-P35",
+      "length_meters": 48.0,
+      "runs": 1,
+      "expected_cable": 48.0
+    },
+    {
+      "from_pole_code": "TY1401-P32",
+      "to_pole_code": "TY1401-P31",
+      "pole_span_code": "TY1401-TY1401-P32-TY1401-P31",
+      "length_meters": 46.0,
+      "runs": 1,
+      "expected_cable": 46.0
+    },
+    {
+      "from_pole_code": "TY1401-P34",
+      "to_pole_code": "TY1401-P30",
+      "pole_span_code": "TY1401-TY1401-P34-TY1401-P30",
+      "length_meters": 43.0,
+      "runs": 1,
+      "expected_cable": 43.0
+    },
+    {
+      "from_pole_code": "TY1401-P28",
+      "to_pole_code": "TY1401-P42",
+      "pole_span_code": "TY1401-TY1401-P28-TY1401-P42",
+      "length_meters": 41.0,
+      "runs": 1,
+      "expected_cable": 41.0
+    },
+    {
+      "from_pole_code": "TY1401-P33",
+      "to_pole_code": "TY1401-P40",
+      "pole_span_code": "TY1401-TY1401-P33-TY1401-P40",
+      "length_meters": 38.0,
+      "runs": 1,
+      "expected_cable": 38.0
+    },
+    {
+      "from_pole_code": "TY1401-P39",
+      "to_pole_code": "TY1401-P29",
+      "pole_span_code": "TY1401-TY1401-P39-TY1401-P29",
+      "length_meters": 31.0,
+      "runs": 1,
+      "expected_cable": 31.0
+    },
+    {
+      "from_pole_code": "TY1401-P114",
+      "to_pole_code": "TY1401-P40",
+      "pole_span_code": "TY1401-TY1401-P114-TY1401-P40",
+      "length_meters": 37.0,
+      "runs": 1,
+      "expected_cable": 37.0
+    },
+    {
+      "from_pole_code": "TY1401-P36",
+      "to_pole_code": "TY1401-P37",
+      "pole_span_code": "TY1401-TY1401-P36-TY1401-P37",
+      "length_meters": 44.0,
+      "runs": 1,
+      "expected_cable": 44.0
+    },
+    {
+      "from_pole_code": "TY1401-P42",
+      "to_pole_code": "TY1401-P39",
+      "pole_span_code": "TY1401-TY1401-P42-TY1401-P39",
+      "length_meters": 31.0,
+      "runs": 1,
+      "expected_cable": 31.0
+    },
+    {
+      "from_pole_code": "TY1401-P35",
+      "to_pole_code": "TY1401-P36",
+      "pole_span_code": "TY1401-TY1401-P35-TY1401-P36",
+      "length_meters": 41.0,
+      "runs": 1,
+      "expected_cable": 41.0
+    },
+    {
+      "from_pole_code": "TY1401-P39",
+      "to_pole_code": "TY1401-P42",
+      "pole_span_code": "TY1401-TY1401-P39-TY1401-P42-2",
+      "length_meters": 35.0,
+      "runs": 1,
+      "expected_cable": 35.0
+    },
+    {
+      "from_pole_code": "TY1401-P41",
+      "to_pole_code": "TY1401-P47",
+      "pole_span_code": "TY1401-TY1401-P41-TY1401-P47",
+      "length_meters": 38.0,
+      "runs": 1,
+      "expected_cable": 38.0
+    },
+    {
+      "from_pole_code": "TY1401-P45",
+      "to_pole_code": "TY1401-P37",
+      "pole_span_code": "TY1401-TY1401-P45-TY1401-P37",
+      "length_meters": 35.0,
+      "runs": 1,
+      "expected_cable": 35.0
+    },
+    {
+      "from_pole_code": "TY1401-P39",
+      "to_pole_code": "TY1401-P40",
+      "pole_span_code": "TY1401-TY1401-P39-TY1401-P40",
+      "length_meters": 36.0,
+      "runs": 1,
+      "expected_cable": 36.0
+    },
+    {
+      "from_pole_code": "TY1401-P36",
+      "to_pole_code": "TY1401-P35",
+      "pole_span_code": "TY1401-TY1401-P36-TY1401-P35-2",
+      "length_meters": 18.0,
+      "runs": 1,
+      "expected_cable": 18.0
+    },
+    {
+      "from_pole_code": "TY1401-P37",
+      "to_pole_code": "TY1401-P38",
+      "pole_span_code": "TY1401-TY1401-P37-TY1401-P38",
+      "length_meters": 45.0,
+      "runs": 1,
+      "expected_cable": 45.0
+    },
+    {
+      "from_pole_code": "TY1401-P42",
+      "to_pole_code": "TY1401-P54",
+      "pole_span_code": "TY1401-TY1401-P42-TY1401-P54",
+      "length_meters": 39.0,
+      "runs": 1,
+      "expected_cable": 39.0
+    },
+    {
+      "from_pole_code": "TY1401-P51",
+      "to_pole_code": "TY1401-P37",
+      "pole_span_code": "TY1401-TY1401-P51-TY1401-P37",
+      "length_meters": 45.0,
+      "runs": 1,
+      "expected_cable": 45.0
+    },
+    {
+      "from_pole_code": "TY1401-P47",
+      "to_pole_code": "TY1401-P49",
+      "pole_span_code": "TY1401-TY1401-P47-TY1401-P49",
+      "length_meters": 36.0,
+      "runs": 1,
+      "expected_cable": 36.0
+    },
+    {
+      "from_pole_code": "TY1401-P52",
+      "to_pole_code": "TY1401-P36",
+      "pole_span_code": "TY1401-TY1401-P52-TY1401-P36",
+      "length_meters": 1.2478675265249182,
+      "runs": 1,
+      "expected_cable": 1.2478675265249182
+    },
+    {
+      "from_pole_code": "TY1401-P54",
+      "to_pole_code": "TY1401-P42",
+      "pole_span_code": "TY1401-TY1401-P54-TY1401-P42-2",
+      "length_meters": 24.0,
+      "runs": 1,
+      "expected_cable": 24.0
+    },
+    {
+      "from_pole_code": "TY1401-P43",
+      "to_pole_code": "TY1401-P42",
+      "pole_span_code": "TY1401-TY1401-P43-TY1401-P42",
+      "length_meters": 30.0,
+      "runs": 1,
+      "expected_cable": 30.0
+    },
+    {
+      "from_pole_code": "TY1401-P58",
+      "to_pole_code": "TY1401-P40",
+      "pole_span_code": "TY1401-TY1401-P58-TY1401-P40",
+      "length_meters": 40.0,
+      "runs": 1,
+      "expected_cable": 40.0
+    },
+    {
+      "from_pole_code": "TY1401-P44",
+      "to_pole_code": "TY1401-P48",
+      "pole_span_code": "TY1401-TY1401-P44-TY1401-P48",
+      "length_meters": 22.0,
+      "runs": 1,
+      "expected_cable": 22.0
+    },
+    {
+      "from_pole_code": "TY1401-P52",
+      "to_pole_code": "TY1401-P46",
+      "pole_span_code": "TY1401-TY1401-P52-TY1401-P46",
+      "length_meters": 41.0,
+      "runs": 1,
+      "expected_cable": 41.0
+    },
+    {
+      "from_pole_code": "TY1401-P44",
+      "to_pole_code": "TY1401-P57",
+      "pole_span_code": "TY1401-TY1401-P44-TY1401-P57",
+      "length_meters": 33.0,
+      "runs": 1,
+      "expected_cable": 33.0
+    },
+    {
+      "from_pole_code": "TY1401-P54",
+      "to_pole_code": "TY1401-P66",
+      "pole_span_code": "TY1401-TY1401-P54-TY1401-P66",
+      "length_meters": 33.0,
+      "runs": 1,
+      "expected_cable": 33.0
+    },
+    {
+      "from_pole_code": "TY1401-P64",
+      "to_pole_code": "TY1401-P51",
+      "pole_span_code": "TY1401-TY1401-P64-TY1401-P51",
+      "length_meters": 46.0,
+      "runs": 1,
+      "expected_cable": 46.0
+    },
+    {
+      "from_pole_code": "TY1401-P65",
+      "to_pole_code": "TY1401-P52",
+      "pole_span_code": "TY1401-TY1401-P65-TY1401-P52",
+      "length_meters": 40.0,
+      "runs": 1,
+      "expected_cable": 40.0
+    },
+    {
+      "from_pole_code": "TY1401-P59",
+      "to_pole_code": "TY1401-P53",
+      "pole_span_code": "TY1401-TY1401-P59-TY1401-P53",
+      "length_meters": 0.7068473853036572,
+      "runs": 1,
+      "expected_cable": 0.7068473853036572
+    },
+    {
+      "from_pole_code": "TY1401-P61",
+      "to_pole_code": "TY1401-P57",
+      "pole_span_code": "TY1401-TY1401-P61-TY1401-P57",
+      "length_meters": 35.0,
+      "runs": 1,
+      "expected_cable": 35.0
+    },
+    {
+      "from_pole_code": "TY1401-P58",
+      "to_pole_code": "TY1401-P50",
+      "pole_span_code": "TY1401-TY1401-P58-TY1401-P50",
+      "length_meters": 41.0,
+      "runs": 1,
+      "expected_cable": 41.0
+    },
+    {
+      "from_pole_code": "TY1401-P55",
+      "to_pole_code": "TY1401-P59",
+      "pole_span_code": "TY1401-TY1401-P55-TY1401-P59",
+      "length_meters": 13.0,
+      "runs": 1,
+      "expected_cable": 13.0
+    },
+    {
+      "from_pole_code": "TY1401-P66",
+      "to_pole_code": "TY1401-P113",
+      "pole_span_code": "TY1401-TY1401-P66-TY1401-P113",
+      "length_meters": 35.0,
+      "runs": 1,
+      "expected_cable": 35.0
+    },
+    {
+      "from_pole_code": "TY1401-P57",
+      "to_pole_code": "TY1401-P73",
+      "pole_span_code": "TY1401-TY1401-P57-TY1401-P73",
+      "length_meters": 48.0,
+      "runs": 1,
+      "expected_cable": 48.0
+    },
+    {
+      "from_pole_code": "TY1401-P81",
+      "to_pole_code": "TY1401-P75",
+      "pole_span_code": "TY1401-TY1401-P81-TY1401-P75",
+      "length_meters": 6.951247574552978,
+      "runs": 1,
+      "expected_cable": 6.951247574552978
+    },
+    {
+      "from_pole_code": "TY1401-P67",
+      "to_pole_code": "TY1401-P113",
+      "pole_span_code": "TY1401-TY1401-P67-TY1401-P113",
+      "length_meters": 28.0,
+      "runs": 1,
+      "expected_cable": 28.0
+    },
+    {
+      "from_pole_code": "TY1401-P51",
+      "to_pole_code": "TY1401-P72",
+      "pole_span_code": "TY1401-TY1401-P51-TY1401-P72",
+      "length_meters": 5.541334078569367,
+      "runs": 1,
+      "expected_cable": 5.541334078569367
+    },
+    {
+      "from_pole_code": "TY1401-P72",
+      "to_pole_code": "TY1401-P68",
+      "pole_span_code": "TY1401-TY1401-P72-TY1401-P68",
+      "length_meters": 50.0,
+      "runs": 1,
+      "expected_cable": 50.0
+    },
+    {
+      "from_pole_code": "TY1401-P67",
+      "to_pole_code": "TY1401-P70",
+      "pole_span_code": "TY1401-TY1401-P67-TY1401-P70",
+      "length_meters": 40.0,
+      "runs": 1,
+      "expected_cable": 40.0
+    },
+    {
+      "from_pole_code": "TY1401-P67",
+      "to_pole_code": "TY1401-P113",
+      "pole_span_code": "TY1401-TY1401-P67-TY1401-P113-2",
+      "length_meters": 46.0,
+      "runs": 1,
+      "expected_cable": 46.0
+    },
+    {
+      "from_pole_code": "TY1401-P76",
+      "to_pole_code": "TY1401-P63",
+      "pole_span_code": "TY1401-TY1401-P76-TY1401-P63",
+      "length_meters": 7.0,
+      "runs": 1,
+      "expected_cable": 7.0
+    },
+    {
+      "from_pole_code": "TY1401-P69",
+      "to_pole_code": "TY1401-P61",
+      "pole_span_code": "TY1401-TY1401-P69-TY1401-P61",
+      "length_meters": 41.0,
+      "runs": 1,
+      "expected_cable": 41.0
+    },
+    {
+      "from_pole_code": "TY1401-P75",
+      "to_pole_code": "TY1401-P66",
+      "pole_span_code": "TY1401-TY1401-P75-TY1401-P66",
+      "length_meters": 45.0,
+      "runs": 1,
+      "expected_cable": 45.0
+    },
+    {
+      "from_pole_code": "TY1401-P69",
+      "to_pole_code": "TY1401-P64",
+      "pole_span_code": "TY1401-TY1401-P69-TY1401-P64",
+      "length_meters": 46.0,
+      "runs": 1,
+      "expected_cable": 46.0
+    },
+    {
+      "from_pole_code": "TY1401-P77",
+      "to_pole_code": "TY1401-P70",
+      "pole_span_code": "TY1401-TY1401-P77-TY1401-P70",
+      "length_meters": 30.0,
+      "runs": 1,
+      "expected_cable": 30.0
+    },
+    {
+      "from_pole_code": "TY1401-P113",
+      "to_pole_code": "TY1401-P77",
+      "pole_span_code": "TY1401-TY1401-P113-TY1401-P77",
+      "length_meters": 2.0,
+      "runs": 1,
+      "expected_cable": 2.0
+    },
+    {
+      "from_pole_code": "TY1401-P80",
+      "to_pole_code": "TY1401-P73",
+      "pole_span_code": "TY1401-TY1401-P80-TY1401-P73",
+      "length_meters": 43.0,
+      "runs": 1,
+      "expected_cable": 43.0
+    },
+    {
+      "from_pole_code": "TY1401-P76",
+      "to_pole_code": "TY1401-P72",
+      "pole_span_code": "TY1401-TY1401-P76-TY1401-P72",
+      "length_meters": 32.0,
+      "runs": 1,
+      "expected_cable": 32.0
+    },
+    {
+      "from_pole_code": "TY1401-P75",
+      "to_pole_code": "TY1401-P81",
+      "pole_span_code": "TY1401-TY1401-P75-TY1401-P81-2",
+      "length_meters": 39.0,
+      "runs": 1,
+      "expected_cable": 39.0
+    },
+    {
+      "from_pole_code": "TY1401-P81",
+      "to_pole_code": "TY1401-P72",
+      "pole_span_code": "TY1401-TY1401-P81-TY1401-P72",
+      "length_meters": 31.0,
+      "runs": 1,
+      "expected_cable": 31.0
+    },
+    {
+      "from_pole_code": "TY1401-P78",
+      "to_pole_code": "TY1401-P82",
+      "pole_span_code": "TY1401-TY1401-P78-TY1401-P82",
+      "length_meters": 45.0,
+      "runs": 1,
+      "expected_cable": 45.0
+    },
+    {
+      "from_pole_code": "TY1401-P79",
+      "to_pole_code": "TY1401-P69",
+      "pole_span_code": "TY1401-TY1401-P79-TY1401-P69",
+      "length_meters": 43.0,
+      "runs": 1,
+      "expected_cable": 43.0
+    },
+    {
+      "from_pole_code": "TY1401-P77",
+      "to_pole_code": "TY1401-P83",
+      "pole_span_code": "TY1401-TY1401-P77-TY1401-P83",
+      "length_meters": 42.0,
+      "runs": 1,
+      "expected_cable": 42.0
+    },
+    {
+      "from_pole_code": "TY1401-P79",
+      "to_pole_code": "TY1401-P71",
+      "pole_span_code": "TY1401-TY1401-P79-TY1401-P71",
+      "length_meters": 51.0,
+      "runs": 1,
+      "expected_cable": 51.0
+    },
+    {
+      "from_pole_code": "TY1401-P77",
+      "to_pole_code": "TY1401-P83",
+      "pole_span_code": "TY1401-TY1401-P77-TY1401-P83-2",
+      "length_meters": 30.0,
+      "runs": 1,
+      "expected_cable": 30.0
+    },
+    {
+      "from_pole_code": "TY1401-P76",
+      "to_pole_code": "TY1401-P87",
+      "pole_span_code": "TY1401-TY1401-P76-TY1401-P87",
+      "length_meters": 22.0,
+      "runs": 1,
+      "expected_cable": 22.0
+    },
+    {
+      "from_pole_code": "TY1401-P88",
+      "to_pole_code": "TY1401-P82",
+      "pole_span_code": "TY1401-TY1401-P88-TY1401-P82",
+      "length_meters": 22.0,
+      "runs": 1,
+      "expected_cable": 22.0
+    },
+    {
+      "from_pole_code": "TY1401-P82",
+      "to_pole_code": "TY1401-P86",
+      "pole_span_code": "TY1401-TY1401-P82-TY1401-P86",
+      "length_meters": 40.0,
+      "runs": 1,
+      "expected_cable": 40.0
+    },
+    {
+      "from_pole_code": "TY1401-P81",
+      "to_pole_code": "TY1401-P86",
+      "pole_span_code": "TY1401-TY1401-P81-TY1401-P86",
+      "length_meters": 38.0,
+      "runs": 1,
+      "expected_cable": 38.0
+    },
+    {
+      "from_pole_code": "TY1401-P81",
+      "to_pole_code": "TY1401-P87",
+      "pole_span_code": "TY1401-TY1401-P81-TY1401-P87",
+      "length_meters": 22.0,
+      "runs": 1,
+      "expected_cable": 22.0
+    },
+    {
+      "from_pole_code": "TY1401-P90",
+      "to_pole_code": "TY1401-P80",
+      "pole_span_code": "TY1401-TY1401-P90-TY1401-P80",
+      "length_meters": 41.0,
+      "runs": 1,
+      "expected_cable": 41.0
+    },
+    {
+      "from_pole_code": "TY1401-P79",
+      "to_pole_code": "TY1401-P92",
+      "pole_span_code": "TY1401-TY1401-P79-TY1401-P92",
+      "length_meters": 38.0,
+      "runs": 1,
+      "expected_cable": 38.0
+    },
+    {
+      "from_pole_code": "TY1401-P94",
+      "to_pole_code": "TY1401-P87",
+      "pole_span_code": "TY1401-TY1401-P94-TY1401-P87",
+      "length_meters": 42.0,
+      "runs": 1,
+      "expected_cable": 42.0
+    },
+    {
+      "from_pole_code": "TY1401-P87",
+      "to_pole_code": "TY1401-P92",
+      "pole_span_code": "TY1401-TY1401-P87-TY1401-P92",
+      "length_meters": 31.0,
+      "runs": 1,
+      "expected_cable": 31.0
+    },
+    {
+      "from_pole_code": "TY1401-P83",
+      "to_pole_code": "TY1401-P91",
+      "pole_span_code": "TY1401-TY1401-P83-TY1401-P91",
+      "length_meters": 26.0,
+      "runs": 1,
+      "expected_cable": 26.0
+    },
+    {
+      "from_pole_code": "TY1401-P88",
+      "to_pole_code": "TY1401-P93",
+      "pole_span_code": "TY1401-TY1401-P88-TY1401-P93",
+      "length_meters": 50.0,
+      "runs": 1,
+      "expected_cable": 50.0
+    },
+    {
+      "from_pole_code": "TY1401-P87",
+      "to_pole_code": "TY1401-P89",
+      "pole_span_code": "TY1401-TY1401-P87-TY1401-P89",
+      "length_meters": 32.0,
+      "runs": 1,
+      "expected_cable": 32.0
+    },
+    {
+      "from_pole_code": "TY1401-P98",
+      "to_pole_code": "TY1401-P90",
+      "pole_span_code": "TY1401-TY1401-P98-TY1401-P90",
+      "length_meters": 42.0,
+      "runs": 1,
+      "expected_cable": 42.0
+    },
+    {
+      "from_pole_code": "TY1401-P97",
+      "to_pole_code": "TY1401-P87",
+      "pole_span_code": "TY1401-TY1401-P97-TY1401-P87",
+      "length_meters": 32.0,
+      "runs": 1,
+      "expected_cable": 32.0
+    },
+    {
+      "from_pole_code": "TY1401-P92",
+      "to_pole_code": "TY1401-P98",
+      "pole_span_code": "TY1401-TY1401-P92-TY1401-P98",
+      "length_meters": 36.0,
+      "runs": 1,
+      "expected_cable": 36.0
+    },
+    {
+      "from_pole_code": "TY1401-P93",
+      "to_pole_code": "TY1401-P96",
+      "pole_span_code": "TY1401-TY1401-P93-TY1401-P96",
+      "length_meters": 37.0,
+      "runs": 1,
+      "expected_cable": 37.0
+    },
+    {
+      "from_pole_code": "TY1401-P94",
+      "to_pole_code": "TY1401-P89",
+      "pole_span_code": "TY1401-TY1401-P94-TY1401-P89",
+      "length_meters": 26.0,
+      "runs": 1,
+      "expected_cable": 26.0
+    },
+    {
+      "from_pole_code": "TY1401-P97",
+      "to_pole_code": "TY1401-P89",
+      "pole_span_code": "TY1401-TY1401-P97-TY1401-P89",
+      "length_meters": 22.0,
+      "runs": 1,
+      "expected_cable": 22.0
+    },
+    {
+      "from_pole_code": "TY1401-P98",
+      "to_pole_code": "TY1401-P92",
+      "pole_span_code": "TY1401-TY1401-P98-TY1401-P92-2",
+      "length_meters": 42.0,
+      "runs": 1,
+      "expected_cable": 42.0
+    },
+    {
+      "from_pole_code": "TY1401-P101",
+      "to_pole_code": "TY1401-P93",
+      "pole_span_code": "TY1401-TY1401-P101-TY1401-P93",
+      "length_meters": 32.0,
+      "runs": 1,
+      "expected_cable": 32.0
+    },
+    {
+      "from_pole_code": "TY1401-P99",
+      "to_pole_code": "TY1401-P103",
+      "pole_span_code": "TY1401-TY1401-P99-TY1401-P103",
+      "length_meters": 29.0,
+      "runs": 1,
+      "expected_cable": 29.0
+    },
+    {
+      "from_pole_code": "TY1401-P101",
+      "to_pole_code": "TY1401-P96",
+      "pole_span_code": "TY1401-TY1401-P101-TY1401-P96",
+      "length_meters": 40.0,
+      "runs": 1,
+      "expected_cable": 40.0
+    },
+    {
+      "from_pole_code": "TY1401-P102",
+      "to_pole_code": "TY1401-P97",
+      "pole_span_code": "TY1401-TY1401-P102-TY1401-P97",
+      "length_meters": 39.0,
+      "runs": 1,
+      "expected_cable": 39.0
+    },
+    {
+      "from_pole_code": "TY1401-P99",
+      "to_pole_code": "TY1401-P106",
+      "pole_span_code": "TY1401-TY1401-P99-TY1401-P106",
+      "length_meters": 32.0,
+      "runs": 1,
+      "expected_cable": 32.0
+    },
+    {
+      "from_pole_code": "TY1401-P96",
+      "to_pole_code": "TY1401-P102",
+      "pole_span_code": "TY1401-TY1401-P96-TY1401-P102",
+      "length_meters": 4.534240515204074,
+      "runs": 1,
+      "expected_cable": 4.534240515204074
+    },
+    {
+      "from_pole_code": "TY1401-P103",
+      "to_pole_code": "TY1401-P107",
+      "pole_span_code": "TY1401-TY1401-P103-TY1401-P107",
+      "length_meters": 41.0,
+      "runs": 1,
+      "expected_cable": 41.0
+    },
+    {
+      "from_pole_code": "TY1401-P109",
+      "to_pole_code": "TY1401-P103",
+      "pole_span_code": "TY1401-TY1401-P109-TY1401-P103",
+      "length_meters": 28.0,
+      "runs": 1,
+      "expected_cable": 28.0
+    },
+    {
+      "from_pole_code": "TY1401-P105",
+      "to_pole_code": "TY1401-P107",
+      "pole_span_code": "TY1401-TY1401-P105-TY1401-P107",
+      "length_meters": 44.0,
+      "runs": 1,
+      "expected_cable": 44.0
+    },
+    {
+      "from_pole_code": "TY1401-P107",
+      "to_pole_code": "TY1401-P108",
+      "pole_span_code": "TY1401-TY1401-P107-TY1401-P108",
+      "length_meters": 33.0,
+      "runs": 1,
+      "expected_cable": 33.0
+    },
+    {
+      "from_pole_code": "TY1401-P110",
+      "to_pole_code": "TY1401-P108",
+      "pole_span_code": "TY1401-TY1401-P110-TY1401-P108",
+      "length_meters": 29.0,
+      "runs": 1,
+      "expected_cable": 29.0
+    },
+    {
+      "from_pole_code": "TY1401-P109",
+      "to_pole_code": "TY1401-P111",
+      "pole_span_code": "TY1401-TY1401-P109-TY1401-P111",
+      "length_meters": 47.0,
+      "runs": 1,
+      "expected_cable": 47.0
+    },
+    {
+      "from_pole_code": "TY1401-P108",
+      "to_pole_code": "TY1401-P110",
+      "pole_span_code": "TY1401-TY1401-P108-TY1401-P110-2",
+      "length_meters": 32.0,
+      "runs": 1,
+      "expected_cable": 32.0
+    },
+    {
+      "from_pole_code": "TY1401-P112",
+      "to_pole_code": "TY1401-P110",
+      "pole_span_code": "TY1401-TY1401-P112-TY1401-P110",
+      "length_meters": 24.0,
+      "runs": 1,
+      "expected_cable": 24.0
+    }
+  ]
+}

@@ -160,8 +160,22 @@
                     placeholder="Enter location..."
                 />
 
-                <label>2. Select DXF File</label>
-                <input type="file" id="dxfFile" accept=".dxf" />
+                <div id="dxfSection">
+                    <label id="dxfLabel">2. Select DXF File</label>
+                    <input type="file" id="dxfFile" accept=".dxf" />
+                </div>
+                <div
+                    id="asbuiltSessionHint"
+                    style="
+                        display: none;
+                        margin-bottom: 15px;
+                        padding: 10px 12px;
+                        border-radius: 6px;
+                        background: #eef6ff;
+                        color: #1d4ed8;
+                        font-size: 13px;
+                    "
+                ></div>
 
                 <button onclick="startSetup()">Start Mapping</button>
                 <button
@@ -597,30 +611,112 @@
             let globalDxfPath = null;
             let globalPoles = []; // Stores the named poles from React
 
-            document.addEventListener("DOMContentLoaded", () => {
+            function setStatusText(text) {
+                const el = document.getElementById("status-text");
+                if (el) el.innerText = text;
+            }
+
+            function setDxfSectionVisibility(show) {
+                const section = document.getElementById("dxfSection");
+                if (section) {
+                    section.style.display = show ? "block" : "none";
+                }
+            }
+
+            function setAsbuiltSessionHint(message) {
+                const hint = document.getElementById("asbuiltSessionHint");
+                if (!hint) return;
+                if (message) {
+                    hint.innerText = message;
+                    hint.style.display = "block";
+                } else {
+                    hint.innerText = "";
+                    hint.style.display = "none";
+                }
+            }
+
+            function bindActiveDxfPath(path, sourceLabel = "As-built") {
+                if (!path) return;
+                globalDxfPath = path;
+                setDxfSectionVisibility(false);
+                setAsbuiltSessionHint(
+                    `Using active drawing from ${sourceLabel}: ${path}`,
+                );
+            }
+
+            async function loadStandalonePoles() {
+                try {
+                    setStatusText("Loading poles from As-built...");
+                    const query = globalDxfPath
+                        ? `?dxf_path=${encodeURIComponent(globalDxfPath)}`
+                        : "";
+                    const response = await fetch(`/api/asbuilt_poles${query}`);
+                    const result = await response.json();
+
+                    if (result.status !== "success") {
+                        throw new Error(
+                            result.message ||
+                                "Failed to load poles from As-built.",
+                        );
+                    }
+
+                    globalPoles = Array.isArray(result.poles)
+                        ? result.poles
+                        : [];
+
+                    if (result.dxf_path) {
+                        bindActiveDxfPath(result.dxf_path, "As-built session");
+                    }
+
+                    if (!globalPoles.length) {
+                        throw new Error(
+                            "No poles are available in the active As-built session.",
+                        );
+                    }
+
+                    if (result.warning) {
+                        console.warn(result.warning);
+                    }
+
+                    console.log(
+                        "📥 Loaded poles through standalone fallback:",
+                        globalPoles,
+                    );
+                    setStatusText(
+                        `Loaded ${globalPoles.length} poles. Place anchors or open the overlay to continue.`,
+                    );
+                    return true;
+                } catch (error) {
+                    console.error("Failed to load standalone poles:", error);
+                    setStatusText("Unable to load poles from As-built.");
+                    alert(error.message || "Failed to load poles.");
+                    return false;
+                }
+            }
+
+            async function ensurePoleData() {
+                if (globalPoles.length > 0) return true;
+                return loadStandalonePoles();
+            }
+
+            document.addEventListener("DOMContentLoaded", async () => {
                 const urlParams = new URLSearchParams(window.location.search);
                 const path = urlParams.get("dxf_path");
 
                 if (path) {
-                    globalDxfPath = path;
-
-                    // Hide the DXF file input field robustly
-                    const fileInput = document.getElementById("dxfFile");
-                    if (fileInput) fileInput.style.display = "none";
-
-                    const labels = document.querySelectorAll(
-                        ".modal-content label",
-                    );
-                    labels.forEach((label) => {
-                        if (label.textContent.includes("Select DXF File")) {
-                            label.style.display = "none";
-                        }
-                    });
+                    bindActiveDxfPath(path, "URL");
                 }
 
                 // Ping the React app to let it know the georef window is ready for data
                 if (window.opener) {
                     window.opener.postMessage({ type: "GEO_READY" }, "*");
+                    window.setTimeout(() => {
+                        if (globalPoles.length === 0) {
+                            loadStandalonePoles();
+                        }
+                    }, 1200);
+                } else {
+                    await loadStandalonePoles();
                 }
             });
 
@@ -637,6 +733,12 @@
 
             // --- 5. COMMUNICATE WITH PYTHON ---
             async function processMap() {
+                if (!(await ensurePoleData())) {
+                    document.getElementById("processBtn").innerText =
+                        "Process DXF";
+                    return;
+                }
+
                 document.getElementById("processBtn").innerText =
                     "Processing...";
 
@@ -646,9 +748,8 @@
                 ]);
 
                 // Send both the DXF path AND the exact named poles over to Python
-                let response = await fetch(
-                    "http://localhost:8000/api/process_map",
-                    {
+                try {
+                    let response = await fetch("/api/process_map", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
@@ -656,24 +757,31 @@
                             anchors: coords,
                             cad_poles: globalPoles,
                         }),
-                    },
-                );
+                    });
 
-                let result = await response.json();
+                    let result = await response.json();
 
-                if (result.status === "success") {
-                    renderPoles(result.poles);
-                    document.getElementById("processBtn").style.display =
-                        "none";
-                    document.getElementById("exportBtn").style.display =
-                        "inline-block";
-                    document.getElementById("status-text").innerText =
-                        "Map generated! Drag poles to adjust.";
+                    if (result.status === "success") {
+                        renderPoles(result.poles);
+                        document.getElementById("processBtn").style.display =
+                            "none";
+                        document.getElementById("exportBtn").style.display =
+                            "inline-block";
+                        setStatusText("Map generated! Drag poles to adjust.");
 
-                    anchorPins.forEach((p) => map.removeLayer(p));
-                    anchorPins = [];
-                } else {
-                    alert(result.message);
+                        anchorPins.forEach((p) => map.removeLayer(p));
+                        anchorPins = [];
+                    } else {
+                        alert(result.message);
+                        document.getElementById("processBtn").innerText =
+                            "Process DXF";
+                    }
+                } catch (error) {
+                    console.error("processMap failed:", error);
+                    alert(
+                        error.message ||
+                            "Could not process the map. Check the GeoTool server.",
+                    );
                     document.getElementById("processBtn").innerText =
                         "Process DXF";
                 }
@@ -832,7 +940,33 @@
                     );
                     window.close();
                 } else {
-                    alert("Parent As-built tab not found. Cannot sync data.");
+                    fetch("/api/asbuilt_poles/georeference", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ poles: payload }),
+                    })
+                        .then((response) => response.json())
+                        .then((result) => {
+                            if (result.status !== "success") {
+                                throw new Error(
+                                    result.message ||
+                                        "Failed to sync georeferenced poles.",
+                                );
+                            }
+                            setStatusText(
+                                "Georeferenced poles synced to As-built.",
+                            );
+                            alert(
+                                "Georeferenced poles synced to the As-built backend.",
+                            );
+                        })
+                        .catch((error) => {
+                            console.error("Standalone georef sync failed:", error);
+                            alert(
+                                error.message ||
+                                    "Failed to sync georeferenced poles.",
+                            );
+                        });
                 }
             }
 
@@ -1090,10 +1224,12 @@
             }
 
             async function lockTransformation() {
-                document.getElementById("visualControls").style.display =
-                    "none";
-                document.getElementById("status-text").innerText =
-                    "Calculating precise pole locations...";
+                if (!(await ensurePoleData())) {
+                    return;
+                }
+
+                document.getElementById("visualControls").style.display = "none";
+                setStatusText("Calculating precise pole locations...");
 
                 // Capture final GPS coordinates directly from the specific handle variables
                 let finalGpsBounds = {
@@ -1102,9 +1238,8 @@
                     bottom_left: [mBL.getLatLng().lat, mBL.getLatLng().lng],
                 };
 
-                let response = await fetch(
-                    "http://localhost:8000/api/process_visual_map",
-                    {
+                try {
+                    let response = await fetch("/api/process_visual_map", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
@@ -1113,23 +1248,39 @@
                             cad_bounds: savedCadBounds,
                             cad_poles: globalPoles,
                         }),
-                    },
-                );
+                    });
 
-                let result = await response.json();
+                    let result = await response.json();
 
-                if (result.status === "success") {
-                    transformHandles.forEach((m) => map.removeLayer(m));
-                    renderPoles(result.poles);
+                    if (result.status === "success") {
+                        transformHandles.forEach((m) => map.removeLayer(m));
+                        renderPoles(result.poles);
 
-                    document.getElementById("toggleOverlayBtn").style.display =
-                        "inline-block";
-                    document.getElementById("exportBtn").style.display =
-                        "inline-block";
-                    document.getElementById("status-text").innerText =
-                        "Georeferencing locked. Compare the red poles to the magenta layout.";
-                } else {
-                    alert(result.message);
+                        document.getElementById(
+                            "toggleOverlayBtn",
+                        ).style.display = "inline-block";
+                        document.getElementById("exportBtn").style.display =
+                            "inline-block";
+                        setStatusText(
+                            "Georeferencing locked. Compare the red poles to the magenta layout.",
+                        );
+                    } else {
+                        throw new Error(
+                            result.message ||
+                                "Failed to calculate precise pole locations.",
+                        );
+                    }
+                } catch (error) {
+                    console.error("lockTransformation failed:", error);
+                    document.getElementById("visualControls").style.display =
+                        "flex";
+                    setStatusText(
+                        "Unable to calculate precise pole locations. Check pole sync and try again.",
+                    );
+                    alert(
+                        error.message ||
+                            "Failed to calculate precise pole locations.",
+                    );
                 }
             }
 

@@ -696,6 +696,7 @@ export default function Home() {
                 boundary={globalBoundary}
                 isMaskEnabled={isMaskEnabled}
                 onSpansChange={handleSpansChange}
+                onCacheUpdate={(data) => handleCacheUpdate(dxfPath, data)}
                 initialSegments={restoredDxfSegments ?? undefined}
                 initialCableSpans={restoredCableSpans ?? undefined}
                 onInitialDataConsumed={() => {
@@ -743,6 +744,7 @@ export default function Home() {
         <AsbuiltExportModal
           cableSpans={cableSpans}
           poleTags={getCache(dxfPath)?.poleTags ?? []}
+          equipmentShapes={getCache(dxfPath)?.shapes ?? []}
           dxfPath={dxfPath}
           onClose={() => setShowAsbuiltModal(false)}
         />

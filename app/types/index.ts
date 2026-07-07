@@ -62,6 +62,7 @@ export interface PoleTag {
 
 export interface CableSpanExport {
     span_id: number;
+    source_span_id?: number | null;
     layer: string;
     bbox: [number, number, number, number];
     cx: number;
@@ -70,6 +71,7 @@ export interface CableSpanExport {
     total_length: number;
     meter_value?: number | null;
     cable_runs: number;
+    display_segments?: Segment[];
     from_pole?: string | null;
     to_pole?: string | null;
     from_pole_id?: number | null;
@@ -99,6 +101,21 @@ export interface AsbuiltNode {
     report_type?: string | null;
     source_file?: string | null;
     pole_count?:  number;
+    subcontractor_id?: number | null;
+    subcontractor?: string | null;
+    team_id?: number | null;
+    team?: string | null;
+}
+
+export interface AsbuiltSubcontractor {
+    id:   number;
+    name: string;
+}
+
+export interface AsbuiltTeam {
+    id:               number;
+    name:             string;
+    subcontractor_id: number;
 }
 
 export interface AsbuiltExportResult {
