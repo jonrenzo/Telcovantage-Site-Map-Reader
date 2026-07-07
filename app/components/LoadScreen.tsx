@@ -154,6 +154,8 @@ export default function LoadScreen({ onStartProcessing }: Props) {
   const [selectedLayers, setSelectedLayers] = useState<string[]>([]); // User's checks
   const [modelOk, setModelOk] = useState<boolean | null>(null);
   const [showLayerPicker, setShowLayerPicker] = useState(false);
+  const [layerSearch, setLayerSearch] = useState("");
+  const [autoDetectedLayers, setAutoDetectedLayers] = useState<string[]>([]);
 
   // Rename / delete
   const [contextMenu, setContextMenu] = useState<{
@@ -557,12 +559,10 @@ export default function LoadScreen({ onStartProcessing }: Props) {
       const allLayers = lData.layers as string[];
       setAllDxfLayers(allLayers);
 
-      // Filter out 'cable' layers entirely from the UI, keep only text/strand candidates
-      const filteredOcrCandidates = allLayers.filter((l: string) => {
+      // Layers to auto-check (strand/text/sttext/ocr) — exclude cable and PDF_Text
+      const autoDetected = allLayers.filter((l: string) => {
         const lower = l.toLowerCase();
-        // Skip cables
-        if (lower.includes("cable")) return false;
-        // Keep strands and text
+        if (lower.includes("cable") || lower.includes("pdf_text")) return false;
         return (
           lower.includes("strand") ||
           lower.includes("text") ||
@@ -571,14 +571,18 @@ export default function LoadScreen({ onStartProcessing }: Props) {
         );
       });
 
-      // If strict filter found nothing, fallback to showing all non-cable layers so user isn't stuck
-      const displayLayers =
-        filteredOcrCandidates.length > 0
-          ? filteredOcrCandidates
-          : allLayers.filter((l: string) => !l.toLowerCase().includes("cable"));
+      // All non-cable layers for the searchable picker
+      const allNonCable = allLayers.filter(
+        (l: string) => !l.toLowerCase().includes("cable"),
+      );
 
-      setOcrLayers(displayLayers);
-      setSelectedLayers(displayLayers); // Auto-check all of them by default
+      // If strict filter found nothing, fallback to all non-cable layers
+      const displayLayers =
+        autoDetected.length > 0 ? autoDetected : allNonCable;
+
+      setOcrLayers(allNonCable);
+      setAutoDetectedLayers(autoDetected.length > 0 ? autoDetected : allNonCable);
+      setSelectedLayers(displayLayers);
 
       setModelOk(mData.ok);
       setShowLayerPicker(true);
@@ -645,6 +649,12 @@ export default function LoadScreen({ onStartProcessing }: Props) {
   // ── Render ──────────────────────────────────────────────────────────────────
 
   const isEmpty = visibleFiles.length === 0 && visibleFolders.length === 0;
+
+  const displayLayers = layerSearch.trim()
+    ? ocrLayers.filter((l) =>
+        l.toLowerCase().includes(layerSearch.toLowerCase()),
+      )
+    : [...new Set([...autoDetectedLayers, ...selectedLayers])];
 
   return (
     <main
@@ -1264,7 +1274,39 @@ export default function LoadScreen({ onStartProcessing }: Props) {
 
                 {/* CLEANED UP MULTI-SELECT ONLY SHOWING OCR STRANDS */}
                 <div className="flex flex-col gap-2 max-h-48 overflow-y-auto bg-surface-2 p-2 rounded-lg border border-border">
-                  {ocrLayers.map((l) => (
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={layerSearch}
+                      onChange={(e) => setLayerSearch(e.target.value)}
+                      placeholder="Search layers…"
+                      className="w-full text-xs border border-border rounded-lg pl-7 pr-8 py-1.5
+                        bg-white focus:outline-none focus:ring-2 focus:ring-accent/30"
+                    />
+                    <svg
+                      className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted pointer-events-none"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <circle cx="11" cy="11" r="8" />
+                      <path d="M21 21l-4.35-4.35" />
+                    </svg>
+                    {layerSearch && (
+                      <button
+                        onClick={() => setLayerSearch("")}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center
+                          text-muted hover:text-[#1e293b] transition-colors rounded-full hover:bg-slate-200"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-3 h-3">
+                          <path d="M18 6L6 18M6 6l12 12" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-1">
+                  {displayLayers.map((l) => (
                     <label
                       key={l}
                       className="flex items-center gap-2 text-xs cursor-pointer hover:bg-slate-100 p-1 rounded transition-colors"
@@ -1283,12 +1325,15 @@ export default function LoadScreen({ onStartProcessing }: Props) {
                           }
                         }}
                       />
-                      <span className="break-words min-w-0" title={l}>{l}</span>
+                      <span className="truncate min-w-0" title={l}>{l}</span>
                     </label>
                   ))}
-                  {ocrLayers.length === 0 && (
+                  </div>
+                  {displayLayers.length === 0 && (
                     <span className="text-xs text-muted-2 text-center py-2">
-                      No text layers detected.
+                      {layerSearch.trim()
+                        ? "No layers match your search."
+                        : "No text layers detected."}
                     </span>
                   )}
                 </div>

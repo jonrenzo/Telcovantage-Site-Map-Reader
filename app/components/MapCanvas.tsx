@@ -31,8 +31,6 @@ interface Props {
   // --- NEW: Boundary Props ---
   boundary: BoundaryPoint[] | null;
   isMaskEnabled: boolean;
-  // --- NEW: Adjustable marker size (multiplier, 1 = default) ---
-  markerScale: number;
 }
 
 interface Viewport {
@@ -53,7 +51,6 @@ export default function MapCanvas({
   labelMode,
   boundary,
   isMaskEnabled,
-  markerScale,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const vpRef = useRef<Viewport>({ x: 0, y: 0, scale: 1 });
@@ -77,7 +74,6 @@ export default function MapCanvas({
   const labelModeRef = useRef(labelMode);
   const boundaryRef = useRef(boundary);
   const maskEnabledRef = useRef(isMaskEnabled);
-  const markerScaleRef = useRef(markerScale);
 
   useEffect(() => {
     resultsRef.current = results;
@@ -103,9 +99,6 @@ export default function MapCanvas({
   useEffect(() => {
     maskEnabledRef.current = isMaskEnabled;
   }, [isMaskEnabled]);
-  useEffect(() => {
-    markerScaleRef.current = markerScale;
-  }, [markerScale]);
 
   const redraw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -160,11 +153,7 @@ export default function MapCanvas({
     }
 
     // Markers
-    const sizeScale = markerScaleRef.current || 1;
-    // Size the dot in SCREEN pixels, then convert to world units, so the
-    // floor is a screen-space minimum (not world units — which on small-extent
-    // drawings blew up into map-covering blobs and ignored the slider).
-    const r = Math.max(2, 9 * sizeScale) / vp.scale;
+    const r = Math.max(0.5, 9 / vp.scale);
     for (const result of res) {
       const { center_x: cx, center_y: cy } = result;
 
@@ -217,9 +206,7 @@ export default function MapCanvas({
       ctx.translate(cx, cy);
       ctx.scale(1, -1);
       ctx.fillStyle = "#fff";
-      // Font scales with the marker radius so the number always fits and stays
-      // proportional to the dot (adaptive), drawn exactly at the dot's center.
-      ctx.font = `600 ${r}px Inter, sans-serif`;
+      ctx.font = `600 ${9 / vp.scale}px Inter, sans-serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText(label, 0, 0);
@@ -291,7 +278,6 @@ export default function MapCanvas({
     labelMode,
     boundary,
     isMaskEnabled,
-    markerScale,
   ]);
 
   function s2w(sx: number, sy: number) {
@@ -300,8 +286,7 @@ export default function MapCanvas({
   }
 
   function hitTest(wx: number, wy: number) {
-    // Scale hit tolerance with marker size so larger/smaller dots stay clickable
-    const tol = (14 * (markerScaleRef.current || 1)) / vpRef.current.scale;
+    const tol = 14 / vpRef.current.scale;
     for (const r of resultsRef.current) {
       if (Math.abs(wx - r.center_x) < tol && Math.abs(wy - r.center_y) < tol)
         return r;

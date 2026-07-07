@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useCallback, useState } from "react";
-import type { DxfLayerData, EquipmentShape } from "../../types";
+import type { DigitResult, DxfLayerData, EquipmentShape } from "../../types";
 import DxfToolbar from "./DxfToolbar";
 import DxfLayerPanel from "./DxfLayerPanel";
 import { isPointInPolygon } from "../../page";
@@ -88,6 +88,7 @@ interface Props {
   initialSegments?: Record<string, RawSegment[]>;
   initialCableSpans?: CableSpan[];
   onInitialDataConsumed?: () => void;
+  autoZeroOcrRef?: React.MutableRefObject<((results: DigitResult[]) => DigitResult[]) | null>;
 }
 
 interface PartialDetail {
@@ -1227,6 +1228,7 @@ export default function DxfViewer({
   initialSegments,
   initialCableSpans,
   onInitialDataConsumed,
+  autoZeroOcrRef,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
@@ -3437,6 +3439,22 @@ export default function DxfViewer({
     notifySpansChange([...cableSpansRef.current]);
     redraw();
   }, [ocrResults, cableDataVersion, redraw, notifySpansChange]);
+
+  useEffect(() => {
+    if (autoZeroOcrRef && cableSpansRef.current.length > 0) {
+      autoZeroOcrRef.current = (results: DigitResult[]) => {
+        const allCableSegments: RawSegment[] = [];
+        for (const span of cableSpansRef.current) {
+          for (const seg of span.segments) {
+            allCableSegments.push(seg);
+          }
+        }
+        if (allCableSegments.length === 0) return results;
+        const threshold = computeAutoZeroThreshold(cableSpansRef.current);
+        return autoZeroOcrWithoutCables(results, allCableSegments, threshold);
+      };
+    }
+  }, [cableDataVersion, autoZeroOcrRef]);
 
   const startMultiAction = (action: "runs" | "merge") => {
     const normalized = applyPoleBreakNormalization();
