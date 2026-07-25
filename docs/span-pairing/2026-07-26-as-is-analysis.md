@@ -205,7 +205,7 @@ Any real solution has to answer these, in order:
 - [server.py:1035](../../server.py#L1035) — `assign_meter_values_to_spans`
 - [server.py:1093](../../server.py#L1093) — `push_to_planner`
 - [server.py:4516](../../server.py#L4516) — `v1_asbuilt_import_by_sequence`
-- [app_python/api/public_api.py:575](../../app_python/api/public_api.py#L575) — `GET /api/v1/cable_spans`
+- [app_python/api/public_api.py:575](../../app_python/api/public_api.py#L575) — duplicate `GET /api/v1/cable_spans` on an **unregistered blueprint (dead code)**; the live routes are [server.py:3658](../../server.py#L3658) (`/api/cable_spans`, what the viewer fetches) and [server.py:4125](../../server.py#L4125) (`/api/v1/cable_spans`)
 - [app/components/dxf/DxfViewer.tsx](../../app/components/dxf/DxfViewer.tsx) — viewer, cut/merge/assign
 - [app/components/AsbuiltExportModal.tsx](../../app/components/AsbuiltExportModal.tsx) — AsBuilt payload builder
 

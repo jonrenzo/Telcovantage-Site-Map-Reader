@@ -46,6 +46,7 @@ from flask_cors import CORS
 from PIL import Image
 
 from app_python.planner_config import DEFAULT_PROJECT_ID, ENABLE_PLANNER_INTEGRATION
+from app_python.services import span_builder
 from app_python.services.planner_auth import auth
 from app_python.services.session_store import (
     compute_checksum,
@@ -1070,6 +1071,95 @@ def assign_meter_values_to_spans(spans, ocr_results, max_dist=None):
             span["meter_value"] = None
 
     return spans
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# POLE-TOPOLOGY SPAN DERIVATION
+#
+# build_cable_spans() above answers "which cable segments are connected?" and
+# calls each cluster a span, which is why broken linework exploded into many
+# span ids and continuous linework hid the poles in between. span_builder
+# answers "which poles are adjacent along the cable?" instead. Both live routes
+# and both export paths read the result below, so they can no longer disagree
+# about the same drawing.
+# ─────────────────────────────────────────────────────────────────────────────
+
+#: Last derivation, so exports never rebuild spans a second (differing) way.
+SPAN_STATE: Dict = {"dxf_path": None, "result": None}
+
+
+def derive_node_spans(
+    dxf_path: str,
+    poles: Optional[list] = None,
+    ocr_results: Optional[list] = None,
+) -> Tuple[Optional[span_builder.SpanBuildResult], List[str]]:
+    """Derive pole-to-pole spans for a drawing, and cache the result.
+
+    Poles and OCR values default to whatever the current session has detected.
+    Returns ``(result, cable_layers)``; ``result`` is None only when the drawing
+    has no cable layer at all.
+    """
+    doc = ezdxf.readfile(dxf_path)
+    cable_layers = find_cable_layer_names(list_layers(dxf_path))
+    if not cable_layers:
+        return None, []
+
+    segments_by_layer = {
+        layer: extract_stroke_segments(doc, layer, include_circles=False)
+        for layer in cable_layers
+    }
+    poles = POLE_STATE.get("tags", []) if poles is None else poles
+    ocr = state.get("results", []) if ocr_results is None else ocr_results
+
+    result = span_builder.build_node_spans(segments_by_layer, poles, ocr)
+    SPAN_STATE["dxf_path"] = dxf_path
+    SPAN_STATE["result"] = result
+    return result, cable_layers
+
+
+def cached_span_result(dxf_path: str) -> Optional[span_builder.SpanBuildResult]:
+    """The last derivation for this drawing, if it is still the current one."""
+    if SPAN_STATE.get("dxf_path") == dxf_path:
+        return SPAN_STATE.get("result")
+    return None
+
+
+def _span_response(dxf_path: str) -> Dict[str, Any]:
+    """Shared body for both cable_spans routes.
+
+    Poles are detected by a separate job the client kicks off, so a drawing can
+    legitimately have no poles yet. That is a waiting state, not an error — the
+    viewer polls this route from the moment it mounts.
+    """
+    poles = POLE_STATE.get("tags", [])
+    if not poles:
+        return {
+            "cable_layers": find_cable_layer_names(list_layers(dxf_path)),
+            "count": 0,
+            "spans": [],
+            "poles": [],
+            "warnings": [],
+            "errors": [],
+            "status": "awaiting_poles",
+        }
+
+    result, cable_layers = derive_node_spans(dxf_path)
+    if result is None:
+        return {
+            "cable_layers": [],
+            "count": 0,
+            "spans": [],
+            "poles": [],
+            "warnings": [],
+            "errors": [],
+            "status": "no_cable_layer",
+            "message": "No cable layers found",
+        }
+
+    body = result.to_dict()
+    body["cable_layers"] = cable_layers
+    body["status"] = "ok" if result.ok else "blocked"
+    return body
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -3667,25 +3757,7 @@ def api_cable_spans():
     if not dxf_path:
         return jsonify({"error": "No DXF loaded"}), 400
     try:
-        doc = ezdxf.readfile(dxf_path)
-        layers = list_layers(dxf_path)
-        cable_layers = find_cable_layer_names(layers)
-
-        if not cable_layers:
-            return jsonify(
-                {"cable_layers": [], "spans": [], "message": "No cable layers found"}
-            )
-
-        spans = build_cable_spans(doc, cable_layers, connect_tol=CABLE_CONNECT_TOL)
-        spans = assign_meter_values_to_spans(spans, state.get("results", []))
-
-        return jsonify(
-            {
-                "cable_layers": cable_layers,
-                "count": len(spans),
-                "spans": spans,
-            }
-        )
+        return jsonify(_span_response(dxf_path))
     except Exception as e:
         import traceback
 
@@ -4130,42 +4202,62 @@ def v1_cable_spans():
     include_segs = request.args.get("include_segments", "false").lower() == "true"
 
     try:
-        doc = ezdxf.readfile(dxf_path)
-        layers = list_layers(dxf_path)
-        cable_layers = find_cable_layer_names(layers)
+        body = _span_response(dxf_path)
+        body["dxf_path"] = dxf_path
+        if not include_segs:
+            for s in body.get("spans", []):
+                s["segments"] = None
+        return _v1_ok(body)
 
-        if not cable_layers:
+    except Exception as exc:
+        import traceback
+
+        traceback.print_exc()
+        return _v1_err(str(exc), 500)
+
+
+@public_api.route("/cable_spans/derive", methods=["POST"])
+def v1_cable_spans_derive():
+    """Re-derive spans after the pole set or an OCR value changed.
+
+    Pole edits and digit corrections both move span boundaries, so the client
+    posts its current pole list and corrections here rather than patching spans
+    locally. Everything downstream — canvas, PDF, both exports — then reads one
+    derivation instead of drifting apart.
+    """
+    dxf_path = state.get("dxf_path")
+    if not dxf_path:
+        return _v1_err("No DXF has been loaded.", 404)
+
+    body = request.get_json(silent=True) or {}
+    poles = body.get("poles")
+    corrections = body.get("corrections") or {}
+
+    try:
+        if isinstance(poles, list):
+            POLE_STATE["tags"] = poles
+        for r in state.get("results", []):
+            did = str(r.get("digit_id"))
+            if did in corrections and corrections[did] is not None:
+                r["corrected_value"] = corrections[did]
+
+        result, cable_layers = derive_node_spans(dxf_path)
+        if result is None:
             return _v1_ok(
-                {"dxf_path": dxf_path, "cable_layers": [], "count": 0, "spans": []}
+                {
+                    "dxf_path": dxf_path,
+                    "cable_layers": [],
+                    "count": 0,
+                    "spans": [],
+                    "status": "no_cable_layer",
+                }
             )
 
-        spans = build_cable_spans(doc, cable_layers, connect_tol=CABLE_CONNECT_TOL)
-        spans = assign_meter_values_to_spans(spans, state.get("results", []))
-
-        return _v1_ok(
-            {
-                "dxf_path": dxf_path,
-                "cable_layers": cable_layers,
-                "count": len(spans),
-                "spans": [
-                    {
-                        "span_id": s["span_id"],
-                        "layer": s.get("layer"),
-                        "cx": s.get("cx"),
-                        "cy": s.get("cy"),
-                        "bbox": s.get("bbox"),
-                        "total_length": s.get("total_length"),
-                        "meter_value": s.get("meter_value"),
-                        "cable_runs": s.get("cable_runs", 1),
-                        "segment_count": s.get("segment_count"),
-                        "from_pole": s.get("from_pole"),
-                        "to_pole": s.get("to_pole"),
-                        "segments": s.get("segments") if include_segs else None,
-                    }
-                    for s in spans
-                ],
-            }
-        )
+        payload = result.to_dict()
+        payload["dxf_path"] = dxf_path
+        payload["cable_layers"] = cable_layers
+        payload["status"] = "ok" if result.ok else "blocked"
+        return _v1_ok(payload)
 
     except Exception as exc:
         import traceback
