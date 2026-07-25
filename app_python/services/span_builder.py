@@ -1280,7 +1280,7 @@ def _pole_ref(p: PolePosition) -> Dict[str, Any]:
 def assign_lengths(
     spans: List[DerivedSpan],
     ocr_values: Sequence[Dict[str, Any]],
-    path: CablePath,
+    path: Optional[CablePath] = None,
     warnings: Optional[List[Note]] = None,
     max_match_dist: Optional[float] = None,
 ) -> List[DerivedSpan]:
@@ -1314,7 +1314,9 @@ def assign_lengths(
     # claim two spans and one span cannot collect two values.
     candidates: List[Tuple[float, int, int, float]] = []
     for vi, vx, vy, value in numeric:
-        t, _ = project_point_onto_path(vx, vy, path)
+        # Without a single global path there is no arc-length gate; distance to
+        # each span's own geometry carries the match on its own.
+        t = project_point_onto_path(vx, vy, path)[0] if path else None
         for si, span in enumerate(spans):
             d = _distance_to_span(vx, vy, span, t)
             if d <= max_match_dist:
@@ -1353,14 +1355,18 @@ def assign_lengths(
     return spans
 
 
-def _distance_to_span(px: float, py: float, span: DerivedSpan, t: float) -> float:
+def _distance_to_span(
+    px: float, py: float, span: DerivedSpan, t: Optional[float]
+) -> float:
     """Distance from a point to a span's sub-path.
 
-    The arc-length position acts as a gate: a value that projects outside this
-    span's stretch of cable is not its label, however close it happens to sit to
-    a bend in the line.
+    When the spans came off one global path, the arc-length position acts as a
+    gate: a value that projects outside this span's stretch of cable is not its
+    label, however close it happens to sit to a bend in the line.
     """
-    if t < span.t_start:
+    if t is None:
+        outside = 0.0
+    elif t < span.t_start:
         outside = span.t_start - t
     elif t > span.t_end:
         outside = t - span.t_end
@@ -1383,6 +1389,255 @@ def _distance_to_span(px: float, py: float, span: DerivedSpan, t: float) -> floa
 # ─────────────────────────────────────────────────────────────────────────────
 
 
+#: Endpoints within this multiple of the median stroke length belong to the same
+#: piece of cable. Measured from the real drawings: the strand is drafted as
+#: dashes about one stroke apart, and at one stroke the piece count lands near
+#: the pole count — the drawing is already broken at the poles.
+CLUSTER_TOL_FACTOR = 1.0
+
+#: A pole this far off a piece of cable (as a multiple of median pole spacing)
+#: is not one of that piece's endpoints.
+CLUSTER_SNAP_FACTOR = 0.6
+
+
+def build_spans_from_pieces(
+    segments: Sequence[Any],
+    poles: Sequence[Dict[str, Any]],
+    warnings: Optional[List[Note]] = None,
+    errors: Optional[List[Note]] = None,
+) -> Tuple[List[DerivedSpan], List[PolePosition]]:
+    """Derive spans by asking each piece of cable which poles it touches.
+
+    The drawings are not one continuous line to be walked — the strand is
+    already drafted in pieces that break at the poles, roughly one piece per
+    physical span. Stitching them into a single path fights the drawing and
+    fails wherever the route forks. Reading each piece's own endpoints against
+    the pole set uses the structure the drafter already put there.
+
+    Explosion and collapse are still both fixed, just per piece: several pieces
+    landing on the same pole pair aggregate into one span with their lengths
+    summed, and a piece running past intermediate poles is cut at each of them.
+    """
+    warnings = warnings if warnings is not None else []
+    errors = errors if errors is not None else []
+
+    med_seg = _median([s.length() for s in segments])
+    pieces = _build_fragments(segments, max(med_seg * CLUSTER_TOL_FACTOR, 1e-9))
+    if not pieces:
+        errors.append(
+            Note("no_fragments", "Cable linework could not be ordered into polylines.")
+        )
+        return [], []
+
+    pole_spacing = _median_pole_spacing(poles)
+    snap = (
+        pole_spacing * CLUSTER_SNAP_FACTOR
+        if pole_spacing > 0
+        else med_seg * BRIDGE_FLOOR_FACTOR
+    )
+
+    # Every pole keeps its best position across all pieces, so a pole shared by
+    # two pieces resolves to one identity rather than two.
+    best_for_pole: Dict[Any, Tuple[float, int, float]] = {}  # pole_id -> (dist, piece, t)
+    touches: Dict[int, List[Tuple[float, Dict[str, Any], float]]] = {}
+    for pi, piece in enumerate(pieces):
+        path = CablePath(points=piece.points, cum=_cumulative(piece.points))
+        for p in poles:
+            if p.get("cx") is None or p.get("cy") is None:
+                continue
+            t, d = project_point_onto_path(float(p["cx"]), float(p["cy"]), path)
+            if d > snap:
+                continue
+            touches.setdefault(pi, []).append((t, p, d))
+            prev = best_for_pole.get(p.get("pole_id"))
+            if prev is None or d < prev[0]:
+                best_for_pole[p.get("pole_id")] = (d, pi, t)
+
+    if len(best_for_pole) < 2:
+        errors.append(
+            Note(
+                "insufficient_poles",
+                f"Only {len(best_for_pole)} pole(s) sit on the cable — at least 2 are needed to form a span.",
+                {"poles_on_cable": len(best_for_pole), "snap_radius": round(snap, 6)},
+            )
+        )
+        return [], []
+
+    # Pair up: within each piece, poles in path order become adjacent spans.
+    raw: Dict[Tuple[Any, Any], Dict[str, Any]] = {}
+    for pi, hits in touches.items():
+        piece = pieces[pi]
+        path = CablePath(points=piece.points, cum=_cumulative(piece.points))
+        ordered = _dedupe_by_pole(sorted(hits, key=lambda h: (h[0], h[2])))
+        for i in range(len(ordered) - 1):
+            (t0, pa, _), (t1, pb, _) = ordered[i], ordered[i + 1]
+            if pa.get("pole_id") == pb.get("pole_id"):
+                continue
+            key = _pair_key(pa, pb)
+            entry = raw.setdefault(
+                key, {"a": pa, "b": pb, "length": 0.0, "segments": [], "pieces": 0}
+            )
+            entry["length"] += t1 - t0
+            entry["segments"].extend(slice_path(path, t0, t1))
+            entry["pieces"] += 1
+
+    if not raw:
+        errors.append(
+            Note(
+                "no_spans",
+                "No piece of cable runs between two poles — check that pole detection ran and that "
+                "the poles sit on the strand.",
+                {"pieces": len(pieces), "poles_on_cable": len(best_for_pole)},
+            )
+        )
+        return [], []
+
+    order = _walk_order(raw)
+    positions = _positions_from_order(order, best_for_pole, poles)
+    index_of = {pid: pos.pole_index for pid, pos in positions.items()}
+
+    spans: List[DerivedSpan] = []
+    merged_pieces = 0
+    for key, entry in raw.items():
+        pa, pb = entry["a"], entry["b"]
+        ia, ib = index_of.get(pa.get("pole_id")), index_of.get(pb.get("pole_id"))
+        if not ia or not ib:
+            continue
+        if entry["pieces"] > 1:
+            merged_pieces += entry["pieces"] - 1
+        segs = entry["segments"]
+        pts = [(s["x1"], s["y1"]) for s in segs] + [(s["x2"], s["y2"]) for s in segs]
+        bbox = _bbox_of(pts) if pts else _bbox_of(
+            [(pa["cx"], pa["cy"]), (pb["cx"], pb["cy"])]
+        )
+        spans.append(
+            DerivedSpan(
+                span_key=make_span_key(ia, ib),
+                from_pole_index=min(ia, ib),
+                to_pole_index=max(ia, ib),
+                from_ref=_pole_ref(positions[pa["pole_id"]]),
+                to_ref=_pole_ref(positions[pb["pole_id"]]),
+                t_start=0.0,
+                t_end=entry["length"],
+                arc_length=entry["length"],
+                strand_length=entry["length"],
+                length_source="arc_length",
+                cable_runs=1,
+                segments=segs,
+                cx=(bbox[0] + bbox[2]) / 2.0,
+                cy=(bbox[1] + bbox[3]) / 2.0,
+                bbox=bbox,
+                layer=getattr(segments[0], "layer_name", None),
+                span_id=0,
+            )
+        )
+
+    spans.sort(key=lambda s: s.span_key)
+    for i, s in enumerate(spans):
+        s.span_id = i
+
+    if merged_pieces:
+        warnings.append(
+            Note(
+                "pieces_merged",
+                f"Merged {merged_pieces} extra piece(s) of cable into the span they belong to — "
+                "these used to upload as duplicate span ids.",
+                {"merged": merged_pieces},
+            )
+        )
+
+    off_cable = [p for p in poles if p.get("pole_id") not in best_for_pole]
+    if off_cable:
+        warnings.append(
+            Note(
+                "poles_off_path",
+                f"{len(off_cable)} pole(s) sit further than {snap:.3f} from any cable and were left out.",
+                {
+                    "poles": [
+                        {"pole_id": p.get("pole_id"), "name": p.get("name")}
+                        for p in off_cable[:50]
+                    ],
+                    "snap_radius": round(snap, 6),
+                },
+            )
+        )
+
+    return spans, sorted(positions.values(), key=lambda p: p.pole_index or "")
+
+
+def _pair_key(a: Dict[str, Any], b: Dict[str, Any]) -> Tuple[Any, Any]:
+    ka, kb = str(a.get("pole_id")), str(b.get("pole_id"))
+    return (ka, kb) if ka <= kb else (kb, ka)
+
+
+def _dedupe_by_pole(hits: List[Tuple[float, Dict[str, Any], float]]):
+    """One entry per pole per piece — the closest approach wins."""
+    seen: Dict[Any, Tuple[float, Dict[str, Any], float]] = {}
+    for t, p, d in hits:
+        pid = p.get("pole_id")
+        if pid not in seen or d < seen[pid][2]:
+            seen[pid] = (t, p, d)
+    return sorted(seen.values(), key=lambda h: h[0])
+
+
+def _walk_order(raw: Dict[Tuple[Any, Any], Dict[str, Any]]) -> List[Any]:
+    """Order poles along the cable by walking the adjacency the spans describe.
+
+    Walk order is what ``pole_index`` means on the wire, and it is also the
+    order a lineman tears the run down in. Starting from an end of the run keeps
+    POLE-0001 at one extremity instead of somewhere in the middle.
+    """
+    adj: Dict[Any, set] = {}
+    for entry in raw.values():
+        a, b = entry["a"].get("pole_id"), entry["b"].get("pole_id")
+        adj.setdefault(a, set()).add(b)
+        adj.setdefault(b, set()).add(a)
+
+    remaining = set(adj)
+    order: List[Any] = []
+    while remaining:
+        ends = sorted(
+            (p for p in remaining if len(adj[p] & remaining) <= 1), key=str
+        )
+        start = ends[0] if ends else sorted(remaining, key=str)[0]
+        stack = [start]
+        while stack:
+            cur = stack.pop()
+            if cur not in remaining:
+                continue
+            remaining.discard(cur)
+            order.append(cur)
+            # Deepest-first so a branch is walked to its end before backtracking.
+            for nxt in sorted(adj[cur] & remaining, key=str, reverse=True):
+                stack.append(nxt)
+    return order
+
+
+def _positions_from_order(
+    order: Sequence[Any],
+    best_for_pole: Dict[Any, Tuple[float, int, float]],
+    poles: Sequence[Dict[str, Any]],
+) -> Dict[Any, PolePosition]:
+    by_id = {p.get("pole_id"): p for p in poles}
+    out: Dict[Any, PolePosition] = {}
+    for i, pid in enumerate(order):
+        p = by_id.get(pid)
+        if p is None:
+            continue
+        d, _, t = best_for_pole.get(pid, (0.0, 0, 0.0))
+        out[pid] = PolePosition(
+            pole_id=pid,
+            name=p.get("name") or p.get("pole_name") or "",
+            cx=float(p["cx"]),
+            cy=float(p["cy"]),
+            t=float(i),
+            offset=d,
+            snapped=True,
+            pole_index=pole_index(i + 1),
+        )
+    return out
+
+
 def build_node_spans(
     segments_by_layer: Dict[str, List[Any]],
     poles: Sequence[Dict[str, Any]],
@@ -1403,45 +1658,13 @@ def build_node_spans(
         )
         return result
 
-    # Pole spacing anchors both the bridge limit and the parallel tolerance. It
-    # comes from pole coordinates alone, so it is available before the path
-    # exists — no circular dependency on the projection step.
-    pole_spacing = _median_pole_spacing(poles)
-    med_seg = _median([s.length() for s in segments])
-    parallel_tol = parallel_tolerance(pole_spacing, med_seg)
-
-    path, leftovers = build_cable_path(
-        segments, pole_spacing, result.warnings, result.errors
-    )
-    if path is None:
-        return result
-
-    path = classify_parallel_runs(
-        leftovers,
-        path,
-        parallel_tol,
-        min_run_length=(
-            pole_spacing * MIN_RUN_SPACING_RATIO
-            if pole_spacing > 0
-            else path.total_length * IGNORABLE_FRAGMENT_RATIO
-        ),
-        warnings=result.warnings,
-        errors=result.errors,
-    )
-    if result.errors:
-        return result
-    result.path = path
-
-    result.poles = project_poles_onto_path(poles, path, result.warnings)
-
-    layer = getattr(segments[0], "layer_name", None)
-    result.spans = derive_spans(
-        result.poles, path, layer=layer, warnings=result.warnings, errors=result.errors
+    result.spans, result.poles = build_spans_from_pieces(
+        segments, poles, result.warnings, result.errors
     )
     if not result.spans:
         return result
 
-    assign_lengths(result.spans, ocr_values, path, result.warnings)
+    assign_lengths(result.spans, ocr_values, None, result.warnings)
     return result
 
 
