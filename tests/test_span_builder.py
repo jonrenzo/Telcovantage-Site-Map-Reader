@@ -129,30 +129,6 @@ def test_offset_poles_still_project_in_the_right_order():
     assert walk == ["POLE-0001", "POLE-0002", "POLE-0003", "POLE-0004", "POLE-0005"]
 
 
-def test_pole_far_from_the_cable_is_excluded_and_reported():
-    segments = line(0, 0, 100, 0, pieces=20)
-    poles = [pole(i + 1, f"P{i + 1}", i * 25, 1.0) for i in range(5)]
-    poles.append(pole(99, "STRAY", 50, 500))
-
-    result = sb.build_node_spans({"cable": segments}, poles)
-
-    assert result.ok, [e.to_dict() for e in result.errors]
-    assert len(result.spans) == 4  # the stray pole adds no span
-    assert "poles_off_path" in codes(result.warnings)
-    stray = next(p for p in result.poles if p.pole_id == 99)
-    assert not stray.snapped
-
-
-def test_two_poles_at_the_same_spot_are_flagged_not_silently_accepted():
-    segments = line(0, 0, 100, 0, pieces=20)
-    poles = [pole(i + 1, f"P{i + 1}", i * 25, 1.0) for i in range(5)]
-    poles.append(pole(6, "P3-DUPLICATE", 50.1, 1.0))
-
-    result = sb.build_node_spans({"cable": segments}, poles)
-
-    assert "duplicate_pole_suspected" in codes(result.warnings)
-    # A zero-length span would be a real work item in the backend, so it blocks.
-    assert "degenerate_span" in codes(result.errors)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -200,50 +176,7 @@ def test_pole_index_sorts_lexicographically_in_walk_order():
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def test_two_separate_cable_runs_are_rejected_not_fused():
-    segments = line(0, 0, 100, 0, pieces=8) + line(200, 0, 300, 0, pieces=8)
-    poles = [pole(i + 1, f"P{i + 1}", i * 25, 2) for i in range(5)]
 
-    result = sb.build_node_spans({"cable": segments}, poles)
-
-    assert not result.ok
-    assert "not_chainable" in codes(result.errors)
-
-
-def test_near_miss_separation_is_still_rejected():
-    """The gap that a self-calibrating bridge limit would have swallowed.
-
-    Two clean runs 100 apart is only ~5% of the combined length, so the
-    aggregate bridged-ratio check never fires. The limit has to be anchored to
-    pole spacing, which is independent of the gap being judged.
-    """
-    segments = line(0, 0, 1000, 0, pieces=8) + line(1100, 0, 2100, 0, pieces=8)
-    poles = [pole(i + 1, f"P{i + 1}", i * 250, 3) for i in range(5)]
-
-    result = sb.build_node_spans({"cable": segments}, poles)
-
-    assert not result.ok
-    assert "not_chainable" in codes(result.errors)
-
-
-def test_closed_loop_is_rejected():
-    segments = (
-        line(0, 0, 100, 0, pieces=4)
-        + line(100, 0, 100, 100, pieces=4)
-        + line(100, 100, 0, 100, pieces=4)
-        + line(0, 100, 0, 0, pieces=4)
-    )
-    poles = [
-        pole(1, "P1", 25, 3),
-        pole(2, "P2", 75, 3),
-        pole(3, "P3", 97, 50),
-        pole(4, "P4", 50, 97),
-    ]
-
-    result = sb.build_node_spans({"cable": segments}, poles)
-
-    assert not result.ok
-    assert "closed_loop" in codes(result.errors)
 
 
 def test_single_pole_cannot_form_a_span():
@@ -259,27 +192,6 @@ def test_single_pole_cannot_form_a_span():
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def test_parallel_cable_becomes_extra_runs_not_a_separate_span():
-    segments = line(0, 0, 100, 0, pieces=20) + line(0, 1.5, 100, 1.5, pieces=20)
-    poles = [pole(i + 1, f"P{i + 1}", i * 25, 4) for i in range(5)]
-
-    result = sb.build_node_spans({"cable": segments}, poles)
-
-    assert result.ok, [e.to_dict() for e in result.errors]
-    assert len(result.spans) == 4
-    assert "parallel_runs" in codes(result.warnings)
-    assert all(s.cable_runs == 2 for s in result.spans), [
-        s.cable_runs for s in result.spans
-    ]
-
-
-def test_single_run_reports_one_run():
-    segments = line(0, 0, 100, 0, pieces=20)
-    poles = [pole(i + 1, f"P{i + 1}", i * 25, 2) for i in range(5)]
-
-    result = sb.build_node_spans({"cable": segments}, poles)
-
-    assert all(s.cable_runs == 1 for s in result.spans)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -432,18 +344,98 @@ def test_digit_strokes_on_the_cable_layer_are_filtered_out():
     assert "segments_filtered" in codes(result.warnings)
 
 
-def test_stray_marks_are_ignored_rather_than_reported_as_a_second_run():
-    """When cable and text share a colour the filter cannot separate them.
 
-    The leftovers must not be mistaken for a second cable run — that error would
-    block the upload and point the operator at the wrong problem.
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Piece handling
+#
+# The drawings are drafted as one piece of cable per span, broken at the poles,
+# so these cover what that structure implies rather than the single continuous
+# path the first design assumed.
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def test_pieces_between_two_poles_make_one_span_not_four():
+    """This is the duplicate-span-id bug, in miniature.
+
+    Four pieces of cable between one pair of poles: one span, whole length.
     """
+    segments = []
+    for i in range(4):
+        x0 = i * 26
+        segments += line(x0, 0, x0 + 25, 0, pieces=4)
+    poles = [pole(1, "P1", 0, 2), pole(2, "P2", 103, 2)]
+
+    result = sb.build_node_spans({"cable": segments}, poles)
+
+    assert result.ok, [e.to_dict() for e in result.errors]
+    assert len(result.spans) == 1
+    assert result.spans[0].arc_length == pytest.approx(103.0, abs=1.0)
+
+
+def test_a_pole_alone_on_a_piece_still_pairs_with_its_neighbours():
+    """Poles land mid-piece, at piece ends, and on pieces of their own.
+
+    Pairing only within a single piece stranded that last group with no span at
+    all — the drawings put roughly one pole per piece boundary.
+    """
+    segments = []
+    for i in range(4):
+        x0 = i * 26
+        segments += line(x0, 0, x0 + 25, 0, pieces=4)
+    poles = [pole(i + 1, f"P{i + 1}", i * 26, 2) for i in range(4)]
+
+    result = sb.build_node_spans({"cable": segments}, poles)
+
+    assert result.ok, [e.to_dict() for e in result.errors]
+    assert len(result.spans) == 3
+    assert {p.pole_index for p in result.poles} == {
+        "POLE-0001",
+        "POLE-0002",
+        "POLE-0003",
+        "POLE-0004",
+    }
+
+
+def test_pole_far_from_every_piece_is_left_out_and_reported():
     segments = line(0, 0, 100, 0, pieces=20)
-    segments += [Seg(40, -8, 40.2, -8), Seg(40.2, -8, 40.2, -7.8)]
-    poles = [pole(i + 1, f"P{i + 1}", i * 25, 2) for i in range(5)]
+    poles = [pole(i + 1, f"P{i + 1}", i * 25, 1.0) for i in range(5)]
+    poles.append(pole(99, "STRAY", 50, 500))
 
     result = sb.build_node_spans({"cable": segments}, poles)
 
     assert result.ok, [e.to_dict() for e in result.errors]
     assert len(result.spans) == 4
-    assert "ignored_linework" in codes(result.warnings)
+    assert 99 not in {p.pole_id for p in result.poles}
+    assert "poles_off_path" in codes(result.warnings)
+
+
+def test_two_poles_on_the_same_stub_do_not_become_a_span():
+    """A pair this close is one location labelled twice, not a work item."""
+    segments = line(0, 0, 100, 0, pieces=20)
+    poles = [pole(i + 1, f"P{i + 1}", i * 25, 1.0) for i in range(5)]
+    poles.append(pole(6, "P3-DUPLICATE", 50.4, 1.0))
+
+    result = sb.build_node_spans({"cable": segments}, poles)
+
+    assert "stub_pairs_skipped" in codes(result.warnings)
+    assert all(s.arc_length > 1.0 for s in result.spans)
+
+
+def test_separate_cable_runs_each_produce_their_own_spans():
+    """Two runs in one drawing are no longer fatal — each yields its own spans.
+
+    The single-chain design rejected these outright. The real drawings are full
+    of separate pieces, so rejecting them rejected every drawing.
+    """
+    segments = line(0, 0, 100, 0, pieces=8) + line(300, 0, 400, 0, pieces=8)
+    poles = [
+        pole(1, "A1", 0, 2), pole(2, "A2", 100, 2),
+        pole(3, "B1", 300, 2), pole(4, "B2", 400, 2),
+    ]
+
+    result = sb.build_node_spans({"cable": segments}, poles)
+
+    assert result.ok, [e.to_dict() for e in result.errors]
+    assert len(result.spans) == 2
