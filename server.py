@@ -944,18 +944,33 @@ def img_to_b64(img_np):
 
 
 def find_cable_layer_names(layers: List[str]) -> List[str]:
-    """Finds and returns ALL layers that contain 'cable' or specific keywords in their name."""
+    """Layers holding the strand cable that the linemen will actually remove.
+
+    Not everything named "Cable" is cable: Cable-840 marks power-supply
+    locations on these drawings — it is a symbol, not plant to be torn down,
+    and treating it as strand invented spans where no cable hangs. Excluded
+    by default; override per deployment with CABLE_LAYER_EXCLUDE (comma-
+    separated substrings, lowercase).
+    """
     if not layers:
         return []
     matched = []
 
     # Add any substrings that identify your cable layers here (lowercase)
     keywords = ["cable", "tx56"]
+    exclude = [
+        k.strip().lower()
+        for k in os.environ.get("CABLE_LAYER_EXCLUDE", "840").split(",")
+        if k.strip()
+    ]
 
     for layer in layers:
         layer_lower = layer.lower()
-        if any(kw in layer_lower for kw in keywords):
-            matched.append(layer)
+        if not any(kw in layer_lower for kw in keywords):
+            continue
+        if any(ex in layer_lower for ex in exclude):
+            continue
+        matched.append(layer)
 
     return matched
 
