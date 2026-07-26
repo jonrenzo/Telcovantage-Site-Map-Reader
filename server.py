@@ -1241,9 +1241,8 @@ def _dash_connectors(pool: list, med: float) -> List[Dict[str, Any]]:
     for i, (x, y, _, _) in enumerate(ends):
         grid.setdefault((int(math.floor(x / cell)), int(math.floor(y / cell))), []).append(i)
 
-    connectors: List[Dict[str, Any]] = []
-    seen: set = set()
-    for i, (x, y, dx, dy) in enumerate(ends):
+    def best_partner(i: int) -> Optional[int]:
+        x, y, dx, dy = ends[i]
         kx, ky = int(math.floor(x / cell)), int(math.floor(y / cell))
         best_j, best_d = None, max_gap
         for gx in (-1, 0, 1):
@@ -1263,13 +1262,22 @@ def _dash_connectors(pool: list, med: float) -> List[Dict[str, Any]]:
                     if ux * jdx + uy * jdy > -0.85:
                         continue
                     best_j, best_d = j, d
-        if best_j is None:
+        return best_j
+
+    best = [best_partner(i) for i in range(len(ends))]
+
+    connectors: List[Dict[str, Any]] = []
+    for i, j in enumerate(best):
+        # Mutual choice only. One-sided joins are how curves grew triangles:
+        # the two ends across a bend could each still "see" the far side within
+        # tolerance and a chord cut the corner, on top of the two real joins.
+        # A chord can never beat the true next dash for BOTH of its ends.
+        if j is None or j <= i:
             continue
-        key = (min(i, best_j), max(i, best_j))
-        if key in seen:
+        if best[j] != i:
             continue
-        seen.add(key)
-        jx, jy, _, _ = ends[best_j]
+        x, y, _, _ = ends[i]
+        jx, jy, _, _ = ends[j]
         connectors.append(
             {
                 "x1": round(x, 6), "y1": round(y, 6),
