@@ -105,8 +105,13 @@ def cmd_dump(args):
         cv2.imwrite(str(png_path), crop)
 
         value, conf = _predict(crop)
+        minx, miny, maxx, maxy = cand.bbox
         rows.append({
             "digit_id": cand.digit_id,
+            # Stable key: any pipeline change renumbers digit_id, so eval
+            # re-matches rows by this centre instead.
+            "cx": round((minx + maxx) / 2, 4),
+            "cy": round((miny + maxy) / 2, 4),
             "predicted": value if value else "?",
             "confidence": round(conf, 4),
             "actual": "",   # fill this in by eyeballing <digit_id>.png
@@ -114,7 +119,7 @@ def cmd_dump(args):
 
     csv_path = out_dir / "labels.csv"
     with open(csv_path, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=["digit_id", "predicted", "confidence", "actual"])
+        writer = csv.DictWriter(f, fieldnames=["digit_id", "cx", "cy", "predicted", "confidence", "actual"])
         writer.writeheader()
         writer.writerows(rows)
 
@@ -150,18 +155,45 @@ def cmd_eval(args):
     batch = recognize_batch(crops)
     pred_by_id = {c.digit_id: pc for c, pc in zip(candidates, batch)}
 
+    def _nearest(cx: float, cy: float):
+        """Nearest current candidate to a labelled row's stored centre."""
+        best, best_d = None, float("inf")
+        for c, pc in zip(candidates, batch):
+            minx, miny, maxx, maxy = c.bbox
+            d = math.hypot((minx + maxx) / 2 - cx, (miny + maxy) / 2 - cy)
+            if d < best_d:
+                best, best_d = (c, pc), d
+        return best, best_d
+
     correct = 0
     conf_sum = 0.0
     errors: list[tuple[str, str, float]] = []   # (actual, predicted, conf)
 
+    lost = 0
     for row in labeled:
         did = int(row["digit_id"])
         actual = row["actual"].strip()
-        if did not in pred_by_id:
+
+        # Prefer the stable centre key; a renumbered digit_id would otherwise
+        # score the wrong crop.
+        entry = None
+        if row.get("cx") and row.get("cy"):
+            hit, d = _nearest(float(row["cx"]), float(row["cy"]))
+            if hit is not None and d < 1.0:
+                entry = hit[1]
+            elif hit is None or d >= 1.0:
+                # The candidate this label described no longer exists at all —
+                # a recall regression, the failure the owner cares most about.
+                lost += 1
+                print(f"  id={did:>4}  actual={actual:>3}  LOST (no candidate within 1.0)")
+                continue
+        elif did in pred_by_id:
+            entry = pred_by_id[did]
+        else:
             print(f"  [warn] digit_id={did} not in DXF candidates — skipping")
             continue
 
-        pred, conf = pred_by_id[did]
+        pred, conf = entry
         pred = pred.strip() if pred else "?"
 
         ok = (pred == actual)
@@ -181,7 +213,8 @@ def cmd_eval(args):
     print("=" * 55)
     print(f"  Labeled samples : {n}")
     print(f"  Accuracy        : {correct}/{n} = {100*correct/n:.1f}%")
-    print(f"  Avg confidence  : {conf_sum/n:.3f}")
+    print(f"  Lost candidates : {lost}  (labelled digits the pipeline no longer proposes)")
+    print(f"  Avg confidence  : {conf_sum/max(n - lost, 1):.3f}")
     print("=" * 55)
 
     if errors:

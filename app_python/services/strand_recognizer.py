@@ -222,8 +222,18 @@ def _load_easyocr():
         if _easyocr_reader is not None:
             return _easyocr_reader
         import easyocr
-        print("[strand_recognizer] Loading EasyOCR...")
-        _easyocr_reader = easyocr.Reader(["en"], gpu=False)
+
+        # Same device policy as every other model in the app. This was
+        # hardcoded gpu=False, leaving the GPU idle while a full-drawing scan
+        # took 88 s on CPU (~7 s on the same box's GPU).
+        try:
+            import torch
+
+            use_gpu = torch.cuda.is_available()
+        except Exception:
+            use_gpu = False
+        print(f"[strand_recognizer] Loading EasyOCR (gpu={use_gpu})...")
+        _easyocr_reader = easyocr.Reader(["en"], gpu=use_gpu)
         print("[strand_recognizer] EasyOCR ready.")
     return _easyocr_reader
 
