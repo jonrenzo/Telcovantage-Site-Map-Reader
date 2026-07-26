@@ -1392,6 +1392,7 @@ def _dash_polylines(pool: list, med: float) -> List[Dict[str, Any]]:
     eps = med * 0.6
     check_tol = med
     noise = 0
+    kept_trains: List[Tuple[List[Tuple[float, float]], list, float]] = []
     for s in pool:
         if id(s) in visited:
             continue
@@ -1422,6 +1423,53 @@ def _dash_polylines(pool: list, med: float) -> List[Dict[str, Any]]:
             ):
                 noise += 1
                 continue
+
+        kept_trains.append((pts, train, walk_len))
+
+    # Islands: a train that touches no other train anywhere is not part of the
+    # network. Leader lines and callout strokes on the cable layer are long
+    # enough to pass every per-train test, but real cable always joins the
+    # grid somewhere — an unconnected train of modest length is drawing
+    # furniture, not a street.
+    link_tol = med * 6
+    island_cap = med * 25
+    # A train connects to the network wherever one of its ends meets ANY dash
+    # of another train — including mid-street, which is exactly where a branch
+    # road joins the one it feeds off.
+    cell2 = max(link_tol, 1e-9)
+    dash_grid: Dict[Tuple[int, int], List[Tuple[int, Any]]] = {}
+    for idx, (_, train, _) in enumerate(kept_trains):
+        for t in train:
+            for gx, gy in ((t.x1, t.y1), (t.x2, t.y2)):
+                dash_grid.setdefault(
+                    (int(math.floor(gx / cell2)), int(math.floor(gy / cell2))), []
+                ).append((idx, t))
+    connected: set = set()
+    for idx, (pts, _, _) in enumerate(kept_trains):
+        for p in (pts[0], pts[-1]):
+            kx, ky = int(math.floor(p[0] / cell2)), int(math.floor(p[1] / cell2))
+            hit = False
+            for dx in (-1, 0, 1):
+                for dy in (-1, 0, 1):
+                    for tj, t in dash_grid.get((kx + dx, ky + dy), ()):
+                        if tj == idx:
+                            continue
+                        d, _u = _point_to_segment(p[0], p[1], t.x1, t.y1, t.x2, t.y2)
+                        if d <= link_tol:
+                            hit = True
+                            break
+                    if hit:
+                        break
+                if hit:
+                    break
+            if hit:
+                connected.add(idx)
+                break
+
+    for idx, (pts, train, walk_len) in enumerate(kept_trains):
+        if idx not in connected and walk_len < island_cap:
+            noise += 1
+            continue
 
         simplified = _simplify_polyline(pts, eps)
 
@@ -1460,7 +1508,7 @@ def _dash_polylines(pool: list, med: float) -> List[Dict[str, Any]]:
                     }
                 )
     if noise:
-        print(f"[whole-cable] {noise} stray symbol stroke(s)/curl(s) dropped from the preview")
+        print(f"[whole-cable] {noise} stray symbol stroke(s)/curl(s)/island(s) dropped from the preview")
     return segs_out
 
 
