@@ -1126,6 +1126,17 @@ def derive_node_spans(
         layer: extract_stroke_segments(doc, layer, include_circles=False)
         for layer in cable_layers
     }
+    # Streets drawn only on the *STRAND layers must form spans too, or the
+    # poles along them stay unteardownable.
+    base_pool = [
+        s
+        for segs in segments_by_layer.values()
+        for s in segs
+        if not getattr(s, "is_hatch", False) and s.length() > 1e-9
+    ]
+    supplemental = _supplemental_strand_segments(doc, dxf_path, base_pool)
+    if supplemental:
+        segments_by_layer.setdefault(cable_layers[0], []).extend(supplemental)
     poles = POLE_STATE.get("tags", []) if poles is None else poles
     ocr = state.get("results", []) if ocr_results is None else ocr_results
 
@@ -1142,6 +1153,127 @@ def cached_span_result(dxf_path: str) -> Optional[span_builder.SpanBuildResult]:
     return None
 
 
+def _supplemental_strand_segments(doc, dxf_path: str, base_pool: list) -> list:
+    """Cable drawn on the STRAND layers where the Cable layers have nothing.
+
+    Some streets carry their strand only on a *STRAND layer; ~88% of that layer
+    parallels Cable-565 at a fixed small offset (the same cable drawn twice)
+    and must not be doubled, but the rest is real plant on streets the Cable
+    layers never cover — leaving it out left whole streets untraceable.
+    """
+    strand_layers = [
+        l for l in list_layers(dxf_path) if "strand" in l.lower()
+    ]
+    if not strand_layers or not base_pool:
+        return []
+
+    lens = sorted(s.length() for s in base_pool if s.length() > 1e-9)
+    med = lens[len(lens) // 2] if lens else 0.0
+    if med <= 0:
+        return []
+    dup_tol = med * 3  # the co-drawn copy sits ~2x a stroke away; unique plant is farther
+
+    cell = max(dup_tol * 2, 1e-9)
+    grid: Dict[Tuple[int, int], list] = {}
+    for s in base_pool:
+        for gx, gy in ((s.x1, s.y1), (s.x2, s.y2)):
+            grid.setdefault(
+                (int(math.floor(gx / cell)), int(math.floor(gy / cell))), []
+            ).append(s)
+
+    from app_python.services import span_builder as _sb
+
+    def near_base(mx: float, my: float) -> bool:
+        kx, ky = int(math.floor(mx / cell)), int(math.floor(my / cell))
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                for g in grid.get((kx + dx, ky + dy), ()):
+                    d, _ = _sb._point_to_segment(mx, my, g.x1, g.y1, g.x2, g.y2)
+                    if d <= dup_tol:
+                        return True
+        return False
+
+    extra = []
+    # Raw linework, not prepare_segments: the digit filter keys on the Cable
+    # layers' colour split and eats most of a STRAND layer. Text strokes are
+    # kept out by a length floor instead — dashes run ~1x the Cable median,
+    # digit strokes a fraction of it.
+    min_len = med * 0.5
+    for layer in strand_layers:
+        raw = extract_stroke_segments(doc, layer, include_circles=False)
+        for s in raw:
+            if getattr(s, "is_hatch", False) or s.length() < min_len:
+                continue
+            mx, my = (s.x1 + s.x2) / 2, (s.y1 + s.y2) / 2
+            if not near_base(mx, my):
+                extra.append(s)
+    if extra:
+        print(f"[strand] {len(extra)} segment(s) taken from {strand_layers} where the Cable layers have no linework")
+    return extra
+
+
+def _dash_connectors(pool: list, med: float) -> List[Dict[str, Any]]:
+    """Short, direction-aligned joins between neighbouring dash ends.
+
+    This is what makes the strand read as one line instead of dashes — without
+    the chain walk, whose long bridges and junction zig-zags drew cable where
+    the drawing has none.
+    """
+    from app_python.services import span_builder as _sb
+
+    max_gap = med * 3
+    cell = max(max_gap, 1e-9)
+    ends: List[Tuple[float, float, float, float]] = []  # x, y, dirx, diry
+    for s in pool:
+        L = s.length()
+        if L <= 1e-9:
+            continue
+        dx, dy = (s.x2 - s.x1) / L, (s.y2 - s.y1) / L
+        ends.append((s.x1, s.y1, -dx, -dy))
+        ends.append((s.x2, s.y2, dx, dy))
+
+    grid: Dict[Tuple[int, int], List[int]] = {}
+    for i, (x, y, _, _) in enumerate(ends):
+        grid.setdefault((int(math.floor(x / cell)), int(math.floor(y / cell))), []).append(i)
+
+    connectors: List[Dict[str, Any]] = []
+    seen: set = set()
+    for i, (x, y, dx, dy) in enumerate(ends):
+        kx, ky = int(math.floor(x / cell)), int(math.floor(y / cell))
+        best_j, best_d = None, max_gap
+        for gx in (-1, 0, 1):
+            for gy in (-1, 0, 1):
+                for j in grid.get((kx + gx, ky + gy), ()):
+                    if j // 2 == i // 2:
+                        continue
+                    jx, jy, jdx, jdy = ends[j]
+                    d = math.hypot(jx - x, jy - y)
+                    if d >= best_d or d <= 1e-9:
+                        continue
+                    # The joint must continue this dash's direction and meet
+                    # the other dash roughly head-on.
+                    ux, uy = (jx - x) / d, (jy - y) / d
+                    if ux * dx + uy * dy < 0.85:
+                        continue
+                    if ux * jdx + uy * jdy > -0.85:
+                        continue
+                    best_j, best_d = j, d
+        if best_j is None:
+            continue
+        key = (min(i, best_j), max(i, best_j))
+        if key in seen:
+            continue
+        seen.add(key)
+        jx, jy, _, _ = ends[best_j]
+        connectors.append(
+            {
+                "x1": round(x, 6), "y1": round(y, 6),
+                "x2": round(jx, 6), "y2": round(jy, 6),
+            }
+        )
+    return connectors
+
+
 def _whole_cable_spans(dxf_path: str) -> Tuple[List[Dict[str, Any]], List[str]]:
     """One span per cable layer — the whole strand, undivided.
 
@@ -1153,64 +1285,35 @@ def _whole_cable_spans(dxf_path: str) -> Tuple[List[Dict[str, Any]], List[str]]:
     doc = ezdxf.readfile(dxf_path)
     cable_layers = find_cable_layer_names(list_layers(dxf_path))
     spans: List[Dict[str, Any]] = []
+    base_pool: list = []
+    per_layer: Dict[str, list] = {}
     for layer in cable_layers:
         raw = extract_stroke_segments(doc, layer, include_circles=False)
         pool = span_builder.prepare_segments({layer: raw}, [])
-        if not pool:
-            continue
-        # Trace the strand as continuous runs, not as the drawing's dashes.
-        # Drafting gaps and missing dashes made the overlay look broken into
-        # pieces; chaining bridges those holes so the trace follows the cable
-        # exactly, end to end.
+        if pool:
+            per_layer[layer] = pool
+            base_pool.extend(pool)
+
+    # Streets whose strand lives only on the *STRAND layers join the trace too.
+    supplemental = _supplemental_strand_segments(doc, dxf_path, base_pool)
+    if supplemental and per_layer:
+        first = next(iter(per_layer))
+        per_layer[first] = per_layer[first] + supplemental
+
+    for layer, pool in per_layer.items():
+        # Every drawn dash, exactly as drafted, plus short direction-aligned
+        # joins between dash ends. The earlier chain-walk render invented
+        # cable — long bridges and junction zig-zags where the drawing has
+        # nothing — and still dropped branch sides; dashes cannot lie.
         med = span_builder._median([s.length() for s in pool])
-        weld = max(med * span_builder.WELD_FACTOR, 1e-9)
-        frags = span_builder._build_fragments(pool, max(med, 1e-9))
-        chains = span_builder.build_chains(frags, med * 12, weld)
-        segs = []
-        for chain in chains:
-            pts = chain.points
-            for a, b in zip(pts, pts[1:]):
-                segs.append(
-                    {
-                        "x1": round(a[0], 6), "y1": round(a[1], 6),
-                        "x2": round(b[0], 6), "y2": round(b[1], 6),
-                    }
-                )
-        # Chain-walking follows one path at a time, so at a junction the side
-        # it does not take can fall out of the trace entirely. Whatever drawn
-        # cable the chains missed goes in raw — the strand must be whole.
-        if segs:
-            cell = max(med * 6, 1e-9)
-            grid: Dict[Tuple[int, int], list] = {}
-            for g in segs:
-                for gx, gy in ((g["x1"], g["y1"]), (g["x2"], g["y2"])):
-                    grid.setdefault(
-                        (int(math.floor(gx / cell)), int(math.floor(gy / cell))), []
-                    ).append(g)
-            tol = med * 2
-            added = 0
-            for s in pool:
-                mx, my = (s.x1 + s.x2) / 2, (s.y1 + s.y2) / 2
-                kx, ky = int(math.floor(mx / cell)), int(math.floor(my / cell))
-                best = float("inf")
-                for dx in (-1, 0, 1):
-                    for dy in (-1, 0, 1):
-                        for g in grid.get((kx + dx, ky + dy), ()):
-                            d, _ = span_builder._point_to_segment(
-                                mx, my, g["x1"], g["y1"], g["x2"], g["y2"]
-                            )
-                            if d < best:
-                                best = d
-                if best > tol:
-                    segs.append(
-                        {
-                            "x1": round(s.x1, 6), "y1": round(s.y1, 6),
-                            "x2": round(s.x2, 6), "y2": round(s.y2, 6),
-                        }
-                    )
-                    added += 1
-            if added:
-                print(f"[whole-cable] {added} segment(s) re-added past the chain walk on {layer}")
+        segs = [
+            {
+                "x1": round(s.x1, 6), "y1": round(s.y1, 6),
+                "x2": round(s.x2, 6), "y2": round(s.y2, 6),
+            }
+            for s in pool
+        ]
+        segs.extend(_dash_connectors(pool, med))
         if not segs:
             continue
         xs = [v for g in segs for v in (g["x1"], g["x2"])]
