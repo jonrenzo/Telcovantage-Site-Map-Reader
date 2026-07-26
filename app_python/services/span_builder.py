@@ -83,8 +83,12 @@ BRIDGED_RATIO_NOTICE = 0.20
 MAX_BRIDGED_RATIO = 0.50
 
 #: A fragment running alongside the chain within this multiple of the median
-#: pole spacing is a parallel run, not a continuation.
-PARALLEL_TOL_FACTOR = 0.30
+#: pole spacing is a parallel run, not a continuation. Two cables in one
+#: street count as runs of the same span even when a lot-boundary line falls
+#: between them: measured on the production drawings, same-street pairs sit at
+#: 0.11-0.87x of a pole spacing and the next street over starts at 0.93x, so
+#: the threshold sits in the gap between the two clusters.
+PARALLEL_TOL_FACTOR = 0.85
 
 #: Points sampled along a fragment when testing it for parallelism.
 PARALLEL_SAMPLES = 7
