@@ -1556,7 +1556,9 @@ def detect_parallel_runs(
                 continue
             duplicate.add(j)
             covers.setdefault(i, []).append((min(ts), max(ts)))
-            shadows.append((i, min(ts), max(ts), j))
+            # A second cable may run the wrong way relative to the primary;
+            # remember it, or slices handed to spans come out mirrored.
+            shadows.append((i, min(ts), max(ts), j, ts[0] > ts[-1]))
 
     runs = {i: _merge_run_intervals(v, 0.0) for i, v in covers.items()}
     return duplicate, runs, shadows
@@ -1795,6 +1797,10 @@ def build_spans_from_pieces(
             )
         )
 
+    # Whatever cable no route claimed still belongs on some span's geometry —
+    # unowned linework is unhoverable linework.
+    attach_uncovered_linework(paths, spans, pole_spacing, warnings)
+
     return spans, sorted(positions.values(), key=lambda p: p.pole_index or "")
 
 
@@ -1932,39 +1938,75 @@ def _pair_neighbouring_poles(
         for ci, t0, t1 in entry["geom"]:
             segs.extend(slice_path(paths[ci], t0, t1))
         entry["segments"] = segs
+
+    # Cable running past the outermost pole of a run — tails — lies on no
+    # pole-to-pole route, so no span geometry covers it. It is still drawn
+    # cable the operator will point at; hand each tail to the span at the pole
+    # it hangs off, or hovering it selects some other line entirely.
+    for ci in live:
+        hits = hits_by_run.get(ci) or []
+        if not hits:
+            continue
+        path = paths[ci]
+        for t0, t1, pole in (
+            (0.0, hits[0][0], hits[0][1]),
+            (hits[-1][0], path.total_length, hits[-1][1]),
+        ):
+            if t1 - t0 <= 0:
+                continue
+            pid_ = pole.get("pole_id")
+            owner = None
+            for entry in raw.values():
+                if entry["a"].get("pole_id") == pid_ or entry["b"].get("pole_id") == pid_:
+                    if any(g[0] == ci for g in entry["geom"]):
+                        owner = entry
+                        break
+                    if owner is None:
+                        owner = entry
+            if owner is None:
+                continue
+            for seg in slice_path(path, t0, t1):
+                seg["tail"] = True
+                owner["segments"].append(seg)
+
     return raw, skipped
 
 
 def _shadow_segments(
     geom: Sequence[Tuple[int, float, float]],
-    shadowed: Sequence[Tuple[int, float, float, int]],
+    shadowed: Sequence[Tuple[int, float, float, int, bool]],
     paths: Sequence[CablePath],
 ) -> List[Dict[str, Any]]:
-    """Linework of the parallel cables lying over this span's stretch."""
+    """Linework of the parallel cables lying over this span's stretch.
+
+    Sliced per span: a second cable typically runs the length of several spans,
+    so each span takes the piece over its own stretch. The old whole-run
+    attachment required one span to cover most of the duplicate, which no span
+    along a long parallel run ever did — the second cable then belonged to
+    nothing, and hovering it selected some other line entirely.
+    """
     out: List[Dict[str, Any]] = []
-    used: set = set()
     for ci, t0, t1 in geom:
         if t1 <= t0:
             continue
-        for primary, s0, s1, dup in shadowed:
-            if primary != ci or dup in used:
+        for primary, s0, s1, dup, reversed_ in shadowed:
+            if primary != ci or s1 <= s0:
                 continue
-            # Attach a second cable to the span it mostly sits over, so it does
-            # not get split across the two spans it happens to touch.
-            if min(t1, s1) - max(t0, s0) <= 0.5 * (s1 - s0):
+            a, b = max(t0, s0), min(t1, s1)
+            if b - a <= 0:
                 continue
-            used.add(dup)
-            pts = paths[dup].points
-            for a, b in zip(pts, pts[1:]):
-                out.append(
-                    {
-                        "x1": round(a[0], 6),
-                        "y1": round(a[1], 6),
-                        "x2": round(b[0], 6),
-                        "y2": round(b[1], 6),
-                        "run": 2,
-                    }
-                )
+            dpath = paths[dup]
+            total = dpath.total_length
+            if total <= 0:
+                continue
+            # Map the overlap on the primary onto the duplicate's own arc.
+            u0 = (a - s0) / (s1 - s0) * total
+            u1 = (b - s0) / (s1 - s0) * total
+            if reversed_:
+                u0, u1 = total - u1, total - u0
+            for seg in slice_path(dpath, u0, u1):
+                seg["run"] = 2
+                out.append(seg)
     return out
 
 
@@ -2054,6 +2096,94 @@ def _positions_from_order(
             pole_index=pole_index(i + 1),
         )
     return out
+
+
+def attach_uncovered_linework(
+    paths: Sequence[CablePath],
+    spans: List[DerivedSpan],
+    spacing: float,
+    warnings: Optional[List[Note]] = None,
+) -> None:
+    """Give every remaining stretch of drawn cable to its nearest span.
+
+    Pole-to-pole routes take the shortest way through the graph, so a street's
+    duplicate stretch, a skipped stub, or a mid-chain detour can end up in no
+    span's geometry. It is still cable on the map: unowned, it cannot be
+    hovered, and clicking it selects whatever line happens to be nearest.
+    Anything further than 1.5 pole spacings from every span is left alone and
+    counted out loud — that is genuinely orphan linework, not a span's.
+    """
+    warnings = warnings if warnings is not None else []
+    if not spans or spacing <= 0:
+        return
+
+    # Spatial grid over existing span geometry, so each sample only compares
+    # against nearby segments instead of the whole drawing.
+    cell = spacing
+    grid: Dict[Tuple[int, int], List[Tuple[DerivedSpan, Dict[str, Any]]]] = {}
+    for s in spans:
+        for g in s.segments:
+            for gx, gy in ((g["x1"], g["y1"]), (g["x2"], g["y2"])):
+                grid.setdefault(
+                    (int(math.floor(gx / cell)), int(math.floor(gy / cell))), []
+                ).append((s, g))
+
+    def nearest_span(px: float, py: float) -> Tuple[Optional[DerivedSpan], float]:
+        kx, ky = int(math.floor(px / cell)), int(math.floor(py / cell))
+        best, best_d = None, float("inf")
+        for dx in (-2, -1, 0, 1, 2):
+            for dy in (-2, -1, 0, 1, 2):
+                for s, g in grid.get((kx + dx, ky + dy), ()):
+                    d, _ = _point_to_segment(px, py, g["x1"], g["y1"], g["x2"], g["y2"])
+                    if d < best_d:
+                        best, best_d = s, d
+        return best, best_d
+
+    covered_tol = spacing * 0.05
+    attach_cap = spacing * 1.5
+    orphan_total = 0.0
+
+    for path in paths:
+        total = path.total_length
+        if total <= 0:
+            continue
+        step = max(total / 200.0, covered_tol / 2 if covered_tol > 0 else 0.02)
+        uncovered: List[Tuple[float, float]] = []
+        start: Optional[float] = None
+        t = 0.0
+        while t <= total + 1e-9:
+            p = _point_at_length(path.points, min(t, total))
+            _, d = nearest_span(p[0], p[1])
+            if d > covered_tol and start is None:
+                start = t
+            elif d <= covered_tol and start is not None:
+                uncovered.append((start, t))
+                start = None
+            t += step
+        if start is not None:
+            uncovered.append((start, total))
+
+        for a, b in uncovered:
+            if b - a <= covered_tol:
+                continue
+            mid = _point_at_length(path.points, (a + b) / 2)
+            owner, d = nearest_span(mid[0], mid[1])
+            if owner is None or d > attach_cap:
+                orphan_total += b - a
+                continue
+            for seg in slice_path(path, a, b):
+                seg["tail"] = True
+                owner.segments.append(seg)
+
+    if orphan_total > spacing:
+        warnings.append(
+            Note(
+                "orphan_linework",
+                f"{orphan_total:.1f} drawing units of cable sit too far from every span to belong "
+                "to one — check for a missed pole in those stretches.",
+                {"length": round(orphan_total, 2)},
+            )
+        )
 
 
 def build_node_spans(
