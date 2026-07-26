@@ -1420,6 +1420,10 @@ MIN_SPAN_SPACING_RATIO = 0.25
 #: the same cable continuing across a break in the linework.
 RUN_LINK_RATIO = 0.75
 
+#: A pole within this much of a run's end (as a multiple of median pole spacing)
+#: *is* that end — the run terminates at the pole rather than just near it.
+END_ZONE_RATIO = 0.4
+
 
 def build_chains(
     fragments: Sequence[_Fragment],
@@ -1505,18 +1509,23 @@ def build_chains(
 
 def detect_parallel_runs(
     paths: Sequence[CablePath], tol: float
-) -> Tuple[set, Dict[int, List[Tuple[float, float, int]]]]:
+) -> Tuple[set, Dict[int, List[Tuple[float, float, int]]], List[Tuple[int, float, float, int]]]:
     """Find runs that are a second cable alongside another, not a route of their own.
 
     Multi-run cable is drawn as parallel lines. Left alone they attract poles of
     their own and produce a duplicate span for every real one — and they are
     also the only remaining source of ``number_of_runs`` now that the manual
-    pairing tool is gone. Returns the runs to ignore, and per surviving run the
-    stretches covered by extra cable.
+    pairing tool is gone.
+
+    Returns the runs to ignore, the stretches of extra cable per surviving run,
+    and which run each duplicate shadows — the last so its linework can be
+    attached to the span it belongs to. Without that the second cable is drawn
+    on the map but belongs to nothing, and hovering it selects some other span.
     """
     order = sorted(range(len(paths)), key=lambda i: -paths[i].total_length)
     duplicate: set = set()
     covers: Dict[int, List[Tuple[float, float]]] = {}
+    shadows: List[Tuple[int, float, float, int]] = []
 
     for idx, i in enumerate(order):
         if i in duplicate:
@@ -1545,9 +1554,10 @@ def detect_parallel_runs(
                 continue
             duplicate.add(j)
             covers.setdefault(i, []).append((min(ts), max(ts)))
+            shadows.append((i, min(ts), max(ts), j))
 
     runs = {i: _merge_run_intervals(v, 0.0) for i, v in covers.items()}
-    return duplicate, runs
+    return duplicate, runs, shadows
 
 
 def build_spans_from_pieces(
@@ -1596,7 +1606,7 @@ def build_spans_from_pieces(
         parallel_tol,
     )
 
-    duplicate_runs, extra_runs = detect_parallel_runs(paths, parallel_tol)
+    duplicate_runs, extra_runs, shadowed = detect_parallel_runs(paths, parallel_tol)
     if duplicate_runs:
         warnings.append(
             Note(
@@ -1646,17 +1656,22 @@ def build_spans_from_pieces(
     # two pieces resolves to one identity rather than two.
     best_for_pole: Dict[Any, Tuple[float, int, float]] = {}  # pole_id -> (dist, piece, t)
     touches: Dict[int, List[Tuple[float, Dict[str, Any], float]]] = {}
+    tip_zone = pole_spacing * END_ZONE_RATIO if pole_spacing > 0 else med_seg * 5
     for pi, p, t, d in projections:
         if d > snap:
             continue
-        # A pole sits on its own cable, and on the piece continuing past it —
-        # both at much the same distance. A piece it merely happens to be within
-        # the snap radius of, one street over, is markedly further, and letting
-        # it claim that piece would invent spans between poles that are not
+        total = paths[pi].total_length
+        interior = tip_zone < t < total - tip_zone
+        # Cable cannot pass a pole without ending there, so a pole lying on a
+        # run's interior always breaks it. Near the tips it is a different
+        # question — the end of a neighbouring street's cable can come just as
+        # close — so there a pole only claims a run it is nearly as close to as
+        # its own, otherwise it would invent spans between poles that are not
         # neighbours at all.
-        own = nearest.get(p.get("pole_id"))
-        if own is not None and d > own * PIECE_AFFINITY + med_seg:
-            continue
+        if not interior:
+            own = nearest.get(p.get("pole_id"))
+            if own is not None and d > own * PIECE_AFFINITY + med_seg:
+                continue
         touches.setdefault(pi, []).append((t, p, d))
         prev = best_for_pole.get(p.get("pole_id"))
         if prev is None or d < prev[0]:
@@ -1707,7 +1722,11 @@ def build_spans_from_pieces(
         # match when the pair was keyed the other way round.
         if ib < ia:
             pa, pb, ia, ib = pb, pa, ib, ia
-        segs = entry["segments"]
+        # A second cable running beside this span belongs to it: drawn with it,
+        # picked up when the operator hovers it, and counted in cable_runs.
+        segs = list(entry["segments"]) + _shadow_segments(
+            entry.get("geom", ()), shadowed, paths
+        )
         pts = [(s["x1"], s["y1"]) for s in segs] + [(s["x2"], s["y2"]) for s in segs]
         bbox = _bbox_of(pts) if pts else _bbox_of(
             [(pa["cx"], pa["cy"]), (pb["cx"], pb["cy"])]
@@ -1804,21 +1823,48 @@ def _pair_neighbouring_poles(
         adj.setdefault(u, []).append((v, length, geom))
         adj.setdefault(v, []).append((u, length, geom))
 
+    # A run that begins or ends at a pole must be joined to its neighbours
+    # *through* that pole. Giving it an anonymous end node of its own instead
+    # would leave a way round: two runs meeting at a pole would link end to end,
+    # and the contraction would happily pair the poles either side of it while
+    # skipping the pole itself. That is how one span came to stretch across five
+    # others and how its middle pole ended up with spans to both of them.
+    end_zone = pole_spacing * END_ZONE_RATIO if pole_spacing > 0 else med_seg * 5
+    end_node: Dict[Tuple[int, int], Any] = {}
+    hits_by_run: Dict[int, List[Tuple[float, Dict[str, Any], float]]] = {}
+    for ci in live:
+        hits = _dedupe_by_pole(sorted(touches.get(ci, []), key=lambda h: (h[0], h[2])))
+        hits_by_run[ci] = hits
+        total = paths[ci].total_length
+        head = ("E", ci, 0)
+        tail = ("E", ci, 1)
+        if hits and hits[0][0] <= end_zone:
+            head = ("P", hits[0][1].get("pole_id"))
+        if hits and total - hits[-1][0] <= end_zone:
+            tail = ("P", hits[-1][1].get("pole_id"))
+        end_node[(ci, 0)] = head
+        end_node[(ci, 1)] = tail
+
     for ci in live:
         path = paths[ci]
-        hits = _dedupe_by_pole(sorted(touches.get(ci, []), key=lambda h: (h[0], h[2])))
-        chain: List[Tuple[Any, float]] = [(("E", ci, 0), 0.0)]
-        chain += [(("P", p.get("pole_id")), t) for t, p, _ in hits]
-        chain.append((("E", ci, 1), path.total_length))
-        for (u, t0), (v, t1) in zip(chain, chain[1:]):
+        chain: List[Tuple[Any, float]] = [(end_node[(ci, 0)], 0.0)]
+        chain += [(("P", p.get("pole_id")), t) for t, p, _ in hits_by_run[ci]]
+        chain.append((end_node[(ci, 1)], path.total_length))
+        # Drop the duplicate when an end resolved to the pole already listed.
+        deduped: List[Tuple[Any, float]] = []
+        for node, t in chain:
+            if deduped and deduped[-1][0] == node:
+                continue
+            deduped.append((node, t))
+        for (u, t0), (v, t1) in zip(deduped, deduped[1:]):
             link(u, v, max(0.0, t1 - t0), (ci, t0, t1))
 
-    ends = [(("E", ci, 0), paths[ci].points[0]) for ci in live] + [
-        (("E", ci, 1), paths[ci].points[-1]) for ci in live
+    ends = [(end_node[(ci, 0)], paths[ci].points[0]) for ci in live] + [
+        (end_node[(ci, 1)], paths[ci].points[-1]) for ci in live
     ]
     for i, (u, pu) in enumerate(ends):
         for v, pv in ends[i + 1 :]:
-            if u[1] == v[1]:
+            if u == v:
                 continue
             d = _dist(pu, pv)
             if d <= link_tol:
@@ -1885,6 +1931,39 @@ def _pair_neighbouring_poles(
             segs.extend(slice_path(paths[ci], t0, t1))
         entry["segments"] = segs
     return raw, skipped
+
+
+def _shadow_segments(
+    geom: Sequence[Tuple[int, float, float]],
+    shadowed: Sequence[Tuple[int, float, float, int]],
+    paths: Sequence[CablePath],
+) -> List[Dict[str, Any]]:
+    """Linework of the parallel cables lying over this span's stretch."""
+    out: List[Dict[str, Any]] = []
+    used: set = set()
+    for ci, t0, t1 in geom:
+        if t1 <= t0:
+            continue
+        for primary, s0, s1, dup in shadowed:
+            if primary != ci or dup in used:
+                continue
+            # Attach a second cable to the span it mostly sits over, so it does
+            # not get split across the two spans it happens to touch.
+            if min(t1, s1) - max(t0, s0) <= 0.5 * (s1 - s0):
+                continue
+            used.add(dup)
+            pts = paths[dup].points
+            for a, b in zip(pts, pts[1:]):
+                out.append(
+                    {
+                        "x1": round(a[0], 6),
+                        "y1": round(a[1], 6),
+                        "x2": round(b[0], 6),
+                        "y2": round(b[1], 6),
+                        "run": 2,
+                    }
+                )
+    return out
 
 
 def _runs_over(
