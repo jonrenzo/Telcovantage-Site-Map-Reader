@@ -1161,6 +1161,26 @@ def cached_span_result(dxf_path: str) -> Optional[span_builder.SpanBuildResult]:
     return None
 
 
+def _length_weighted_median(walks: list) -> float:
+    """The stroke length at which half the drawn INK is in shorter strokes.
+
+    A plain median counts strokes, and a layer full of tiny text strokes drags
+    it to text scale — which is how the SDU layer fell back to full extraction
+    and poisoned every threshold downstream. Cable dashes dominate a layer by
+    total length even when text outnumbers them.
+    """
+    if not walks:
+        return 0.0
+    ordered = sorted(walks)
+    half = sum(ordered) / 2.0
+    acc = 0.0
+    for w in ordered:
+        acc += w
+        if acc >= half:
+            return w
+    return ordered[-1]
+
+
 def extract_dash_segments(doc, layer_name: str) -> list:
     """The dashed cable linework of a layer, judged per drawn entity.
 
@@ -1203,10 +1223,12 @@ def extract_dash_segments(doc, layer_name: str) -> list:
     if not candidates:
         return extract_stroke_segments(doc, layer_name, include_circles=False)
 
-    lens = sorted(w for _, w in candidates)
-    med = lens[len(lens) // 2]
+    med = _length_weighted_median([w for _, w in candidates])
+    # Drawings mix dash styles: the short-dash streets sit near the median,
+    # the long-dash streets (WISDOM ran at 4-6x it) are still cable. Solid guy
+    # lines start at ~19x, so the window stays well clear of them.
     dashes = [
-        (pts, w) for pts, w in candidates if med * 0.3 <= w <= med * 3.0
+        (pts, w) for pts, w in candidates if med * 0.3 <= w <= med * 8.0
     ]
     kept_len = sum(w for _, w in dashes)
     total_len = kept_len + other_len + sum(
@@ -1222,6 +1244,120 @@ def extract_dash_segments(doc, layer_name: str) -> list:
         for a, b in zip(pts, pts[1:]):
             segs.append(Seg(a[0], a[1], b[0], b[1]))
     return segs
+
+
+def _misfiled_street_trains(doc, dxf_path: str, base_pool: list) -> Dict[str, list]:
+    """Street cable filed on the wrong layer, found by shape and connection.
+
+    Candidates are dash-shaped entities (short, straight, dash-scale) on any
+    layer not already treated as cable. They only count when they chain into a
+    street-length train AND that train's end meets the known cable network —
+    the two things lot fences, text and symbols never do together.
+    """
+    from app_python.services import span_builder as _sb
+
+    # The dash-length reference comes from the cable layers' own dash ENTITIES
+    # (length-weighted, like extract_dash_segments) — per-edge segment medians
+    # sit at text scale and had every threshold below chasing letters.
+    cable_walks: list = []
+    cable_layer_names = set(
+        find_cable_layer_names(list_layers(dxf_path), include_drops=True)
+    )
+    for e in doc.modelspace():
+        if getattr(e.dxf, "layer", None) not in cable_layer_names:
+            continue
+        t = e.dxftype()
+        if t == "LINE":
+            pts = [
+                (float(e.dxf.start.x), float(e.dxf.start.y)),
+                (float(e.dxf.end.x), float(e.dxf.end.y)),
+            ]
+        elif t == "LWPOLYLINE":
+            pts = [(float(x), float(y)) for x, y, *_ in e.get_points("xy")]
+        else:
+            continue
+        if len(pts) < 2 or len(pts) > 5:
+            continue
+        walk = sum(math.hypot(b[0] - a[0], b[1] - a[1]) for a, b in zip(pts, pts[1:]))
+        chord = math.hypot(pts[-1][0] - pts[0][0], pts[-1][1] - pts[0][1])
+        if walk > 1e-9 and chord / walk > 0.9:
+            cable_walks.append(walk)
+    med = _length_weighted_median(cable_walks)
+    if med <= 0:
+        return {}
+
+    skip = ("cable", "sdu", "tx56", "strand")
+    cand_by_layer: Dict[str, list] = {}
+    for e in doc.modelspace():
+        layer = getattr(e.dxf, "layer", None)
+        if not layer or any(k in layer.lower() for k in skip):
+            continue
+        t = e.dxftype()
+        if t == "LINE":
+            pts = [
+                (float(e.dxf.start.x), float(e.dxf.start.y)),
+                (float(e.dxf.end.x), float(e.dxf.end.y)),
+            ]
+        elif t == "LWPOLYLINE":
+            pts = [(float(x), float(y)) for x, y, *_ in e.get_points("xy")]
+        else:
+            continue
+        if len(pts) < 2 or len(pts) > 5:
+            continue
+        walk = sum(math.hypot(b[0] - a[0], b[1] - a[1]) for a, b in zip(pts, pts[1:]))
+        if walk <= 1e-9:
+            continue
+        chord = math.hypot(pts[-1][0] - pts[0][0], pts[-1][1] - pts[0][1])
+        if chord / walk < 0.9:
+            continue
+        if not (med * 0.4 <= walk <= med * 3.0):
+            continue
+        for a, b in zip(pts, pts[1:]):
+            cand_by_layer.setdefault(layer, []).append(Seg(a[0], a[1], b[0], b[1]))
+
+    # Grid over the known cable, to test train ends for connection.
+    link_tol = med * 2.5
+    cell = max(link_tol, 1e-9)
+    grid: Dict[Tuple[int, int], list] = {}
+    for s in base_pool:
+        for gx, gy in ((s.x1, s.y1), (s.x2, s.y2)):
+            grid.setdefault(
+                (int(math.floor(gx / cell)), int(math.floor(gy / cell))), []
+            ).append(s)
+
+    def joins_network(p: Tuple[float, float]) -> bool:
+        kx, ky = int(math.floor(p[0] / cell)), int(math.floor(p[1] / cell))
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                for g in grid.get((kx + dx, ky + dy), ()):
+                    d, _ = _sb._point_to_segment(p[0], p[1], g.x1, g.y1, g.x2, g.y2)
+                    if d <= link_tol:
+                        return True
+        return False
+
+    out: Dict[str, list] = {}
+    min_train = med * 10
+    for layer, segs in cand_by_layer.items():
+        if len(segs) < 8:
+            continue
+        frags = _sb._build_fragments(segs, med * 0.2)
+        trains = _sb.build_chains(frags, med * 3.0, med * 0.01)
+        kept: list = []
+        for tr in trains:
+            if tr.total_length < min_train:
+                continue
+            # BOTH ends must meet the network: a misfiled street runs junction
+            # to junction. A lot fence touches the street at one end and dies
+            # into the block; a power-feed dead-ends at its supply; text
+            # touches nothing. One-ended adoption let all three in.
+            if joins_network(tr.points[0]) and joins_network(tr.points[-1]):
+                for a, b in zip(tr.points, tr.points[1:]):
+                    kept.append(Seg(a[0], a[1], b[0], b[1]))
+        if kept:
+            total = sum(s.length() for s in kept)
+            print(f"[misfiled] {layer}: {len(kept)} seg(s), {total:.1f} units of street cable adopted")
+            out[layer] = kept
+    return out
 
 
 def _supplemental_strand_segments(doc, dxf_path: str, base_pool: list) -> list:
@@ -1446,7 +1582,10 @@ def _dash_polylines(pool: list, med: float) -> List[Dict[str, Any]]:
                 continue
             ox, oy = (o.x1 + o.x2) / 2, (o.y1 + o.y2) / 2
             d = math.hypot(ox - cx, oy - cy)
-            if d > med * 4 or d <= 1e-9:
+            # Long-dash streets pitch at roughly their own dash length plus a
+            # gap — a fixed med*4 radius, tuned to short dashes, called every
+            # long dash "alone" and threw its street away.
+            if d > max(med * 4, L * 2.2) or d <= 1e-9:
                 continue
             oL = o.length()
             if oL <= 1e-9:
@@ -1503,7 +1642,11 @@ def _dash_polylines(pool: list, med: float) -> List[Dict[str, Any]]:
     # grid somewhere — an unconnected train of modest length is drawing
     # furniture, not a street.
     link_tol = med * 6
-    island_cap = med * 25
+    # Only genuinely small islands are drawing furniture. This started at
+    # med*25 and twice swallowed real street segments (a 1.7-unit stretch of
+    # WISDOM street among them) whose junction neighbours sat just past the
+    # link tolerance.
+    island_cap = med * 15
     # A train connects to the network wherever one of its ends meets ANY dash
     # of another train — including mid-street, which is exactly where a branch
     # road joins the one it feeds off.
@@ -1592,33 +1735,41 @@ def _dash_connectors(pool: list, med: float) -> List[Dict[str, Any]]:
     """
     from app_python.services import span_builder as _sb
 
-    max_gap = med * 3
-    cell = max(max_gap, 1e-9)
-    ends: List[Tuple[float, float, float, float]] = []  # x, y, dirx, diry
+    # The allowed join gap follows the dash it joins: a long-dash street's
+    # gaps run near its own dash length, far past the short-dash median that
+    # med*3 was tuned to — those streets never chained and then died as
+    # "lone dead-end dashes".
+    max_len = max((s.length() for s in pool), default=med)
+    max_gap_global = max(med * 3, max_len * 0.9)
+    cell = max(max_gap_global, 1e-9)
+    ends: List[Tuple[float, float, float, float, float]] = []  # x, y, dirx, diry, dash_len
     for s in pool:
         L = s.length()
         if L <= 1e-9:
             continue
         dx, dy = (s.x2 - s.x1) / L, (s.y2 - s.y1) / L
-        ends.append((s.x1, s.y1, -dx, -dy))
-        ends.append((s.x2, s.y2, dx, dy))
+        ends.append((s.x1, s.y1, -dx, -dy, L))
+        ends.append((s.x2, s.y2, dx, dy, L))
 
     grid: Dict[Tuple[int, int], List[int]] = {}
-    for i, (x, y, _, _) in enumerate(ends):
+    for i, (x, y, _, _, _l) in enumerate(ends):
         grid.setdefault((int(math.floor(x / cell)), int(math.floor(y / cell))), []).append(i)
 
     def best_partner(i: int) -> Optional[int]:
-        x, y, dx, dy = ends[i]
+        x, y, dx, dy, li = ends[i]
         kx, ky = int(math.floor(x / cell)), int(math.floor(y / cell))
-        best_j, best_d = None, max_gap
+        best_j, best_d = None, max_gap_global
         for gx in (-1, 0, 1):
             for gy in (-1, 0, 1):
                 for j in grid.get((kx + gx, ky + gy), ()):
                     if j // 2 == i // 2:
                         continue
-                    jx, jy, jdx, jdy = ends[j]
+                    jx, jy, jdx, jdy, lj = ends[j]
                     d = math.hypot(jx - x, jy - y)
-                    if d >= best_d or d <= 1e-9:
+                    # Per-pair allowance: two long dashes may join across a
+                    # gap near their own length; short dashes stay tight.
+                    allowed = max(med * 3, min(li, lj) * 0.9)
+                    if d >= min(best_d, allowed) or d <= 1e-9:
                         continue
                     # The joint must continue this dash's direction and meet
                     # the other dash roughly head-on.
@@ -1642,8 +1793,8 @@ def _dash_connectors(pool: list, med: float) -> List[Dict[str, Any]]:
             continue
         if best[j] != i:
             continue
-        x, y, _, _ = ends[i]
-        jx, jy, _, _ = ends[j]
+        x, y, _, _, _li = ends[i]
+        jx, jy, _, _, _lj = ends[j]
         connectors.append(
             {
                 "x1": round(x, 6), "y1": round(y, 6),
@@ -1679,6 +1830,16 @@ def _whole_cable_spans(dxf_path: str) -> Tuple[List[Dict[str, Any]], List[str]]:
     if supplemental and per_layer:
         first = next(iter(per_layer))
         per_layer[first] = per_layer[first] + supplemental
+
+    # Every ---- matters, and drafters file street cable on whatever layer was
+    # active — LP1709 keeps whole streets on PDF_0 and Actives-PowerSupply.
+    # A dashed train from any other layer joins the preview when it is street-
+    # length AND its end meets the cable network — lot fences and text never
+    # connect end-on to the strand, misfiled streets always do.
+    # NOTE: _misfiled_street_trains stays available but is not called — the
+    # "missing streets" it was written for turned out to be long-dash Cable-565
+    # linework (handled by the adaptive dash rules), while its own catches on
+    # LP1709 were road-name text and lot fences.
 
     for layer, pool in per_layer.items():
         # Every drawn dash, exactly as drafted, plus short direction-aligned
