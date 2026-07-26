@@ -1286,6 +1286,132 @@ def _supplemental_strand_segments(doc, dxf_path: str, base_pool: list) -> list:
     return extra
 
 
+def _simplify_polyline(
+    pts: List[Tuple[float, float]], eps: float
+) -> List[Tuple[float, float]]:
+    """Douglas-Peucker: collapse jittery collinear stretches, keep corners."""
+    if len(pts) < 3:
+        return pts
+    from app_python.services.span_builder import _point_to_segment
+
+    ax, ay = pts[0]
+    bx, by = pts[-1]
+    worst_i, worst_d = 0, 0.0
+    for i in range(1, len(pts) - 1):
+        d, _ = _point_to_segment(pts[i][0], pts[i][1], ax, ay, bx, by)
+        if d > worst_d:
+            worst_i, worst_d = i, d
+    if worst_d <= eps:
+        return [pts[0], pts[-1]]
+    left = _simplify_polyline(pts[: worst_i + 1], eps)
+    right = _simplify_polyline(pts[worst_i:], eps)
+    return left[:-1] + right
+
+
+def _dash_polylines(pool: list, med: float) -> List[Dict[str, Any]]:
+    """The dashed route as clean straight lines.
+
+    Dashes are chained through their mutual-best joins into trains, and each
+    train is simplified so the drafting jitter of individual dashes collapses
+    into single straight strokes while corners survive. The trace follows the
+    dashes exactly — it just reads as one drawn line, the way the cable
+    actually hangs.
+    """
+    connectors = _dash_connectors(pool, med)
+
+    # Rebuild the pairing the connectors encode: endpoint -> endpoint.
+    def key(x: float, y: float) -> Tuple[int, int]:
+        return (int(round(x * 1000)), int(round(y * 1000)))
+
+    partner: Dict[Tuple[int, int], Tuple[float, float]] = {}
+    for c in connectors:
+        partner[key(c["x1"], c["y1"])] = (c["x2"], c["y2"])
+        partner[key(c["x2"], c["y2"])] = (c["x1"], c["y1"])
+
+    by_end: Dict[Tuple[int, int], list] = {}
+    for s in pool:
+        by_end.setdefault(key(s.x1, s.y1), []).append(s)
+        by_end.setdefault(key(s.x2, s.y2), []).append(s)
+
+    segs_out: List[Dict[str, Any]] = []
+    visited: set = set()
+
+    def walk(start_seg, start_pt: Tuple[float, float]):
+        pts = [start_pt]
+        train = []
+        seg = start_seg
+        entry = start_pt
+        while True:
+            visited.add(id(seg))
+            train.append(seg)
+            far = (
+                (seg.x2, seg.y2)
+                if key(*entry) == key(seg.x1, seg.y1)
+                else (seg.x1, seg.y1)
+            )
+            pts.append(far)
+            nxt_pt = partner.get(key(*far))
+            if nxt_pt is None:
+                break
+            pts.append(nxt_pt)
+            candidates = [s for s in by_end.get(key(*nxt_pt), []) if id(s) not in visited]
+            if not candidates:
+                break
+            seg = candidates[0]
+            entry = nxt_pt
+        return pts, train
+
+    from app_python.services.span_builder import _point_to_segment
+
+    eps = med * 0.6
+    check_tol = med
+    for s in pool:
+        if id(s) in visited:
+            continue
+        # Prefer starting at a free end so the walk covers the whole train.
+        for start in ((s.x1, s.y1), (s.x2, s.y2)):
+            if key(*start) not in partner:
+                break
+        pts, train = walk(s, start)
+        simplified = _simplify_polyline(pts, eps)
+
+        # The clean line must actually lie on its dashes. A walk that went
+        # wrong — a junction taken in the wrong order, a mismatched endpoint —
+        # produces a stroke that departs from the route; that train falls back
+        # to its raw dashes rather than showing cable where there is none.
+        faithful = True
+        for t in train:
+            mx, my = (t.x1 + t.x2) / 2, (t.y1 + t.y2) / 2
+            best = min(
+                (
+                    _point_to_segment(mx, my, a[0], a[1], b[0], b[1])[0]
+                    for a, b in zip(simplified, simplified[1:])
+                ),
+                default=float("inf"),
+            )
+            if best > check_tol:
+                faithful = False
+                break
+
+        if faithful:
+            for a, b in zip(simplified, simplified[1:]):
+                segs_out.append(
+                    {
+                        "x1": round(a[0], 6), "y1": round(a[1], 6),
+                        "x2": round(b[0], 6), "y2": round(b[1], 6),
+                    }
+                )
+        else:
+            for t in train:
+                segs_out.append(
+                    {
+                        "x1": round(t.x1, 6), "y1": round(t.y1, 6),
+                        "x2": round(t.x2, 6), "y2": round(t.y2, 6),
+                    }
+                )
+    return segs_out
+
+
 def _dash_connectors(pool: list, med: float) -> List[Dict[str, Any]]:
     """Short, direction-aligned joins between neighbouring dash ends.
 
@@ -1388,14 +1514,7 @@ def _whole_cable_spans(dxf_path: str) -> Tuple[List[Dict[str, Any]], List[str]]:
         # cable — long bridges and junction zig-zags where the drawing has
         # nothing — and still dropped branch sides; dashes cannot lie.
         med = span_builder._median([s.length() for s in pool])
-        segs = [
-            {
-                "x1": round(s.x1, 6), "y1": round(s.y1, 6),
-                "x2": round(s.x2, 6), "y2": round(s.y2, 6),
-            }
-            for s in pool
-        ]
-        segs.extend(_dash_connectors(pool, med))
+        segs = _dash_polylines(pool, med)
         if not segs:
             continue
         xs = [v for g in segs for v in (g["x1"], g["x2"])]
