@@ -2936,6 +2936,9 @@ export default function DxfViewer({
   const deriveSpans = useCallback(async () => {
     const currentPoles = polesRef.current;
     if (!currentPoles.length) return;
+    // An explicit derive is the operator's pole step — the whole-strand swap
+    // must not undo it afterwards.
+    hasAutoConnectedRef.current = true;
     setDeriveState("loading");
     try {
       const res = await fetch("/api/v1/cable_spans/derive", {
@@ -3022,18 +3025,19 @@ export default function DxfViewer({
     [notifySpansChange, redraw],
   );
 
-  // The pole step finished in this session — cut the strand at the poles.
-  // Until then the operator works with the whole cable as one span; poles
-  // lingering from an earlier session's scan must not pre-cut it, which is
-  // why this waits for poleScanStatus rather than for poles to merely exist.
+  // Cut the strand at the poles only when the operator brings the poles into
+  // view. The scan itself runs automatically during processing, so its status
+  // says nothing about where the operator is in their workflow — Display
+  // Poles is the step that means "I am working with poles now". Until then
+  // the whole cable stays one span.
   useEffect(() => {
-    if (poleScanStatus !== "done") return;
+    if (!showPoles) return;
     if (poles.length === 0) return;
     if (hasAutoConnectedRef.current) return;
     hasAutoConnectedRef.current = true;
     const id = setTimeout(() => void deriveSpans(), 50);
     return () => clearTimeout(id);
-  }, [poleScanStatus, poles.length, deriveSpans]);
+  }, [showPoles, poles.length, deriveSpans]);
 
   // A restored session hands the viewer whatever spans it was saved with —
   // pre-rework clusters or even valid derived spans from an earlier day. The
@@ -3041,7 +3045,7 @@ export default function DxfViewer({
   // THIS session, anything that is not the whole strand gets swapped for it.
   useEffect(() => {
     if (loading) return;
-    if (poleScanStatus === "done") return;
+    if (showPoles) return;
     if (hasAutoConnectedRef.current) return;
     const spans = cableSpansRef.current;
     if (spans.length === 0) return;
@@ -3074,7 +3078,7 @@ export default function DxfViewer({
         // keep whatever we had — worst case the operator hits Re-derive
       }
     })();
-  }, [loading, poleScanStatus, cableDataVersion, dxfPath, notifySpansChange, redraw]);
+  }, [loading, showPoles, cableDataVersion, dxfPath, notifySpansChange, redraw]);
 
   const togglePoles = () => {
     const next = !showPoles;
