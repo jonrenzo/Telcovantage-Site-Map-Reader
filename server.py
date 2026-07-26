@@ -1142,19 +1142,74 @@ def cached_span_result(dxf_path: str) -> Optional[span_builder.SpanBuildResult]:
     return None
 
 
+def _whole_cable_spans(dxf_path: str) -> Tuple[List[Dict[str, Any]], List[str]]:
+    """One span per cable layer — the whole strand, undivided.
+
+    Before the pole scan there is nothing to cut the cable at, but the operator
+    still needs to point at it: clicking anywhere on the strand selects it as
+    one whole, and any toggle applies to all of it. The pole scan then replaces
+    these with real pole-to-pole spans.
+    """
+    doc = ezdxf.readfile(dxf_path)
+    cable_layers = find_cable_layer_names(list_layers(dxf_path))
+    spans: List[Dict[str, Any]] = []
+    for layer in cable_layers:
+        raw = extract_stroke_segments(doc, layer, include_circles=False)
+        pool = span_builder.prepare_segments({layer: raw}, [])
+        if not pool:
+            continue
+        segs = [
+            {
+                "x1": round(s.x1, 6), "y1": round(s.y1, 6),
+                "x2": round(s.x2, 6), "y2": round(s.y2, 6),
+            }
+            for s in pool
+        ]
+        xs = [v for g in segs for v in (g["x1"], g["x2"])]
+        ys = [v for g in segs for v in (g["y1"], g["y2"])]
+        bbox = [min(xs), min(ys), max(xs), max(ys)]
+        total = sum(s.length() for s in pool)
+        spans.append(
+            {
+                "span_id": len(spans),
+                "span_key": None,
+                "whole_cable": True,
+                "layer": layer,
+                "segments": segs,
+                "segment_count": len(segs),
+                "bbox": [round(v, 6) for v in bbox],
+                "cx": round((bbox[0] + bbox[2]) / 2, 6),
+                "cy": round((bbox[1] + bbox[3]) / 2, 6),
+                "total_length": round(total, 4),
+                "arc_length": round(total, 4),
+                "strand_length": round(total, 4),
+                "meter_value": None,
+                "length_source": "arc_length",
+                "cable_runs": 1,
+                "from_pole": None,
+                "to_pole": None,
+                "from_pole_id": None,
+                "to_pole_id": None,
+            }
+        )
+    return spans, cable_layers
+
+
 def _span_response(dxf_path: str) -> Dict[str, Any]:
     """Shared body for both cable_spans routes.
 
     Poles are detected by a separate job the client kicks off, so a drawing can
     legitimately have no poles yet. That is a waiting state, not an error — the
-    viewer polls this route from the moment it mounts.
+    viewer polls this route from the moment it mounts, and until poles exist it
+    gets the whole strand as one selectable span per layer.
     """
     poles = POLE_STATE.get("tags", [])
     if not poles:
+        spans, cable_layers = _whole_cable_spans(dxf_path)
         return {
-            "cable_layers": find_cable_layer_names(list_layers(dxf_path)),
-            "count": 0,
-            "spans": [],
+            "cable_layers": cable_layers,
+            "count": len(spans),
+            "spans": spans,
             "poles": [],
             "warnings": [],
             "errors": [],
