@@ -1363,7 +1363,7 @@ def _dash_polylines(pool: list, med: float) -> List[Dict[str, Any]]:
 
     from app_python.services.span_builder import _point_to_segment
 
-    def has_collinear_neighbour(s) -> bool:
+    def has_collinear_neighbour(s, exclude: Optional[set] = None) -> bool:
         """A lone dash is cable only if another dash continues its axis."""
         cx, cy = (s.x1 + s.x2) / 2, (s.y1 + s.y2) / 2
         L = s.length()
@@ -1371,7 +1371,7 @@ def _dash_polylines(pool: list, med: float) -> List[Dict[str, Any]]:
             return False
         dx, dy = (s.x2 - s.x1) / L, (s.y2 - s.y1) / L
         for o in pool:
-            if o is s:
+            if o is s or (exclude and id(o) in exclude):
                 continue
             ox, oy = (o.x1 + o.x2) / 2, (o.y1 + o.y2) / 2
             d = math.hypot(ox - cx, oy - cy)
@@ -1401,24 +1401,27 @@ def _dash_polylines(pool: list, med: float) -> List[Dict[str, Any]]:
                 break
         pts, train = walk(s, start)
 
-        # A one-dash train pointing nowhere is a symbol stroke, not cable —
-        # junction markers on the cable layer sprayed little bars at odd
-        # angles into the preview.
-        if len(train) == 1 and not has_collinear_neighbour(train[0]):
-            noise += 1
-            continue
-
-        # A short train that curls back on itself is a drawn symbol too — the
-        # service-loop squiggle beside a pole traced as a little hook. Real
-        # corners live on long trains; a few dashes bending this hard are not
-        # a street.
+        # Short trains carry the noise: junction markers spray lone bars,
+        # service loops curl into hooks, and stray symbol strokes form little
+        # stubs of two or three dashes. Real cable this short is always going
+        # somewhere — one of its ends continues into more cable along the same
+        # axis. A short train that curls, or whose ends both dead-end, is a
+        # drawn symbol and stays out.
         walk_len = sum(
             math.hypot(b[0] - a[0], b[1] - a[1]) for a, b in zip(pts, pts[1:])
         )
         span_dist = math.hypot(pts[-1][0] - pts[0][0], pts[-1][1] - pts[0][1])
-        if walk_len < med * 6 and span_dist < walk_len * 0.7:
-            noise += 1
-            continue
+        if walk_len < med * 6:
+            if span_dist < walk_len * 0.7:
+                noise += 1
+                continue
+            members = {id(t) for t in train}
+            if not (
+                has_collinear_neighbour(train[0], members)
+                or has_collinear_neighbour(train[-1], members)
+            ):
+                noise += 1
+                continue
 
         simplified = _simplify_polyline(pts, eps)
 
