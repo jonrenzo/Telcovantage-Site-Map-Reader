@@ -2023,7 +2023,11 @@ export default function DxfViewer({
         const statusEntries = Object.entries(cableStatusRef.current);
 
         const drawSpanPath = (span: CableSpan) => {
-          drawSolidSegments(ctx, span.segments);
+          // Bridged segments are jumps across breaks in the linework — there is
+          // no cable drawn there, so highlighting or colouring them solid would
+          // paint stripes across empty street.
+          const real = span.segments.filter((s: any) => !s.bridged);
+          drawSolidSegments(ctx, real.length ? real : span.segments);
         };
 
         // Teardown status, straight from twinbackend. Drawn before the recovery
@@ -3170,9 +3174,18 @@ export default function DxfViewer({
 
       let bestId: number | null = null,
         bestDist = Infinity;
+      // 8 screen pixels, floored at a small fraction of the drawing rather
+      // than an absolute number. The old floor of 18 world units was wider
+      // than some entire drawings (LP1709 spans 14x25 units), so every click
+      // anywhere "hit" and whichever span was marginally nearest lit up —
+      // often not the line the operator was pointing at.
+      const b = boundsRef.current;
+      const drawingFloor = b
+        ? Math.hypot(b.maxx - b.minx, b.maxy - b.miny) * 0.004
+        : 0.1;
       const hoverTolWorld = Math.max(
         8 / Math.max(vpRef.current.scale, 1e-9),
-        18,
+        drawingFloor,
       );
 
       for (const span of cableSpansRef.current) {
@@ -3185,7 +3198,11 @@ export default function DxfViewer({
         )
           continue;
 
-        const hitSegments = span.segments;
+        // Bridged segments are the derivation's invisible jumps across breaks
+        // in the linework — nothing is drawn there, so a click along one must
+        // not select this span over the line actually under the cursor.
+        const visible = span.segments.filter((s: any) => !s.bridged);
+        const hitSegments = visible.length ? visible : span.segments;
         const [mnx, mny, mxx, mxy] = boundsFromSegments(hitSegments, span.bbox);
         if (
           worldX < mnx - hoverTolWorld ||
