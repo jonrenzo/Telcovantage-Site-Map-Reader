@@ -1366,6 +1366,10 @@ export default function DxfViewer({
     (options?: { preserveExistingAssignments?: boolean }) => void
   >(() => {});
   const deriveSpansRef = useRef<() => Promise<void>>(async () => {});
+  // Operator's run count, keyed by span_key so it outlives re-derivation.
+  // Detection finds the obvious parallel cables; this is the last word when it
+  // misses one, and it is an attribute of the span, not a change to topology.
+  const runsOverrideRef = useRef<Record<string, number>>({});
   const [deriveState, setDeriveState] = useState<"idle" | "loading" | "error">(
     "idle",
   );
@@ -2950,7 +2954,12 @@ export default function DxfViewer({
       const spans: CableSpan[] = (data.spans ?? []).map((s: any) => ({
         ...s,
         source_span_id: s.span_id,
-        cable_runs: s.cable_runs || 1,
+        // An override the operator set earlier wins over what detection found;
+        // re-deriving must not quietly undo their correction.
+        cable_runs:
+          (s.span_key ? runsOverrideRef.current[s.span_key] : undefined) ??
+          s.cable_runs ??
+          1,
         meterValue: s.meter_value ?? null,
       }));
       nextSpanIdRef.current =
@@ -2987,6 +2996,23 @@ export default function DxfViewer({
   useEffect(() => {
     deriveSpansRef.current = deriveSpans;
   }, [deriveSpans]);
+
+  /** Set how many cables a span carries. Persists across re-derivation. */
+  const setSpanRuns = useCallback(
+    (spanId: number, runs: number) => {
+      const next = Math.max(1, Math.min(9, Math.round(runs)));
+      const updated = cableSpansRef.current.map((s) => {
+        if (s.span_id !== spanId) return s;
+        if (s.span_key) runsOverrideRef.current[s.span_key] = next;
+        return { ...s, cable_runs: next };
+      });
+      cableSpansRef.current = updated;
+      setCableSpans(updated);
+      notifySpansChange(updated);
+      redraw();
+    },
+    [notifySpansChange, redraw],
+  );
 
   // Poles just became available — derive the spans that follow from them.
   useEffect(() => {
@@ -5304,11 +5330,52 @@ export default function DxfViewer({
                 🌍 Insert Coordinates
               </button>
               <button
-                onClick={() => autoConnectPoles()}
-                className="w-52 justify-center bg-white/95 backdrop-blur border border-blue-200 shadow-lg px-5 py-2.5 rounded-full font-semibold text-sm text-blue-700 hover:bg-blue-50 transition-all flex items-center gap-2"
+                onClick={() => void deriveSpans()}
+                disabled={deriveState === "loading"}
+                className="w-52 justify-center bg-white/95 backdrop-blur border border-blue-200 shadow-lg px-5 py-2.5 rounded-full font-semibold text-sm text-blue-700 hover:bg-blue-50 transition-all flex items-center gap-2 disabled:opacity-50"
               >
-                ⚡ Auto-Connect Cables
+                ⚡ {deriveState === "loading" ? "Deriving…" : "Re-derive Spans"}
               </button>
+
+              {/* Runs on the selected span. Detection catches the obvious
+                  parallel cables; this is for the ones it misses, and it sticks
+                  through every later re-derivation. */}
+              {selectedSpanId !== null &&
+                (() => {
+                  const sel = cableSpans.find((s) => s.span_id === selectedSpanId);
+                  if (!sel) return null;
+                  const runs = sel.cable_runs || 1;
+                  const overridden = !!(
+                    sel.span_key && runsOverrideRef.current[sel.span_key]
+                  );
+                  return (
+                    <div className="w-52 bg-white/95 backdrop-blur border border-slate-200 shadow-lg px-4 py-2.5 rounded-full flex items-center justify-between gap-2">
+                      <span className="text-sm font-semibold text-slate-700">
+                        {runs} run{runs > 1 ? "s" : ""}
+                        {overridden && (
+                          <span className="ml-1 text-[10px] text-indigo-500">set</span>
+                        )}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <button
+                          onClick={() => setSpanRuns(selectedSpanId, runs - 1)}
+                          disabled={runs <= 1}
+                          title="One fewer cable on this span"
+                          className="h-7 w-7 rounded-full border border-slate-200 text-slate-700 font-bold hover:bg-slate-50 disabled:opacity-40"
+                        >
+                          −
+                        </button>
+                        <button
+                          onClick={() => setSpanRuns(selectedSpanId, runs + 1)}
+                          title="One more cable on this span"
+                          className="h-7 w-7 rounded-full border border-slate-200 text-slate-700 font-bold hover:bg-slate-50"
+                        >
+                          +
+                        </button>
+                      </span>
+                    </div>
+                  );
+                })()}
               <button
                 onClick={() => {
                   const next = !cutHereModeRef.current;
