@@ -2067,7 +2067,9 @@ def _untagged_pole_circles(doc, layer_names: list, tags: list) -> list:
         extra.append(
             {
                 "pole_id": next_id,
-                "name": f"UNTAGGED-{next_id:03d}",
+                # NPT is the field crew's own term for a pole with no printed
+                # tag, and it is what the AsBuilt side expects as an index.
+                "name": f"NPT-{next_id:03d}",
                 "cx": round(cx, 4),
                 "cy": round(cy, 4),
                 "bbox": [round(cx, 4), round(cy, 4), round(cx, 4), round(cy, 4)],
