@@ -1365,6 +1365,14 @@ export default function DxfViewer({
   const autoConnectPolesRef = useRef<
     (options?: { preserveExistingAssignments?: boolean }) => void
   >(() => {});
+  const deriveSpansRef = useRef<() => Promise<void>>(async () => {});
+  const [deriveState, setDeriveState] = useState<"idle" | "loading" | "error">(
+    "idle",
+  );
+  const [deriveNotes, setDeriveNotes] = useState<{
+    warnings: { code: string; message: string }[];
+    errors: { code: string; message: string }[];
+  }>({ warnings: [], errors: [] });
 
   useEffect(() => {
     if (onExportPdfRef) {
@@ -2481,11 +2489,10 @@ export default function DxfViewer({
       }
 
       if (options?.autoConnectAfter) {
-        setTimeout(() => {
-          autoConnectPolesRef.current({
-            preserveExistingAssignments: options.preserveExistingAssignments,
-          });
-        }, 0);
+        // A pole moving, appearing or disappearing moves span boundaries, so
+        // the spans are re-derived from the new pole set rather than patched
+        // locally — the backend stays the single source of the answer.
+        setTimeout(() => void deriveSpansRef.current(), 0);
       }
 
       return changed;
@@ -2909,24 +2916,87 @@ export default function DxfViewer({
     redraw,
   ]); // Added poleScanStatus to dependencies
 
-  // ADD THIS NEW USEEFFECT
-  useEffect(() => {
-    if (
-      poleScanStatus === "done" &&
-      poles.length > 0 &&
-      cableSpans.length > 0 &&
-      !hasAutoConnectedRef.current
-    ) {
-      // 1. Lock immediately to prevent race conditions
-      hasAutoConnectedRef.current = true;
+  /**
+   * Ask the backend to derive spans for the current pole set.
+   *
+   * Spans come from pole adjacency now, so there are none to show until the
+   * poles are known — and every pole the operator adds, moves or deletes moves
+   * a span boundary. Re-deriving keeps the map, the PDF and both exports
+   * reading one answer instead of drifting apart.
+   */
+  const deriveSpans = useCallback(async () => {
+    const currentPoles = polesRef.current;
+    if (!currentPoles.length) return;
+    setDeriveState("loading");
+    try {
+      const res = await fetch("/api/v1/cable_spans/derive", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          poles: currentPoles.map((p) => ({
+            pole_id: p.pole_id,
+            name: p.name,
+            cx: p.cx,
+            cy: p.cy,
+          })),
+        }),
+      });
+      const json = await res.json();
+      const data = json?.data ?? json;
+      if (!res.ok || json?.ok === false) {
+        throw new Error(json?.error || `Derivation failed (${res.status})`);
+      }
 
-      // 2. Use a slight timeout so the UI paints the loaded poles
-      // before blocking the main thread with distance calculations
-      setTimeout(() => {
-        autoConnectPoles();
-      }, 50);
+      const spans: CableSpan[] = (data.spans ?? []).map((s: any) => ({
+        ...s,
+        source_span_id: s.span_id,
+        cable_runs: s.cable_runs || 1,
+        meterValue: s.meter_value ?? null,
+      }));
+      nextSpanIdRef.current =
+        spans.reduce((max, s) => Math.max(max, s.span_id), 0) + 1;
+      cableSpansRef.current = spans;
+      setCableSpans(spans);
+      notifySpansChange(spans);
+      if (data.cable_layers?.length) {
+        cableLayersRef.current = data.cable_layers;
+        setCableLayerNames(data.cable_layers);
+      }
+      // Whatever the derivation could not resolve is shown, never swallowed.
+      setDeriveNotes({
+        warnings: data.warnings ?? [],
+        errors: data.errors ?? [],
+      });
+      setDeriveState("idle");
+      setCableDataVersion((v) => v + 1);
+      redraw();
+    } catch (err) {
+      setDeriveState("error");
+      setDeriveNotes({
+        warnings: [],
+        errors: [
+          {
+            code: "derive_failed",
+            message: err instanceof Error ? err.message : String(err),
+          },
+        ],
+      });
     }
-  }, [poleScanStatus, poles.length, cableSpans.length, autoConnectPoles]);
+  }, [notifySpansChange, redraw]);
+
+  useEffect(() => {
+    deriveSpansRef.current = deriveSpans;
+  }, [deriveSpans]);
+
+  // Poles just became available — derive the spans that follow from them.
+  useEffect(() => {
+    if (poles.length === 0) return;
+    if (poleScanStatus !== "done" && cableSpansRef.current.length > 0) return;
+    if (hasAutoConnectedRef.current) return;
+    hasAutoConnectedRef.current = true;
+    const id = setTimeout(() => void deriveSpans(), 50);
+    return () => clearTimeout(id);
+  }, [poleScanStatus, poles.length, deriveSpans]);
 
   const togglePoles = () => {
     const next = !showPoles;
@@ -5144,6 +5214,29 @@ export default function DxfViewer({
                 : undefined
           }
         />
+      )}
+
+      {/* What the derivation could not resolve. Silent drops are how a 100 m
+          span used to upload as 20 m, so everything it skipped is said out loud. */}
+      {!loading && (deriveState === "loading" || deriveNotes.errors.length > 0 || deriveNotes.warnings.length > 0) && (
+        <div className="absolute top-16 left-4 z-10 max-w-sm rounded-lg border border-border bg-surface/95 px-3 py-2 shadow-sm backdrop-blur">
+          {deriveState === "loading" ? (
+            <p className="text-xs font-semibold text-muted">Deriving spans…</p>
+          ) : (
+            <>
+              {deriveNotes.errors.map((e) => (
+                <p key={e.code} className="text-xs font-semibold text-[#b91c1c]">
+                  {e.message}
+                </p>
+              ))}
+              {deriveNotes.warnings.map((w) => (
+                <p key={w.code} className="text-xs text-muted">
+                  {w.message}
+                </p>
+              ))}
+            </>
+          )}
+        </div>
       )}
 
       {layerPanelOpen && !loading && !error && (
