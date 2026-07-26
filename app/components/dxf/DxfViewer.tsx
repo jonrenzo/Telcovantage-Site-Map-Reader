@@ -2028,6 +2028,13 @@ export default function DxfViewer({
           // no cable drawn there, so highlighting or colouring them solid would
           // paint stripes across empty street.
           const real = span.segments.filter((s: any) => !s.bridged);
+          // The whole-strand preview keeps the drawing's own dashed look: the
+          // geometry is the clean simplified line, the stroke pattern matches
+          // the ---- it stands for.
+          if ((span as any).whole_cable) {
+            const d = (span as any).dash_len || 0.1;
+            ctx.setLineDash([d, d * 0.6]);
+          }
           drawSolidSegments(ctx, real.length ? real : span.segments);
         };
 

@@ -1526,6 +1526,9 @@ def _whole_cable_spans(dxf_path: str) -> Tuple[List[Dict[str, Any]], List[str]]:
                 "span_id": len(spans),
                 "span_key": None,
                 "whole_cable": True,
+                # The viewer strokes the preview with this dash pattern so it
+                # reads like the drawing's own ----, not a solid bar.
+                "dash_len": round(med, 6),
                 "layer": layer,
                 "segments": segs,
                 "segment_count": len(segs),
