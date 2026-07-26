@@ -1418,7 +1418,7 @@ def push_to_planner(
             return (code, "name_fallback") if code else (None, "no_candidate")
 
         pole_spans = []
-        pole_pair_counts = {}
+        pole_pair_counts = {}  # pole pair -> the one span entry for it
         spans_no_pole_name = 0
         spans_no_code = 0
         spans_same_code = 0
@@ -1461,25 +1461,30 @@ def push_to_planner(
                 continue
             spans_ok += 1
 
+            # Two entries on one pole pair mean one physical span, so their
+            # cable adds up. The old code appended -2, -3, -4 instead, which is
+            # where the duplicate span ids in the backend came from: a lineman
+            # tore the span down once and the extra ids stayed pending forever,
+            # so the pole could never be cleared.
             pole_pair = tuple(sorted([from_code, to_code]))
-            occurrence = pole_pair_counts.get(pole_pair, 0) + 1
-            pole_pair_counts[pole_pair] = occurrence
+            length = span.get("meter_value") or span.get("total_length", 0) or 0
+            existing = pole_pair_counts.get(pole_pair)
+            if existing is not None:
+                existing["length_meters"] += length
+                existing["expected_cable"] += length
+                existing["runs"] = max(existing["runs"], span.get("cable_runs", 1))
+                continue
 
-            if occurrence == 1:
-                pole_span_code = f"{node_id}-{from_code}-{to_code}"
-            else:
-                pole_span_code = f"{node_id}-{from_code}-{to_code}-{occurrence}"
-
-            pole_spans.append(
-                {
-                    "from_pole_code": from_code,
-                    "to_pole_code": to_code,
-                    "pole_span_code": pole_span_code,
-                    "length_meters": span.get("meter_value") or span.get("total_length", 0) or 0,
-                    "runs": span.get("cable_runs", 1),
-                    "expected_cable": span.get("meter_value") or span.get("total_length", 0) or 0,
-                }
-            )
+            entry = {
+                "from_pole_code": from_code,
+                "to_pole_code": to_code,
+                "pole_span_code": f"{node_id}-{from_code}-{to_code}",
+                "length_meters": length,
+                "runs": span.get("cable_runs", 1),
+                "expected_cable": length,
+            }
+            pole_pair_counts[pole_pair] = entry
+            pole_spans.append(entry)
 
         print(
             f"[planner] Built {len(pole_spans)} pole spans for upload "

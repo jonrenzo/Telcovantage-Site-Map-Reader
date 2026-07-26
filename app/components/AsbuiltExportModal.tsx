@@ -1082,38 +1082,24 @@ export default function AsbuiltExportModal({
       duplicateSpanGroups.set(key, group);
     }
 
+    // Entries sharing a pole pair are one physical span drawn in pieces, so
+    // their cable adds up. Keeping only the longest silently uploaded a
+    // fraction of the real length — a 100 m run drawn in five pieces went up
+    // as 20 m, and the loss was only ever visible in a console warning.
     const asbuiltSpans = Array.from(duplicateSpanGroups.values()).map((group) => {
-      const kept = group.reduce((best, candidate) =>
+      const base = group.reduce((best, candidate) =>
         compareResolvedSpanPriority(candidate, best) > 0 ? candidate : best,
       );
-      const mergedComponents = group.reduce(
-        (counts, span) => addComponentCounts(counts, span.components),
-        { ...EMPTY_COMPONENTS },
-      );
-
       return {
-        ...kept,
-        components: mergedComponents,
+        ...base,
+        strand_length: group.reduce((total, span) => total + span.strand_length, 0),
+        number_of_runs: Math.max(...group.map((span) => span.number_of_runs)),
+        components: group.reduce(
+          (counts, span) => addComponentCounts(counts, span.components),
+          { ...EMPTY_COMPONENTS },
+        ),
       };
     });
-
-    const droppedDuplicateSpanIds = Array.from(duplicateSpanGroups.values())
-      .filter((group) => group.length > 1)
-      .flatMap((group) => {
-        const kept = group.reduce((best, candidate) =>
-          compareResolvedSpanPriority(candidate, best) > 0 ? candidate : best,
-        );
-        return group
-          .filter((span) => span.span_id !== kept.span_id)
-          .map((span) => span.span_id);
-      });
-
-    if (droppedDuplicateSpanIds.length > 0) {
-      console.warn(
-        "[AsBuilt export] Dropping duplicate span uploads for identical pole pairs:",
-        droppedDuplicateSpanIds,
-      );
-    }
 
     if (asbuiltPoles.length === 0) {
       setError(
