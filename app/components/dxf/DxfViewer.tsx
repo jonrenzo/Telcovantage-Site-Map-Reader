@@ -2937,6 +2937,9 @@ export default function DxfViewer({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          // Restored sessions can arrive after a backend restart, when the
+          // server no longer has any DXF loaded — always name the drawing.
+          dxf_path: dxfPath,
           poles: currentPoles.map((p) => ({
             pole_id: p.pole_id,
             name: p.name,
@@ -3017,8 +3020,15 @@ export default function DxfViewer({
   // Poles just became available — derive the spans that follow from them.
   useEffect(() => {
     if (poles.length === 0) return;
-    if (poleScanStatus !== "done" && cableSpansRef.current.length > 0) return;
     if (hasAutoConnectedRef.current) return;
+    // Spans without a span_key predate the derivation rework: a restored
+    // session serving them cannot be hovered where the old clustering went
+    // wrong, and shows since-renamed pole labels. Stale is reason enough to
+    // re-derive even when a fresh pole scan hasn't run.
+    const stale =
+      cableSpansRef.current.length === 0 ||
+      cableSpansRef.current.some((s) => !s.span_key);
+    if (!stale && poleScanStatus !== "done") return;
     hasAutoConnectedRef.current = true;
     const id = setTimeout(() => void deriveSpans(), 50);
     return () => clearTimeout(id);

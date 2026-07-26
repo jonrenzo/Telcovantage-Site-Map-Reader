@@ -4378,11 +4378,15 @@ def v1_cable_spans_derive():
     locally. Everything downstream — canvas, PDF, both exports — then reads one
     derivation instead of drifting apart.
     """
-    dxf_path = state.get("dxf_path")
+    body = request.get_json(silent=True) or {}
+    # Restored sessions arrive after a server restart, when no DXF is loaded
+    # yet — the client names the drawing it wants derived.
+    dxf_path = body.get("dxf_path") or state.get("dxf_path")
     if not dxf_path:
         return _v1_err("No DXF has been loaded.", 404)
+    if dxf_path != state.get("dxf_path"):
+        state["dxf_path"] = dxf_path
 
-    body = request.get_json(silent=True) or {}
     poles = body.get("poles")
     corrections = body.get("corrections") or {}
 
