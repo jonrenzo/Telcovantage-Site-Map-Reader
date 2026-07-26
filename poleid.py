@@ -1,6 +1,6 @@
 import math
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 import numpy as np
@@ -14,6 +14,10 @@ class TextLabel:
     height: float
     bbox: Optional[Tuple[float, float, float, float]] = None
     source: str = "text"
+    # The label's own strokes. Without these, OCR callers fall back to
+    # rasterising the whole layer around the bbox, which drags the pole circle
+    # and neighbouring labels into every crop.
+    segments: List["Seg"] = field(default_factory=list)
 
 
 @dataclass
@@ -523,7 +527,22 @@ def _build_stroke_pole_labels_from_entities(
     if not segments:
         return []
 
-    clusters = _cluster_segments(segments, tol=config.stroke_connect_tol)
+    # The connect tolerance and the size floors below were calibrated for one
+    # drawing scale; drawings arrive at many. Measure this drawing's own median
+    # stroke and scale every distance by the same factor — the strand pipeline
+    # already works this way, and its reference (median stroke 0.0125) matches
+    # the drawing these defaults were tuned on. Clamped, because a layer
+    # dominated by long non-label linework would otherwise inflate the factor
+    # and merge neighbouring labels into one.
+    lens = sorted(s.length() for s in segments if s.length() > 1e-9)
+    if lens:
+        mid = len(lens) // 2
+        med = lens[mid] if len(lens) % 2 else (lens[mid - 1] + lens[mid]) / 2.0
+        scale = min(4.0, max(0.1, med / 0.0125))
+    else:
+        scale = 1.0
+
+    clusters = _cluster_segments(segments, tol=config.stroke_connect_tol * scale)
     out: List[TextLabel] = []
 
     for idxs in clusters:
@@ -536,11 +555,11 @@ def _build_stroke_pole_labels_from_entities(
         h = maxy - miny
         total_len = sum(segments[i].length() for i in idxs)
 
-        if total_len < config.stroke_min_total_length:
+        if total_len < config.stroke_min_total_length * scale:
             continue
-        if w < config.stroke_min_bbox_w:
+        if w < config.stroke_min_bbox_w * scale:
             continue
-        if h < config.stroke_min_bbox_h:
+        if h < config.stroke_min_bbox_h * scale:
             continue
 
         aspect = max(w / max(h, 1e-9), h / max(w, 1e-9))
@@ -568,6 +587,7 @@ def _build_stroke_pole_labels_from_entities(
                 height=max(h, config.default_text_height),
                 bbox=bbox,
                 source="stroke",
+                segments=[segments[i] for i in idxs],
             )
         )
 

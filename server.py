@@ -286,8 +286,10 @@ _FAST_ACCEPT_CONF = 0.95
 # not a raw single-pass softmax. 0.50 means "the winning value carried at least
 # a majority of the weighted votes"; below that we flag for human review.
 _MIN_CONF = 0.50
-_MAX_STRAND_VALUE = 75
-_STRAND_RE = _re.compile(r"^\d{1,2}$")
+# Strand lengths reach ~500 m on backbone drawings; mirror strand_recognizer so
+# the two gates cannot disagree about what a valid value is.
+from app_python.services.strand_recognizer import STRAND_MAX as _MAX_STRAND_VALUE
+_STRAND_RE = _re.compile(r"^\d{1,3}$")
 
 
 def _is_valid_strand(text: str) -> bool:
@@ -378,9 +380,9 @@ def _easyocr_on_prepared(img: np.ndarray) -> Tuple[str, float]:
 
 def predict_with_easyocr(crop_np: np.ndarray) -> Tuple[str, float]:
     """
-    Delegate to strand_recognizer which applies the full 4-layer accuracy
-    pipeline (aspect-correct rasterization, multi-variant rendering, dual-engine
-    ensemble EasyOCR+TrOCR, domain-constrained voting over 1-75).
+    Delegate to strand_recognizer: deskew, multi-variant rendering, and
+    domain-constrained voting, EasyOCR only. TrOCR is opt-in via
+    STRAND_USE_TROCR=1 and off by default — there is no dual-engine ensemble.
     """
     from app_python.services.strand_recognizer import recognize
     return recognize(crop_np)
@@ -427,9 +429,6 @@ def _segmentize(pts, closed):
 def list_layers(dxf_path):
     doc = ezdxf.readfile(dxf_path)
     return sorted(layer.dxf.name for layer in doc.layers)
-
-
-POLE_LAYER_FILTER = ["pole, stp"]
 
 
 def extract_stroke_segments(doc, layer_name, include_circles=True):
@@ -479,7 +478,11 @@ def extract_stroke_segments(doc, layer_name, include_circles=True):
                 ]
                 segments.extend(_segmentize(pts, False))
             elif t == "CIRCLE":
-                if any(x in layer_name.lower() for x in POLE_LAYER_FILTER):
+                # This parameter was declared but never read — six call sites
+                # passed include_circles=False in vain (the old check compared
+                # against POLE_LAYER_FILTER, whose entry "pole, stp" matches no
+                # real layer name).
+                if not include_circles:
                     continue
                 c, r = e.dxf.center, float(e.dxf.radius)
                 angles = np.linspace(0, 2 * math.pi, CIRCLE_STEPS, endpoint=False)
@@ -2127,7 +2130,7 @@ def _run_pole_scan(dxf_path: str, layer_names: list[str]) -> None:
 
         for layer_name in layer_names:
             matches = _poleid.find_pole_labels(doc, layer_name, config=POLE_CONFIG)
-            layer_segs = extract_stroke_segments(doc, layer_name)
+            layer_segs = extract_stroke_segments(doc, layer_name, include_circles=False)
 
             for lab, _circ in matches:
                 bbox = list(lab.bbox) if lab.bbox else [lab.x, lab.y, lab.x, lab.y]
@@ -2167,7 +2170,10 @@ def _run_pole_scan(dxf_path: str, layer_names: list[str]) -> None:
             needs_review = False
 
             try:
-                label_segs = getattr(lab, "segments", None) or layer_segs
+                # The label's own cluster when the detector provides it; the
+                # whole layer only as a fallback. Rasterising the layer put the
+                # pole circle and neighbouring IDs into every crop.
+                label_segs = lab.segments if getattr(lab, "segments", None) else layer_segs
                 result = ocr_pole(label_segs, tuple(bbox))
                 if result.crop_png:
                     crop_b64 = base64.b64encode(result.crop_png).decode("ascii")
@@ -3032,10 +3038,22 @@ def _run_precompute(checksum: str, dxf_path: str):
         global_pole_id = 0
         for layer_name in pole_layer_names:
             matches = _poleid.find_pole_labels(doc, layer_name, config=POLE_CONFIG)
+            placeholder_prefix = (
+                POLE_CONFIG.stroke_placeholder_prefix or "POLE"
+            ).upper()
             for lab, _circ in matches:
                 bbox = list(lab.bbox) if lab.bbox else [lab.x, lab.y, lab.x, lab.y]
                 source = getattr(lab, "source", "text")
                 display_name = _poleid.clean_label(lab.text)
+                # This headless path never runs pole OCR, so a stroke label
+                # still carrying the POLE_xxx placeholder has NOT been read.
+                # It used to be stored with needs_review=False, and restored
+                # sessions then presented hundreds of unread poles as
+                # confirmed names.
+                is_placeholder = (
+                    source == "stroke"
+                    and display_name.upper().startswith(placeholder_prefix)
+                )
                 poles.append({
                     "pole_id": global_pole_id,
                     "name": display_name,
@@ -3045,7 +3063,7 @@ def _run_precompute(checksum: str, dxf_path: str):
                     "layer": layer_name,
                     "source": source,
                     "ocr_conf": None,
-                    "needs_review": False,
+                    "needs_review": is_placeholder,
                 })
                 global_pole_id += 1
 
@@ -4960,7 +4978,7 @@ def v1_asbuilt_import_by_sequence():
 
 def _prewarm_ocr():
     try:
-        print("[startup] Pre-warming strand recognizer (EasyOCR + TrOCR)...")
+        print("[startup] Pre-warming strand recognizer (EasyOCR)...")
         from app_python.services.strand_recognizer import prewarm as _sr_prewarm
         _sr_prewarm()
         # Keep the legacy singleton warm too (used by _easyocr_on_prepared)

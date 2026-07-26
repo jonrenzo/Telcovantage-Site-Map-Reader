@@ -44,16 +44,15 @@ import numpy as np
 
 # ── constants ─────────────────────────────────────────────────────────────────
 
-VALID_VALUES: frozenset = frozenset(range(1, 76))   # 1..75 inclusive
-_STRAND_RE = re.compile(r"^\d{1,2}$")
+# Strand lengths run up to ~500 m on backbone drawings (BCR405 carries 278,
+# 135, 434). The old 1..75 / two-digit cap made every one of those labels
+# unrepresentable — the read was thrown away before anyone saw it.
+STRAND_MAX = int(os.environ.get("STRAND_MAX_METERS", "500"))
+VALID_VALUES: frozenset = frozenset(range(1, STRAND_MAX + 1))
+_STRAND_RE = re.compile(r"^\d{1,3}$")
 
 _ROTATIONS = [0, 90, 180, 270]
 _TROCR_SIZE = 128
-
-# Engine weights / voting
-_EASYOCR_WEIGHT = 1.0
-_TROCR_WEIGHT = 1.2
-_AGREEMENT_BONUS = 1.5
 
 # Stroke thicknesses: pass A uses the first; pass B adds the rest.
 _THICKNESS_FAST = 4
@@ -265,7 +264,6 @@ def _easyocr_best_rot(src_bw: np.ndarray) -> Tuple[str, float]:
 # Segmentation votes get a bonus — when a wide glyph is split into two clean
 # single digits, that structural read is usually more reliable than the whole-
 # glyph read that collapsed two digits into one.
-_SEG_BONUS = 1.5
 
 
 def _segment_two_digits(img_bw: np.ndarray, min_sub_conf: float = 0.40):

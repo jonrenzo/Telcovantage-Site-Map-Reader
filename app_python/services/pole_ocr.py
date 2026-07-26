@@ -27,6 +27,7 @@ Call surface (unchanged from prior version):
 from __future__ import annotations
 
 import math
+import os
 import re
 import threading as _threading
 from dataclasses import dataclass, field
@@ -55,7 +56,14 @@ MAX_TOKENS = 16  # max tokens per image (pole IDs are short strings)
 # Covers the ~315-degree (-45-degree) orientation that DXF pole labels
 # commonly appear in, which TrOCR cannot read upright.
 _ROTATIONS = [0, 45, 90, 135, 180, 225, 270, 315]
-_POLEID_RE = re.compile(r"^(?:NPT|[A-Z]{0,2}\d+(?:-\d+)?)$", re.IGNORECASE)
+# Pole ID shape. Prefixes vary per site (CU7, CUB, CVSY, NPT, ...) with no fixed
+# rule, so the pattern is permissive — up to five letters — and overridable per
+# deployment via POLE_ID_PATTERN. The old two-letter cap forced correctly-read
+# IDs like CUB-508 and CVSY-110 into manual review at 0.999 confidence.
+_POLEID_RE = re.compile(
+    os.environ.get("POLE_ID_PATTERN", r"^(?:[A-Z]{0,5}\d+(?:-\d+)?|NPT)$"),
+    re.IGNORECASE,
+)
 
 
 # ── data classes ──────────────────────────────────────────────────────────────
@@ -236,18 +244,31 @@ def _generate_batch(
             return_dict_in_generate=True,
         )
 
+    eos_id = _model.config.decoder.eos_token_id
+    pad_id = _model.config.decoder.pad_token_id
+
     results = []
     for b in range(pixel_values.shape[0]):
         token_ids = out.sequences[b]
         text = _processor.tokenizer.decode(token_ids, skip_special_tokens=True).strip()
 
+        # Confidence over the REAL characters only, and as the weakest link
+        # rather than the average. The old mean ran over EOS and pad steps too
+        # — near-certain filler that diluted every score toward 1.0, which is
+        # how misreads sailed through the acceptance gate at 0.9+. The min is
+        # what flags "one character of this ID is a guess".
+        conf = 0.0
         if out.scores:
-            probs = [
-                float(F.softmax(step[b], dim=-1).max().item()) for step in out.scores
-            ]
-            conf = float(np.mean(probs))
-        else:
-            conf = 0.0
+            probs = []
+            # sequences[0] is the decoder-start token; scores[i] produced
+            # sequences[i + 1].
+            for step_idx, step in enumerate(out.scores):
+                tok = int(token_ids[step_idx + 1]) if step_idx + 1 < len(token_ids) else pad_id
+                if tok in (eos_id, pad_id):
+                    break
+                probs.append(float(F.softmax(step[b], dim=-1).max().item()))
+            if probs:
+                conf = float(min(probs))
 
         results.append((text, conf))
 
@@ -283,28 +304,30 @@ def _fix_pole_id(text: str) -> str:
     Apply domain-specific corrections for common TrOCR misreads on
     stroked DXF pole labels.
 
-    Prefix substitutions are tried FIRST — before the validity check —
-    because characters like "1", "l", "I" and "7" are never the intended
-    first character of a pole ID and should always be corrected to "T".
+    A read that is already a valid pole ID is returned untouched. The old
+    order ran the prefix substitution first, which rewrote correct reads:
+    "1592" at confidence 1.00 became "T592". Substitutions are a rescue for
+    invalid reads, never an edit to valid ones.
     """
     if not text:
         return text
 
-    # Always try the prefix substitution first.
-    # "l" and "I" pass isalpha() and would fool _is_valid, so we must
-    # attempt the fix before the validity short-circuit below.
+    if _is_valid(text):
+        return text
+
     if text[0] in _PREFIX_SUBS:
         candidate = _PREFIX_SUBS[text[0]] + text[1:]
         if _is_valid(candidate):
             print(f"[pole_ocr] prefix-fix: {text!r} → {candidate!r}")
             return candidate
 
-    # Already valid and no prefix fix applied — return as-is
-    if _is_valid(text):
-        return text
-
     # Try fixing each remaining character individually
-    mid_subs = {"0": "O", "O": "0", "1": "I", "I": "1", "5": "S", "S": "5"}
+    mid_subs = {
+        "0": "O", "O": "0",
+        "1": "I", "I": "1",
+        "5": "S", "S": "5",
+        "8": "B", "B": "8",  # stroked 8 reads as B: CU8-1936 came back CUB-1936
+    }
     for i, ch in enumerate(text):
         if i == 0:
             continue  # prefix already handled above

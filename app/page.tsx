@@ -312,7 +312,10 @@ export default function Home() {
         poleTags,
         poleLayer: full.config?.pole_layer ?? null,
         poleLayers: full.config?.pole_layer ? [full.config.pole_layer] : [],
-        poleDone: full.poles.length > 0,
+        // Restored poles only count as a finished scan if at least one was
+        // actually read — the headless precompute stores unread placeholders,
+        // and marking those "done" hid the fact that no OCR ever ran.
+        poleDone: full.poles.some((p: any) => !p.needs_review),
         shapes,
         boundary: full.boundary ?? null,
         equipmentDone: full.equipment_shapes.length > 0,
