@@ -1176,6 +1176,41 @@ def _whole_cable_spans(dxf_path: str) -> Tuple[List[Dict[str, Any]], List[str]]:
                         "x2": round(b[0], 6), "y2": round(b[1], 6),
                     }
                 )
+        # Chain-walking follows one path at a time, so at a junction the side
+        # it does not take can fall out of the trace entirely. Whatever drawn
+        # cable the chains missed goes in raw — the strand must be whole.
+        if segs:
+            cell = max(med * 6, 1e-9)
+            grid: Dict[Tuple[int, int], list] = {}
+            for g in segs:
+                for gx, gy in ((g["x1"], g["y1"]), (g["x2"], g["y2"])):
+                    grid.setdefault(
+                        (int(math.floor(gx / cell)), int(math.floor(gy / cell))), []
+                    ).append(g)
+            tol = med * 2
+            added = 0
+            for s in pool:
+                mx, my = (s.x1 + s.x2) / 2, (s.y1 + s.y2) / 2
+                kx, ky = int(math.floor(mx / cell)), int(math.floor(my / cell))
+                best = float("inf")
+                for dx in (-1, 0, 1):
+                    for dy in (-1, 0, 1):
+                        for g in grid.get((kx + dx, ky + dy), ()):
+                            d, _ = span_builder._point_to_segment(
+                                mx, my, g["x1"], g["y1"], g["x2"], g["y2"]
+                            )
+                            if d < best:
+                                best = d
+                if best > tol:
+                    segs.append(
+                        {
+                            "x1": round(s.x1, 6), "y1": round(s.y1, 6),
+                            "x2": round(s.x2, 6), "y2": round(s.y2, 6),
+                        }
+                    )
+                    added += 1
+            if added:
+                print(f"[whole-cable] {added} segment(s) re-added past the chain walk on {layer}")
         if not segs:
             continue
         xs = [v for g in segs for v in (g["x1"], g["x2"])]
