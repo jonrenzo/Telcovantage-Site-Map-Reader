@@ -56,6 +56,9 @@ export default function Home() {
   const [mapTab, setMapTab] = useState<MapTab>("review");
   const [exporting, setExporting] = useState<ExportType | null>(null);
   const [showAsbuiltModal, setShowAsbuiltModal] = useState(false);
+  // Set once the node reaches AsBuilt IQ; the map uses it to pull teardown
+  // status back and repaint completed spans red.
+  const [asbuiltNodeId, setAsbuiltNodeId] = useState<number | null>(null);
 
   const [globalBoundary, setGlobalBoundary] = useState<BoundaryPoint[] | null>(
     null,
@@ -680,6 +683,7 @@ export default function Home() {
                 dxfPath={dxfPath}
                 ocrResults={results}
                 isActive={mapTab === "dxf"}
+                asbuiltNodeId={asbuiltNodeId}
                 onExportPdfRef={pdfExportRef}
                 onExportVerificationRef={verificationExportRef}
                 boundary={globalBoundary}
@@ -735,6 +739,7 @@ export default function Home() {
           equipmentShapes={getCache(dxfPath)?.shapes ?? []}
           dxfPath={dxfPath}
           onClose={() => setShowAsbuiltModal(false)}
+          onNodeImported={setAsbuiltNodeId}
         />
       )}
     </div>

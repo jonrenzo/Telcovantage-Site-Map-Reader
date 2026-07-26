@@ -18,6 +18,8 @@ import type {
 interface Props {
   cableSpans: CableSpanExport[];
   onClose: () => void;
+  /** Fired once the node exists in AsBuilt IQ, so the map can sync its status. */
+  onNodeImported?: (nodeDbId: number) => void;
   poleTags?: PoleTag[];
   equipmentShapes?: EquipmentShape[];
   dxfPath?: string;
@@ -250,6 +252,7 @@ function mergePoleCollections(
 export default function AsbuiltExportModal({
   cableSpans,
   onClose,
+  onNodeImported,
   poleTags = [],
   equipmentShapes = [],
   dxfPath,
@@ -1173,6 +1176,9 @@ export default function AsbuiltExportModal({
         setResult(json.data as AsbuiltExportResult);
         const nodeDbId = json.data?.data?.node?.id;
         if (nodeDbId) {
+          // The map needs this to pull teardown status back later — without it
+          // there is nothing to tie a lineman's report to a line on screen.
+          onNodeImported?.(nodeDbId);
           try {
             const verifyRes = await fetch(
               `/api/v1/asbuilt/node/${nodeDbId}`,

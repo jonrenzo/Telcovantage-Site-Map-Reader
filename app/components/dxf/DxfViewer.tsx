@@ -47,6 +47,71 @@ interface CableSpan {
   to_pole?: string;
   from_pole_id?: number;
   to_pole_id?: number;
+  /** Direction-free identity from the derivation, e.g. "POLE-0003::POLE-0004". */
+  span_key?: string;
+  from_pole_index?: string;
+  to_pole_index?: string;
+}
+
+/** The lifecycle twinbackend runs a span through as the lineman tears it down. */
+type TeardownStatus =
+  | "pending"
+  | "in_progress"
+  | "completed"
+  | "cancelled"
+  | "superseded";
+
+/**
+ * Teardown owns the line colour on the canvas and in the PDF alike.
+ *
+ * Recovery marking keeps its own palette for chips, but a span can be both
+ * Recovered and completed, and only one of them can own the stroke. Red means
+ * the lineman is done with it — which is what the field asked to see.
+ */
+function getTeardownStyle(status: TeardownStatus) {
+  switch (status) {
+    case "completed":
+      return {
+        marker: "rgba(220, 38, 38, 0.22)",
+        stroke: "rgba(220, 38, 38, 0.95)",
+        pole: {
+          fill: "rgba(220, 38, 38, 0.9)",
+          stroke: "#fee2e2",
+          text: "#7f1d1d",
+        },
+      };
+    case "in_progress":
+      return {
+        marker: "rgba(245, 158, 11, 0.22)",
+        stroke: "rgba(217, 119, 6, 0.95)",
+        pole: {
+          fill: "rgba(217, 119, 6, 0.9)",
+          stroke: "#fef3c7",
+          text: "#78350f",
+        },
+      };
+    case "cancelled":
+    case "superseded":
+      return {
+        marker: "rgba(148, 163, 184, 0.18)",
+        stroke: "rgba(100, 116, 139, 0.8)",
+        pole: {
+          fill: "rgba(100, 116, 139, 0.75)",
+          stroke: "#e2e8f0",
+          text: "#334155",
+        },
+      };
+    default:
+      return {
+        marker: "rgba(59, 130, 246, 0.16)",
+        stroke: "rgba(37, 99, 235, 0.9)",
+        pole: {
+          fill: "rgba(37, 99, 235, 0.85)",
+          stroke: "#dbeafe",
+          text: "#1e3a8a",
+        },
+      };
+  }
 }
 
 interface CableSpanExport {
@@ -79,6 +144,8 @@ interface Props {
   dxfPath: string;
   ocrResults: any[];
   isActive: boolean;
+  /** Set once the node exists in AsBuilt IQ; enables teardown status sync. */
+  asbuiltNodeId?: number | null;
   onExportPdfRef?: React.MutableRefObject<(() => void) | null>;
   onExportVerificationRef?: React.MutableRefObject<(() => void) | null>;
   boundary: BoundaryPoint[] | null;
@@ -1218,6 +1285,7 @@ export default function DxfViewer({
   dxfPath,
   ocrResults,
   isActive,
+  asbuiltNodeId,
   onExportPdfRef,
   onExportVerificationRef,
   boundary,
@@ -1266,6 +1334,22 @@ export default function DxfViewer({
   const hoveredPoleRef = useRef<number | null>(null);
   const selectedSpanRef = useRef<number | null>(null);
   const cableStatusRef = useRef<Record<number, CableRecoveryStatus>>({});
+  // Teardown state from twinbackend, keyed by span_key rather than the
+  // positional span_id — that number changes whenever spans are re-derived,
+  // which is how status colours used to land on the wrong line.
+  const teardownStatusRef = useRef<Record<string, TeardownStatus>>({});
+  const polePhaseRef = useRef<Record<number, TeardownStatus>>({});
+  const asbuiltNodeIdRef = useRef<number | null>(null);
+  const lastSyncAtRef = useRef<number>(0);
+  const [syncState, setSyncState] = useState<"idle" | "loading" | "error">(
+    "idle",
+  );
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [syncSummary, setSyncSummary] = useState<{
+    matched: number;
+    unmatched: number;
+    at: Date;
+  } | null>(null);
   const ocrMeterValuesRef = useRef<{ x: number; y: number; value: number }[]>(
     [],
   );
@@ -1930,6 +2014,45 @@ export default function DxfViewer({
           drawSolidSegments(ctx, span.segments);
         };
 
+        // Teardown status, straight from twinbackend. Drawn before the recovery
+        // pass so a manual recovery mark still shows on top when there is one,
+        // and it colours both end poles as well as the line — a pole turns red
+        // only once the backend says every span on it is done.
+        for (const span of cableSpansRef.current) {
+          const key = span.span_key;
+          if (!key) continue;
+          const status = teardownStatusRef.current[key];
+          if (!status || !isLayerVisible(span.layer)) continue;
+          if (
+            isMaskOn &&
+            currentBoundary &&
+            !isPointInPolygon(span.cx, span.cy, currentBoundary)
+          )
+            continue;
+
+          const style = getTeardownStyle(status);
+          const runs = span.cable_runs || 1;
+
+          ctx.save();
+          ctx.lineCap = "round";
+          ctx.lineJoin = "round";
+          ctx.strokeStyle = style.marker;
+          ctx.lineWidth = (9.5 + (runs - 1) * 12) / vp.scale;
+          drawSpanPath(span);
+          ctx.stroke();
+          ctx.strokeStyle = style.stroke;
+          ctx.lineWidth = 2.2 / vp.scale;
+          drawSpanPath(span);
+          ctx.stroke();
+          ctx.restore();
+
+          for (const poleId of [span.from_pole_id, span.to_pole_id]) {
+            if (poleId == null) continue;
+            const poleStatus = polePhaseRef.current[poleId] ?? status;
+            highlightedPoles.set(poleId, getTeardownStyle(poleStatus).pole);
+          }
+        }
+
         // Render statuses
         for (const [idStr, status] of statusEntries) {
           const spanId = Number(idStr);
@@ -2568,6 +2691,106 @@ export default function DxfViewer({
   useEffect(() => {
     autoConnectPolesRef.current = autoConnectPoles;
   }, [autoConnectPoles]);
+
+  /**
+   * Pull teardown state for a node that has already been uploaded.
+   *
+   * Spans are matched on the unordered pole-index pair, which is byte-equal to
+   * what the reader itself uploaded, so a span reported the other way round
+   * still finds its line. Anything that fails to match is counted and shown
+   * rather than quietly left uncoloured.
+   */
+  const syncTeardownStatus = useCallback(async (nodeDbId?: number) => {
+    const nodeId = nodeDbId ?? asbuiltNodeIdRef.current;
+    if (nodeId == null) return { matched: 0, unmatched: 0 };
+    asbuiltNodeIdRef.current = nodeId;
+
+    setSyncState("loading");
+    try {
+      const res = await fetch(`/api/v1/asbuilt/node/${nodeId}`);
+      if (!res.ok) throw new Error(`Status sync failed (${res.status})`);
+      const body = await res.json();
+      const node = body?.data ?? body;
+
+      const byKey = new Map<string, CableSpan>();
+      for (const span of cableSpansRef.current) {
+        if (span.span_key) byKey.set(span.span_key, span);
+      }
+
+      const spanStatuses: Record<string, TeardownStatus> = {};
+      let matched = 0;
+      let unmatched = 0;
+      for (const remote of node?.spans ?? []) {
+        const a = remote.from_pole_index;
+        const b = remote.to_pole_index;
+        if (!a || !b) {
+          unmatched += 1;
+          continue;
+        }
+        const key = a <= b ? `${a}::${b}` : `${b}::${a}`;
+        if (!byKey.has(key)) {
+          unmatched += 1;
+          continue;
+        }
+        spanStatuses[key] = (remote.status ?? "pending") as TeardownStatus;
+        matched += 1;
+      }
+
+      // Poles carry their own phase: cleared only once the backend has seen
+      // every span on them finished, so a half-torn pole stays amber.
+      const poleStatuses: Record<number, TeardownStatus> = {};
+      const localByIndex = new Map<string, number>();
+      for (const span of cableSpansRef.current) {
+        if (span.from_pole_index && span.from_pole_id != null)
+          localByIndex.set(span.from_pole_index, span.from_pole_id);
+        if (span.to_pole_index && span.to_pole_id != null)
+          localByIndex.set(span.to_pole_index, span.to_pole_id);
+      }
+      for (const remote of node?.poles ?? []) {
+        const poleId = localByIndex.get(remote.pole_index);
+        if (poleId == null) continue;
+        poleStatuses[poleId] =
+          remote.status === "completed"
+            ? "completed"
+            : remote.status === "in_progress"
+              ? "in_progress"
+              : "pending";
+      }
+
+      teardownStatusRef.current = spanStatuses;
+      polePhaseRef.current = poleStatuses;
+      setSyncState("idle");
+      setSyncSummary({ matched, unmatched, at: new Date() });
+      redraw();
+      return { matched, unmatched };
+    } catch (err) {
+      setSyncState("error");
+      setSyncError(err instanceof Error ? err.message : String(err));
+      return { matched: 0, unmatched: 0 };
+    }
+  }, [redraw]);
+
+  useEffect(() => {
+    if (asbuiltNodeId == null) return;
+    asbuiltNodeIdRef.current = asbuiltNodeId;
+    lastSyncAtRef.current = Date.now();
+    void syncTeardownStatus(asbuiltNodeId);
+  }, [asbuiltNodeId, syncTeardownStatus]);
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      if (asbuiltNodeIdRef.current == null) return;
+      const since = Date.now() - lastSyncAtRef.current;
+      // Coming back to the tab is a good moment to refresh, but not a reason to
+      // hammer the backend when the user is flicking between windows.
+      if (since < 30_000) return;
+      lastSyncAtRef.current = Date.now();
+      void syncTeardownStatus();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [syncTeardownStatus]);
 
   const toggleActives = async () => {
     if (showActives) {
@@ -4909,6 +5132,17 @@ export default function DxfViewer({
           visibleCount={visibleCount}
           totalCount={layers.length}
           onExportPdf={exportToPdf}
+          onSyncStatus={
+            asbuiltNodeId != null ? () => void syncTeardownStatus() : undefined
+          }
+          syncState={syncState}
+          syncLabel={
+            syncError
+              ? syncError
+              : syncSummary
+                ? `${syncSummary.matched} span(s) matched, ${syncSummary.unmatched} unmatched — ${syncSummary.at.toLocaleTimeString()}`
+                : undefined
+          }
         />
       )}
 
