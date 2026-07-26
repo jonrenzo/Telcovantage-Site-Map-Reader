@@ -943,7 +943,7 @@ def img_to_b64(img_np):
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def find_cable_layer_names(layers: List[str]) -> List[str]:
+def find_cable_layer_names(layers: List[str], include_drops: bool = False) -> List[str]:
     """Layers holding the strand cable that the linemen will actually remove.
 
     Not everything named "Cable" is cable: Cable-840 marks power-supply
@@ -951,13 +951,21 @@ def find_cable_layer_names(layers: List[str]) -> List[str]:
     and treating it as strand invented spans where no cable hangs. Excluded
     by default; override per deployment with CABLE_LAYER_EXCLUDE (comma-
     separated substrings, lowercase).
+
+    SDU (subscriber drops) is teardown plant too, and every ---- of it shows
+    in the whole-cable preview — but drops hang OFF the strand toward houses,
+    they do not run pole to pole. Fed into the span graph they lace the
+    streets together mid-block and the derivation explodes (5,752 "spans" on
+    LP1709), so only the preview asks for them.
     """
     if not layers:
         return []
     matched = []
 
-    # Add any substrings that identify your cable layers here (lowercase)
+    # Add any substrings that identify your cable layers here (lowercase).
     keywords = ["cable", "tx56"]
+    if include_drops:
+        keywords = keywords + ["sdu"]
     exclude = [
         k.strip().lower()
         for k in os.environ.get("CABLE_LAYER_EXCLUDE", "840").split(",")
@@ -1118,13 +1126,13 @@ def derive_node_spans(
     has no cable layer at all.
     """
     doc = ezdxf.readfile(dxf_path)
-    cable_layers = find_cable_layer_names(list_layers(dxf_path))
+    # Strand only — drops stay out of the span graph (see find_cable_layer_names).
+    cable_layers = find_cable_layer_names(list_layers(dxf_path), include_drops=False)
     if not cable_layers:
         return None, []
 
     segments_by_layer = {
-        layer: extract_stroke_segments(doc, layer, include_circles=False)
-        for layer in cable_layers
+        layer: extract_dash_segments(doc, layer) for layer in cable_layers
     }
     # Streets drawn only on the *STRAND layers must form spans too, or the
     # poles along them stay unteardownable.
@@ -1151,6 +1159,69 @@ def cached_span_result(dxf_path: str) -> Optional[span_builder.SpanBuildResult]:
     if SPAN_STATE.get("dxf_path") == dxf_path:
         return SPAN_STATE.get("result")
     return None
+
+
+def extract_dash_segments(doc, layer_name: str) -> list:
+    """The dashed cable linework of a layer, judged per drawn entity.
+
+    Every ---- matters, and only the ----: a dash is drawn as its own short,
+    straight polyline, while the curls beside poles, the text glyphs and the
+    solid guy lines are entities of a different shape. Classifying whole
+    entities is exact where welding tessellated segments back together was
+    guesswork — this is what ended the noise-rule whack-a-mole.
+
+    Falls back to the full extraction when a layer is not drafted as dashes
+    (some drawings draw cable as continuous polylines), so span derivation
+    still works on solid-drawn cable.
+    """
+    candidates = []  # (points, walk_len)
+    other_len = 0.0
+    for e in doc.modelspace():
+        if getattr(e.dxf, "layer", None) != layer_name:
+            continue
+        t = e.dxftype()
+        if t == "LINE":
+            pts = [
+                (float(e.dxf.start.x), float(e.dxf.start.y)),
+                (float(e.dxf.end.x), float(e.dxf.end.y)),
+            ]
+        elif t == "LWPOLYLINE":
+            pts = [(float(x), float(y)) for x, y, *_ in e.get_points("xy")]
+        else:
+            continue
+        if len(pts) < 2:
+            continue
+        walk = sum(math.hypot(b[0] - a[0], b[1] - a[1]) for a, b in zip(pts, pts[1:]))
+        if walk <= 1e-9:
+            continue
+        chord = math.hypot(pts[-1][0] - pts[0][0], pts[-1][1] - pts[0][1])
+        if len(pts) <= 5 and chord / walk > 0.9:
+            candidates.append((pts, walk))
+        else:
+            other_len += walk
+
+    if not candidates:
+        return extract_stroke_segments(doc, layer_name, include_circles=False)
+
+    lens = sorted(w for _, w in candidates)
+    med = lens[len(lens) // 2]
+    dashes = [
+        (pts, w) for pts, w in candidates if med * 0.3 <= w <= med * 3.0
+    ]
+    kept_len = sum(w for _, w in dashes)
+    total_len = kept_len + other_len + sum(
+        w for _, w in candidates if not (med * 0.3 <= w <= med * 3.0)
+    )
+    # A layer that is mostly NOT dashes was not drafted as dashed cable —
+    # serve it whole rather than shredding it.
+    if total_len > 0 and kept_len < 0.4 * total_len:
+        return extract_stroke_segments(doc, layer_name, include_circles=False)
+
+    segs = []
+    for pts, _ in dashes:
+        for a, b in zip(pts, pts[1:]):
+            segs.append(Seg(a[0], a[1], b[0], b[1]))
+    return segs
 
 
 def _supplemental_strand_segments(doc, dxf_path: str, base_pool: list) -> list:
@@ -1591,12 +1662,13 @@ def _whole_cable_spans(dxf_path: str) -> Tuple[List[Dict[str, Any]], List[str]]:
     these with real pole-to-pole spans.
     """
     doc = ezdxf.readfile(dxf_path)
-    cable_layers = find_cable_layer_names(list_layers(dxf_path))
+    # Every ---- shows here, drops included — the preview is the inventory eye.
+    cable_layers = find_cable_layer_names(list_layers(dxf_path), include_drops=True)
     spans: List[Dict[str, Any]] = []
     base_pool: list = []
     per_layer: Dict[str, list] = {}
     for layer in cable_layers:
-        raw = extract_stroke_segments(doc, layer, include_circles=False)
+        raw = extract_dash_segments(doc, layer)
         pool = span_builder.prepare_segments({layer: raw}, [])
         if pool:
             per_layer[layer] = pool
