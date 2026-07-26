@@ -119,7 +119,7 @@ def cmd_eval(args):
     with open(csv_path, encoding="utf-8") as f:
         labeled = [r for r in csv.DictReader(f) if r["actual"].strip()]
     if not labeled:
-        print("[eval] No labelled rows — fill the 'actual' column first.")
+        print("[eval] No labelled rows - fill the 'actual' column first.")
         sys.exit(1)
 
     pairs = _detect_and_read(args.dxf)
@@ -144,7 +144,7 @@ def cmd_eval(args):
             continue
         if best is None or best_d > 1.0:
             lost += 1
-            print(f"  ({cx:.2f},{cy:.2f})  actual={actual:>10s}  LOST — detector no longer finds this pole")
+            print(f"  ({cx:.2f},{cy:.2f})  actual={actual:>10s}  LOST - detector no longer finds this pole")
             continue
 
         lab, result = best

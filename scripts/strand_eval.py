@@ -140,7 +140,7 @@ def cmd_eval(args):
 
     labeled = [r for r in rows if r["actual"].strip()]
     if not labeled:
-        print("[eval] No labeled rows found — fill the 'actual' column first.")
+        print("[eval] No labeled rows found - fill the 'actual' column first.")
         sys.exit(1)
 
     print(f"[eval] Evaluating {len(labeled)} labeled crops...")
@@ -190,7 +190,7 @@ def cmd_eval(args):
         elif did in pred_by_id:
             entry = pred_by_id[did]
         else:
-            print(f"  [warn] digit_id={did} not in DXF candidates — skipping")
+            print(f"  [warn] digit_id={did} not in DXF candidates - skipping")
             continue
 
         pred, conf = entry
@@ -205,7 +205,7 @@ def cmd_eval(args):
 
         print(
             f"  id={did:>4}  actual={actual:>3}  "
-            f"pred={pred:>3}  conf={conf:.2f}  {'✓' if ok else '✗'}"
+            f"pred={pred:>3}  conf={conf:.2f}  {'ok' if ok else 'X'}"
         )
 
     n = len(labeled)

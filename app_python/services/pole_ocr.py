@@ -318,7 +318,7 @@ def _fix_pole_id(text: str) -> str:
     if text[0] in _PREFIX_SUBS:
         candidate = _PREFIX_SUBS[text[0]] + text[1:]
         if _is_valid(candidate):
-            print(f"[pole_ocr] prefix-fix: {text!r} → {candidate!r}")
+            print(f"[pole_ocr] prefix-fix: {text!r} -> {candidate!r}")
             return candidate
 
     # Try fixing each remaining character individually
@@ -334,7 +334,7 @@ def _fix_pole_id(text: str) -> str:
         if ch in mid_subs:
             candidate = text[:i] + mid_subs[ch] + text[i + 1 :]
             if _is_valid(candidate):
-                print(f"[pole_ocr] mid-fix pos {i}: {text!r} → {candidate!r}")
+                print(f"[pole_ocr] mid-fix pos {i}: {text!r} -> {candidate!r}")
                 return candidate
 
     return text
@@ -471,7 +471,7 @@ def ocr_pole(
         # ── Pass 2: full 8-angle sweep ────────────────────────────────────────
         print(
             f"[pole_ocr] pass1 not confident (conf={p1_conf:.3f}, valid={p1_valid})"
-            f" — running rotation sweep"
+            f" - running rotation sweep"
         )
         all_angles = _ROTATIONS  # [0, 45, 90, 135, 180, 225, 270, 315]
         all_raw = _run_angles(img_rgb, all_angles, max_new_tokens)
