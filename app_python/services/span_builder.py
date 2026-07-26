@@ -1412,6 +1412,10 @@ PIECE_AFFINITY = 1.6
 #: not a span between two poles.
 MIN_SPAN_SPACING_RATIO = 0.25
 
+#: Two runs whose ends are this close (as a multiple of median pole spacing) are
+#: the same cable continuing across a break in the linework.
+RUN_LINK_RATIO = 0.75
+
 
 def build_chains(
     fragments: Sequence[_Fragment], limit: float, weld_tol: float
@@ -1578,31 +1582,12 @@ def build_spans_from_pieces(
         )
         return [], []
 
-    # Pair up: along each run, poles in path order become adjacent spans.
-    raw: Dict[Tuple[Any, Any], Dict[str, Any]] = {}
-    skipped_stubs = 0
-    for pi, hits in touches.items():
-        path = paths[pi]
-        ordered = _dedupe_by_pole(sorted(hits, key=lambda h: (h[0], h[2])))
-        for i in range(len(ordered) - 1):
-            (t0, pa, _), (t1, pb, _) = ordered[i], ordered[i + 1]
-            if pa.get("pole_id") == pb.get("pole_id"):
-                continue
-            # Two poles projecting onto the same short stub are not a span —
-            # they are one location the drawing labelled twice, or a pole whose
-            # label happens to sit near a scrap of another cable. Uploading
-            # these would put work items in the backend that no lineman can
-            # ever tear down.
-            if pole_spacing > 0 and (t1 - t0) < pole_spacing * MIN_SPAN_SPACING_RATIO:
-                skipped_stubs += 1
-                continue
-            key = _pair_key(pa, pb)
-            entry = raw.setdefault(
-                key, {"a": pa, "b": pb, "length": 0.0, "segments": [], "pieces": 0}
-            )
-            entry["length"] += t1 - t0
-            entry["segments"].extend(slice_path(path, t0, t1))
-            entry["pieces"] += 1
+    # Pair up. Two poles are neighbours when cable runs between them without
+    # passing a third — which routinely crosses a break in the linework, so
+    # pairing has to see past the individual runs.
+    raw, skipped_stubs = _pair_neighbouring_poles(
+        paths, touches, pole_spacing, med_seg
+    )
 
     if not raw:
         errors.append(
@@ -1700,6 +1685,112 @@ def build_spans_from_pieces(
         )
 
     return spans, sorted(positions.values(), key=lambda p: p.pole_index or "")
+
+
+def _pair_neighbouring_poles(
+    paths: Sequence[CablePath],
+    touches: Dict[int, List[Tuple[float, Dict[str, Any], float]]],
+    pole_spacing: float,
+    med_seg: float,
+) -> Tuple[Dict[Tuple[Any, Any], Dict[str, Any]], int]:
+    """Find every pair of poles with cable between them and nothing in between.
+
+    Pairing inside one run is not enough: the strand is drafted in pieces that
+    break at the poles, so a physical span very often straddles a break, and a
+    pole can even sit alone on a piece of its own. Modelling the runs and the
+    joins between them as one graph, then contracting away everything that is
+    not a pole, finds those spans without pretending the drawing is continuous.
+    """
+    link_tol = pole_spacing * RUN_LINK_RATIO if pole_spacing > 0 else med_seg * 10
+
+    # Nodes are poles and run ends; edges are stretches of cable, plus the short
+    # hops between run ends that the drafter left open.
+    adj: Dict[Any, List[Tuple[Any, float, Optional[Tuple[int, float, float]]]]] = {}
+
+    def link(u, v, length, geom=None):
+        adj.setdefault(u, []).append((v, length, geom))
+        adj.setdefault(v, []).append((u, length, geom))
+
+    for ci, path in enumerate(paths):
+        hits = _dedupe_by_pole(sorted(touches.get(ci, []), key=lambda h: (h[0], h[2])))
+        chain: List[Tuple[Any, float]] = [(("E", ci, 0), 0.0)]
+        chain += [(("P", p.get("pole_id")), t) for t, p, _ in hits]
+        chain.append((("E", ci, 1), path.total_length))
+        for (u, t0), (v, t1) in zip(chain, chain[1:]):
+            link(u, v, max(0.0, t1 - t0), (ci, t0, t1))
+
+    ends = [
+        (("E", ci, 0), paths[ci].points[0]) for ci in range(len(paths))
+    ] + [(("E", ci, 1), paths[ci].points[-1]) for ci in range(len(paths))]
+    for i, (u, pu) in enumerate(ends):
+        for v, pv in ends[i + 1 :]:
+            if u[1] == v[1]:
+                continue
+            d = _dist(pu, pv)
+            if d <= link_tol:
+                link(u, v, d)
+
+    # Contract: walk out of each pole through run ends only, stopping at the
+    # next pole. Nearest-first so a pole pairs with its true neighbour rather
+    # than something further along the same cable.
+    raw: Dict[Tuple[Any, Any], Dict[str, Any]] = {}
+    skipped = 0
+    min_span = pole_spacing * MIN_SPAN_SPACING_RATIO if pole_spacing > 0 else 0.0
+    pole_of = {
+        p.get("pole_id"): p for hits in touches.values() for _, p, _ in hits
+    }
+
+    for node in list(adj):
+        if node[0] != "P":
+            continue
+        start = node[1]
+        seen = {node}
+        queue: List[Tuple[float, Any, List[Tuple[int, float, float]]]] = [
+            (0.0, node, [])
+        ]
+        while queue:
+            queue.sort(key=lambda q: q[0])
+            dist, cur, geom = queue.pop(0)
+            for nxt, length, edge_geom in adj.get(cur, ()):
+                if nxt in seen:
+                    continue
+                path_geom = geom + ([edge_geom] if edge_geom else [])
+                if nxt[0] == "P":
+                    other = nxt[1]
+                    if other == start:
+                        continue
+                    total = dist + length
+                    if total < min_span:
+                        skipped += 1
+                        seen.add(nxt)
+                        continue
+                    pa, pb = pole_of.get(start), pole_of.get(other)
+                    if pa is None or pb is None:
+                        seen.add(nxt)
+                        continue
+                    key = _pair_key(pa, pb)
+                    prev = raw.get(key)
+                    # The same pair can be reached more than once; the shortest
+                    # route is the span, the rest are ways round.
+                    if prev is None or total < prev["length"]:
+                        raw[key] = {
+                            "a": pa,
+                            "b": pb,
+                            "length": total,
+                            "geom": path_geom,
+                            "pieces": len(path_geom),
+                        }
+                    seen.add(nxt)
+                    continue
+                seen.add(nxt)
+                queue.append((dist + length, nxt, path_geom))
+
+    for entry in raw.values():
+        segs: List[Dict[str, Any]] = []
+        for ci, t0, t1 in entry.pop("geom"):
+            segs.extend(slice_path(paths[ci], t0, t1))
+        entry["segments"] = segs
+    return raw, skipped
 
 
 def _pair_key(a: Dict[str, Any], b: Dict[str, Any]) -> Tuple[Any, Any]:
