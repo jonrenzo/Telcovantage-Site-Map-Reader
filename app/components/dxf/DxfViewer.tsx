@@ -1366,6 +1366,7 @@ export default function DxfViewer({
     (options?: { preserveExistingAssignments?: boolean }) => void
   >(() => {});
   const deriveSpansRef = useRef<() => Promise<void>>(async () => {});
+  const wholeReloadedRef = useRef(false);
   // Operator's run count, keyed by span_key so it outlives re-derivation.
   // Detection finds the obvious parallel cables; this is the last word when it
   // misses one, and it is an attribute of the span, not a change to topology.
@@ -3021,22 +3022,59 @@ export default function DxfViewer({
     [notifySpansChange, redraw],
   );
 
-  // Poles just became available — derive the spans that follow from them.
+  // The pole step finished in this session — cut the strand at the poles.
+  // Until then the operator works with the whole cable as one span; poles
+  // lingering from an earlier session's scan must not pre-cut it, which is
+  // why this waits for poleScanStatus rather than for poles to merely exist.
   useEffect(() => {
+    if (poleScanStatus !== "done") return;
     if (poles.length === 0) return;
     if (hasAutoConnectedRef.current) return;
-    // Spans without a span_key predate the derivation rework: a restored
-    // session serving them cannot be hovered where the old clustering went
-    // wrong, and shows since-renamed pole labels. Stale is reason enough to
-    // re-derive even when a fresh pole scan hasn't run.
-    const stale =
-      cableSpansRef.current.length === 0 ||
-      cableSpansRef.current.some((s) => !s.span_key);
-    if (!stale && poleScanStatus !== "done") return;
     hasAutoConnectedRef.current = true;
     const id = setTimeout(() => void deriveSpans(), 50);
     return () => clearTimeout(id);
   }, [poleScanStatus, poles.length, deriveSpans]);
+
+  // Restored sessions may carry spans from the pre-rework clustering (no
+  // span_key, not whole-cable placeholders). Those cannot be trusted or even
+  // hovered reliably — swap them for the whole strand until the operator runs
+  // the pole step again.
+  useEffect(() => {
+    if (loading) return;
+    const spans = cableSpansRef.current;
+    if (spans.length === 0) return;
+    const preRework = spans.some(
+      (s: any) => !s.span_key && !s.whole_cable,
+    );
+    if (!preRework || wholeReloadedRef.current) return;
+    wholeReloadedRef.current = true;
+    void (async () => {
+      try {
+        const res = await fetch(
+          `/api/cable_spans?whole=true&dxf_path=${encodeURIComponent(dxfPath)}`,
+        );
+        const data = await res.json();
+        if (!data?.spans?.length) return;
+        const whole: CableSpan[] = data.spans.map((s: any) => ({
+          ...s,
+          source_span_id: s.span_id,
+          cable_runs: s.cable_runs || 1,
+          meterValue: s.meter_value ?? null,
+        }));
+        cableSpansRef.current = whole;
+        setCableSpans(whole);
+        notifySpansChange(whole);
+        if (data.cable_layers?.length) {
+          cableLayersRef.current = data.cable_layers;
+          setCableLayerNames(data.cable_layers);
+        }
+        setCableDataVersion((v) => v + 1);
+        redraw();
+      } catch {
+        // keep whatever we had — worst case the operator hits Re-derive
+      }
+    })();
+  }, [loading, dxfPath, notifySpansChange, redraw]);
 
   const togglePoles = () => {
     const next = !showPoles;
@@ -3947,6 +3985,7 @@ export default function DxfViewer({
     setCableLayerNames([]);
 
     hasAutoConnectedRef.current = false;
+    wholeReloadedRef.current = false;
 
     // Restore mode: use pre-loaded segment and cable span data from Supabase
     if (initialSegments && Object.keys(initialSegments).length > 0) {
@@ -3991,7 +4030,11 @@ export default function DxfViewer({
 
     Promise.all([
       fetch("/api/dxf_segments").then((r) => r.json()),
-      fetch("/api/cable_spans").then((r) => r.json()),
+      // Whole strand until the operator runs the pole step in THIS session —
+      // an earlier scan's poles lingering in server state must not pre-cut it.
+      fetch(
+        `/api/cable_spans?whole=true&dxf_path=${encodeURIComponent(dxfPath)}`,
+      ).then((r) => r.json()),
     ])
       .then(([segData, cableData]) => {
         if (segData.error) {

@@ -3980,6 +3980,22 @@ def api_cable_spans():
     if not dxf_path:
         return jsonify({"error": "No DXF loaded"}), 400
     try:
+        # ?whole=true: the operator has not run the pole step in this session,
+        # so serve the strand undivided regardless of what any earlier scan
+        # left in POLE_STATE.
+        if request.args.get("whole", "").lower() == "true":
+            spans, cable_layers = _whole_cable_spans(dxf_path)
+            return jsonify(
+                {
+                    "cable_layers": cable_layers,
+                    "count": len(spans),
+                    "spans": spans,
+                    "poles": [],
+                    "warnings": [],
+                    "errors": [],
+                    "status": "awaiting_poles",
+                }
+            )
         return jsonify(_span_response(dxf_path))
     except Exception as e:
         import traceback
