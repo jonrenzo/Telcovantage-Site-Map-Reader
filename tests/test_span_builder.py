@@ -439,3 +439,33 @@ def test_separate_cable_runs_each_produce_their_own_spans():
 
     assert result.ok, [e.to_dict() for e in result.errors]
     assert len(result.spans) == 2
+
+
+def test_parallel_cable_uploads_as_two_runs_not_duplicate_spans():
+    """Multi-run cable is drawn as a second line beside the first.
+
+    Left alone it attracts poles of its own and doubles every span; it is also
+    the only source of number_of_runs now that the manual pairing tool is gone.
+    """
+    # Stroke length ~8% of a span and the two cables ~2 strokes apart, matching
+    # the proportions measured on the real drawings.
+    segments = line(0, 0, 100, 0, pieces=50) + line(0, 4, 100, 4, pieces=50)
+    poles = [pole(i + 1, f"P{i + 1}", i * 25, -3) for i in range(5)]
+
+    result = sb.build_node_spans({"cable": segments}, poles)
+
+    assert result.ok, [e.to_dict() for e in result.errors]
+    assert len(result.spans) == 4
+    assert "parallel_runs" in codes(result.warnings)
+    assert all(s.cable_runs == 2 for s in result.spans), [
+        s.cable_runs for s in result.spans
+    ]
+
+
+def test_a_single_cable_reports_one_run():
+    segments = line(0, 0, 100, 0, pieces=20)
+    poles = [pole(i + 1, f"P{i + 1}", i * 25, 2) for i in range(5)]
+
+    result = sb.build_node_spans({"cable": segments}, poles)
+
+    assert all(s.cable_runs == 1 for s in result.spans)

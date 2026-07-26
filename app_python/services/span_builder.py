@@ -1395,6 +1395,10 @@ def _distance_to_span(
 #: the pole count — the drawing is already broken at the poles.
 CLUSTER_TOL_FACTOR = 1.0
 
+#: The stroke length may not stand in for "same piece" past this fraction of a
+#: span, or a coarsely drafted drawing would weld a parallel cable to its twin.
+CLUSTER_TOL_SPACING_CAP = 0.1
+
 #: A pole this far off a piece of cable (as a multiple of median pole spacing)
 #: is not one of that piece's endpoints. Only used when the offset distribution
 #: is degenerate; normally the radius is measured from the drawing.
@@ -1418,7 +1422,10 @@ RUN_LINK_RATIO = 0.75
 
 
 def build_chains(
-    fragments: Sequence[_Fragment], limit: float, weld_tol: float
+    fragments: Sequence[_Fragment],
+    limit: float,
+    weld_tol: float,
+    parallel_tol: float = 0.0,
 ) -> List[CablePath]:
     """Join fragments end to end into runs — as many as the drawing contains.
 
@@ -1434,6 +1441,7 @@ def build_chains(
         seed = min(remaining.values(), key=lambda f: (-f.length, f.start, f.end))
         chain = list(seed.points)
         del remaining[seed.index]
+        deferred: Dict[int, _Fragment] = {}
 
         while remaining:
             head, tail = chain[0], chain[-1]
@@ -1464,12 +1472,27 @@ def build_chains(
             if best is None or best[0] > limit:
                 break
             gap, idx, at_end, oriented = best
+            # A cable drawn alongside this one comes back over ground the run
+            # already covers. Taking it would fold the two into one zig-zag with
+            # twice the length, and lose the second run entirely.
+            if parallel_tol > 0 and _doubles_back(
+                remaining[idx],
+                CablePath(points=chain, cum=_cumulative(chain)),
+                parallel_tol,
+                limit,
+            ):
+                deferred[idx] = remaining.pop(idx)
+                continue
             del remaining[idx]
             welded = gap <= weld_tol
             if at_end:
                 chain.extend(oriented.points[1:] if welded else oriented.points)
             else:
                 chain = list(oriented.points[:-1] if welded else oriented.points) + chain
+
+        # Deferred fragments are free again — they form their own run, which is
+        # exactly what a second cable alongside this one should become.
+        remaining.update(deferred)
 
         # Canonical direction so walk order does not depend on the seed's.
         if (chain[-1][0], chain[-1][1]) < (chain[0][0], chain[0][1]):
@@ -1478,6 +1501,53 @@ def build_chains(
 
     chains.sort(key=lambda c: (-c.total_length, c.points[0]))
     return chains
+
+
+def detect_parallel_runs(
+    paths: Sequence[CablePath], tol: float
+) -> Tuple[set, Dict[int, List[Tuple[float, float, int]]]]:
+    """Find runs that are a second cable alongside another, not a route of their own.
+
+    Multi-run cable is drawn as parallel lines. Left alone they attract poles of
+    their own and produce a duplicate span for every real one — and they are
+    also the only remaining source of ``number_of_runs`` now that the manual
+    pairing tool is gone. Returns the runs to ignore, and per surviving run the
+    stretches covered by extra cable.
+    """
+    order = sorted(range(len(paths)), key=lambda i: -paths[i].total_length)
+    duplicate: set = set()
+    covers: Dict[int, List[Tuple[float, float]]] = {}
+
+    for idx, i in enumerate(order):
+        if i in duplicate:
+            continue
+        primary = paths[i]
+        for j in order[idx + 1 :]:
+            if j in duplicate:
+                continue
+            other = paths[j]
+            if other.total_length <= 0:
+                continue
+            ts: List[float] = []
+            alongside = True
+            for k in range(PARALLEL_SAMPLES):
+                p = _point_at_length(
+                    other.points, other.total_length * k / (PARALLEL_SAMPLES - 1)
+                )
+                t, d = project_point_onto_path(p[0], p[1], primary)
+                if d > tol:
+                    alongside = False
+                    break
+                ts.append(t)
+            # Spread along the primary as well as close to it — a run that
+            # projects onto a single point is a stub meeting it end-on.
+            if not alongside or max(ts) - min(ts) < 0.5 * other.total_length:
+                continue
+            duplicate.add(j)
+            covers.setdefault(i, []).append((min(ts), max(ts)))
+
+    runs = {i: _merge_run_intervals(v, 0.0) for i, v in covers.items()}
+    return duplicate, runs
 
 
 def build_spans_from_pieces(
@@ -1502,22 +1572,40 @@ def build_spans_from_pieces(
     errors = errors if errors is not None else []
 
     med_seg = _median([s.length() for s in segments])
-    fragments = _build_fragments(segments, max(med_seg * CLUSTER_TOL_FACTOR, 1e-9))
+    pole_spacing = _median_pole_spacing(poles)
+    # One stroke length joins the dashes of a run without joining a cable drawn
+    # beside it — but only while strokes stay small next to a span. Capping
+    # against pole spacing keeps that true on coarsely drafted drawings.
+    cluster_tol = med_seg * CLUSTER_TOL_FACTOR
+    if pole_spacing > 0:
+        cluster_tol = min(cluster_tol, pole_spacing * CLUSTER_TOL_SPACING_CAP)
+    fragments = _build_fragments(segments, max(cluster_tol, 1e-9))
     if not fragments:
         errors.append(
             Note("no_fragments", "Cable linework could not be ordered into polylines.")
         )
         return [], []
-
-    pole_spacing = _median_pole_spacing(poles)
     # Join what is obviously the same cable continuing, without insisting the
     # whole drawing be one run. A pole alone on a short piece would otherwise
     # never pair with anything; joined into a run, it pairs with its neighbours.
+    parallel_tol = parallel_tolerance(pole_spacing, med_seg)
     paths = build_chains(
         fragments,
         _bridge_limit(fragments, med_seg, pole_spacing),
         max(med_seg * WELD_FACTOR, 1e-9),
+        parallel_tol,
     )
+
+    duplicate_runs, extra_runs = detect_parallel_runs(paths, parallel_tol)
+    if duplicate_runs:
+        warnings.append(
+            Note(
+                "parallel_runs",
+                f"{len(duplicate_runs)} stretch(es) of cable run alongside another — those spans "
+                "upload with more than one run rather than as duplicate spans.",
+                {"count": len(duplicate_runs)},
+            )
+        )
 
     # Every pole is projected onto every piece once; the results serve twice —
     # first to measure how far this drafter puts pole labels from the strand,
@@ -1527,6 +1615,8 @@ def build_spans_from_pieces(
     projections: List[Tuple[int, Dict[str, Any], float, float]] = []
     nearest: Dict[Any, float] = {}
     for pi, path in enumerate(paths):
+        if pi in duplicate_runs:
+            continue
         for p in poles:
             if p.get("cx") is None or p.get("cy") is None:
                 continue
@@ -1586,7 +1676,7 @@ def build_spans_from_pieces(
     # passing a third — which routinely crosses a break in the linework, so
     # pairing has to see past the individual runs.
     raw, skipped_stubs = _pair_neighbouring_poles(
-        paths, touches, pole_spacing, med_seg
+        paths, touches, pole_spacing, med_seg, duplicate_runs
     )
 
     if not raw:
@@ -1634,7 +1724,7 @@ def build_spans_from_pieces(
                 arc_length=entry["length"],
                 strand_length=entry["length"],
                 length_source="arc_length",
-                cable_runs=1,
+                cable_runs=_runs_over(entry.get("geom", ()), extra_runs),
                 segments=segs,
                 cx=(bbox[0] + bbox[2]) / 2.0,
                 cy=(bbox[1] + bbox[3]) / 2.0,
@@ -1692,6 +1782,7 @@ def _pair_neighbouring_poles(
     touches: Dict[int, List[Tuple[float, Dict[str, Any], float]]],
     pole_spacing: float,
     med_seg: float,
+    skip_runs: Optional[set] = None,
 ) -> Tuple[Dict[Tuple[Any, Any], Dict[str, Any]], int]:
     """Find every pair of poles with cable between them and nothing in between.
 
@@ -1702,6 +1793,8 @@ def _pair_neighbouring_poles(
     not a pole, finds those spans without pretending the drawing is continuous.
     """
     link_tol = pole_spacing * RUN_LINK_RATIO if pole_spacing > 0 else med_seg * 10
+    skip_runs = skip_runs or set()
+    live = [ci for ci in range(len(paths)) if ci not in skip_runs]
 
     # Nodes are poles and run ends; edges are stretches of cable, plus the short
     # hops between run ends that the drafter left open.
@@ -1711,7 +1804,8 @@ def _pair_neighbouring_poles(
         adj.setdefault(u, []).append((v, length, geom))
         adj.setdefault(v, []).append((u, length, geom))
 
-    for ci, path in enumerate(paths):
+    for ci in live:
+        path = paths[ci]
         hits = _dedupe_by_pole(sorted(touches.get(ci, []), key=lambda h: (h[0], h[2])))
         chain: List[Tuple[Any, float]] = [(("E", ci, 0), 0.0)]
         chain += [(("P", p.get("pole_id")), t) for t, p, _ in hits]
@@ -1719,9 +1813,9 @@ def _pair_neighbouring_poles(
         for (u, t0), (v, t1) in zip(chain, chain[1:]):
             link(u, v, max(0.0, t1 - t0), (ci, t0, t1))
 
-    ends = [
-        (("E", ci, 0), paths[ci].points[0]) for ci in range(len(paths))
-    ] + [(("E", ci, 1), paths[ci].points[-1]) for ci in range(len(paths))]
+    ends = [(("E", ci, 0), paths[ci].points[0]) for ci in live] + [
+        (("E", ci, 1), paths[ci].points[-1]) for ci in live
+    ]
     for i, (u, pu) in enumerate(ends):
         for v, pv in ends[i + 1 :]:
             if u[1] == v[1]:
@@ -1787,10 +1881,25 @@ def _pair_neighbouring_poles(
 
     for entry in raw.values():
         segs: List[Dict[str, Any]] = []
-        for ci, t0, t1 in entry.pop("geom"):
+        for ci, t0, t1 in entry["geom"]:
             segs.extend(slice_path(paths[ci], t0, t1))
         entry["segments"] = segs
     return raw, skipped
+
+
+def _runs_over(
+    geom: Sequence[Tuple[int, float, float]],
+    extra_runs: Dict[int, List[Tuple[float, float, int]]],
+) -> int:
+    """How many cables this span is carried on, from the parallel-run cover."""
+    extra = 0
+    for ci, t0, t1 in geom:
+        if t1 <= t0:
+            continue
+        for r0, r1, count in extra_runs.get(ci, ()):
+            if min(t1, r1) - max(t0, r0) > 0.5 * (t1 - t0):
+                extra = max(extra, count)
+    return 1 + extra
 
 
 def _pair_key(a: Dict[str, Any], b: Dict[str, Any]) -> Tuple[Any, Any]:
