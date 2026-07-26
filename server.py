@@ -1195,14 +1195,19 @@ def _supplemental_strand_segments(doc, dxf_path: str, base_pool: list) -> list:
 
     extra = []
     # Raw linework, not prepare_segments: the digit filter keys on the Cable
-    # layers' colour split and eats most of a STRAND layer. Text strokes are
-    # kept out by a length floor instead — dashes run ~1x the Cable median,
-    # digit strokes a fraction of it.
+    # layers' colour split and eats most of a STRAND layer. The field rule is
+    # that cable is the DASHED linework only, and in these drawings a dash is a
+    # short stroke near the Cable layers' median — so both tails are cut:
+    # below it, digit strokes; above it, the solid guy/anchor lines that share
+    # the layer and are not plant to tear down.
     min_len = med * 0.5
+    max_len = med * 2.5
     for layer in strand_layers:
         raw = extract_stroke_segments(doc, layer, include_circles=False)
         for s in raw:
-            if getattr(s, "is_hatch", False) or s.length() < min_len:
+            if getattr(s, "is_hatch", False):
+                continue
+            if not (min_len <= s.length() <= max_len):
                 continue
             mx, my = (s.x1 + s.x2) / 2, (s.y1 + s.y2) / 2
             if not near_base(mx, my):
