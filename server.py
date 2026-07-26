@@ -3069,7 +3069,9 @@ def _run_pdf_conversion(job_id: str, pdf_path: str, folder: str):
         p = Path(dxf_path_str)
         data = _read_index()
         # Remove any existing entry with same path
-        data["files"] = [f for f in data["files"] if f["path"] != dxf_path_str]
+        data["files"] = [
+            f for f in data["files"] if _index_key(f["path"]) != _index_key(dxf_path_str)
+        ]
         data["files"].append(
             {
                 "name": fname,
@@ -3103,18 +3105,49 @@ def _run_pdf_conversion(job_id: str, pdf_path: str, folder: str):
         print(f"[convert] Job {job_id} failed: {e}")
 
 
+def _index_key(path: str) -> str:
+    """One file, one key.
+
+    Paths reach the index from several places — direct upload, batch upload, PDF
+    conversion — and arrive in different shapes: backslashes or forward slashes,
+    relative to the working directory or fully qualified. Comparing the raw
+    strings let one drawing be recorded under two identities, which surfaced as
+    duplicate entries in the file list.
+    """
+    text = str(path or "").strip()
+    if not text:
+        return ""
+    try:
+        resolved = str(Path(text).resolve())
+    except (OSError, ValueError):
+        resolved = text
+    return resolved.replace("\\", "/").rstrip("/").casefold()
+
+
+def _dedupe_files(files: list) -> list:
+    """Last entry wins, so a re-upload replaces rather than accumulates."""
+    by_key: Dict[str, dict] = {}
+    for f in files:
+        by_key[_index_key(f.get("path", ""))] = f
+    return list(by_key.values())
+
+
 def _read_index() -> dict:
     UPLOADS_DIR.mkdir(exist_ok=True)
     if not INDEX_FILE.exists():
         return {"folders": [], "files": []}
     try:
-        return json.loads(INDEX_FILE.read_text(encoding="utf-8"))
+        data = json.loads(INDEX_FILE.read_text(encoding="utf-8"))
     except Exception:
         return {"folders": [], "files": []}
+    data["files"] = _dedupe_files(data.get("files", []))
+    data.setdefault("folders", [])
+    return data
 
 
 def _write_index(data: dict) -> None:
     UPLOADS_DIR.mkdir(exist_ok=True)
+    data["files"] = _dedupe_files(data.get("files", []))
     INDEX_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 
@@ -3171,7 +3204,9 @@ def api_files_delete():
         return jsonify({"error": "Invalid path"}), 400
     Path(path).unlink(missing_ok=True)
     data = _read_index()
-    data["files"] = [f for f in data["files"] if f["path"] != path]
+    data["files"] = [
+        f for f in data["files"] if _index_key(f["path"]) != _index_key(path)
+    ]
     _write_index(data)
     return jsonify({"ok": True})
 
@@ -3193,7 +3228,7 @@ def api_files_rename():
     old_path.rename(new_path)
     data = _read_index()
     for f in data["files"]:
-        if f["path"] == old_path_str:
+        if _index_key(f["path"]) == _index_key(old_path_str):
             f["path"] = str(new_path)
             f["name"] = new_name
             break
@@ -3248,7 +3283,9 @@ def api_upload():
         # DXF files are handled immediately
         p = Path(save_path)
         data = _read_index()
-        data["files"] = [f for f in data["files"] if f["path"] != save_path]
+        data["files"] = [
+            f for f in data["files"] if _index_key(f["path"]) != _index_key(save_path)
+        ]
         data["files"].append(
             {
                 "name": fname,
@@ -3493,7 +3530,11 @@ def api_upload_batch():
                 # DXF files - update index immediately
                 p = Path(save_path)
                 data = _read_index()
-                data["files"] = [f for f in data["files"] if f["path"] != save_path]
+                data["files"] = [
+                    f
+                    for f in data["files"]
+                    if _index_key(f["path"]) != _index_key(save_path)
+                ]
                 data["files"].append(
                     {
                         "name": fname,
