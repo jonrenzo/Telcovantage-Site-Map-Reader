@@ -1158,13 +1158,26 @@ def _whole_cable_spans(dxf_path: str) -> Tuple[List[Dict[str, Any]], List[str]]:
         pool = span_builder.prepare_segments({layer: raw}, [])
         if not pool:
             continue
-        segs = [
-            {
-                "x1": round(s.x1, 6), "y1": round(s.y1, 6),
-                "x2": round(s.x2, 6), "y2": round(s.y2, 6),
-            }
-            for s in pool
-        ]
+        # Trace the strand as continuous runs, not as the drawing's dashes.
+        # Drafting gaps and missing dashes made the overlay look broken into
+        # pieces; chaining bridges those holes so the trace follows the cable
+        # exactly, end to end.
+        med = span_builder._median([s.length() for s in pool])
+        weld = max(med * span_builder.WELD_FACTOR, 1e-9)
+        frags = span_builder._build_fragments(pool, max(med, 1e-9))
+        chains = span_builder.build_chains(frags, med * 12, weld)
+        segs = []
+        for chain in chains:
+            pts = chain.points
+            for a, b in zip(pts, pts[1:]):
+                segs.append(
+                    {
+                        "x1": round(a[0], 6), "y1": round(a[1], 6),
+                        "x2": round(b[0], 6), "y2": round(b[1], 6),
+                    }
+                )
+        if not segs:
+            continue
         xs = [v for g in segs for v in (g["x1"], g["x2"])]
         ys = [v for g in segs for v in (g["y1"], g["y2"])]
         bbox = [min(xs), min(ys), max(xs), max(ys)]
