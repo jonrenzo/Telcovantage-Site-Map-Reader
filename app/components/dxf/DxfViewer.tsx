@@ -3035,18 +3035,18 @@ export default function DxfViewer({
     return () => clearTimeout(id);
   }, [poleScanStatus, poles.length, deriveSpans]);
 
-  // Restored sessions may carry spans from the pre-rework clustering (no
-  // span_key, not whole-cable placeholders). Those cannot be trusted or even
-  // hovered reliably — swap them for the whole strand until the operator runs
-  // the pole step again.
+  // A restored session hands the viewer whatever spans it was saved with —
+  // pre-rework clusters or even valid derived spans from an earlier day. The
+  // operator's workflow decides, not the cache: until the pole step runs in
+  // THIS session, anything that is not the whole strand gets swapped for it.
   useEffect(() => {
     if (loading) return;
+    if (poleScanStatus === "done") return;
+    if (hasAutoConnectedRef.current) return;
     const spans = cableSpansRef.current;
     if (spans.length === 0) return;
-    const preRework = spans.some(
-      (s: any) => !s.span_key && !s.whole_cable,
-    );
-    if (!preRework || wholeReloadedRef.current) return;
+    const cut = spans.some((s: any) => !s.whole_cable);
+    if (!cut || wholeReloadedRef.current) return;
     wholeReloadedRef.current = true;
     void (async () => {
       try {
@@ -3074,7 +3074,7 @@ export default function DxfViewer({
         // keep whatever we had — worst case the operator hits Re-derive
       }
     })();
-  }, [loading, dxfPath, notifySpansChange, redraw]);
+  }, [loading, poleScanStatus, cableDataVersion, dxfPath, notifySpansChange, redraw]);
 
   const togglePoles = () => {
     const next = !showPoles;
