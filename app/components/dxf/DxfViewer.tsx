@@ -4611,6 +4611,26 @@ export default function DxfViewer({
 
     const imageData = offCanvas.toDataURL("image/png");
     const statuses = cableStatusRef.current;
+
+    // Teardown state from the backend — the map image above already carries
+    // these colours because renderScene draws them; the counts here make the
+    // header agree with the picture.
+    const teardownCounts = { completed: 0, in_progress: 0, pending: 0, other: 0 };
+    for (const span of cableSpansRef.current) {
+      const st = span.span_key
+        ? teardownStatusRef.current[span.span_key]
+        : undefined;
+      if (!st) continue;
+      if (st === "completed") teardownCounts.completed++;
+      else if (st === "in_progress") teardownCounts.in_progress++;
+      else if (st === "pending") teardownCounts.pending++;
+      else teardownCounts.other++;
+    }
+    const teardownTotal =
+      teardownCounts.completed +
+      teardownCounts.in_progress +
+      teardownCounts.pending +
+      teardownCounts.other;
     const layerName = cableLayersRef.current.length
       ? cableLayersRef.current.join(", ")
       : "—";
@@ -4749,12 +4769,27 @@ export default function DxfViewer({
       <span class="chip chip-slate">Total Strand: ${pdfTotalStrandLength.toFixed(2)} m</span>
       <span class="chip chip-slate">Total Actual: ${pdfTotalLength.toFixed(2)} m</span>
     </div>
+    ${
+      teardownTotal > 0
+        ? `<div class="summary">
+      <span class="chip chip-red">Torn down: ${teardownCounts.completed}/${teardownTotal} span(s)</span>
+      <span class="chip chip-yellow">In progress: ${teardownCounts.in_progress}</span>
+      <span class="chip chip-slate">Pending: ${teardownCounts.pending}</span>
+    </div>`
+        : ""
+    }
 
     <div class="legend-box">
       <strong style="color: #0f172a;">Drawing Legend:</strong>
       <div class="legend-item"><span class="legend-line" style="background: rgba(22, 163, 74, 0.95); box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.22);"></span> Recovered</div>
       <div class="legend-item"><span class="legend-line" style="background: rgba(217, 119, 6, 0.95); box-shadow: 0 0 0 4px rgba(250, 204, 21, 0.24);"></span> Partial</div>
       <div class="legend-item"><span class="legend-line" style="background: rgba(220, 38, 38, 0.95); box-shadow: 0 0 0 4px rgba(248, 113, 113, 0.22);"></span> Missing</div>
+      ${
+        teardownTotal > 0
+          ? `<div class="legend-item"><span class="legend-line" style="background: rgba(220, 38, 38, 0.95);"></span> Torn down (backend)</div>
+      <div class="legend-item"><span class="legend-line" style="background: rgba(217, 119, 6, 0.95);"></span> Teardown in progress</div>`
+          : ""
+      }
       ${
         showActivesRef.current
           ? `
