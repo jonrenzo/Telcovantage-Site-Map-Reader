@@ -1196,22 +1196,91 @@ def _supplemental_strand_segments(doc, dxf_path: str, base_pool: list) -> list:
     extra = []
     # Raw linework, not prepare_segments: the digit filter keys on the Cable
     # layers' colour split and eats most of a STRAND layer. The field rule is
-    # that cable is the DASHED linework only, and in these drawings a dash is a
-    # short stroke near the Cable layers' median — so both tails are cut:
-    # below it, digit strokes; above it, the solid guy/anchor lines that share
-    # the layer and are not plant to tear down.
+    # that cable is the DASHED linework only. A dash is a short, STRAIGHT,
+    # free-standing stroke; a strand-length digit is a tight knot of crooked
+    # strokes, and its longer strokes (the tall side of a 4, say) slip past
+    # any pure length cut — the trace was underlining numbers. So the strokes
+    # are welded into fragments first and judged by shape: straight and simple
+    # is cable, crooked or busy is a glyph. Solid guy/anchor lines fail the
+    # length window as before.
     min_len = med * 0.5
     max_len = med * 2.5
+    glyph_centres: List[Tuple[float, float]] = []
+    candidates: List[Any] = []
     for layer in strand_layers:
-        raw = extract_stroke_segments(doc, layer, include_circles=False)
-        for s in raw:
-            if getattr(s, "is_hatch", False):
+        raw = [
+            s
+            for s in extract_stroke_segments(doc, layer, include_circles=False)
+            if not getattr(s, "is_hatch", False) and s.length() > 1e-9
+        ]
+        if not raw:
+            continue
+        from app_python.services.span_builder import _build_fragments
+
+        for frag in _build_fragments(raw, med * 0.2):
+            cx = sum(p[0] for p in frag.points) / len(frag.points)
+            cy = sum(p[1] for p in frag.points) / len(frag.points)
+            span_dist = math.hypot(
+                frag.points[-1][0] - frag.points[0][0],
+                frag.points[-1][1] - frag.points[0][1],
+            )
+            # Crooked (walk much longer than end-to-end) or busy = a glyph.
+            if len(frag.points) > 4 or span_dist < frag.length * 0.8:
+                glyph_centres.append((cx, cy))
                 continue
-            if not (min_len <= s.length() <= max_len):
+            if not (min_len <= frag.length <= max_len):
+                if frag.length < min_len:
+                    # Short strokes are almost always lettering too.
+                    glyph_centres.append((cx, cy))
                 continue
-            mx, my = (s.x1 + s.x2) / 2, (s.y1 + s.y2) / 2
-            if not near_base(mx, my):
-                extra.append(s)
+            if near_base(cx, cy):
+                continue
+            candidates.append((frag, cx, cy))
+
+    # A single straight stroke can be a dash or the tall side of a 7 — the
+    # length says nothing. Context does: digits come in knots beside other
+    # glyphs, dashes come in trains of collinear neighbours.
+    kept = 0
+    for frag, cx, cy in candidates:
+        if any(math.hypot(cx - gx, cy - gy) < med * 3 for gx, gy in glyph_centres):
+            continue
+        dx = frag.points[-1][0] - frag.points[0][0]
+        dy = frag.points[-1][1] - frag.points[0][1]
+        norm = math.hypot(dx, dy)
+        if norm <= 1e-9:
+            continue
+        dx, dy = dx / norm, dy / norm
+        in_train = False
+        for other, ox, oy in candidates:
+            if other is frag:
+                continue
+            d = math.hypot(ox - cx, oy - cy)
+            if d > med * 4 or d <= 1e-9:
+                continue
+            odx = other.points[-1][0] - other.points[0][0]
+            ody = other.points[-1][1] - other.points[0][1]
+            onorm = math.hypot(odx, ody)
+            if onorm <= 1e-9:
+                continue
+            if abs((odx * dx + ody * dy) / onorm) < 0.9:
+                continue
+            # The neighbour must sit along this dash's axis, not beside it.
+            ux, uy = (ox - cx) / d, (oy - cy) / d
+            if abs(ux * dx + uy * dy) < 0.9:
+                continue
+            in_train = True
+            break
+        if not in_train:
+            continue
+        kept += 1
+        for a, b in zip(frag.points, frag.points[1:]):
+            extra.append(Seg(a[0], a[1], b[0], b[1]))
+    if glyph_centres or candidates:
+        print(
+            f"[strand] supplement: {kept} dash fragment(s) kept, "
+            f"{len(candidates) - kept} lone/glyph-adjacent dropped, "
+            f"{len(glyph_centres)} glyph fragment(s) fenced off"
+        )
     if extra:
         print(f"[strand] {len(extra)} segment(s) taken from {strand_layers} where the Cable layers have no linework")
     return extra
