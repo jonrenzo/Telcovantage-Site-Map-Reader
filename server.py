@@ -1363,8 +1363,35 @@ def _dash_polylines(pool: list, med: float) -> List[Dict[str, Any]]:
 
     from app_python.services.span_builder import _point_to_segment
 
+    def has_collinear_neighbour(s) -> bool:
+        """A lone dash is cable only if another dash continues its axis."""
+        cx, cy = (s.x1 + s.x2) / 2, (s.y1 + s.y2) / 2
+        L = s.length()
+        if L <= 1e-9:
+            return False
+        dx, dy = (s.x2 - s.x1) / L, (s.y2 - s.y1) / L
+        for o in pool:
+            if o is s:
+                continue
+            ox, oy = (o.x1 + o.x2) / 2, (o.y1 + o.y2) / 2
+            d = math.hypot(ox - cx, oy - cy)
+            if d > med * 4 or d <= 1e-9:
+                continue
+            oL = o.length()
+            if oL <= 1e-9:
+                continue
+            odx, ody = (o.x2 - o.x1) / oL, (o.y2 - o.y1) / oL
+            if abs(odx * dx + ody * dy) < 0.9:
+                continue
+            ux, uy = (ox - cx) / d, (oy - cy) / d
+            if abs(ux * dx + uy * dy) < 0.85:
+                continue
+            return True
+        return False
+
     eps = med * 0.6
     check_tol = med
+    noise = 0
     for s in pool:
         if id(s) in visited:
             continue
@@ -1373,6 +1400,26 @@ def _dash_polylines(pool: list, med: float) -> List[Dict[str, Any]]:
             if key(*start) not in partner:
                 break
         pts, train = walk(s, start)
+
+        # A one-dash train pointing nowhere is a symbol stroke, not cable —
+        # junction markers on the cable layer sprayed little bars at odd
+        # angles into the preview.
+        if len(train) == 1 and not has_collinear_neighbour(train[0]):
+            noise += 1
+            continue
+
+        # A short train that curls back on itself is a drawn symbol too — the
+        # service-loop squiggle beside a pole traced as a little hook. Real
+        # corners live on long trains; a few dashes bending this hard are not
+        # a street.
+        walk_len = sum(
+            math.hypot(b[0] - a[0], b[1] - a[1]) for a, b in zip(pts, pts[1:])
+        )
+        span_dist = math.hypot(pts[-1][0] - pts[0][0], pts[-1][1] - pts[0][1])
+        if walk_len < med * 6 and span_dist < walk_len * 0.7:
+            noise += 1
+            continue
+
         simplified = _simplify_polyline(pts, eps)
 
         # The clean line must actually lie on its dashes. A walk that went
@@ -1409,6 +1456,8 @@ def _dash_polylines(pool: list, med: float) -> List[Dict[str, Any]]:
                         "x2": round(t.x2, 6), "y2": round(t.y2, 6),
                     }
                 )
+    if noise:
+        print(f"[whole-cable] {noise} stray symbol stroke(s)/curl(s) dropped from the preview")
     return segs_out
 
 
