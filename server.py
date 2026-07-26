@@ -2017,6 +2017,92 @@ POLE_CONFIG = _poleid.PoleIdConfig(
 OCR_WORKERS = 4
 
 
+#: A circle further than this multiple of the median pole spacing from every
+#: labelled pole carries no tag of its own.
+UNTAGGED_CIRCLE_SPACING_RATIO = 0.3
+
+
+def _untagged_pole_circles(doc, layer_names: list, tags: list) -> list:
+    """Poles the drafter drew but never labelled.
+
+    A pole symbol on the pole layer is a pole whether or not anyone typed a code
+    beside it, and the cable ends there just the same. Skipping them let spans
+    run straight through a pole and join the two on either side instead — the
+    long span across half a node that the field reported.
+
+    They are marked ``needs_review`` so the operator can name them; the
+    derivation already treats them as span boundaries either way.
+    """
+    labelled = [(t["cx"], t["cy"]) for t in tags]
+    centres = []
+    for space in [doc.modelspace()] + [
+        lay for lay in doc.layouts if lay.name.lower() != "model"
+    ]:
+        for e in space:
+            if getattr(e.dxf, "layer", None) not in layer_names:
+                continue
+            if e.dxftype() != "CIRCLE":
+                continue
+            centres.append((float(e.dxf.center.x), float(e.dxf.center.y)))
+    if not centres:
+        return []
+
+    # Spacing comes from the labelled poles, so an unlabelled cluster cannot
+    # drag the threshold down and hide itself.
+    spacing = _median_spacing(labelled) if len(labelled) > 1 else 0.0
+    if spacing <= 0:
+        spacing = _median_spacing(centres)
+    if spacing <= 0:
+        return []
+    min_gap = spacing * UNTAGGED_CIRCLE_SPACING_RATIO
+
+    next_id = max((t["pole_id"] for t in tags), default=-1) + 1
+    extra = []
+    for cx, cy in centres:
+        if labelled and min(math.hypot(cx - x, cy - y) for x, y in labelled) <= min_gap:
+            continue
+        extra.append(
+            {
+                "pole_id": next_id,
+                "name": f"UNTAGGED-{next_id:03d}",
+                "cx": round(cx, 4),
+                "cy": round(cy, 4),
+                "bbox": [round(cx, 4), round(cy, 4), round(cx, 4), round(cy, 4)],
+                "layer": layer_names[0] if layer_names else None,
+                "source": "circle",
+                "crop_b64": None,
+                "ocr_conf": None,
+                "needs_review": True,
+                "untagged": True,
+            }
+        )
+        labelled.append((cx, cy))
+        next_id += 1
+
+    if extra:
+        print(f"[poles] {len(extra)} untagged pole circle(s) added from the pole layer")
+    return extra
+
+
+def _median_spacing(points: list) -> float:
+    """Median nearest-neighbour distance for a set of points."""
+    if len(points) < 2:
+        return 0.0
+    nn = []
+    for i, a in enumerate(points):
+        best = min(
+            (math.hypot(a[0] - b[0], a[1] - b[1]) for j, b in enumerate(points) if i != j),
+            default=float("inf"),
+        )
+        if best < float("inf"):
+            nn.append(best)
+    if not nn:
+        return 0.0
+    nn.sort()
+    mid = len(nn) // 2
+    return nn[mid] if len(nn) % 2 else (nn[mid - 1] + nn[mid]) / 2.0
+
+
 def _run_pole_scan(dxf_path: str, layer_names: list[str]) -> None:
     try:
         combined = ", ".join(layer_names)
@@ -2135,6 +2221,7 @@ def _run_pole_scan(dxf_path: str, layer_names: list[str]) -> None:
                         POLE_STATE["tags"] = list(all_tags)
                         POLE_STATE["progress"] = len(all_tags)
 
+        all_tags.extend(_untagged_pole_circles(doc, layer_names, all_tags))
         all_tags.sort(key=lambda t: t["pole_id"])
         POLE_STATE.update(
             {

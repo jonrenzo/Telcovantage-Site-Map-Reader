@@ -1413,8 +1413,10 @@ SNAP_SPACING_CEILING = 1.5
 PIECE_AFFINITY = 1.6
 
 #: A stretch of cable shorter than this multiple of the median pole spacing is
-#: not a span between two poles.
-MIN_SPAN_SPACING_RATIO = 0.25
+#: not a span between two poles. Kept small on purpose: a short hop between two
+#: poles is still a span the lineman has to tear down, so only pairs close
+#: enough to be the same location are dropped.
+MIN_SPAN_SPACING_RATIO = 0.05
 
 #: Two runs whose ends are this close (as a multiple of median pole spacing) are
 #: the same cable continuing across a break in the linework.
