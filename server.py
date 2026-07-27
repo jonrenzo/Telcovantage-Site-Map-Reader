@@ -1508,13 +1508,14 @@ def _supplemental_strand_segments(
 
     from app_python.services import span_builder as _sb
 
-    def near_base(mx: float, my: float) -> bool:
+    def near_base(mx: float, my: float, tol: Optional[float] = None) -> bool:
+        tol_ = dup_tol if tol is None else tol
         kx, ky = int(math.floor(mx / cell)), int(math.floor(my / cell))
         for dx in (-1, 0, 1):
             for dy in (-1, 0, 1):
                 for g in grid.get((kx + dx, ky + dy), ()):
                     d, _ = _sb._point_to_segment(mx, my, g.x1, g.y1, g.x2, g.y2)
-                    if d <= dup_tol:
+                    if d <= tol_:
                         return True
         return False
 
@@ -2056,8 +2057,14 @@ def _whole_cable_spans(dxf_path: str) -> Tuple[List[Dict[str, Any]], List[str]]:
             per_layer[layer] = pool
             base_pool.extend(pool)
 
-    # Streets whose strand lives only on the *STRAND layers join the trace too.
-    supplemental = _supplemental_strand_segments(doc, dxf_path, base_pool)
+    # Dash-shaped strand from the *STRAND layers joins the trace, but no
+    # solid routes: the owner's rule is simple — the ---- is the cable the
+    # preview bakats, always. Solid-drawn streets earn their spans at the
+    # pole step, where two poles vouch for them; a hard line to nowhere
+    # (the bare diagonal off CU7-0058) never draws at all.
+    supplemental = _supplemental_strand_segments(
+        doc, dxf_path, base_pool, include_routes=False
+    )
     if supplemental and per_layer:
         first = next(iter(per_layer))
         per_layer[first] = per_layer[first] + supplemental
