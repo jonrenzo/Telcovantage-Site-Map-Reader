@@ -1882,15 +1882,38 @@ def _pair_neighbouring_poles(
     # street's nearest pole along the line — the same place that street
     # breaks anyway — and the diagonal end-links to that street are dropped.
     tee_tol = end_zone
-    tee_links: List[Tuple[Any, Any, float]] = []
+    tee_links: List[Tuple[Any, Any, float, Optional[Tuple[int, float, float]]]] = []
     # Run-level, deliberately: once a run joins a street at a tee, BOTH its
     # ends must stop reaching for that street's far ends, or the far end
     # still cuts the diagonal the tee was built to prevent.
     teed_into: Dict[int, set] = {}
     for ci in live:
+        hits_ci = hits_by_run.get(ci) or []
         for side in (0, 1):
             endpoint = paths[ci].points[0 if side == 0 else -1]
             enode = end_node[(ci, side)]
+            # When this end resolved to its outermost pole, the cable between
+            # them fell out of the chain (both chain nodes were that pole) —
+            # so it must travel with the tee link, or the piece belongs to no
+            # span and the attach sweep hands it to a neighbour: the 17-20
+            # stub lit up as part of 107-106 instead of 104-107.
+            tip_geom: Optional[Tuple[int, float, float]] = None
+            tip_len = 0.0
+            if hits_ci:
+                if (
+                    side == 0
+                    and enode == ("P", hits_ci[0][1].get("pole_id"))
+                    and hits_ci[0][0] > 0
+                ):
+                    tip_geom = (ci, 0.0, hits_ci[0][0])
+                    tip_len = hits_ci[0][0]
+                elif (
+                    side == 1
+                    and enode == ("P", hits_ci[-1][1].get("pole_id"))
+                    and paths[ci].total_length - hits_ci[-1][0] > 0
+                ):
+                    tip_geom = (ci, hits_ci[-1][0], paths[ci].total_length)
+                    tip_len = paths[ci].total_length - hits_ci[-1][0]
             for cj in live:
                 if cj == ci:
                     continue
@@ -1907,7 +1930,9 @@ def _pair_neighbouring_poles(
                 t_hit, pole, _ = min(hits, key=lambda h: abs(h[0] - t))
                 pnode = ("P", pole.get("pole_id"))
                 if pnode != enode:
-                    tee_links.append((enode, pnode, d + abs(t_hit - t)))
+                    tee_links.append(
+                        (enode, pnode, tip_len + d + abs(t_hit - t), tip_geom)
+                    )
                 teed_into.setdefault(ci, set()).add(cj)
 
     ends = [(end_node[(ci, 0)], paths[ci].points[0], ci) for ci in live] + [
@@ -1922,8 +1947,8 @@ def _pair_neighbouring_poles(
             d = _dist(pu, pv)
             if d <= link_tol:
                 link(u, v, d)
-    for u, v, length in tee_links:
-        link(u, v, length)
+    for u, v, length, tip_geom in tee_links:
+        link(u, v, length, tip_geom)
 
     # Contract: walk out of each pole through run ends only, stopping at the
     # next pole. Nearest-first so a pole pairs with its true neighbour rather
@@ -2011,6 +2036,13 @@ def _pair_neighbouring_poles(
                     if owner is None:
                         owner = entry
             if owner is None:
+                continue
+            # A tee route may already carry this very stretch — appending it
+            # again would draw the same cable twice in one span.
+            if any(
+                g[0] == ci and g[1] <= t0 + 1e-9 and g[2] >= t1 - 1e-9
+                for g in owner["geom"]
+            ):
                 continue
             for seg in slice_path(path, t0, t1):
                 seg["tail"] = True
