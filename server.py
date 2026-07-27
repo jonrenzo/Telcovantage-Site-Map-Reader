@@ -1692,7 +1692,7 @@ def _simplify_polyline(
     return left[:-1] + right
 
 
-def _dash_polylines(pool: list, med: float) -> List[Dict[str, Any]]:
+def _dash_polylines(pool: list, med: float, blockers: Optional[list] = None) -> List[Dict[str, Any]]:
     """The dashed route as clean straight lines.
 
     Dashes are chained through their mutual-best joins into trains, and each
@@ -1701,7 +1701,7 @@ def _dash_polylines(pool: list, med: float) -> List[Dict[str, Any]]:
     dashes exactly — it just reads as one drawn line, the way the cable
     actually hangs.
     """
-    connectors = _dash_connectors(pool, med)
+    connectors = _dash_connectors(pool, med, blockers)
 
     # Rebuild the pairing the connectors encode: endpoint -> endpoint.
     def key(x: float, y: float) -> Tuple[int, int]:
@@ -1941,7 +1941,7 @@ def _dash_polylines(pool: list, med: float) -> List[Dict[str, Any]]:
     return segs_out
 
 
-def _dash_connectors(pool: list, med: float) -> List[Dict[str, Any]]:
+def _dash_connectors(pool: list, med: float, blockers: Optional[list] = None) -> List[Dict[str, Any]]:
     """Short, direction-aligned joins between neighbouring dash ends.
 
     This is what makes the strand read as one line instead of dashes — without
@@ -1998,6 +1998,8 @@ def _dash_connectors(pool: list, med: float) -> List[Dict[str, Any]]:
 
     best = [best_partner(i) for i in range(len(ends))]
 
+    from app_python.services.span_builder import _point_to_segment
+
     connectors: List[Dict[str, Any]] = []
     for i, j in enumerate(best):
         # Mutual choice only. One-sided joins are how curves grew triangles:
@@ -2010,6 +2012,16 @@ def _dash_connectors(pool: list, med: float) -> List[Dict[str, Any]]:
             continue
         x, y, _, _, _li = ends[i]
         jx, jy, _, _, _lj = ends[j]
+        # Equipment ends the ----: a tap, splitter, extender or terminator
+        # sitting on the line is where the drafter paused the dashes, and
+        # what continues past it is the next span's cable. The join must not
+        # glue across it. Drawn ink is never touched — only this synthetic
+        # connector is refused.
+        if blockers and any(
+            _point_to_segment(bx, by, x, y, jx, jy)[0] <= br
+            for bx, by, br in blockers
+        ):
+            continue
         connectors.append(
             {
                 "x1": round(x, 6), "y1": round(y, 6),
@@ -2069,6 +2081,37 @@ def _whole_cable_spans(dxf_path: str) -> Tuple[List[Dict[str, Any]], List[str]]:
         first = next(iter(per_layer))
         per_layer[first] = per_layer[first] + supplemental
 
+    # Equipment zones: taps, splitters, extenders, terminators. The ---- ends
+    # at these — what continues past one is the next span's cable — so the
+    # connector glue must not cross them (the GM triangle read as one line).
+    blockers: list = []
+    for e in doc.modelspace():
+        blayer = getattr(e.dxf, "layer", "") or ""
+        if not any(k in blayer for k in ("Passives", "Actives", "Symbols")):
+            continue
+        bt = e.dxftype()
+        if bt == "CIRCLE":
+            cx0, cy0 = float(e.dxf.center.x), float(e.dxf.center.y)
+            r0 = float(e.dxf.radius)
+        elif bt == "LINE":
+            xs0 = (float(e.dxf.start.x), float(e.dxf.end.x))
+            ys0 = (float(e.dxf.start.y), float(e.dxf.end.y))
+            cx0, cy0 = sum(xs0) / 2, sum(ys0) / 2
+            r0 = math.hypot(xs0[1] - xs0[0], ys0[1] - ys0[0]) / 2
+        elif bt == "LWPOLYLINE":
+            bpts = [(float(x), float(y)) for x, y, *_ in e.get_points("xy")]
+            if not bpts:
+                continue
+            xs0 = [p[0] for p in bpts]
+            ys0 = [p[1] for p in bpts]
+            cx0, cy0 = (min(xs0) + max(xs0)) / 2, (min(ys0) + max(ys0)) / 2
+            r0 = math.hypot(max(xs0) - min(xs0), max(ys0) - min(ys0)) / 2
+        else:
+            continue
+        if r0 > 1.0:
+            continue  # a symbol is compact; anything larger is not one
+        blockers.append((cx0, cy0, r0))
+
     # Every ---- matters, and drafters file street cable on whatever layer was
     # active — LP1709 keeps whole streets on PDF_0 and Actives-PowerSupply.
     # A dashed train from any other layer joins the preview when it is street-
@@ -2085,7 +2128,7 @@ def _whole_cable_spans(dxf_path: str) -> Tuple[List[Dict[str, Any]], List[str]]:
         # cable — long bridges and junction zig-zags where the drawing has
         # nothing — and still dropped branch sides; dashes cannot lie.
         med = span_builder._median([s.length() for s in pool])
-        segs = _dash_polylines(pool, med)
+        segs = _dash_polylines(pool, med, blockers)
         if not segs:
             continue
         xs = [v for g in segs for v in (g["x1"], g["x2"])]
