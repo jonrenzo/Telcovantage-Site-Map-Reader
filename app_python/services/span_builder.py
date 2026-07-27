@@ -511,11 +511,19 @@ def _strand_segment_indices(segments: Sequence[Any]) -> Tuple[set, bool]:
 
 @dataclass
 class _Fragment:
-    """A run of segments that are physically connected in the drawing."""
+    """A run of segments that are physically connected in the drawing.
+
+    ``route`` marks linework that came from a $STRAND route polyline rather
+    than drawn cable. Routes never weld or chain with drawn linework — they
+    meet it in the pairing graph (end links, tees), not in the geometry —
+    or a route tail stitched onto a lane turns the lane into a long mongrel
+    path that the parallel-run detection can no longer match.
+    """
 
     points: List[Tuple[float, float]]
     length: float
     index: int = 0
+    route: bool = False
 
     @property
     def start(self) -> Tuple[float, float]:
@@ -526,7 +534,9 @@ class _Fragment:
         return self.points[-1]
 
     def reversed_(self) -> "_Fragment":
-        return _Fragment(list(reversed(self.points)), self.length, self.index)
+        return _Fragment(
+            list(reversed(self.points)), self.length, self.index, self.route
+        )
 
 
 def _build_fragments(segments: Sequence[Any], weld_tol: float) -> List[_Fragment]:
@@ -559,12 +569,19 @@ def _build_fragments(segments: Sequence[Any], weld_tol: float) -> List[_Fragment
     for i, p in endpoints:
         grid.setdefault(key(p), []).append((i, p))
 
+    def is_route(i: int) -> bool:
+        return bool(getattr(segments[i], "is_route", False))
+
     for i, p in endpoints:
         kx, ky = key(p)
         for dx in (-1, 0, 1):
             for dy in (-1, 0, 1):
                 for j, q in grid.get((kx + dx, ky + dy), ()):
-                    if j != i and _dist(p, q) <= weld_tol:
+                    if (
+                        j != i
+                        and _dist(p, q) <= weld_tol
+                        and is_route(i) == is_route(j)
+                    ):
                         union(i, j)
 
     groups: Dict[int, List[int]] = {}
@@ -573,13 +590,14 @@ def _build_fragments(segments: Sequence[Any], weld_tol: float) -> List[_Fragment
 
     fragments: List[_Fragment] = []
     for root in sorted(groups):
+        group_route = is_route(groups[root][0])
         for pts in _walk_group([segments[i] for i in groups[root]], weld_tol):
             if len(pts) < 2:
                 continue
             length = sum(_dist(pts[i], pts[i + 1]) for i in range(len(pts) - 1))
             if length <= 1e-12:
                 continue
-            fragments.append(_Fragment(pts, length))
+            fragments.append(_Fragment(pts, length, route=group_route))
 
     # Canonical order: longest first, then by position — the seed and every
     # tie-break downstream depend on this being total and input-order
@@ -1484,6 +1502,10 @@ def build_chains(
             head_tangent = _outward_tangent(chain, at_tail=False)
             best = None
             for frag in remaining.values():
+                # Routes and drawn cable meet in the pairing graph, never in
+                # one polyline — a mixed chain defeats the parallel matching.
+                if frag.route != seed.route:
+                    continue
                 for oriented in (frag, frag.reversed_()):
                     d = _dist(tail, oriented.start)
                     if d <= weld_tol or _continues_forward(

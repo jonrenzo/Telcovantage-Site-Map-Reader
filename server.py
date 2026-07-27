@@ -1158,11 +1158,12 @@ def derive_node_spans(
         for s in segs
         if not getattr(s, "is_hatch", False) and s.length() > 1e-9
     ]
-    # No routes here: the span pool wants only drawn lanes, or the route
-    # steals geometry off the dashes and counts as a phantom run.
-    supplemental = _supplemental_strand_segments(
-        doc, dxf_path, base_pool, include_routes=False
-    )
+    # Routes reach the span pool only where the Cable layers drew nothing —
+    # the per-step gap-fill veto inside the supplement guarantees it — so on
+    # dashed streets the spans stay on the dashes, and on the streets drawn
+    # as solid $STRAND lines (two parallel solids = two runs, 16/17 beside
+    # 16/18) the spans exist at all.
+    supplemental = _supplemental_strand_segments(doc, dxf_path, base_pool)
     if supplemental:
         segments_by_layer.setdefault(cable_layers[0], []).extend(supplemental)
     poles = POLE_STATE.get("tags", []) if poles is None else poles
@@ -1570,7 +1571,12 @@ def _supplemental_strand_segments(
                             by = a[1] + (b[1] - a[1]) * t1
                             if near_base((ax + bx) / 2, (ay + by) / 2):
                                 continue
-                            extra.append(Seg(ax, ay, bx, by))
+                            step = Seg(ax, ay, bx, by)
+                            # Routes chain among themselves only — they meet
+                            # drawn cable in the pairing graph, not welded
+                            # onto a lane's polyline.
+                            step.is_route = True
+                            extra.append(step)
                             kept_any = True
                     if kept_any:
                         kept_long += 1
