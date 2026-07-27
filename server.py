@@ -1570,6 +1570,28 @@ def _dash_polylines(pool: list, med: float) -> List[Dict[str, Any]]:
 
     from app_python.services.span_builder import _point_to_segment
 
+    # Spatial index for the neighbour test below. It used to scan the whole
+    # pool per lone dash — thousands of lone dashes on the SDU layer times a
+    # 7,000-segment pool put ~35M distance checks in the request path, which
+    # is where the two-minute viewer loads went.
+    max_reach = max(max((s.length() for s in pool), default=0.0) * 2.2, med * 4)
+    n_cell = max(max_reach, 1e-9)
+    n_grid: Dict[Tuple[int, int], list] = {}
+    for s in pool:
+        n_grid.setdefault(
+            (
+                int(math.floor(((s.x1 + s.x2) / 2) / n_cell)),
+                int(math.floor(((s.y1 + s.y2) / 2) / n_cell)),
+            ),
+            [],
+        ).append(s)
+
+    def _near_pool(cx: float, cy: float):
+        kx, ky = int(math.floor(cx / n_cell)), int(math.floor(cy / n_cell))
+        for dx2 in (-1, 0, 1):
+            for dy2 in (-1, 0, 1):
+                yield from n_grid.get((kx + dx2, ky + dy2), ())
+
     def has_collinear_neighbour(s, exclude: Optional[set] = None) -> bool:
         """A lone dash is cable only if another dash continues its axis."""
         cx, cy = (s.x1 + s.x2) / 2, (s.y1 + s.y2) / 2
@@ -1577,7 +1599,7 @@ def _dash_polylines(pool: list, med: float) -> List[Dict[str, Any]]:
         if L <= 1e-9:
             return False
         dx, dy = (s.x2 - s.x1) / L, (s.y2 - s.y1) / L
-        for o in pool:
+        for o in _near_pool(cx, cy):
             if o is s or (exclude and id(o) in exclude):
                 continue
             ox, oy = (o.x1 + o.x2) / 2, (o.y1 + o.y2) / 2
@@ -1804,6 +1826,15 @@ def _dash_connectors(pool: list, med: float) -> List[Dict[str, Any]]:
     return connectors
 
 
+#: dxf_path -> (file mtime, spans, cable_layers). The whole-cable preview is a
+#: pure function of the file, so it is computed once per drawing, not once per
+#: page load — it was costing two minutes on every viewer mount.
+_WHOLE_CABLE_CACHE: Dict[str, Tuple[float, list, list]] = {}
+
+#: (dxf_path, hide_circles) -> (file mtime, serialized JSON body).
+_DXF_SEGMENTS_CACHE: Dict[Tuple[str, bool], Tuple[float, str]] = {}
+
+
 def _whole_cable_spans(dxf_path: str) -> Tuple[List[Dict[str, Any]], List[str]]:
     """One span per cable layer — the whole strand, undivided.
 
@@ -1812,6 +1843,14 @@ def _whole_cable_spans(dxf_path: str) -> Tuple[List[Dict[str, Any]], List[str]]:
     one whole, and any toggle applies to all of it. The pole scan then replaces
     these with real pole-to-pole spans.
     """
+    try:
+        mtime = Path(dxf_path).stat().st_mtime
+    except OSError:
+        mtime = 0.0
+    cached = _WHOLE_CABLE_CACHE.get(dxf_path)
+    if cached and cached[0] == mtime:
+        return cached[1], cached[2]
+
     doc = ezdxf.readfile(dxf_path)
     # Every ---- shows here, drops included — the preview is the inventory eye.
     cable_layers = find_cable_layer_names(list_layers(dxf_path), include_drops=True)
@@ -1880,6 +1919,7 @@ def _whole_cable_spans(dxf_path: str) -> Tuple[List[Dict[str, Any]], List[str]]:
                 "to_pole_id": None,
             }
         )
+    _WHOLE_CABLE_CACHE[dxf_path] = (mtime, spans, cable_layers)
     return spans, cable_layers
 
 
@@ -4635,6 +4675,17 @@ def api_dxf_segments():
     if not dxf_path:
         return jsonify({"error": "No DXF loaded"}), 400
     try:
+        # Pure function of the file — 22s of tessellation and 7 MB of JSON
+        # were being rebuilt on every viewer mount.
+        try:
+            mtime = Path(dxf_path).stat().st_mtime
+        except OSError:
+            mtime = 0.0
+        key = (dxf_path, hide_circles)
+        cached = _DXF_SEGMENTS_CACHE.get(key)
+        if cached and cached[0] == mtime:
+            return app.response_class(cached[1], mimetype="application/json")
+
         doc = ezdxf.readfile(dxf_path)
         layers = list_layers(dxf_path)
         all_segments = {}
@@ -4650,7 +4701,9 @@ def api_dxf_segments():
                 }
                 for s in segs
             ]
-        return jsonify({"layers": layers, "segments": all_segments})
+        body = json.dumps({"layers": layers, "segments": all_segments})
+        _DXF_SEGMENTS_CACHE[key] = (mtime, body)
+        return app.response_class(body, mimetype="application/json")
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
