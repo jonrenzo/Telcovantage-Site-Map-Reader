@@ -366,6 +366,57 @@ def project_point_onto_path(
     return best_t, best_dist
 
 
+def _ink_selector(pool: Sequence[Any], med_seg: float):
+    """Grid-indexed lookup: the DRAWN segments lying along a path slice.
+
+    A span's geometry should be the ink the drafter put down — every dash,
+    long or short, and every small piece of a curve — not the synthetic
+    polyline the chain walk produced. The synthetic slice glides across
+    inter-dash gaps and straightens what the drawing curves; the operator
+    asked for the highlight to sit on the ---- exactly.
+    """
+    cell = max(med_seg * 2.0, 1e-9)
+    grid: Dict[Tuple[int, int], List[Any]] = {}
+    for s in pool:
+        mx, my = (s.x1 + s.x2) / 2.0, (s.y1 + s.y2) / 2.0
+        grid.setdefault(
+            (int(math.floor(mx / cell)), int(math.floor(my / cell))), []
+        ).append(s)
+    # Tight: a dash of this lane sits on the path; the next lane starts at
+    # 0.13+ (measured), well past this.
+    lane_tol = med_seg * 0.75
+
+    def select(path: CablePath, t0: float, t1: float) -> List[Dict[str, Any]]:
+        if t1 <= t0:
+            return []
+        cand: Dict[int, Any] = {}
+        for probe in slice_path(path, t0, t1):
+            for px, py in (
+                (probe["x1"], probe["y1"]),
+                (probe["x2"], probe["y2"]),
+            ):
+                kx, ky = int(math.floor(px / cell)), int(math.floor(py / cell))
+                for dx in (-1, 0, 1):
+                    for dy in (-1, 0, 1):
+                        for s in grid.get((kx + dx, ky + dy), ()):
+                            cand[id(s)] = s
+        picked: List[Tuple[float, Dict[str, Any]]] = []
+        for s in cand.values():
+            mx, my = (s.x1 + s.x2) / 2.0, (s.y1 + s.y2) / 2.0
+            t, d = project_point_onto_path(mx, my, path)
+            if d > lane_tol:
+                continue
+            # A dash is indivisible ink: it belongs to the span its middle
+            # falls in, whole — never cut at the pole projection.
+            if not (t0 - med_seg * 0.5 <= t <= t1 + med_seg * 0.5):
+                continue
+            picked.append((t, {"x1": s.x1, "y1": s.y1, "x2": s.x2, "y2": s.y2}))
+        picked.sort(key=lambda kv: kv[0])
+        return [seg for _, seg in picked]
+
+    return select
+
+
 def slice_path(path: CablePath, t0: float, t1: float) -> List[Dict[str, Any]]:
     """The polyline between two arc-length positions, as drawable segments.
 
@@ -1825,8 +1876,9 @@ def build_spans_from_pieces(
     # Pair up. Two poles are neighbours when cable runs between them without
     # passing a third — which routinely crosses a break in the linework, so
     # pairing has to see past the individual runs.
+    select_ink = _ink_selector(segments, med_seg)
     raw, skipped_stubs = _pair_neighbouring_poles(
-        paths, touches, pole_spacing, med_seg, duplicate_runs
+        paths, touches, pole_spacing, med_seg, duplicate_runs, select_ink
     )
 
     if not raw:
@@ -1860,7 +1912,7 @@ def build_spans_from_pieces(
         # A second cable running beside this span belongs to it: drawn with it,
         # picked up when the operator hovers it, and counted in cable_runs.
         segs = list(entry["segments"]) + _shadow_segments(
-            entry.get("geom", ()), shadowed, paths
+            entry.get("geom", ()), shadowed, paths, select_ink
         )
         pts = [(s["x1"], s["y1"]) for s in segs] + [(s["x2"], s["y2"]) for s in segs]
         bbox = _bbox_of(pts) if pts else _bbox_of(
@@ -1941,6 +1993,7 @@ def _pair_neighbouring_poles(
     pole_spacing: float,
     med_seg: float,
     skip_runs: Optional[set] = None,
+    select_ink=None,
 ) -> Tuple[Dict[Tuple[Any, Any], Dict[str, Any]], int]:
     """Find every pair of poles with cable between them and nothing in between.
 
@@ -2133,7 +2186,10 @@ def _pair_neighbouring_poles(
     for entry in raw.values():
         segs: List[Dict[str, Any]] = []
         for ci, t0, t1 in entry["geom"]:
-            segs.extend(slice_path(paths[ci], t0, t1))
+            # The drawn ink itself, dash by dash — the synthetic slice only
+            # when nothing drawn is found there (a bridge across a break).
+            real = select_ink(paths[ci], t0, t1) if select_ink else []
+            segs.extend(real if real else slice_path(paths[ci], t0, t1))
         entry["segments"] = segs
 
     # Cable running past the outermost pole of a run — tails — lies on no
@@ -2169,7 +2225,8 @@ def _pair_neighbouring_poles(
                 for g in owner["geom"]
             ):
                 continue
-            for seg in slice_path(path, t0, t1):
+            real = select_ink(path, t0, t1) if select_ink else []
+            for seg in real if real else slice_path(path, t0, t1):
                 seg["tail"] = True
                 owner["segments"].append(seg)
 
@@ -2180,6 +2237,7 @@ def _shadow_segments(
     geom: Sequence[Tuple[int, float, float]],
     shadowed: Sequence[Tuple[int, float, float, int, bool]],
     paths: Sequence[CablePath],
+    select_ink=None,
 ) -> List[Dict[str, Any]]:
     """Linework of the parallel cables lying over this span's stretch.
 
@@ -2208,7 +2266,14 @@ def _shadow_segments(
             u1 = (b - s0) / (s1 - s0) * total
             if reversed_:
                 u0, u1 = total - u1, total - u0
-            for seg in slice_path(dpath, u0, u1):
+            # The second cable's own drawn dashes, not a proportional remap
+            # of the primary — the remap stretched and drifted off the line.
+            real = (
+                select_ink(dpath, min(u0, u1), max(u0, u1))
+                if select_ink
+                else []
+            )
+            for seg in real if real else slice_path(dpath, u0, u1):
                 seg["run"] = 2
                 out.append(seg)
     return out
