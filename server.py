@@ -1553,10 +1553,27 @@ def _supplemental_strand_segments(
             # RUN, and the parallel-run detection counts it as runs=2 — the
             # dedup would silently eat half the plant.
             if frag.length >= med * 8:
+                # Routes are gap-fillers, even in the preview: beside a drawn
+                # lane they just double the street into a smear, so each step
+                # of the route shows only where the Cable layers drew nothing
+                # — the streets that would otherwise trace empty.
                 if include_routes:
-                    kept_long += 1
+                    kept_any = False
                     for a, b in zip(frag.points, frag.points[1:]):
-                        extra.append(Seg(a[0], a[1], b[0], b[1]))
+                        seg_len = math.hypot(b[0] - a[0], b[1] - a[1])
+                        steps = max(1, int(seg_len / max(med, 1e-9)))
+                        for k in range(steps):
+                            t0, t1 = k / steps, (k + 1) / steps
+                            ax = a[0] + (b[0] - a[0]) * t0
+                            ay = a[1] + (b[1] - a[1]) * t0
+                            bx = a[0] + (b[0] - a[0]) * t1
+                            by = a[1] + (b[1] - a[1]) * t1
+                            if near_base((ax + bx) / 2, (ay + by) / 2):
+                                continue
+                            extra.append(Seg(ax, ay, bx, by))
+                            kept_any = True
+                    if kept_any:
+                        kept_long += 1
                 continue
             cx = sum(p[0] for p in frag.points) / len(frag.points)
             cy = sum(p[1] for p in frag.points) / len(frag.points)
