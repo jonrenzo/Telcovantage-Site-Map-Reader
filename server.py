@@ -1468,8 +1468,13 @@ def _supplemental_strand_segments(doc, dxf_path: str, base_pool: list) -> list:
     and must not be doubled, but the rest is real plant on streets the Cable
     layers never cover — leaving it out left whole streets untraceable.
     """
+    all_layers = list_layers(dxf_path)
+    # A layer already feeding the base pool must not feed the supplement too
+    # (BCR405 reaches PDF_STRAND through the plant-name fallback — pulling it
+    # in again here would double every street).
+    cable_set = set(find_cable_layer_names(all_layers, include_drops=True))
     strand_layers = [
-        l for l in list_layers(dxf_path) if "strand" in l.lower()
+        l for l in all_layers if "strand" in l.lower() and l not in cable_set
     ]
     if not strand_layers or not base_pool:
         return []
@@ -1514,6 +1519,7 @@ def _supplemental_strand_segments(doc, dxf_path: str, base_pool: list) -> list:
     max_len = med * 2.5
     glyph_centres: List[Tuple[float, float]] = []
     candidates: List[Any] = []
+    kept_long = 0
     for layer in strand_layers:
         raw = [
             s
@@ -1525,6 +1531,20 @@ def _supplemental_strand_segments(doc, dxf_path: str, base_pool: list) -> list:
         from app_python.services.span_builder import _build_fragments
 
         for frag in _build_fragments(raw, med * 0.2):
+            # Street-scale linework cannot be lettering: no glyph stroke on
+            # any drawing measured reaches 3x the dash median, and even a
+            # whole label welded into one fragment stays under ~6x — while
+            # the strand routes drawn here as continuous polylines run
+            # 10-170x it, one with a vertex at every pole down the street.
+            # These are cable outright, and near_base does not apply: a
+            # route beside the Cable layer's dashes is the street's SECOND
+            # RUN, and the parallel-run detection counts it as runs=2 — the
+            # dedup would silently eat half the plant.
+            if frag.length >= med * 8:
+                kept_long += 1
+                for a, b in zip(frag.points, frag.points[1:]):
+                    extra.append(Seg(a[0], a[1], b[0], b[1]))
+                continue
             cx = sum(p[0] for p in frag.points) / len(frag.points)
             cy = sum(p[1] for p in frag.points) / len(frag.points)
             span_dist = math.hypot(
@@ -1582,9 +1602,10 @@ def _supplemental_strand_segments(doc, dxf_path: str, base_pool: list) -> list:
         kept += 1
         for a, b in zip(frag.points, frag.points[1:]):
             extra.append(Seg(a[0], a[1], b[0], b[1]))
-    if glyph_centres or candidates:
+    if glyph_centres or candidates or kept_long:
         print(
-            f"[strand] supplement: {kept} dash fragment(s) kept, "
+            f"[strand] supplement: {kept_long} street-length route(s) and "
+            f"{kept} dash fragment(s) kept, "
             f"{len(candidates) - kept} lone/glyph-adjacent dropped, "
             f"{len(glyph_centres)} glyph fragment(s) fenced off"
         )
