@@ -573,13 +573,13 @@ def _build_fragments(segments: Sequence[Any], weld_tol: float) -> List[_Fragment
 
     fragments: List[_Fragment] = []
     for root in sorted(groups):
-        pts = _walk_group([segments[i] for i in groups[root]], weld_tol)
-        if len(pts) < 2:
-            continue
-        length = sum(_dist(pts[i], pts[i + 1]) for i in range(len(pts) - 1))
-        if length <= 1e-12:
-            continue
-        fragments.append(_Fragment(pts, length))
+        for pts in _walk_group([segments[i] for i in groups[root]], weld_tol):
+            if len(pts) < 2:
+                continue
+            length = sum(_dist(pts[i], pts[i + 1]) for i in range(len(pts) - 1))
+            if length <= 1e-12:
+                continue
+            fragments.append(_Fragment(pts, length))
 
     # Canonical order: longest first, then by position — the seed and every
     # tie-break downstream depend on this being total and input-order
@@ -590,10 +590,35 @@ def _build_fragments(segments: Sequence[Any], weld_tol: float) -> List[_Fragment
     return fragments
 
 
-def _walk_group(segs: Sequence[Any], weld_tol: float) -> List[Tuple[float, float]]:
-    """Order one connected group's segments into a single point sequence."""
+def _walk_group(
+    segs: Sequence[Any], weld_tol: float
+) -> List[List[Tuple[float, float]]]:
+    """Order one connected group's segments into point sequences.
+
+    One linear walk cannot always spend a whole group: at a branch it takes
+    one arm, and when it dies at a dead end the other arm is still unwalked.
+    Those leftovers are drawn cable — dropping them silently cut the
+    CU7-32..33 lane out of the span pool while the preview still showed it.
+    Walk again over what remains until every segment is spent.
+    """
+    walks: List[List[Tuple[float, float]]] = []
+    remaining = list(segs)
+    while remaining:
+        before = len(remaining)
+        pts, remaining = _walk_group_once(remaining, weld_tol)
+        if len(pts) >= 2:
+            walks.append(pts)
+        if len(remaining) >= before:
+            break  # no progress — cannot happen, but never loop forever
+    return walks
+
+
+def _walk_group_once(
+    segs: Sequence[Any], weld_tol: float
+) -> Tuple[List[Tuple[float, float]], List[Any]]:
+    """One walk from the group's best free end; returns (points, leftovers)."""
     if not segs:
-        return []
+        return [], []
 
     cell = max(weld_tol, 1e-9)
 
@@ -633,7 +658,7 @@ def _walk_group(segs: Sequence[Any], weld_tol: float) -> List[Tuple[float, float
         remaining.pop(best[1])
         pts.append(best[2])
         cursor = best[2]
-    return pts
+    return pts, remaining
 
 
 def _outward_tangent(

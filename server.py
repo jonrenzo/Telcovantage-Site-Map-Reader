@@ -1158,7 +1158,11 @@ def derive_node_spans(
         for s in segs
         if not getattr(s, "is_hatch", False) and s.length() > 1e-9
     ]
-    supplemental = _supplemental_strand_segments(doc, dxf_path, base_pool)
+    # No routes here: the span pool wants only drawn lanes, or the route
+    # steals geometry off the dashes and counts as a phantom run.
+    supplemental = _supplemental_strand_segments(
+        doc, dxf_path, base_pool, include_routes=False
+    )
     if supplemental:
         segments_by_layer.setdefault(cable_layers[0], []).extend(supplemental)
     poles = POLE_STATE.get("tags", []) if poles is None else poles
@@ -1460,13 +1464,21 @@ def _misfiled_street_trains(doc, dxf_path: str, base_pool: list) -> Dict[str, li
     return out
 
 
-def _supplemental_strand_segments(doc, dxf_path: str, base_pool: list) -> list:
+def _supplemental_strand_segments(
+    doc, dxf_path: str, base_pool: list, include_routes: bool = True
+) -> list:
     """Cable drawn on the STRAND layers where the Cable layers have nothing.
 
     Some streets carry their strand only on a *STRAND layer; ~88% of that layer
     parallels Cable-565 at a fixed small offset (the same cable drawn twice)
     and must not be doubled, but the rest is real plant on streets the Cable
     layers never cover — leaving it out left whole streets untraceable.
+
+    ``include_routes`` admits the long continuous ROUTE polylines (a vertex at
+    every pole). The preview wants them — every drawn line shows. The span
+    pool does NOT: a route rides beside the drawn lanes, so it steals the
+    span geometry off the dashes, paints where the operator expects the ----
+    to light up, and counts itself as a phantom third run.
     """
     all_layers = list_layers(dxf_path)
     # A layer already feeding the base pool must not feed the supplement too
@@ -1541,9 +1553,10 @@ def _supplemental_strand_segments(doc, dxf_path: str, base_pool: list) -> list:
             # RUN, and the parallel-run detection counts it as runs=2 — the
             # dedup would silently eat half the plant.
             if frag.length >= med * 8:
-                kept_long += 1
-                for a, b in zip(frag.points, frag.points[1:]):
-                    extra.append(Seg(a[0], a[1], b[0], b[1]))
+                if include_routes:
+                    kept_long += 1
+                    for a, b in zip(frag.points, frag.points[1:]):
+                        extra.append(Seg(a[0], a[1], b[0], b[1]))
                 continue
             cx = sum(p[0] for p in frag.points) / len(frag.points)
             cy = sum(p[1] for p in frag.points) / len(frag.points)
