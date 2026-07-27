@@ -156,6 +156,8 @@ class CablePath:
     cum: List[float]
     bridges: List[int] = field(default_factory=list)
     runs: List[Tuple[float, float, int]] = field(default_factory=list)
+    #: Chained from $STRAND route linework rather than drawn cable.
+    route: bool = False
 
     @property
     def total_length(self) -> float:
@@ -1554,7 +1556,9 @@ def build_chains(
         # Canonical direction so walk order does not depend on the seed's.
         if (chain[-1][0], chain[-1][1]) < (chain[0][0], chain[0][1]):
             chain = list(reversed(chain))
-        chains.append(CablePath(points=chain, cum=_cumulative(chain)))
+        chains.append(
+            CablePath(points=chain, cum=_cumulative(chain), route=seed.route)
+        )
 
     chains.sort(key=lambda c: (-c.total_length, c.points[0]))
     return chains
@@ -1610,6 +1614,80 @@ def detect_parallel_runs(
             # A second cable may run the wrong way relative to the primary;
             # remember it, or slices handed to spans come out mirrored.
             shadows.append((i, min(ts), max(ts), j, ts[0] > ts[-1]))
+
+    # Two LIVE paths riding together over a stretch are two cables over that
+    # stretch, even though each is a route of its own elsewhere. The $STRAND
+    # route runs the whole length of VANGUARD while the drawn lane covers
+    # only the middle blocks: neither is the other's duplicate, yet between
+    # the poles they share the street carries both — CV7-102 to NPT-093 read
+    # one run while every span below it read two. Route-flavoured coverage is
+    # trimmed against coverage already counted, so a route riding where a
+    # drawn second lane already counts does not invent a third cable.
+    live = [
+        i
+        for i in range(len(paths))
+        if i not in duplicate and paths[i].total_length > 0
+    ]
+    min_stretch = tol * 1.2
+
+    def _trim(
+        iv: Tuple[float, float], existing: List[Tuple[float, float]]
+    ) -> List[Tuple[float, float]]:
+        pieces = [iv]
+        for e0, e1 in existing:
+            nxt: List[Tuple[float, float]] = []
+            for p0, p1 in pieces:
+                if e1 <= p0 or e0 >= p1:
+                    nxt.append((p0, p1))
+                    continue
+                if p0 < e0:
+                    nxt.append((p0, e0))
+                if e1 < p1:
+                    nxt.append((e1, p1))
+            pieces = nxt
+        return [(a, b) for a, b in pieces if b - a >= min_stretch]
+
+    for ai in range(len(live)):
+        for bi in range(ai + 1, len(live)):
+            i, j = live[ai], live[bi]
+            if paths[j].total_length > paths[i].total_length:
+                i, j = j, i
+            longer, shorter = paths[i], paths[j]
+            n_samples = max(
+                PARALLEL_SAMPLES,
+                int(shorter.total_length / max(tol * 0.5, 1e-9)),
+            )
+            stretches: List[List[Tuple[float, float]]] = []
+            cur: List[Tuple[float, float]] = []
+            for k in range(n_samples + 1):
+                tb = shorter.total_length * k / n_samples
+                p = _point_at_length(shorter.points, tb)
+                ta, d = project_point_onto_path(p[0], p[1], longer)
+                if d <= tol:
+                    cur.append((ta, tb))
+                elif cur:
+                    stretches.append(cur)
+                    cur = []
+            if cur:
+                stretches.append(cur)
+            for st in stretches:
+                tas = [t for t, _ in st]
+                tbs = [t for _, t in st]
+                iv_i = (min(tas), max(tas))
+                iv_j = (min(tbs), max(tbs))
+                if (
+                    iv_i[1] - iv_i[0] < min_stretch
+                    or iv_j[1] - iv_j[0] < min_stretch
+                ):
+                    continue  # a crossing, not a shared street
+                if longer.route or shorter.route:
+                    for piece in _trim(iv_i, list(covers.get(i, []))):
+                        covers.setdefault(i, []).append(piece)
+                    for piece in _trim(iv_j, list(covers.get(j, []))):
+                        covers.setdefault(j, []).append(piece)
+                else:
+                    covers.setdefault(i, []).append(iv_i)
+                    covers.setdefault(j, []).append(iv_j)
 
     runs = {i: _merge_run_intervals(v, 0.0) for i, v in covers.items()}
     return duplicate, runs, shadows
