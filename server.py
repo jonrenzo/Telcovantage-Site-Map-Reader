@@ -1830,6 +1830,11 @@ def _dash_polylines(pool: list, med: float, blockers: Optional[list] = None) -> 
         )
         span_dist = math.hypot(pts[-1][0] - pts[0][0], pts[-1][1] - pts[0][1])
         if walk_len < med * 6:
+            # NOTE: dropping short trains near equipment was tried (the
+            # pigtail sketches beside a GM triangle) and killed 86 real
+            # dashes — nearly every street runs beside a tap, and no radius
+            # separates a hookup sketch from a passing dash. The stray bits
+            # at equipment stay, by the owner's own rule: never cut cable.
             if span_dist < walk_len * 0.7:
                 noise += 1
                 continue
