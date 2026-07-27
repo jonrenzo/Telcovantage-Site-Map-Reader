@@ -1299,14 +1299,43 @@ def extract_dash_segments(doc, layer_name: str) -> list:
         )
         if spread > math.radians(25):
             # Glyph strokes run about half a dash long (SDU letters sit at
-            # ~0.5x the median, the drop marks at ~1.0x, with a clean valley
-            # at 0.75x on every drawing measured). A full-length stroke in a
-            # knot is not lettering — it is a drop mark beside its house
-            # label, or a street dash crossing another at a junction — so
-            # only the short strokes of the huddle are the glyph.
-            for k in (i, *close):
-                if dashes[k][1] < med_kept * 0.75:
+            # ~0.5x the median, with a clean valley at 0.75x on every drawing
+            # measured), so the short strokes of a huddle are always glyph.
+            # A full-length stroke usually is not — a street dash crossing
+            # another at a junction — EXCEPT the bars of a '#', which run a
+            # full dash long and betray themselves by coming as side-by-side
+            # parallel twins (98% of them on LP1709's SDU, 2% of real feed
+            # marks on BCR405). Junction dashes meet at an angle; sequential
+            # dashes sit end-to-end, farther apart than this test reaches.
+            members = (i, *close)
+            # The twin test needs proof there is a glyph here at all: a '#'
+            # brings its own short strokes (horizontal bars, digits), while
+            # two parallel street runs brushing one stray short mark do not
+            # (measured 4+ shorts vs exactly 1 on every real-cable case).
+            n_short = sum(
+                1 for m in members if dashes[m][1] < med_kept * 0.75
+            )
+            for k in members:
+                wk = dashes[k][1]
+                if wk < med_kept * 0.75:
                     drop.add(k)
+                    continue
+                if n_short < 2:
+                    continue
+                ck = centres[k]
+                for j in members:
+                    if j == k:
+                        continue
+                    dang = abs(ck[2] - centres[j][2])
+                    dang = min(dang, math.pi - dang)
+                    if dang > math.radians(12):
+                        continue
+                    gap = math.hypot(
+                        centres[j][0] - ck[0], centres[j][1] - ck[1]
+                    )
+                    if gap <= 0.7 * max(wk, dashes[j][1]):
+                        drop.add(k)
+                        break
 
     segs = []
     for i, (pts, _) in enumerate(dashes):
