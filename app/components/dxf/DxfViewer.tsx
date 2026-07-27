@@ -1362,6 +1362,18 @@ export default function DxfViewer({
   const poleBreakFingerprintRef = useRef<string>("");
 
   const hasAutoConnectedRef = useRef(false);
+  // Pole-step theater: when the operator hits Display Poles, the poles pop
+  // in one at a time and then each derived span strokes in end-to-end, so
+  // the cutting is watchable instead of the map snapping to the answer.
+  const revealAnimRef = useRef<{
+    phase: "poles" | "waitDerive" | "spans" | "hold";
+    poleShown: number;
+    spanShown: number;
+    spansReady: boolean;
+    waitLeft: number;
+    holdLeft: number;
+    timer: ReturnType<typeof setInterval> | null;
+  } | null>(null);
   const autoConnectPolesRef = useRef<
     (options?: { preserveExistingAssignments?: boolean }) => void
   >(() => {});
@@ -1973,6 +1985,12 @@ export default function DxfViewer({
       const isMaskOn = maskEnabledRef.current;
       const currentBoundary = boundaryRef.current;
 
+      // Pole-step reveal in flight: cap how many poles are on screen this
+      // frame; the span pass below strokes the cuts in as they land.
+      const reveal = revealAnimRef.current;
+      const poleRevealLimit =
+        reveal && reveal.phase === "poles" ? reveal.poleShown : Infinity;
+
       ctx.save();
       ctx.translate(vp.x, vp.y);
       ctx.scale(vp.scale, -vp.scale);
@@ -2111,6 +2129,44 @@ export default function DxfViewer({
           ctx.lineWidth = 1.8 / vp.scale;
           drawSpanPath(span);
           ctx.stroke();
+          ctx.restore();
+        }
+
+        // Pole-step reveal: each derived span strokes in one at a time in its
+        // own hue — the newest cut burns brightest — so the operator watches
+        // the strand get sliced pole-to-pole instead of the answer appearing.
+        if (reveal && (reveal.phase === "spans" || reveal.phase === "hold")) {
+          const palette = [
+            "rgba(59, 130, 246, 0.8)",
+            "rgba(16, 185, 129, 0.8)",
+            "rgba(249, 115, 22, 0.8)",
+            "rgba(168, 85, 247, 0.8)",
+            "rgba(236, 72, 153, 0.8)",
+            "rgba(20, 184, 166, 0.8)",
+          ];
+          const shown = Math.min(reveal.spanShown, spans.length);
+          ctx.save();
+          ctx.lineCap = "round";
+          ctx.lineJoin = "round";
+          ctx.setLineDash([]);
+          for (let i = 0; i < shown; i++) {
+            const span = spans[i];
+            if ((span as any).whole_cable) continue;
+            if (!isLayerVisible(span.layer)) continue;
+            if (
+              isMaskOn &&
+              currentBoundary &&
+              !isPointInPolygon(span.cx, span.cy, currentBoundary)
+            )
+              continue;
+            const isNewest = i >= shown - 1 && reveal.phase === "spans";
+            ctx.strokeStyle = isNewest
+              ? "rgba(239, 68, 68, 0.95)"
+              : palette[i % palette.length];
+            ctx.lineWidth = (isNewest ? 6 : 3.2) / vp.scale;
+            drawSpanPath(span);
+            ctx.stroke();
+          }
           ctx.restore();
         }
 
@@ -2260,7 +2316,9 @@ export default function DxfViewer({
         if (opts.showPoles) {
           ctx.save();
           const r = 12 / vp.scale;
+          let poleIdx = 0;
           for (const pole of polesRef.current) {
+            if (poleIdx++ >= poleRevealLimit) break;
             if (!isLayerVisible(pole.layer)) continue;
 
             if (
@@ -2309,7 +2367,9 @@ export default function DxfViewer({
       } else if (opts.showPoles) {
         ctx.save();
         const r = 12 / vp.scale;
+        let poleIdx = 0;
         for (const pole of polesRef.current) {
+          if (poleIdx++ >= poleRevealLimit) break;
           if (!isLayerVisible(pole.layer)) continue;
 
           if (
@@ -2996,8 +3056,14 @@ export default function DxfViewer({
       });
       setDeriveState("idle");
       setCableDataVersion((v) => v + 1);
+      // A reveal waiting on this answer can start cutting now.
+      const anim = revealAnimRef.current;
+      if (anim) anim.spansReady = true;
       redraw();
     } catch (err) {
+      const anim = revealAnimRef.current;
+      if (anim?.timer) clearInterval(anim.timer);
+      revealAnimRef.current = null;
       setDeriveState("error");
       setDeriveNotes({
         warnings: [],
@@ -3014,6 +3080,76 @@ export default function DxfViewer({
   useEffect(() => {
     deriveSpansRef.current = deriveSpans;
   }, [deriveSpans]);
+
+  /** Run the pole-step reveal. With skipPoles the poles are already on
+   *  screen (an explicit Re-derive), so it goes straight to the cutting. */
+  const startPoleStepReveal = useCallback(
+    (options?: { skipPoles?: boolean }) => {
+      const prev = revealAnimRef.current;
+      if (prev?.timer) clearInterval(prev.timer);
+      const TICK = 40;
+      const POLE_MS = 2200;
+      const SPAN_MS = 3200;
+      const state: NonNullable<typeof revealAnimRef.current> = {
+        phase: options?.skipPoles ? "waitDerive" : "poles",
+        poleShown: options?.skipPoles ? polesRef.current.length : 0,
+        spanShown: 0,
+        spansReady: false,
+        waitLeft: 20000,
+        holdLeft: 1400,
+        timer: null,
+      };
+      revealAnimRef.current = state;
+      state.timer = setInterval(() => {
+        const s = revealAnimRef.current;
+        if (!s || s !== state) {
+          clearInterval(state.timer!);
+          return;
+        }
+        if (s.phase === "poles") {
+          const total = polesRef.current.length;
+          s.poleShown += Math.max(1, Math.ceil(total / (POLE_MS / TICK)));
+          if (s.poleShown >= total) {
+            s.poleShown = total;
+            s.phase = s.spansReady ? "spans" : "waitDerive";
+          }
+        } else if (s.phase === "waitDerive") {
+          // The backend is still deriving; if it never answers, stand down
+          // rather than spin forever.
+          s.waitLeft -= TICK;
+          if (s.spansReady) s.phase = "spans";
+          else if (s.waitLeft <= 0) {
+            clearInterval(state.timer!);
+            revealAnimRef.current = null;
+          }
+        } else if (s.phase === "spans") {
+          const total = cableSpansRef.current.length;
+          s.spanShown += Math.max(1, Math.ceil(total / (SPAN_MS / TICK)));
+          if (s.spanShown >= total) {
+            s.spanShown = total;
+            s.phase = "hold";
+          }
+        } else {
+          s.holdLeft -= TICK;
+          if (s.holdLeft <= 0) {
+            clearInterval(state.timer!);
+            revealAnimRef.current = null;
+          }
+        }
+        redraw();
+      }, TICK);
+    },
+    [redraw],
+  );
+
+  useEffect(
+    () => () => {
+      const anim = revealAnimRef.current;
+      if (anim?.timer) clearInterval(anim.timer);
+      revealAnimRef.current = null;
+    },
+    [],
+  );
 
   /** Set how many cables a span carries. Persists across re-derivation. */
   const setSpanRuns = useCallback(
@@ -3042,9 +3178,13 @@ export default function DxfViewer({
     if (poles.length === 0) return;
     if (hasAutoConnectedRef.current) return;
     hasAutoConnectedRef.current = true;
+    // The operator just stepped into poles: show them one by one, then
+    // stroke each cut in as the derivation lands. togglePoles may have
+    // pre-armed the reveal to keep the first frame from flashing them all.
+    if (!revealAnimRef.current) startPoleStepReveal();
     const id = setTimeout(() => void deriveSpans(), 50);
     return () => clearTimeout(id);
-  }, [showPoles, poles.length, deriveSpans]);
+  }, [showPoles, poles.length, deriveSpans, startPoleStepReveal]);
 
   // A restored session hands the viewer whatever spans it was saved with —
   // pre-rework clusters or even valid derived spans from an earlier day. The
@@ -3089,6 +3229,11 @@ export default function DxfViewer({
 
   const togglePoles = () => {
     const next = !showPoles;
+    // First-ever pole step: arm the reveal before the poles render, so the
+    // very first frame doesn't flash them all in at once.
+    if (next && !hasAutoConnectedRef.current && polesRef.current.length > 0) {
+      startPoleStepReveal();
+    }
     setShowPoles(next);
     showPolesRef.current = next;
     if (!next) {
@@ -5446,7 +5591,16 @@ export default function DxfViewer({
                 🌍 Insert Coordinates
               </button>
               <button
-                onClick={() => void deriveSpans()}
+                onClick={() => {
+                  // Poles already on screen? Replay just the cutting.
+                  // Hidden? Pop them in first, then cut.
+                  startPoleStepReveal({ skipPoles: showPoles });
+                  if (!showPoles) {
+                    showPolesRef.current = true;
+                    setShowPoles(true);
+                  }
+                  void deriveSpans();
+                }}
                 disabled={deriveState === "loading"}
                 className="w-52 justify-center bg-white/95 backdrop-blur border border-blue-200 shadow-lg px-5 py-2.5 rounded-full font-semibold text-sm text-blue-700 hover:bg-blue-50 transition-all flex items-center gap-2 disabled:opacity-50"
               >
