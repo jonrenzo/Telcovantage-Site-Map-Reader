@@ -732,23 +732,6 @@ def _walk_group_once(
     return pts, remaining
 
 
-def _turn_cost(
-    tangent: Optional[Tuple[float, float]], oriented: "_Fragment", at_head: bool
-) -> float:
-    """How sharply the chain would turn onto this fragment: 0 straight, 2 U-turn."""
-    if tangent is None or len(oriented.points) < 2:
-        return 1.0
-    if at_head:
-        a, b = oriented.points[-1], oriented.points[-2]
-    else:
-        a, b = oriented.points[0], oriented.points[1]
-    dx, dy = b[0] - a[0], b[1] - a[1]
-    n = math.hypot(dx, dy)
-    if n <= 1e-12:
-        return 1.0
-    return 1.0 - (tangent[0] * dx + tangent[1] * dy) / n
-
-
 def _outward_tangent(
     chain: Sequence[Tuple[float, float]], at_tail: bool
 ) -> Optional[Tuple[float, float]]:
@@ -1586,27 +1569,19 @@ def build_chains(
                     ):
                         # Equipment auto-cuts the cable: a bridge may not
                         # jump a tap, splitter, extender or terminator.
+                        # NOTE: ranking welds by turn cost was tried here for
+                        # the corner junctions and broke the CURVED streets —
+                        # at a bend the true continuation IS the turn. The
+                        # corners are cut by their poles now that tags anchor
+                        # on the circles; distance stays the only rank.
                         if not (
                             d > weld_tol
                             and _crosses_equipment(
                                 tail, oriented.start, blocker_grid
                             )
                         ):
-                            # At a corner where three ends weld together the
-                            # distances tie — the straighter continuation must
-                            # win, or the chain turns the bend while another
-                            # piece runs straight through (CV8-1035 chained
-                            # into 1594's street in an L).
-                            turn = _turn_cost(tail_tangent, oriented, False)
-                            cand = (
-                                round(d / max(weld_tol, 1e-9)),
-                                turn,
-                                frag.index,
-                                d,
-                                True,
-                                oriented,
-                            )
-                            if best is None or cand[:3] < best[:3]:
+                            cand = (d, frag.index, True, oriented)
+                            if best is None or cand[:2] < best[:2]:
                                 best = cand
                     d = _dist(head, oriented.end)
                     if d <= weld_tol or _continues_forward(
@@ -1620,21 +1595,13 @@ def build_chains(
                                 oriented.end, head, blocker_grid
                             )
                         ):
-                            turn = _turn_cost(head_tangent, oriented, True)
-                            cand = (
-                                round(d / max(weld_tol, 1e-9)),
-                                turn,
-                                frag.index,
-                                d,
-                                False,
-                                oriented,
-                            )
-                            if best is None or cand[:3] < best[:3]:
+                            cand = (d, frag.index, False, oriented)
+                            if best is None or cand[:2] < best[:2]:
                                 best = cand
 
-            if best is None or best[3] > limit:
+            if best is None or best[0] > limit:
                 break
-            _bucket, _turn, idx, gap, at_end, oriented = best
+            gap, idx, at_end, oriented = best
             # A cable drawn alongside this one comes back over ground the run
             # already covers. Taking it would fold the two into one zig-zag with
             # twice the length, and lose the second run entirely.
@@ -2208,63 +2175,22 @@ def _pair_neighbouring_poles(
                     )
                 teed_into.setdefault(ci, set()).add(cj)
 
-    ends = []
-    for ci in live:
-        pts_ci = paths[ci].points
-        ends.append(
-            (
-                end_node[(ci, 0)],
-                pts_ci[0],
-                ci,
-                _outward_tangent(pts_ci, at_tail=False),
-            )
-        )
-        ends.append(
-            (
-                end_node[(ci, 1)],
-                pts_ci[-1],
-                ci,
-                _outward_tangent(pts_ci, at_tail=True),
-            )
-        )
-    # A turn yields to a continuation. Three ends met at the corner by the
-    # 8/17 labels: the vertical street's two pieces facing head-on, and the
-    # horizontal street arriving from the west. Distance-blind linking let
-    # the contraction turn the corner — 1594 paired with CV8-1035 in an L —
-    # when the cable visibly runs straight through to CV8-1038. An end that
-    # has a head-on partner links only head-on; a true L-corner, where two
-    # ends meet and nothing continues straight, still joins as before.
-    cand_links: List[Tuple[int, int, Any, Any, float, bool]] = []
-    for i, (u, pu, cu, tu) in enumerate(ends):
-        for jj in range(i + 1, len(ends)):
-            v, pv, cv, tv = ends[jj]
+    # NOTE: a head-on-yields rule was tried here for the corner junctions
+    # and broke the curved streets — a bend out of a corner reads as a turn,
+    # and any far collinear piece vetoed the true join. The corners are cut
+    # by their poles now that tags anchor on the circles; distance decides.
+    ends = [(end_node[(ci, 0)], paths[ci].points[0], ci) for ci in live] + [
+        (end_node[(ci, 1)], paths[ci].points[-1], ci) for ci in live
+    ]
+    for i, (u, pu, cu) in enumerate(ends):
+        for v, pv, cv in ends[i + 1 :]:
             if u == v:
                 continue
             if cv in teed_into.get(cu, ()) or cu in teed_into.get(cv, ()):
                 continue
             d = _dist(pu, pv)
-            if d > link_tol:
-                continue
-            if _crosses_equipment(pu, pv, blocker_grid):
-                continue
-            if d <= 1e-9 or tu is None or tv is None:
-                head_on = True
-            else:
-                ux, uy = (pv[0] - pu[0]) / d, (pv[1] - pu[1]) / d
-                head_on = (
-                    tu[0] * ux + tu[1] * uy >= 0.5
-                    and tv[0] * -ux + tv[1] * -uy >= 0.5
-                )
-            cand_links.append((i, jj, u, v, d, head_on))
-    has_head_on: set = set()
-    for i, jj, _u, _v, _d, head_on in cand_links:
-        if head_on:
-            has_head_on.add(i)
-            has_head_on.add(jj)
-    for i, jj, u, v, d, head_on in cand_links:
-        if not head_on and (i in has_head_on or jj in has_head_on):
-            continue
-        link(u, v, d)
+            if d <= link_tol and not _crosses_equipment(pu, pv, blocker_grid):
+                link(u, v, d)
     for u, v, length, tip_geom in tee_links:
         link(u, v, length, tip_geom)
 
