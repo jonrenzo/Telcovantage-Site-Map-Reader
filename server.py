@@ -3060,7 +3060,10 @@ POLE_CONFIG = _poleid.PoleIdConfig(
     include_mtext=True,
     filter_text_by_regex=True,
     include_stroke=True,
-    use_circle_markers=False,
+    # The pole IS the circle: pair every label with its circle so the tag
+    # anchors on the plant, not the lettering beside it. Labels with no
+    # circle still pass (require_circle_match stays False) — recall first.
+    use_circle_markers=True,
     require_circle_match=False,
     max_dist_factor=4.0,
     default_text_height=0.25,
@@ -3192,21 +3195,30 @@ def _run_pole_scan(dxf_path: str, layer_names: list[str]) -> None:
             matches = _poleid.find_pole_labels(doc, layer_name, config=POLE_CONFIG)
             layer_segs = extract_stroke_segments(doc, layer_name, include_circles=False)
 
-            for lab, _circ in matches:
+            for lab, circ in matches:
                 bbox = list(lab.bbox) if lab.bbox else [lab.x, lab.y, lab.x, lab.y]
                 source = getattr(lab, "source", "unknown")
                 display_name = _poleid.clean_label(lab.text)
                 is_placeholder = source == "stroke" and display_name.upper().startswith(placeholder_prefix)
 
+                # The pole IS the circle; the label is lettering beside it.
+                # Anchoring tags at the label put seven corner poles ~0.3 off
+                # their circles, the derivation saw empty corners, and streets
+                # chained around the bend into L-shaped spans.
+                ax = round(circ.x if circ is not None else lab.x, 4)
+                ay = round(circ.y if circ is not None else lab.y, 4)
+
                 if is_placeholder:
-                    all_ocr_queue.append((global_pole_id, lab, bbox, source, layer_name, layer_segs))
+                    all_ocr_queue.append(
+                        (global_pole_id, lab, bbox, source, layer_name, layer_segs, ax, ay)
+                    )
                 else:
                     all_tags.append(
                         {
                             "pole_id": global_pole_id,
                             "name": display_name,
-                            "cx": round(lab.x, 4),
-                            "cy": round(lab.y, 4),
+                            "cx": ax,
+                            "cy": ay,
                             "bbox": [round(v, 4) for v in bbox],
                             "layer": layer_name,
                             "source": source,
@@ -3223,7 +3235,7 @@ def _run_pole_scan(dxf_path: str, layer_names: list[str]) -> None:
                 POLE_STATE["tags"] = list(all_tags)
 
         def _ocr_one(args):
-            pole_id, lab, bbox, source, layer_name, layer_segs = args
+            pole_id, lab, bbox, source, layer_name, layer_segs, ax, ay = args
             display_name = _poleid.clean_label(lab.text)
             crop_b64 = None
             ocr_conf = None
@@ -3251,8 +3263,8 @@ def _run_pole_scan(dxf_path: str, layer_names: list[str]) -> None:
             return {
                 "pole_id": pole_id,
                 "name": display_name,
-                "cx": round(lab.x, 4),
-                "cy": round(lab.y, 4),
+                "cx": ax,
+                "cy": ay,
                 "bbox": [round(v, 4) for v in bbox],
                 "layer": layer_name,
                 "source": source,
@@ -3272,8 +3284,8 @@ def _run_pole_scan(dxf_path: str, layer_names: list[str]) -> None:
                         tag = {
                             "pole_id": args[0],
                             "name": _poleid.clean_label(args[1].text),
-                            "cx": round(args[1].x, 4),
-                            "cy": round(args[1].y, 4),
+                            "cx": args[6],
+                            "cy": args[7],
                             "bbox": [round(v, 4) for v in args[2]],
                             "layer": args[4],
                             "source": args[3],
