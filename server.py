@@ -1239,8 +1239,46 @@ def extract_dash_segments(doc, layer_name: str) -> list:
     if total_len > 0 and kept_len < 0.4 * total_len:
         return extract_stroke_segments(doc, layer_name, include_circles=False)
 
+    # Glyph knots: the strokes of a house number are straight and dash-scale
+    # one by one — '#1' sailed through and lit up on hover — but they huddle
+    # in a character-sized box at mixed angles, while real dashes stand apart
+    # in line. Cluster the keepers by proximity and drop the knots.
+    med_kept = _length_weighted_median([w for _, w in dashes]) or med
+    knot_tol = med_kept * 0.8
+    centres = []
+    for pts, w in dashes:
+        cx = sum(p[0] for p in pts) / len(pts)
+        cy = sum(p[1] for p in pts) / len(pts)
+        ang = math.atan2(pts[-1][1] - pts[0][1], pts[-1][0] - pts[0][0]) % math.pi
+        centres.append((cx, cy, ang))
+    cell = max(knot_tol, 1e-9)
+    cgrid: Dict[Tuple[int, int], List[int]] = {}
+    for i, (cx, cy, _) in enumerate(centres):
+        cgrid.setdefault((int(math.floor(cx / cell)), int(math.floor(cy / cell))), []).append(i)
+    drop: set = set()
+    for i, (cx, cy, ang) in enumerate(centres):
+        kx, ky = int(math.floor(cx / cell)), int(math.floor(cy / cell))
+        close = []
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                for j in cgrid.get((kx + dx, ky + dy), ()):
+                    if j != i and math.hypot(centres[j][0] - cx, centres[j][1] - cy) <= knot_tol:
+                        close.append(j)
+        if len(close) < 2:
+            continue
+        # Three-plus strokes crowding one spot with real angle spread = a glyph.
+        spread = max(
+            min(abs(centres[j][2] - ang), math.pi - abs(centres[j][2] - ang))
+            for j in close
+        )
+        if spread > math.radians(25):
+            drop.add(i)
+            drop.update(close)
+
     segs = []
-    for pts, _ in dashes:
+    for i, (pts, _) in enumerate(dashes):
+        if i in drop:
+            continue
         for a, b in zip(pts, pts[1:]):
             segs.append(Seg(a[0], a[1], b[0], b[1]))
     return segs
