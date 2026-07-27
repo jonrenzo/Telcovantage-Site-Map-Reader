@@ -2063,7 +2063,19 @@ def _pair_neighbouring_poles(
     """
     link_tol = pole_spacing * RUN_LINK_RATIO if pole_spacing > 0 else med_seg * 10
     skip_runs = skip_runs or set()
-    live = [ci for ci in range(len(paths)) if ci not in skip_runs]
+    # A route path touching NO pole is a pure rail: nothing ever breaks it,
+    # so through the end links it carries a contraction past every pole on
+    # the street. A route with even one hit stays — it ends at its pole and
+    # still glues that pole into the network.
+    live = [
+        ci
+        for ci in range(len(paths))
+        if ci not in skip_runs
+        and not (
+            getattr(paths[ci], "route", False)
+            and not (touches.get(ci) or [])
+        )
+    ]
 
     # Nodes are poles and run ends; edges are stretches of cable, plus the short
     # hops between run ends that the drafter left open.
@@ -2249,6 +2261,59 @@ def _pair_neighbouring_poles(
                 seen.add(nxt)
                 queue.append((dist + length, nxt, path_geom))
 
+    # Cable cannot pass a pole without ending there — and neither may a
+    # span's route. A second lane chained around a corner matches no single
+    # street, so no pole ever breaks it, and a contraction rode it past the
+    # corner: NPT-114 paired with CV8-1038 in an L, sailing 0.3 from
+    # CV8-1035. A pair whose route passes a third pole that close is a
+    # bypass, not a span.
+    bypass_tol = pole_spacing * 0.35 if pole_spacing > 0 else med_seg * 4
+    clear_of_ends = pole_spacing * 0.9 if pole_spacing > 0 else med_seg * 9
+    for key in list(raw):
+        entry = raw[key]
+        pa_, pb_ = entry["a"], entry["b"]
+        ia = pa_.get("pole_id")
+        ib = pb_.get("pole_id")
+        a_pt = (float(pa_["cx"]), float(pa_["cy"]))
+        b_pt = (float(pb_["cx"]), float(pb_["cy"]))
+        hit_foreign = False
+        for ci, t0, t1 in entry["geom"]:
+            if t1 <= t0:
+                continue
+            n_s = max(2, int((t1 - t0) / max(pole_spacing * 0.5, 1e-9)) + 1)
+            for k in range(n_s + 1):
+                pt = _point_at_length(
+                    paths[ci].points, t0 + (t1 - t0) * k / n_s
+                )
+                for pid, p in pole_of.items():
+                    if pid == ia or pid == ib:
+                        continue
+                    r_pt = (float(p["cx"]), float(p["cy"]))
+                    # A cluster neighbour of either endpoint is no bypass —
+                    # in the dense blocks a true span passes close to poles
+                    # that stand beside its own ends. Only a pole clear of
+                    # both ends, sitting on the route, proves the route
+                    # sailed past a break it should have made.
+                    if (
+                        _dist(r_pt, a_pt) < clear_of_ends
+                        or _dist(r_pt, b_pt) < clear_of_ends
+                    ):
+                        continue
+                    if _dist(pt, r_pt) <= bypass_tol:
+                        hit_foreign = True
+                        print(
+                            f"[spans] bypass dropped: {pa_.get('name')}"
+                            f"-{pb_.get('name')} passes {p.get('name')}"
+                        )
+                        break
+                if hit_foreign:
+                    break
+            if hit_foreign:
+                break
+        if hit_foreign:
+            del raw[key]
+            skipped += 1
+
     for entry in raw.values():
         segs: List[Dict[str, Any]] = []
         for ci, t0, t1 in entry["geom"]:
@@ -2267,6 +2332,11 @@ def _pair_neighbouring_poles(
         if not hits:
             continue
         path = paths[ci]
+        # A route's cable past its outermost pole is the annotation running
+        # on — to the next sheet, to a label — not strand to paint. The ----
+        # was showing up along the solid line whenever spans re-derived.
+        if getattr(path, "route", False):
+            continue
         for t0, t1, pole in (
             (0.0, hits[0][0], hits[0][1]),
             (hits[-1][0], path.total_length, hits[-1][1]),
@@ -2481,6 +2551,11 @@ def attach_uncovered_linework(
     for path in paths:
         total = path.total_length
         if total <= 0:
+            continue
+        # Uncovered route ink is annotation the spans rightly ignored — a
+        # diagonal to the next sheet, a rail beside the lane. Adopting it
+        # painted the ---- along solid lines after every re-derive.
+        if getattr(path, "route", False):
             continue
         step = max(total / 200.0, covered_tol / 2 if covered_tol > 0 else 0.02)
         uncovered: List[Tuple[float, float]] = []
