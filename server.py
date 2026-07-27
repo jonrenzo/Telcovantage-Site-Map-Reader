@@ -980,6 +980,22 @@ def find_cable_layer_names(layers: List[str], include_drops: bool = False) -> Li
             continue
         matched.append(layer)
 
+    if not matched:
+        # Different sites name their plant differently — BCR405 draws it on
+        # PDF_FEED / PDF_STRAND / PDF_AERIAL / PDF_565 with not a "cable" in
+        # sight, and a new upload must never come up empty just because of a
+        # naming convention. These fire only when the primary keywords match
+        # nothing, so drawings like LP1709 (where *STRAND is lettering, not
+        # plant) are unaffected.
+        fallback = ["feed", "strand", "aerial", "565", "coax"]
+        for layer in layers:
+            layer_lower = layer.lower()
+            if not any(kw in layer_lower for kw in fallback):
+                continue
+            if any(ex in layer_lower for ex in exclude):
+                continue
+            matched.append(layer)
+
     return matched
 
 
