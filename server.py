@@ -1211,6 +1211,7 @@ def extract_dash_segments(doc, layer_name: str) -> list:
     still works on solid-drawn cable.
     """
     candidates = []  # (points, walk_len)
+    other_walks: list = []  # walk lengths of curvy/many-vertex entities
     other_len = 0.0
     for e in doc.modelspace():
         if getattr(e.dxf, "layer", None) != layer_name:
@@ -1234,6 +1235,7 @@ def extract_dash_segments(doc, layer_name: str) -> list:
         if len(pts) <= 5 and chord / walk > 0.9:
             candidates.append((pts, walk))
         else:
+            other_walks.append(walk)
             other_len += walk
 
     if not candidates:
@@ -1250,10 +1252,18 @@ def extract_dash_segments(doc, layer_name: str) -> list:
     total_len = kept_len + other_len + sum(
         w for _, w in candidates if not (med * 0.3 <= w <= med * 3.0)
     )
-    # A layer that is mostly NOT dashes was not drafted as dashed cable —
-    # serve it whole rather than shredding it.
+    # A layer that is mostly NOT dashes may still be dashed cable drowned in
+    # lettering: SDU lot labels and PDF_FEED house numbers are curvy,
+    # glyph-sized blobs that outweigh the real drop marks in ink. Real
+    # curvy-drafted cable comes as LONG entities (many x the dash median);
+    # glyphs never do. Serve the layer whole only when long linework
+    # dominates the excluded ink — otherwise the excluded ink is text and
+    # the dash candidates ARE the plant.
     if total_len > 0 and kept_len < 0.4 * total_len:
-        return extract_stroke_segments(doc, layer_name, include_circles=False)
+        big_curvy = sum(w for w in other_walks if w > med * 8.0)
+        small_curvy = other_len - big_curvy
+        if big_curvy >= small_curvy:
+            return extract_stroke_segments(doc, layer_name, include_circles=False)
 
     # Glyph knots: the strokes of a house number are straight and dash-scale
     # one by one — '#1' sailed through and lit up on hover — but they huddle
@@ -1288,8 +1298,15 @@ def extract_dash_segments(doc, layer_name: str) -> list:
             for j in close
         )
         if spread > math.radians(25):
-            drop.add(i)
-            drop.update(close)
+            # Glyph strokes run about half a dash long (SDU letters sit at
+            # ~0.5x the median, the drop marks at ~1.0x, with a clean valley
+            # at 0.75x on every drawing measured). A full-length stroke in a
+            # knot is not lettering — it is a drop mark beside its house
+            # label, or a street dash crossing another at a junction — so
+            # only the short strokes of the huddle are the glyph.
+            for k in (i, *close):
+                if dashes[k][1] < med_kept * 0.75:
+                    drop.add(k)
 
     segs = []
     for i, (pts, _) in enumerate(dashes):
