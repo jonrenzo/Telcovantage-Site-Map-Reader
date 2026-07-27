@@ -1532,6 +1532,7 @@ def build_chains(
     limit: float,
     weld_tol: float,
     parallel_tol: float = 0.0,
+    blocker_grid: Optional[Dict] = None,
 ) -> List[CablePath]:
     """Join fragments end to end into runs — as many as the drawing contains.
 
@@ -1566,18 +1567,32 @@ def build_chains(
                         oriented.start[0] - tail[0],
                         oriented.start[1] - tail[1],
                     ):
-                        cand = (d, frag.index, True, oriented)
-                        if best is None or cand[:2] < best[:2]:
-                            best = cand
+                        # Equipment auto-cuts the cable: a bridge may not
+                        # jump a tap, splitter, extender or terminator.
+                        if not (
+                            d > weld_tol
+                            and _crosses_equipment(
+                                tail, oriented.start, blocker_grid
+                            )
+                        ):
+                            cand = (d, frag.index, True, oriented)
+                            if best is None or cand[:2] < best[:2]:
+                                best = cand
                     d = _dist(head, oriented.end)
                     if d <= weld_tol or _continues_forward(
                         head_tangent,
                         oriented.end[0] - head[0],
                         oriented.end[1] - head[1],
                     ):
-                        cand = (d, frag.index, False, oriented)
-                        if best is None or cand[:2] < best[:2]:
-                            best = cand
+                        if not (
+                            d > weld_tol
+                            and _crosses_equipment(
+                                oriented.end, head, blocker_grid
+                            )
+                        ):
+                            cand = (d, frag.index, False, oriented)
+                            if best is None or cand[:2] < best[:2]:
+                                best = cand
 
             if best is None or best[0] > limit:
                 break
@@ -1744,11 +1759,46 @@ def detect_parallel_runs(
     return duplicate, runs, shadows
 
 
+def _blocker_grid(
+    blockers: Sequence[Tuple[float, float, float]],
+) -> Dict[Tuple[int, int], List[Tuple[float, float, float]]]:
+    grid: Dict[Tuple[int, int], List[Tuple[float, float, float]]] = {}
+    for bx, by, br in blockers:
+        grid.setdefault(
+            (int(math.floor(bx / 1.0)), int(math.floor(by / 1.0))), []
+        ).append((bx, by, br))
+    return grid
+
+
+def _crosses_equipment(
+    p: Tuple[float, float],
+    q: Tuple[float, float],
+    grid: Optional[Dict[Tuple[int, int], List[Tuple[float, float, float]]]],
+) -> bool:
+    """Does the segment p-q pass through an equipment zone?
+
+    Equipment auto-cuts the cable — the owner's rule — so no bridge, end
+    link or tee join may cross a tap, splitter, extender or terminator.
+    """
+    if not grid:
+        return False
+    x0, x1 = sorted((p[0], q[0]))
+    y0, y1 = sorted((p[1], q[1]))
+    for kx in range(int(math.floor(x0 - 1.0)), int(math.floor(x1 + 1.0)) + 1):
+        for ky in range(int(math.floor(y0 - 1.0)), int(math.floor(y1 + 1.0)) + 1):
+            for bx, by, br in grid.get((kx, ky), ()):
+                d, _ = _point_to_segment(bx, by, p[0], p[1], q[0], q[1])
+                if d <= br:
+                    return True
+    return False
+
+
 def build_spans_from_pieces(
     segments: Sequence[Any],
     poles: Sequence[Dict[str, Any]],
     warnings: Optional[List[Note]] = None,
     errors: Optional[List[Note]] = None,
+    blockers: Sequence[Tuple[float, float, float]] = (),
 ) -> Tuple[List[DerivedSpan], List[PolePosition]]:
     """Derive spans by asking each piece of cable which poles it touches.
 
@@ -1783,11 +1833,13 @@ def build_spans_from_pieces(
     # whole drawing be one run. A pole alone on a short piece would otherwise
     # never pair with anything; joined into a run, it pairs with its neighbours.
     parallel_tol = parallel_tolerance(pole_spacing, med_seg)
+    bgrid = _blocker_grid(blockers) if blockers else None
     paths = build_chains(
         fragments,
         _bridge_limit(fragments, med_seg, pole_spacing),
         max(med_seg * WELD_FACTOR, 1e-9),
         parallel_tol,
+        bgrid,
     )
 
     duplicate_runs, extra_runs, shadowed = detect_parallel_runs(paths, parallel_tol)
@@ -1878,7 +1930,7 @@ def build_spans_from_pieces(
     # pairing has to see past the individual runs.
     select_ink = _ink_selector(segments, med_seg)
     raw, skipped_stubs = _pair_neighbouring_poles(
-        paths, touches, pole_spacing, med_seg, duplicate_runs, select_ink
+        paths, touches, pole_spacing, med_seg, duplicate_runs, select_ink, bgrid
     )
 
     if not raw:
@@ -1994,6 +2046,7 @@ def _pair_neighbouring_poles(
     med_seg: float,
     skip_runs: Optional[set] = None,
     select_ink=None,
+    blocker_grid: Optional[Dict] = None,
 ) -> Tuple[Dict[Tuple[Any, Any], Dict[str, Any]], int]:
     """Find every pair of poles with cable between them and nothing in between.
 
@@ -2102,6 +2155,10 @@ def _pair_neighbouring_poles(
                     continue
                 if not (end_zone < t < paths[cj].total_length - end_zone):
                     continue  # near the ends, end-to-end links handle it
+                # Equipment auto-cuts: the tee hop must not cross it.
+                tee_pt = _point_at_length(paths[cj].points, t)
+                if _crosses_equipment(endpoint, tee_pt, blocker_grid):
+                    continue
                 hits = hits_by_run.get(cj) or []
                 if not hits:
                     continue
@@ -2123,7 +2180,7 @@ def _pair_neighbouring_poles(
             if cv in teed_into.get(cu, ()) or cu in teed_into.get(cv, ()):
                 continue
             d = _dist(pu, pv)
-            if d <= link_tol:
+            if d <= link_tol and not _crosses_equipment(pu, pv, blocker_grid):
                 link(u, v, d)
     for u, v, length, tip_geom in tee_links:
         link(u, v, length, tip_geom)
@@ -2459,12 +2516,15 @@ def build_node_spans(
     segments_by_layer: Dict[str, List[Any]],
     poles: Sequence[Dict[str, Any]],
     ocr_values: Sequence[Dict[str, Any]] = (),
+    blockers: Sequence[Tuple[float, float, float]] = (),
 ) -> SpanBuildResult:
     """Derive one node's spans from its drawing.
 
     ``segments_by_layer`` maps each cable layer to the segments extracted from
     it (call ``extract_stroke_segments(doc, layer, include_circles=False)``).
     ``poles`` are the detected pole tags: ``pole_id``, ``name``, ``cx``, ``cy``.
+    ``blockers`` are equipment zones ``(cx, cy, r)`` — taps, splitters,
+    extenders, terminators — the cable auto-cuts at them.
     """
     result = SpanBuildResult()
 
@@ -2476,7 +2536,7 @@ def build_node_spans(
         return result
 
     result.spans, result.poles = build_spans_from_pieces(
-        segments, poles, result.warnings, result.errors
+        segments, poles, result.warnings, result.errors, blockers
     )
     if not result.spans:
         return result

@@ -1169,6 +1169,11 @@ def derive_node_spans(
     poles = POLE_STATE.get("tags", []) if poles is None else poles
     ocr = state.get("results", []) if ocr_results is None else ocr_results
 
+    # Equipment breaks the TRACE (see _whole_cable_spans) but not the span
+    # graph: the strand physically continues under a tap, and a span's ends
+    # are poles on the wire contract — cutting the graph at equipment lost
+    # 35 real spans and orphaned 13 poles when tried. The blockers plumbing
+    # in span_builder stays for the day the contract can carry it.
     result = span_builder.build_node_spans(segments_by_layer, poles, ocr)
     SPAN_STATE["dxf_path"] = dxf_path
     SPAN_STATE["result"] = result
@@ -2031,6 +2036,43 @@ def _dash_connectors(pool: list, med: float, blockers: Optional[list] = None) ->
     return connectors
 
 
+def _equipment_zones(doc) -> list:
+    """Compact symbol footprints: taps, splitters, extenders, terminators.
+
+    The ---- ends at equipment — what continues past one is the next span's
+    cable, the owner's rule — so neither the preview's connector glue nor the
+    derivation's chain bridges and graph joins may cross these zones.
+    """
+    zones: list = []
+    for e in doc.modelspace():
+        blayer = getattr(e.dxf, "layer", "") or ""
+        if not any(k in blayer for k in ("Passives", "Actives", "Symbols")):
+            continue
+        bt = e.dxftype()
+        if bt == "CIRCLE":
+            cx0, cy0 = float(e.dxf.center.x), float(e.dxf.center.y)
+            r0 = float(e.dxf.radius)
+        elif bt == "LINE":
+            xs0 = (float(e.dxf.start.x), float(e.dxf.end.x))
+            ys0 = (float(e.dxf.start.y), float(e.dxf.end.y))
+            cx0, cy0 = sum(xs0) / 2, sum(ys0) / 2
+            r0 = math.hypot(xs0[1] - xs0[0], ys0[1] - ys0[0]) / 2
+        elif bt == "LWPOLYLINE":
+            bpts = [(float(x), float(y)) for x, y, *_ in e.get_points("xy")]
+            if not bpts:
+                continue
+            xs0 = [p[0] for p in bpts]
+            ys0 = [p[1] for p in bpts]
+            cx0, cy0 = (min(xs0) + max(xs0)) / 2, (min(ys0) + max(ys0)) / 2
+            r0 = math.hypot(max(xs0) - min(xs0), max(ys0) - min(ys0)) / 2
+        else:
+            continue
+        if r0 > 1.0:
+            continue  # a symbol is compact; anything larger is not one
+        zones.append((cx0, cy0, r0))
+    return zones
+
+
 #: dxf_path -> (file mtime, spans, cable_layers). The whole-cable preview is a
 #: pure function of the file, so it is computed once per drawing, not once per
 #: page load — it was costing two minutes on every viewer mount.
@@ -2081,36 +2123,7 @@ def _whole_cable_spans(dxf_path: str) -> Tuple[List[Dict[str, Any]], List[str]]:
         first = next(iter(per_layer))
         per_layer[first] = per_layer[first] + supplemental
 
-    # Equipment zones: taps, splitters, extenders, terminators. The ---- ends
-    # at these — what continues past one is the next span's cable — so the
-    # connector glue must not cross them (the GM triangle read as one line).
-    blockers: list = []
-    for e in doc.modelspace():
-        blayer = getattr(e.dxf, "layer", "") or ""
-        if not any(k in blayer for k in ("Passives", "Actives", "Symbols")):
-            continue
-        bt = e.dxftype()
-        if bt == "CIRCLE":
-            cx0, cy0 = float(e.dxf.center.x), float(e.dxf.center.y)
-            r0 = float(e.dxf.radius)
-        elif bt == "LINE":
-            xs0 = (float(e.dxf.start.x), float(e.dxf.end.x))
-            ys0 = (float(e.dxf.start.y), float(e.dxf.end.y))
-            cx0, cy0 = sum(xs0) / 2, sum(ys0) / 2
-            r0 = math.hypot(xs0[1] - xs0[0], ys0[1] - ys0[0]) / 2
-        elif bt == "LWPOLYLINE":
-            bpts = [(float(x), float(y)) for x, y, *_ in e.get_points("xy")]
-            if not bpts:
-                continue
-            xs0 = [p[0] for p in bpts]
-            ys0 = [p[1] for p in bpts]
-            cx0, cy0 = (min(xs0) + max(xs0)) / 2, (min(ys0) + max(ys0)) / 2
-            r0 = math.hypot(max(xs0) - min(xs0), max(ys0) - min(ys0)) / 2
-        else:
-            continue
-        if r0 > 1.0:
-            continue  # a symbol is compact; anything larger is not one
-        blockers.append((cx0, cy0, r0))
+    blockers = _equipment_zones(doc)
 
     # Every ---- matters, and drafters file street cable on whatever layer was
     # active — LP1709 keeps whole streets on PDF_0 and Actives-PowerSupply.
