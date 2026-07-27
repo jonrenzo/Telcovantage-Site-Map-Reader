@@ -1873,16 +1873,57 @@ def _pair_neighbouring_poles(
         for (u, t0), (v, t1) in zip(deduped, deduped[1:]):
             link(u, v, max(0.0, t1 - t0), (ci, t0, t1))
 
-    ends = [(end_node[(ci, 0)], paths[ci].points[0]) for ci in live] + [
-        (end_node[(ci, 1)], paths[ci].points[-1]) for ci in live
+    # Tee joins. A street that ends against the MIDDLE of another street has
+    # no run end there to link to — the graph only knew ends. Left that way,
+    # the end reaches for the crossed street's far ends instead: one piece
+    # between two hexagon markers linked diagonally across the lots to the
+    # poles a corner down, and NPT-107 paired with NPT-101 while its true
+    # street-mate NPT-104 sat right at the tee. The tee joins at the crossed
+    # street's nearest pole along the line — the same place that street
+    # breaks anyway — and the diagonal end-links to that street are dropped.
+    tee_tol = end_zone
+    tee_links: List[Tuple[Any, Any, float]] = []
+    # Run-level, deliberately: once a run joins a street at a tee, BOTH its
+    # ends must stop reaching for that street's far ends, or the far end
+    # still cuts the diagonal the tee was built to prevent.
+    teed_into: Dict[int, set] = {}
+    for ci in live:
+        for side in (0, 1):
+            endpoint = paths[ci].points[0 if side == 0 else -1]
+            enode = end_node[(ci, side)]
+            for cj in live:
+                if cj == ci:
+                    continue
+                t, d = project_point_onto_path(
+                    endpoint[0], endpoint[1], paths[cj]
+                )
+                if d > tee_tol:
+                    continue
+                if not (end_zone < t < paths[cj].total_length - end_zone):
+                    continue  # near the ends, end-to-end links handle it
+                hits = hits_by_run.get(cj) or []
+                if not hits:
+                    continue
+                t_hit, pole, _ = min(hits, key=lambda h: abs(h[0] - t))
+                pnode = ("P", pole.get("pole_id"))
+                if pnode != enode:
+                    tee_links.append((enode, pnode, d + abs(t_hit - t)))
+                teed_into.setdefault(ci, set()).add(cj)
+
+    ends = [(end_node[(ci, 0)], paths[ci].points[0], ci) for ci in live] + [
+        (end_node[(ci, 1)], paths[ci].points[-1], ci) for ci in live
     ]
-    for i, (u, pu) in enumerate(ends):
-        for v, pv in ends[i + 1 :]:
+    for i, (u, pu, cu) in enumerate(ends):
+        for v, pv, cv in ends[i + 1 :]:
             if u == v:
+                continue
+            if cv in teed_into.get(cu, ()) or cu in teed_into.get(cv, ()):
                 continue
             d = _dist(pu, pv)
             if d <= link_tol:
                 link(u, v, d)
+    for u, v, length in tee_links:
+        link(u, v, length)
 
     # Contract: walk out of each pole through run ends only, stopping at the
     # next pole. Nearest-first so a pole pairs with its true neighbour rather
