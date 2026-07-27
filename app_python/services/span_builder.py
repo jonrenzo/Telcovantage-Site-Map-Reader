@@ -1671,15 +1671,17 @@ def build_spans_from_pieces(
         total = paths[pi].total_length
         interior = tip_zone < t < total - tip_zone
         # Cable cannot pass a pole without ending there, so a pole lying on a
-        # run's interior always breaks it. Near the tips it is a different
-        # question — the end of a neighbouring street's cable can come just as
-        # close — so there a pole only claims a run it is nearly as close to as
-        # its own, otherwise it would invent spans between poles that are not
-        # neighbours at all.
-        if not interior:
-            own = nearest.get(p.get("pole_id"))
-            if own is not None and d > own * PIECE_AFFINITY + med_seg:
-                continue
+        # run's interior breaks it — but only a run it actually lies on. The
+        # snap radius is calibrated to the whole drawing, and on one with
+        # far-flung labels it reaches a street one block over: NPT-106
+        # projected onto the next street's run at 8x its own offset, the
+        # interior break cut that street in the middle, and the true
+        # 105-104 span became two phantoms (106-105, 106-104). A pole's own
+        # street always passes this test (there d IS its nearest), so real
+        # interior breaks are untouched.
+        own = nearest.get(p.get("pole_id"))
+        if own is not None and d > own * PIECE_AFFINITY + med_seg:
+            continue
         touches.setdefault(pi, []).append((t, p, d))
         prev = best_for_pole.get(p.get("pole_id"))
         if prev is None or d < prev[0]:
