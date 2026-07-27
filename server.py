@@ -1557,9 +1557,14 @@ def _supplemental_strand_segments(
                 # Routes are gap-fillers, even in the preview: beside a drawn
                 # lane they just double the street into a smear, so each step
                 # of the route shows only where the Cable layers drew nothing
-                # — the streets that would otherwise trace empty.
+                # — the streets that would otherwise trace empty. And only
+                # WHOLE missing stretches count: a short uncovered island
+                # between covered ones is a label pause — the 36/28 circle
+                # sitting on the line — not a street, and painting through
+                # it broke the trace-the-dashes promise.
                 if include_routes:
-                    kept_any = False
+                    stretch: List[Tuple[float, float, float, float]] = []
+                    stretches: List[List[Tuple[float, float, float, float]]] = []
                     for a, b in zip(frag.points, frag.points[1:]):
                         seg_len = math.hypot(b[0] - a[0], b[1] - a[1])
                         steps = max(1, int(seg_len / max(med, 1e-9)))
@@ -1570,14 +1575,28 @@ def _supplemental_strand_segments(
                             bx = a[0] + (b[0] - a[0]) * t1
                             by = a[1] + (b[1] - a[1]) * t1
                             if near_base((ax + bx) / 2, (ay + by) / 2):
+                                if stretch:
+                                    stretches.append(stretch)
+                                    stretch = []
                                 continue
+                            stretch.append((ax, ay, bx, by))
+                    if stretch:
+                        stretches.append(stretch)
+                    kept_any = False
+                    for st in stretches:
+                        st_len = sum(
+                            math.hypot(bx - ax, by - ay) for ax, ay, bx, by in st
+                        )
+                        if st_len < med * 8:
+                            continue
+                        for ax, ay, bx, by in st:
                             step = Seg(ax, ay, bx, by)
                             # Routes chain among themselves only — they meet
                             # drawn cable in the pairing graph, not welded
                             # onto a lane's polyline.
                             step.is_route = True
                             extra.append(step)
-                            kept_any = True
+                        kept_any = True
                     if kept_any:
                         kept_long += 1
                 continue
@@ -1763,8 +1782,11 @@ def _dash_polylines(pool: list, med: float) -> List[Dict[str, Any]]:
             d = math.hypot(ox - cx, oy - cy)
             # Long-dash streets pitch at roughly their own dash length plus a
             # gap — a fixed med*4 radius, tuned to short dashes, called every
-            # long dash "alone" and threw its street away.
-            if d > max(med * 4, L * 2.2) or d <= 1e-9:
+            # long dash "alone" and threw its street away. And a strand-length
+            # label sitting ON the line pauses the dashes for ~5-6 strokes:
+            # the reach must clear the label circle, or the two dashes past
+            # it read as strays and the short block between labels vanishes.
+            if d > max(med * 6, L * 2.2) or d <= 1e-9:
                 continue
             oL = o.length()
             if oL <= 1e-9:
@@ -1810,8 +1832,13 @@ def _dash_polylines(pool: list, med: float) -> List[Dict[str, Any]]:
                 has_collinear_neighbour(train[0], members)
                 or has_collinear_neighbour(train[-1], members)
             ):
-                noise += 1
-                continue
+                # Dashes queued dead straight are drawn cable even when the
+                # street is one block long between label pauses and nothing
+                # continues past either end — symbols spray bars at angles
+                # and curl into hooks, they do not stand in line.
+                if not (len(train) >= 2 and span_dist >= walk_len * 0.92):
+                    noise += 1
+                    continue
 
         kept_trains.append((pts, train, walk_len))
 
@@ -1861,8 +1888,16 @@ def _dash_polylines(pool: list, med: float) -> List[Dict[str, Any]]:
 
     for idx, (pts, train, walk_len) in enumerate(kept_trains):
         if idx not in connected and walk_len < island_cap:
-            noise += 1
-            continue
+            # A straight train of dashes is a street even with no neighbour:
+            # the short blocks between strand labels (11 to 17, 17 to 20-8)
+            # hang between label pauses and connect to nothing nearby — but
+            # three or more dashes in a line are drawn cable, not furniture.
+            chord = math.hypot(pts[-1][0] - pts[0][0], pts[-1][1] - pts[0][1])
+            if not (
+                len(train) >= 3 and walk_len > 0 and chord / walk_len >= 0.9
+            ):
+                noise += 1
+                continue
 
         simplified = _simplify_polyline(pts, eps)
 
