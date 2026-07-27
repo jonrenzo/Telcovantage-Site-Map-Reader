@@ -5421,8 +5421,8 @@ export default function DxfViewer({
           <div className="flex justify-between gap-4">
             <span className="text-slate-400">Pole Connection:</span>
             <span className="font-mono text-white">
-              {hoveredSpanData.from_pole || "?"} &rarr;{" "}
-              {hoveredSpanData.to_pole || "?"}
+              {hoveredSpanData.from_pole || "—"} &rarr;{" "}
+              {hoveredSpanData.to_pole || "—"}
             </span>
           </div>
           <div className="flex justify-between gap-4">
@@ -5949,17 +5949,6 @@ export default function DxfViewer({
                 </div>
               )}
 
-              {(selectedSpan as any).whole_cable ? (
-                // Whole strand, pre pole-step: from/to does not exist yet by
-                // design — assigning poles is exactly the work the operator
-                // has not done. Showing empty FROM/TO boxes here invited
-                // filling them by hand.
-                <div className="mt-2 bg-indigo-50 p-2.5 rounded border border-indigo-200 text-[11px] text-indigo-900">
-                  Buong cable ito — isang span muna. Pindutin ang{" "}
-                  <span className="font-semibold">Display Poles</span> para
-                  hatiin sa pole-to-pole at malagyan ng FROM/TO.
-                </div>
-              ) : (
               <div className="mt-2 bg-slate-50 p-2.5 rounded border border-slate-200 flex flex-col gap-2">
                 <div className="flex justify-between items-center">
                   <label className="text-[10px] font-semibold text-slate-500 uppercase">
@@ -5989,21 +5978,22 @@ export default function DxfViewer({
                     </span>
                   </div>
                 </div>
-                <button
-                  className={`w-full py-1.5 rounded text-[11px] font-medium border transition-colors ${poleConnectMode !== "idle" ? "bg-blue-500 hover:bg-blue-600 text-white border-blue-600 shadow-sm" : "bg-white hover:bg-slate-100 text-slate-700 border-slate-200"}`}
-                  onClick={() => {
-                    const nextMode =
-                      poleConnectMode === "idle" ? "from" : "idle";
-                    setPoleConnectMode(nextMode);
-                    poleConnectModeRef.current = nextMode;
-                  }}
-                >
-                  {poleConnectMode !== "idle"
-                    ? "Cancel Connection Mode"
-                    : "🔌 Connect Poles Manually"}
-                </button>
+                {!(selectedSpan as any).whole_cable && (
+                  <button
+                    className={`w-full py-1.5 rounded text-[11px] font-medium border transition-colors ${poleConnectMode !== "idle" ? "bg-blue-500 hover:bg-blue-600 text-white border-blue-600 shadow-sm" : "bg-white hover:bg-slate-100 text-slate-700 border-slate-200"}`}
+                    onClick={() => {
+                      const nextMode =
+                        poleConnectMode === "idle" ? "from" : "idle";
+                      setPoleConnectMode(nextMode);
+                      poleConnectModeRef.current = nextMode;
+                    }}
+                  >
+                    {poleConnectMode !== "idle"
+                      ? "Cancel Connection Mode"
+                      : "🔌 Connect Poles Manually"}
+                  </button>
+                )}
               </div>
-              )}
 
               <div className="mt-3 flex flex-col gap-2">
                 {!pairingMode ? (
