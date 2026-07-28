@@ -407,11 +407,19 @@ def _ink_selector(pool: Sequence[Any], med_seg: float):
         if t1 <= t0:
             return []
         cand: Dict[int, Any] = {}
+        # Walk the stretch rather than only visiting the ends of each piece:
+        # a span whose route is one long straight edge — a pair joined by
+        # link hops — otherwise looked only around its two poles and found
+        # three dashes of the fourteen its street holds.
         for probe in slice_path(path, t0, t1):
-            for px, py in (
-                (probe["x1"], probe["y1"]),
-                (probe["x2"], probe["y2"]),
-            ):
+            seg_len = math.hypot(
+                probe["x2"] - probe["x1"], probe["y2"] - probe["y1"]
+            )
+            steps = max(1, int(seg_len / max(cell * 0.5, 1e-9)))
+            for k in range(steps + 1):
+                u = k / steps
+                px = probe["x1"] + (probe["x2"] - probe["x1"]) * u
+                py = probe["y1"] + (probe["y2"] - probe["y1"]) * u
                 kx, ky = int(math.floor(px / cell)), int(math.floor(py / cell))
                 for dx in (-1, 0, 1):
                     for dy in (-1, 0, 1):
@@ -441,6 +449,38 @@ def _ink_selector(pool: Sequence[Any], med_seg: float):
                     if align < 0.7:  # past 45 degrees is another street
                         continue
             picked.append((t, {"x1": s.x1, "y1": s.y1, "x2": s.x2, "y2": s.y2}))
+        if not picked:
+            # Nothing sits on the route itself. That happens where the span
+            # travels the $STRAND route line while the drawn dashes run a
+            # lane's width beside it — the streets around CV8-1038 carried
+            # two dashes out of fourteen and could not be selected at all.
+            # Take the lane running alongside: gather what is near, find the
+            # offset most of that ink shares, and keep that one lane, so the
+            # cable on the far side of the street stays its own.
+            wide = lane_tol * 3.0
+            offs: List[Tuple[float, float, Any]] = []
+            for s in cand.values():
+                mx, my = (s.x1 + s.x2) / 2.0, (s.y1 + s.y2) / 2.0
+                t, d = project_point_onto_path(mx, my, path)
+                if d > wide:
+                    continue
+                if not (t0 - med_seg * 0.5 <= t <= t1 + med_seg * 0.5):
+                    continue
+                heading = direction_at(path, t)
+                if heading is not None:
+                    dxs, dys = s.x2 - s.x1, s.y2 - s.y1
+                    ln = math.hypot(dxs, dys)
+                    if ln > 1e-12:
+                        if abs((dxs * heading[0] + dys * heading[1]) / ln) < 0.7:
+                            continue
+                offs.append((d, t, s))
+            if offs:
+                lane = _median([d for d, _, _ in offs])
+                for d, t, s in offs:
+                    if abs(d - lane) <= med_seg * 0.75:
+                        picked.append(
+                            (t, {"x1": s.x1, "y1": s.y1, "x2": s.x2, "y2": s.y2})
+                        )
         picked.sort(key=lambda kv: kv[0])
         return [seg for _, seg in picked]
 
@@ -2086,6 +2126,32 @@ def build_spans_from_pieces(
         segs = list(entry["segments"]) + _shadow_segments(
             entry.get("geom", ()), shadowed, paths, select_ink
         )
+        # A pair joined only by link hops carries no run geometry at all, so
+        # the span arrived empty and its street could not be selected —
+        # three streets around CV8-1038 were dark. Read the ink straight
+        # between the two poles instead: the same lane rules apply, so it
+        # takes that street's dashes and not the one beside it.
+        drawn = sum(
+            math.hypot(s["x2"] - s["x1"], s["y2"] - s["y1"])
+            for s in segs
+            if not s.get("bridged")
+        )
+        gap_to_pole = _dist((pa["cx"], pa["cy"]), (pb["cx"], pb["cy"]))
+        if select_ink and drawn < gap_to_pole * 0.4:
+            straight = CablePath(
+                points=[(pa["cx"], pa["cy"]), (pb["cx"], pb["cy"])],
+                cum=[0.0, gap_to_pole],
+            )
+            found = select_ink(straight, 0.0, gap_to_pole)
+            if found:
+                have = {
+                    (round(s["x1"], 6), round(s["y1"], 6), round(s["x2"], 6))
+                    for s in segs
+                }
+                for s in found:
+                    key = (round(s["x1"], 6), round(s["y1"], 6), round(s["x2"], 6))
+                    if key not in have:
+                        segs.append(s)
         pts = [(s["x1"], s["y1"]) for s in segs] + [(s["x2"], s["y2"]) for s in segs]
         bbox = _bbox_of(pts) if pts else _bbox_of(
             [(pa["cx"], pa["cy"]), (pb["cx"], pb["cy"])]
