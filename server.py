@@ -1169,12 +1169,13 @@ def derive_node_spans(
     poles = POLE_STATE.get("tags", []) if poles is None else poles
     ocr = state.get("results", []) if ocr_results is None else ocr_results
 
-    # Equipment breaks the TRACE (see _whole_cable_spans) but not the span
-    # graph: the strand physically continues under a tap, and a span's ends
-    # are poles on the wire contract — cutting the graph at equipment lost
-    # 35 real spans and orphaned 13 poles when tried. The blockers plumbing
-    # in span_builder stays for the day the contract can carry it.
-    result = span_builder.build_node_spans(segments_by_layer, poles, ocr)
+    # Equipment bounds what a span DRAWS, not who it pairs with: the wire
+    # contract names two poles, and cutting the graph at every tap lost 35
+    # real spans and orphaned 13 poles when tried. So the pairing ignores
+    # equipment and the geometry stops at it — no line through the tap.
+    result = span_builder.build_node_spans(
+        segments_by_layer, poles, ocr, blockers=_equipment_zones(doc)
+    )
     SPAN_STATE["dxf_path"] = dxf_path
     SPAN_STATE["result"] = result
     return result, cable_layers
@@ -1578,6 +1579,16 @@ def _supplemental_strand_segments(
                             return True
             return False
 
+        # Equipment ends the ----; a gap holding a tap or splitter is that
+        # equipment's break, not a piece the drafter left to the route, so
+        # it stays open too (the owner's rule for the GM triangle).
+        zones = _equipment_zones(doc)
+
+        def near_equipment(px: float, py: float) -> bool:
+            return any(
+                math.hypot(bx - px, by - py) <= br + med for bx, by, br in zones
+            )
+
         for frag in frags:
             # Street-scale linework cannot be lettering: no glyph stroke on
             # any drawing measured reaches 3x the dash median, and even a
@@ -1634,9 +1645,8 @@ def _supplemental_strand_segments(
                             if not bridging or st_len < med * 1.5:
                                 continue
                             mid = st[len(st) // 2]
-                            if near_label(
-                                (mid[0] + mid[2]) / 2, (mid[1] + mid[3]) / 2
-                            ):
+                            mx_, my_ = (mid[0] + mid[2]) / 2, (mid[1] + mid[3]) / 2
+                            if near_label(mx_, my_) or near_equipment(mx_, my_):
                                 continue
                         for ax, ay, bx, by in st:
                             step = Seg(ax, ay, bx, by)

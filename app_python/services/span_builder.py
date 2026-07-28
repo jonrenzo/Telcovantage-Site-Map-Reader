@@ -1992,13 +1992,18 @@ def build_spans_from_pieces(
     # whole drawing be one run. A pole alone on a short piece would otherwise
     # never pair with anything; joined into a run, it pairs with its neighbours.
     parallel_tol = parallel_tolerance(pole_spacing, med_seg)
+    # Equipment bounds the drawn GEOMETRY, not the pairing: a tap sits in
+    # the middle of a span far more often than at its end (32 of LP1709's
+    # 40 gaps), and cutting the graph there cost 35 real spans and orphaned
+    # 13 poles when tried. The chains and the graph ignore it; the segments
+    # a span shows do not.
     bgrid = _blocker_grid(blockers) if blockers else None
     paths = build_chains(
         fragments,
         _bridge_limit(fragments, med_seg, pole_spacing),
         max(med_seg * WELD_FACTOR, 1e-9),
         parallel_tol,
-        bgrid,
+        None,
         med_seg,
     )
 
@@ -2090,7 +2095,7 @@ def build_spans_from_pieces(
     # pairing has to see past the individual runs.
     select_ink = _ink_selector(segments, med_seg)
     raw, skipped_stubs = _pair_neighbouring_poles(
-        paths, touches, pole_spacing, med_seg, duplicate_runs, select_ink, bgrid
+        paths, touches, pole_spacing, med_seg, duplicate_runs, select_ink, None
     )
 
     if not raw:
@@ -2131,6 +2136,21 @@ def build_spans_from_pieces(
         # three streets around CV8-1038 were dark. Read the ink straight
         # between the two poles instead: the same lane rules apply, so it
         # takes that street's dashes and not the one beside it.
+        # Equipment is a boundary the drawn dashes already respect — the
+        # drafter stops at a tap. Only the synthetic fill, where a span had
+        # no ink of its own to show, ever painted a solid line straight
+        # through the 8-way tap. It stops there too.
+        if bgrid:
+            segs = [
+                s
+                for s in segs
+                if not (
+                    s.get("synthetic")
+                    and _crosses_equipment(
+                        (s["x1"], s["y1"]), (s["x2"], s["y2"]), bgrid
+                    )
+                )
+            ]
         drawn = sum(
             math.hypot(s["x2"] - s["x1"], s["y2"] - s["y1"])
             for s in segs
@@ -2577,7 +2597,12 @@ def _pair_neighbouring_poles(
             # The drawn ink itself, dash by dash — the synthetic slice only
             # when nothing drawn is found there (a bridge across a break).
             real = select_ink(paths[ci], t0, t1) if select_ink else []
-            segs.extend(real if real else slice_path(paths[ci], t0, t1))
+            if real:
+                segs.extend(real)
+            else:
+                for seg in slice_path(paths[ci], t0, t1):
+                    seg["synthetic"] = True
+                    segs.append(seg)
         entry["segments"] = segs
 
     # Cable running past the outermost pole of a run — tails — lies on no
@@ -2642,6 +2667,8 @@ def _pair_neighbouring_poles(
             real = select_ink(path, t0, t1) if select_ink else []
             for seg in real if real else slice_path(path, t0, t1):
                 seg["tail"] = True
+                if not real:
+                    seg["synthetic"] = True
                 owner["segments"].append(seg)
 
     return raw, skipped
@@ -2689,6 +2716,8 @@ def _shadow_segments(
             )
             for seg in real if real else slice_path(dpath, u0, u1):
                 seg["run"] = 2
+                if not real:
+                    seg["synthetic"] = True
                 out.append(seg)
     return out
 
