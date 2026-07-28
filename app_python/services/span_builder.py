@@ -236,6 +236,9 @@ class DerivedSpan:
     layer: Optional[str]
     span_id: int
     components: Dict[str, int] = field(default_factory=lambda: dict(EMPTY_COMPONENTS))
+    #: A pole the derivation could not pair. The span carries its FROM and
+    #: the cable reaching it, and waits for the operator to name the TO.
+    needs_pair: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialise for the API.
@@ -251,9 +254,10 @@ class DerivedSpan:
             "span_key": self.span_key,
             # Legacy shape — existing consumers read these verbatim.
             "from_pole": self.from_ref.get("name"),
-            "to_pole": self.to_ref.get("name"),
+            "to_pole": (self.to_ref or {}).get("name"),
             "from_pole_id": self.from_ref.get("pole_id"),
-            "to_pole_id": self.to_ref.get("pole_id"),
+            "to_pole_id": (self.to_ref or {}).get("pole_id"),
+            "needs_pair": self.needs_pair,
             "total_length": round(self.arc_length, 4),
             "meter_value": (
                 round(self.strand_length, 4) if self.length_source == "ocr" else None
@@ -2140,6 +2144,82 @@ def build_spans_from_pieces(
             )
         )
 
+    # A pole the pairing could not reach is not a failure to hide. It gets a
+    # span of its own carrying its FROM and the cable running to it, with the
+    # TO left blank for the operator to name — the owner's own offer: "kahit
+    # may FROM at wala syang TO, pwede ko naman i-manual, click ko lang ung
+    # pair pole nya". The map draws these red; the exports skip them, since
+    # a span without both ends is not a work item yet.
+    paired = set()
+    for s in spans:
+        paired.add(s.from_ref.get("pole_id"))
+        paired.add((s.to_ref or {}).get("pole_id"))
+    by_id = {p.get("pole_id"): p for p in poles}
+    pending: List[DerivedSpan] = []
+    next_index = len(positions)
+    # A pole that paired with nobody never entered the walk, so it has no
+    # position and no index yet — it gets both here, after the paired ones.
+    # Not only the poles that reached the cable: one sitting just off the
+    # strand is exactly the one the operator most needs to see and resolve.
+    # A pole nowhere near any cable is a different thing — a stray label or
+    # a mis-scan — and stays out, reported by poles_off_path.
+    reach = pole_spacing * 1.5 if pole_spacing > 0 else float("inf")
+    for pid, p in by_id.items():
+        if pid in positions:
+            continue
+        if nearest.get(pid, float("inf")) > reach:
+            continue
+        next_index += 1
+        positions[pid] = PolePosition(
+            pole_id=pid,
+            name=p.get("name") or "",
+            cx=float(p["cx"]),
+            cy=float(p["cy"]),
+            t=float(next_index),
+            offset=(best_for_pole.get(pid) or (0.0, 0, 0.0))[0],
+            snapped=pid in best_for_pole,
+            pole_index=pole_index(next_index),
+        )
+    for pid, pos in positions.items():
+        if pid in paired:
+            continue
+        ref = _pole_ref(pos)
+        pending.append(
+            DerivedSpan(
+                span_key=f"{pos.pole_index}::?",
+                from_pole_index=pos.pole_index or "",
+                to_pole_index="",
+                from_ref=ref,
+                to_ref={},
+                t_start=0.0,
+                t_end=0.0,
+                arc_length=0.0,
+                strand_length=0.0,
+                length_source="arc_length",
+                cable_runs=1,
+                segments=[],
+                cx=pos.cx,
+                cy=pos.cy,
+                bbox=[pos.cx, pos.cy, pos.cx, pos.cy],
+                layer=getattr(segments[0], "layer_name", None),
+                span_id=0,
+                needs_pair=True,
+            )
+        )
+    if pending:
+        spans.extend(pending)
+        spans.sort(key=lambda s: s.span_key)
+        for i, s in enumerate(spans):
+            s.span_id = i
+        warnings.append(
+            Note(
+                "poles_awaiting_pair",
+                f"{len(pending)} pole(s) could not be paired — each has a span with its FROM "
+                "filled and the TO left for you to pick.",
+                {"poles": [p.from_ref.get("name") for p in pending[:50]]},
+            )
+        )
+
     # Whatever cable no route claimed still belongs on some span's geometry —
     # unowned linework is unhoverable linework.
     attach_uncovered_linework(paths, spans, pole_spacing, warnings, poles)
@@ -2677,6 +2757,9 @@ def attach_uncovered_linework(
         for p in poles
         if p.get("cx") is not None and p.get("cy") is not None
     ]
+    pending_by_pole = {
+        s.from_ref.get("pole_id"): s for s in spans if getattr(s, "needs_pair", False)
+    }
     orphan_total = 0.0
 
     for path in paths:
@@ -2724,20 +2807,25 @@ def attach_uncovered_linework(
                     (owner.to_ref or {}).get("pole_id"),
                 }
                 n_probe = max(2, int((b - a) / max(covered_tol * 2, 1e-9)))
-                foreign = False
+                foreign = None
                 for k in range(n_probe + 1):
                     pr = _point_at_length(path.points, a + (b - a) * k / n_probe)
                     for pid, px, py in pole_pts:
                         if pid in own_ids:
                             continue
                         if _dist(pr, (px, py)) <= pole_tol:
-                            foreign = True
+                            foreign = pid
                             break
-                    if foreign:
+                    if foreign is not None:
                         break
-                if foreign:
-                    orphan_total += b - a
-                    continue
+                if foreign is not None:
+                    # The pole it reaches may be waiting for a pair — then
+                    # this is the very cable its pending span should show.
+                    waiting = pending_by_pole.get(foreign)
+                    if waiting is None:
+                        orphan_total += b - a
+                        continue
+                    owner = waiting
             for seg in slice_path(path, a, b):
                 seg["tail"] = True
                 owner.segments.append(seg)

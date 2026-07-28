@@ -51,6 +51,8 @@ interface CableSpan {
   span_key?: string;
   from_pole_index?: string;
   to_pole_index?: string;
+  /** The derivation could not pair this pole — the TO is the operator's to name. */
+  needs_pair?: boolean;
 }
 
 /** The lifecycle twinbackend runs a span through as the lineman tears it down. */
@@ -2128,6 +2130,33 @@ export default function DxfViewer({
           ctx.strokeStyle = style.stroke;
           ctx.lineWidth = 1.8 / vp.scale;
           drawSpanPath(span);
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // A pole the derivation could not pair: drawn red and always
+        // visible, with a ring at the pole itself so it is findable on a
+        // map this size. It stays red until the operator names its TO.
+        for (const span of spans) {
+          if (!(span as any).needs_pair) continue;
+          if (!isLayerVisible(span.layer)) continue;
+          if (
+            isMaskOn &&
+            currentBoundary &&
+            !isPointInPolygon(span.cx, span.cy, currentBoundary)
+          )
+            continue;
+          ctx.save();
+          ctx.lineCap = "round";
+          ctx.lineJoin = "round";
+          ctx.setLineDash([]);
+          ctx.strokeStyle = "rgba(220, 38, 38, 0.9)";
+          ctx.lineWidth = 4 / vp.scale;
+          drawSpanPath(span);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.arc(span.cx, span.cy, 18 / vp.scale, 0, 2 * Math.PI);
+          ctx.lineWidth = 3 / vp.scale;
           ctx.stroke();
           ctx.restore();
         }
@@ -4742,18 +4771,25 @@ export default function DxfViewer({
         const spanId = selectedSpanRef.current;
         const mode = poleConnectModeRef.current;
         const newSpans = cableSpansRef.current.map((s) => {
-          if (s.span_id === spanId)
-            return {
-              ...s,
-              ...(mode === "from"
-                ? { from_pole: clickedPole.name, from_pole_id: clickedPole.pole_id }
-                : { to_pole: clickedPole.name, to_pole_id: clickedPole.pole_id }),
-            };
-          return s;
+          if (s.span_id !== spanId) return s;
+          const named = {
+            ...s,
+            ...(mode === "from"
+              ? { from_pole: clickedPole.name, from_pole_id: clickedPole.pole_id }
+              : { to_pole: clickedPole.name, to_pole_id: clickedPole.pole_id }),
+          };
+          // Once both ends are named the span is no longer waiting on the
+          // operator: it turns from red into an ordinary span, and the
+          // exports pick it up like any other.
+          if (named.needs_pair && named.from_pole && named.to_pole) {
+            named.needs_pair = false;
+          }
+          return named;
         });
         cableSpansRef.current = newSpans;
         setCableSpans(newSpans);
         notifySpansChange(newSpans);
+        // A pending span is asked only for its TO, so it lands on idle here.
         const nextMode = mode === "from" ? "to" : "idle";
         poleConnectModeRef.current = nextMode;
         setPoleConnectMode(nextMode);
@@ -5978,19 +6014,39 @@ export default function DxfViewer({
                     </span>
                   </div>
                 </div>
+                {(selectedSpan as any).needs_pair && (
+                  <p className="text-[10px] text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1.5">
+                    Hindi ko mahanap ang kapares nitong pole. Pindutin ang{" "}
+                    <span className="font-semibold">Pick TO Pole</span> at
+                    i-click ang tamang pole sa mapa.
+                  </p>
+                )}
                 {!(selectedSpan as any).whole_cable && (
                   <button
-                    className={`w-full py-1.5 rounded text-[11px] font-medium border transition-colors ${poleConnectMode !== "idle" ? "bg-blue-500 hover:bg-blue-600 text-white border-blue-600 shadow-sm" : "bg-white hover:bg-slate-100 text-slate-700 border-slate-200"}`}
+                    className={`w-full py-1.5 rounded text-[11px] font-medium border transition-colors ${
+                      poleConnectMode !== "idle"
+                        ? "bg-blue-500 hover:bg-blue-600 text-white border-blue-600 shadow-sm"
+                        : (selectedSpan as any).needs_pair
+                          ? "bg-red-600 hover:bg-red-700 text-white border-red-700 shadow-sm"
+                          : "bg-white hover:bg-slate-100 text-slate-700 border-slate-200"
+                    }`}
                     onClick={() => {
+                      // A pending span already knows its FROM — the only
+                      // thing missing is the TO, so go straight to picking it.
+                      const start = (selectedSpan as any).needs_pair
+                        ? "to"
+                        : "from";
                       const nextMode =
-                        poleConnectMode === "idle" ? "from" : "idle";
+                        poleConnectMode === "idle" ? start : "idle";
                       setPoleConnectMode(nextMode);
                       poleConnectModeRef.current = nextMode;
                     }}
                   >
                     {poleConnectMode !== "idle"
                       ? "Cancel Connection Mode"
-                      : "🔌 Connect Poles Manually"}
+                      : (selectedSpan as any).needs_pair
+                        ? "📍 Pick TO Pole"
+                        : "🔌 Connect Poles Manually"}
                   </button>
                 )}
               </div>
