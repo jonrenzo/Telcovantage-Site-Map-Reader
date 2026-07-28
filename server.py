@@ -1248,17 +1248,52 @@ def _repaint_from_preview(result, dxf_path: str, cable_layers: list) -> None:
 
     all_marks = [m for bucket in grid.values() for m in bucket]
 
+    # A span's corridor: the line between its two poles. Cable lying inside
+    # one belongs to that span even when a neighbour's route wanders nearer
+    # — the last third of CHARITY street sat between CV8-1038 and 1595 and
+    # was handed to a span that merely passed close by.
+    corridors = []
+    for s in spans:
+        fa, fb = s.from_ref or {}, s.to_ref or {}
+        if fa.get("cx") is None or fb.get("cx") is None:
+            corridors.append(None)
+            continue
+        corridors.append((float(fa["cx"]), float(fa["cy"]), float(fb["cx"]), float(fb["cy"])))
+
+    def corridor_gap(i: int, px: float, py: float) -> float:
+        c = corridors[i]
+        if c is None:
+            return float("inf")
+        x1, y1, x2, y2 = c
+        vx, vy = x2 - x1, y2 - y1
+        n2 = vx * vx + vy * vy
+        if n2 <= 1e-12:
+            return float("inf")
+        t = ((px - x1) * vx + (py - y1) * vy) / n2
+        if t < -0.05 or t > 1.05:
+            return float("inf")  # past a pole: another span's stretch
+        qx, qy = x1 + vx * t, y1 + vy * t
+        return math.hypot(px - qx, py - qy)
+
     def owner_at(px: float, py: float):
         kx, ky = int(math.floor(px / cell)), int(math.floor(py / cell))
         best, best_d = None, float("inf")
         for ring in (1, 2, 4):
+            seen: set = set()
             for dx in range(-ring, ring + 1):
                 for dy in range(-ring, ring + 1):
                     for mx2, my2, i in grid.get((kx + dx, ky + dy), ()):
+                        seen.add(i)
                         d = (mx2 - px) ** 2 + (my2 - py) ** 2
                         if d < best_d:
                             best_d, best = d, i
             if best is not None:
+                # Whoever's corridor holds this spot wins it; the nearest
+                # route only decides when no corridor does.
+                in_corridor = [(corridor_gap(i, px, py), i) for i in seen]
+                in_corridor = [(g, i) for g, i in in_corridor if g < float("inf")]
+                if in_corridor:
+                    return min(in_corridor)[1]
                 return best
         for mx2, my2, i in all_marks:
             d = (mx2 - px) ** 2 + (my2 - py) ** 2
