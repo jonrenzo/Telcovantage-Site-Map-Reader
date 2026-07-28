@@ -2031,6 +2031,39 @@ def build_spans_from_pieces(
     )
 
     duplicate_runs, extra_runs, shadowed = detect_parallel_runs(paths, parallel_tol)
+    # A run ending at its own tagged pole is not a second lane of whatever
+    # it happened to sample close to — a lane never terminates at a pole
+    # that isn't also on the street it shadows. NPT-106's short run down to
+    # its junction fell inside a generous parallel tolerance measured for
+    # same-street lanes and got folded into an unrelated street a block
+    # over; the pole at its tip, nowhere near that street, says otherwise.
+    end_tol = pole_spacing * END_ZONE_RATIO if pole_spacing > 0 else med_seg * 5
+    rescued: set = set()
+    for i, t0, t1, j, _rev in shadowed:
+        if j in rescued:
+            continue
+        jp = paths[j]
+        for tip in (jp.points[0], jp.points[-1]):
+            own_pole = next(
+                (
+                    p
+                    for p in poles
+                    if p.get("cx") is not None
+                    and _dist(tip, (float(p["cx"]), float(p["cy"]))) <= end_tol
+                ),
+                None,
+            )
+            if own_pole is None:
+                continue
+            _, d_primary = project_point_onto_path(
+                float(own_pole["cx"]), float(own_pole["cy"]), paths[i]
+            )
+            if d_primary > end_tol:
+                rescued.add(j)
+                break
+    if rescued:
+        duplicate_runs = duplicate_runs - rescued
+        shadowed = [s for s in shadowed if s[3] not in rescued]
     if duplicate_runs:
         warnings.append(
             Note(
@@ -2096,7 +2129,14 @@ def build_spans_from_pieces(
         # street always passes this test (there d IS its nearest), so real
         # interior breaks are untouched.
         own = nearest.get(p.get("pole_id"))
-        if own is not None and d > own * PIECE_AFFINITY + med_seg:
+        # The suspicion is for a pole lying midway along cable it has no part
+        # in — an interior break. A pole sitting at a run's own tip is a
+        # different claim entirely: "this run ends at me," which is exactly
+        # what a genuine second or third street off a junction pole looks
+        # like, drafted a touch less precisely than its main street. NPT-107
+        # is 104-107-108's pole AND 106's — the tip touch on 106's own short
+        # run failed this ratio and 106 never got a span at all.
+        if interior and own is not None and d > own * PIECE_AFFINITY + med_seg:
             continue
         touches.setdefault(pi, []).append((t, p, d))
         prev = best_for_pole.get(p.get("pole_id"))
