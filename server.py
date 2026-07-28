@@ -1177,9 +1177,102 @@ def derive_node_spans(
         segments_by_layer, poles, ocr, blockers=_equipment_zones(doc, dxf_path)
     )
     _repaint_from_preview(result, dxf_path, cable_layers)
+    _repair_hub_jumps(result)
     SPAN_STATE["dxf_path"] = dxf_path
     SPAN_STATE["result"] = result
     return result, cable_layers
+
+
+def _repair_hub_jumps(result) -> None:
+    """Move a segment that plainly crosses into a neighbour's lane.
+
+    _repaint_from_preview decides ownership per sample point from corridor
+    distance alone, so where two corridors converge on a hub pole a short
+    crosswise stretch can end up on the wrong side even though it runs
+    with a different span's own line, not this one's — CV8-1038's straight
+    line to 1594 sat a hair closer to a stray dash of CV8-1035's street
+    than CV8-1035's own line did. Direction fixes inside owner_at() itself
+    ran here first and each one moved the whole map: any corridor near a
+    hub is "close" to several others, so re-ranking by alignment touches
+    every hub, not only the broken ones. Leaving assignment alone and only
+    moving segments that are unmistakably wrong afterward keeps the blast
+    radius to the outliers themselves.
+    """
+    spans = getattr(result, "spans", None)
+    if not spans:
+        return
+    from app_python.services.span_builder import _point_to_segment
+
+    corridors = []
+    for s in spans:
+        a, b = s.from_ref or {}, s.to_ref or {}
+        if a.get("cx") is None or b.get("cx") is None:
+            corridors.append(None)
+            continue
+        corridors.append((float(a["cx"]), float(a["cy"]), float(b["cx"]), float(b["cy"])))
+
+    def unit_dir(c):
+        if c is None:
+            return None
+        vx, vy = c[2] - c[0], c[3] - c[1]
+        n = math.hypot(vx, vy)
+        return (vx / n, vy / n) if n > 1e-9 else None
+
+    dirs = [unit_dir(c) for c in corridors]
+
+    # A crosswise dash reads as "wrong" by roughly a lane width, not by any
+    # fraction of how far apart its own two poles happen to sit — a short
+    # span and a long one carry the same street. Pole spacing, not corridor
+    # length, sets the scale, same as span_builder's own tolerances.
+    lens = sorted(
+        math.hypot(c[2] - c[0], c[3] - c[1]) for c in corridors if c is not None
+    )
+    pole_spacing = lens[len(lens) // 2] if lens else 1.0
+    noise_floor = max(pole_spacing * 0.06, 1e-6)
+    lane_reach = max(pole_spacing * 0.2, noise_floor * 2)
+
+    moves = []
+    for i, s in enumerate(spans):
+        d = dirs[i]
+        if d is None:
+            continue
+        for g in s.segments:
+            gx, gy = g["x2"] - g["x1"], g["y2"] - g["y1"]
+            gn = math.hypot(gx, gy)
+            if gn <= 1e-9:
+                continue
+            align = abs((gx * d[0] + gy * d[1]) / gn)
+            if align >= 0.3:
+                continue
+            mx, my = (g["x1"] + g["x2"]) / 2.0, (g["y1"] + g["y2"]) / 2.0
+            perp, _ = _point_to_segment(mx, my, *corridors[i])
+            if perp <= noise_floor:
+                continue
+            # Unmistakably crosswise to this span's own line. Look for a
+            # nearby span whose line it actually runs with — not merely
+            # better, but clearly and confidently along it, or a genuinely
+            # ambiguous corner gets nudged around instead of left alone.
+            best_j, best_align, best_perp = None, 0.85, float("inf")
+            for j, cj in enumerate(corridors):
+                if j == i or dirs[j] is None:
+                    continue
+                dj = dirs[j]
+                align_j = abs((gx * dj[0] + gy * dj[1]) / gn)
+                if align_j < best_align:
+                    continue
+                perp_j, _ = _point_to_segment(mx, my, *cj)
+                if perp_j > lane_reach:
+                    continue
+                if best_j is None or align_j > best_align or (
+                    align_j == best_align and perp_j < best_perp
+                ):
+                    best_j, best_align, best_perp = j, align_j, perp_j
+            if best_j is not None:
+                moves.append((i, best_j, g))
+
+    for i, j, g in moves:
+        spans[i].segments.remove(g)
+        spans[j].segments.append(g)
 
 
 def _repaint_from_preview(result, dxf_path: str, cable_layers: list) -> None:
