@@ -1251,7 +1251,13 @@ def _repaint_from_preview(result, dxf_path: str, cable_layers: list) -> None:
     # A span's corridor: the line between its two poles. Cable lying inside
     # one belongs to that span even when a neighbour's route wanders nearer
     # — the last third of CHARITY street sat between CV8-1038 and 1595 and
-    # was handed to a span that merely passed close by.
+    # was handed to a span that merely passed close by. This has to reach
+    # every span, not only ones with route ink nearby: a stretch of the
+    # street between NPT-115 and CV8-1038 was handed to NPT-115's OTHER
+    # span, straight up to CV8-1031, because that span's ink happened to
+    # reach the spot and CV8-1038's own — thin here — did not, so it was
+    # never even considered. A corridor is one line; checking every span's
+    # is cheap, so all of them are indexed, not only the well-drawn ones.
     corridors = []
     for s in spans:
         fa, fb = s.from_ref or {}, s.to_ref or {}
@@ -1275,25 +1281,51 @@ def _repaint_from_preview(result, dxf_path: str, cable_layers: list) -> None:
         qx, qy = x1 + vx * t, y1 + vy * t
         return math.hypot(px - qx, py - qy)
 
+    ccell = max(_span_grid_cell([[c] for c in corridors if c]), 1e-9)
+    cgrid: Dict[Tuple[int, int], set] = {}
+    for i, c in enumerate(corridors):
+        if c is None:
+            continue
+        x1, y1, x2, y2 = c
+        steps = max(1, int(math.hypot(x2 - x1, y2 - y1) / (ccell * 0.5)) + 1)
+        for k in range(steps + 1):
+            u = k / steps
+            px, py = x1 + (x2 - x1) * u, y1 + (y2 - y1) * u
+            cgrid.setdefault(
+                (int(math.floor(px / ccell)), int(math.floor(py / ccell))), set()
+            ).add(i)
+
+    def corridor_candidates(px: float, py: float) -> set:
+        kx, ky = int(math.floor(px / ccell)), int(math.floor(py / ccell))
+        out: set = set()
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                out |= cgrid.get((kx + dx, ky + dy), set())
+        return out
+
     def owner_at(px: float, py: float):
+        # A corridor claims its point outright, span or no span's ink drawn
+        # there yet. Every corridor near the point is checked, not only
+        # the ones a route marker happened to also be near.
+        near_c = corridor_candidates(px, py)
+        in_corridor = [
+            (g, i)
+            for i, g in ((i, corridor_gap(i, px, py)) for i in near_c)
+            if g < float("inf")
+        ]
+        if in_corridor:
+            return min(in_corridor)[1]
+
         kx, ky = int(math.floor(px / cell)), int(math.floor(py / cell))
         best, best_d = None, float("inf")
         for ring in (1, 2, 4):
-            seen: set = set()
             for dx in range(-ring, ring + 1):
                 for dy in range(-ring, ring + 1):
                     for mx2, my2, i in grid.get((kx + dx, ky + dy), ()):
-                        seen.add(i)
                         d = (mx2 - px) ** 2 + (my2 - py) ** 2
                         if d < best_d:
                             best_d, best = d, i
             if best is not None:
-                # Whoever's corridor holds this spot wins it; the nearest
-                # route only decides when no corridor does.
-                in_corridor = [(corridor_gap(i, px, py), i) for i in seen]
-                in_corridor = [(g, i) for g, i in in_corridor if g < float("inf")]
-                if in_corridor:
-                    return min(in_corridor)[1]
                 return best
         for mx2, my2, i in all_marks:
             d = (mx2 - px) ** 2 + (my2 - py) ** 2
