@@ -1176,9 +1176,169 @@ def derive_node_spans(
     result = span_builder.build_node_spans(
         segments_by_layer, poles, ocr, blockers=_equipment_zones(doc, dxf_path)
     )
+    _repaint_from_preview(result, dxf_path, cable_layers)
     SPAN_STATE["dxf_path"] = dxf_path
     SPAN_STATE["result"] = result
     return result, cable_layers
+
+
+def _repaint_from_preview(result, dxf_path: str, cable_layers: list) -> None:
+    """Give every span its share of the whole-cable trace, and nothing else.
+
+    The trace the operator sees before the pole step is the truth about what
+    is drawn: every ---- and only the ----, stopping at equipment, filled
+    where the drafter left a gap. Derivation was drawing its own geometry
+    beside it, and every difference between the two was a bug — cable that
+    vanished on re-derive, a solid line through a tap, a street lighting up
+    two blocks away.
+
+    So the derivation keeps the one job it is good at, deciding WHICH span
+    each stretch belongs to, and the trace supplies WHAT is drawn. Each
+    trace segment goes to the span nearest it, so nothing is invented and
+    nothing is lost: what the map showed before the pole step is exactly
+    what the spans show after, only parted out and coloured.
+    """
+    spans = getattr(result, "spans", None)
+    if not spans:
+        return
+    preview, _ = _whole_cable_spans(dxf_path)
+    strand = {l for l in cable_layers}
+    trace = [
+        g
+        for p in preview
+        if p.get("layer") in strand
+        for g in (p.get("segments") or [])
+    ]
+    if not trace:
+        return
+
+    from app_python.services.span_builder import _point_to_segment
+
+    # Each span keeps its route as the shape to judge nearness by; where a
+    # span has none, the line between its poles stands in.
+    routes = []
+    for s in spans:
+        geom = [
+            (g["x1"], g["y1"], g["x2"], g["y2"])
+            for g in s.segments
+            if not g.get("bridged")
+        ]
+        if not geom:
+            a, b = s.from_ref or {}, s.to_ref or {}
+            if a.get("cx") is not None and b.get("cx") is not None:
+                geom = [(a["cx"], a["cy"], b["cx"], b["cy"])]
+            elif a.get("cx") is not None:
+                geom = [(a["cx"], a["cy"], a["cx"], a["cy"])]
+        routes.append(geom)
+
+    # Each route becomes a string of marker points; the owner of any spot is
+    # the span of the nearest marker. Comparing against whole route segments
+    # instead put minutes on the derivation.
+    cell = max(_span_grid_cell(routes), 1e-9)
+    grid: Dict[Tuple[int, int], list] = {}
+    for i, geom in enumerate(routes):
+        for x1, y1, x2, y2 in geom:
+            steps = max(1, int(math.hypot(x2 - x1, y2 - y1) / (cell * 0.5)) + 1)
+            for k in range(steps + 1):
+                u = k / steps
+                px, py = x1 + (x2 - x1) * u, y1 + (y2 - y1) * u
+                grid.setdefault(
+                    (int(math.floor(px / cell)), int(math.floor(py / cell))), []
+                ).append((px, py, i))
+
+    all_marks = [m for bucket in grid.values() for m in bucket]
+
+    def owner_at(px: float, py: float):
+        kx, ky = int(math.floor(px / cell)), int(math.floor(py / cell))
+        best, best_d = None, float("inf")
+        for ring in (1, 2, 4):
+            for dx in range(-ring, ring + 1):
+                for dy in range(-ring, ring + 1):
+                    for mx2, my2, i in grid.get((kx + dx, ky + dy), ()):
+                        d = (mx2 - px) ** 2 + (my2 - py) ** 2
+                        if d < best_d:
+                            best_d, best = d, i
+            if best is not None:
+                return best
+        for mx2, my2, i in all_marks:
+            d = (mx2 - px) ** 2 + (my2 - py) ** 2
+            if d < best_d:
+                best_d, best = d, i
+        return best
+
+    # The trace draws a whole street as a few long strokes, so a stroke can
+    # cross several spans. Walk it and cut where the nearest span changes:
+    # each span gets its own stretch, and the pieces still add up to exactly
+    # what was drawn.
+    step = max(_trace_step(trace), 1e-6)
+    shares: Dict[int, list] = {}
+    for g in trace:
+        x1, y1, x2, y2 = g["x1"], g["y1"], g["x2"], g["y2"]
+        seg_len = math.hypot(x2 - x1, y2 - y1)
+        n = max(1, int(seg_len / step))
+        cur_owner = None
+        cur_start = 0.0
+        for k in range(n):
+            u = (k + 0.5) / n
+            who = owner_at(x1 + (x2 - x1) * u, y1 + (y2 - y1) * u)
+            if who != cur_owner:
+                if cur_owner is not None:
+                    u0, u1 = cur_start, k / n
+                    shares.setdefault(cur_owner, []).append(
+                        {
+                            "x1": x1 + (x2 - x1) * u0,
+                            "y1": y1 + (y2 - y1) * u0,
+                            "x2": x1 + (x2 - x1) * u1,
+                            "y2": y1 + (y2 - y1) * u1,
+                        }
+                    )
+                cur_owner, cur_start = who, k / n
+        if cur_owner is not None:
+            shares.setdefault(cur_owner, []).append(
+                {
+                    "x1": x1 + (x2 - x1) * cur_start,
+                    "y1": y1 + (y2 - y1) * cur_start,
+                    "x2": x2,
+                    "y2": y2,
+                }
+            )
+
+    for i, s in enumerate(spans):
+        own = shares.get(i, [])
+        if not own:
+            # A short span between two others can lose every stretch to a
+            # neighbour and end up with nothing to click. It keeps the ink
+            # the derivation found for it — drawn cable either way.
+            own = [dict(g) for g in s.segments]
+        s.segments = own
+        pts = [(g["x1"], g["y1"]) for g in own] + [(g["x2"], g["y2"]) for g in own]
+        if pts:
+            xs = [p[0] for p in pts]
+            ys = [p[1] for p in pts]
+            s.bbox = [min(xs), min(ys), max(xs), max(ys)]
+            s.cx = (s.bbox[0] + s.bbox[2]) / 2.0
+            s.cy = (s.bbox[1] + s.bbox[3]) / 2.0
+
+
+def _trace_step(trace: list) -> float:
+    """How finely to walk the trace when parting it out — about a dash."""
+    lens = sorted(
+        math.hypot(g["x2"] - g["x1"], g["y2"] - g["y1"]) for g in trace
+    )
+    if not lens:
+        return 0.05
+    return max(lens[len(lens) // 2] * 0.25, 0.01)
+
+
+def _span_grid_cell(routes: list) -> float:
+    """A cell about as wide as a span, so the lookup stays small."""
+    lens = [
+        math.hypot(x2 - x1, y2 - y1) for geom in routes for x1, y1, x2, y2 in geom
+    ]
+    if not lens:
+        return 1.0
+    lens.sort()
+    return max(lens[len(lens) // 2] * 4, 0.25)
 
 
 def cached_span_result(dxf_path: str) -> Optional[span_builder.SpanBuildResult]:
