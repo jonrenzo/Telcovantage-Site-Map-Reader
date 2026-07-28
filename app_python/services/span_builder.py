@@ -2893,13 +2893,32 @@ def attach_uncovered_linework(
                     if foreign is not None:
                         break
                 if foreign is not None:
-                    # The pole it reaches may be waiting for a pair — then
-                    # this is the very cable its pending span should show.
+                    # It belongs to the pole it reaches — but it must never
+                    # simply vanish: drawn cable the operator can see has to
+                    # stay selectable, "andun pa din dapat sya kahit
+                    # i-re-derive". Its pending span first, then that pole's
+                    # own nearest span, and only if the pole has neither does
+                    # the nearest span of all keep it.
                     waiting = pending_by_pole.get(foreign)
-                    if waiting is None:
-                        orphan_total += b - a
-                        continue
-                    owner = waiting
+                    if waiting is not None:
+                        owner = waiting
+                    else:
+                        owned = [
+                            s
+                            for s in spans
+                            if foreign
+                            in {
+                                (s.from_ref or {}).get("pole_id"),
+                                (s.to_ref or {}).get("pole_id"),
+                            }
+                        ]
+                        if owned:
+                            owner = min(
+                                owned,
+                                key=lambda s: _dist(
+                                    (mid[0], mid[1]), (s.cx, s.cy)
+                                ),
+                            )
             for seg in slice_path(path, a, b):
                 seg["tail"] = True
                 owner.segments.append(seg)
