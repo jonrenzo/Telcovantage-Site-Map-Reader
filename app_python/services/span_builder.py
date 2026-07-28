@@ -848,7 +848,15 @@ def _sidesteps(
     vx, vy = target[0] - tip[0], target[1] - tip[1]
     along = vx * tip_dir[0] + vy * tip_dir[1]
     lateral = abs(-vx * tip_dir[1] + vy * tip_dir[0])
-    return along <= 0 or lateral > tol
+    if along <= 0 or lateral > tol:
+        return True
+    # A short hop can turn a corner while drifting less than a dash — that
+    # is how a chain running east up a street stepped 70 degrees into the
+    # street heading north and came back, drawing a star at the junction.
+    # Direction decides as well as distance: dashed cable bends a degree or
+    # two at a time, so a hop past ~50 degrees is the other street's.
+    hop = math.hypot(vx, vy)
+    return hop > 1e-12 and along / hop < 0.64
 
 
 def _point_at_length(
