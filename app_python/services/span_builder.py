@@ -2903,6 +2903,23 @@ def attach_uncovered_linework(
                     if waiting is not None:
                         owner = waiting
                     else:
+                        # Among that pole's spans, the one whose own cable
+                        # runs nearest this stretch — measured on the ink,
+                        # not on the pole. Handing it to a span by pole
+                        # alone put a street two blocks east into a span
+                        # running south, and selecting it lit both.
+                        def ink_gap(s: DerivedSpan) -> float:
+                            best = float("inf")
+                            for g in s.segments:
+                                d2, _ = _point_to_segment(
+                                    mid[0], mid[1], g["x1"], g["y1"], g["x2"], g["y2"]
+                                )
+                                if d2 < best:
+                                    best = d2
+                            return best if best < float("inf") else _dist(
+                                (mid[0], mid[1]), (s.cx, s.cy)
+                            )
+
                         owned = [
                             s
                             for s in spans
@@ -2913,12 +2930,11 @@ def attach_uncovered_linework(
                             }
                         ]
                         if owned:
-                            owner = min(
-                                owned,
-                                key=lambda s: _dist(
-                                    (mid[0], mid[1]), (s.cx, s.cy)
-                                ),
-                            )
+                            near_own = min(owned, key=ink_gap)
+                            # Only if it really is the closer cable; the
+                            # sweep's own nearest span keeps it otherwise.
+                            if ink_gap(near_own) <= ink_gap(owner):
+                                owner = near_own
             for seg in slice_path(path, a, b):
                 seg["tail"] = True
                 owner.segments.append(seg)
