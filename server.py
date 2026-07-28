@@ -1549,7 +1549,36 @@ def _supplemental_strand_segments(
             continue
         from app_python.services.span_builder import _build_fragments
 
-        for frag in _build_fragments(raw, med * 0.2):
+        frags = list(_build_fragments(raw, med * 0.2))
+        # Where the strand-length labels sit, in one pass before the routes
+        # are judged: a gap in the dashes with a label in it is the label's
+        # pause, and filling it paints through the 36/28 circle. A gap with
+        # no label is cable the drafter simply left to the route line.
+        label_spots = [
+            (
+                sum(p[0] for p in f.points) / len(f.points),
+                sum(p[1] for p in f.points) / len(f.points),
+            )
+            for f in frags
+            if f.length < med * 3
+        ]
+        label_cell = max(med * 4, 1e-9)
+        label_grid: Dict[Tuple[int, int], list] = {}
+        for lx, ly in label_spots:
+            label_grid.setdefault(
+                (int(math.floor(lx / label_cell)), int(math.floor(ly / label_cell))), []
+            ).append((lx, ly))
+
+        def near_label(px: float, py: float) -> bool:
+            kx, ky = int(math.floor(px / label_cell)), int(math.floor(py / label_cell))
+            for dx in (-1, 0, 1):
+                for dy in (-1, 0, 1):
+                    for lx, ly in label_grid.get((kx + dx, ky + dy), ()):
+                        if math.hypot(lx - px, ly - py) <= med * 3:
+                            return True
+            return False
+
+        for frag in frags:
             # Street-scale linework cannot be lettering: no glyph stroke on
             # any drawing measured reaches 3x the dash median, and even a
             # whole label welded into one fragment stays under ~6x — while
@@ -1589,12 +1618,26 @@ def _supplemental_strand_segments(
                     if stretch:
                         stretches.append(stretch)
                     kept_any = False
-                    for st in stretches:
+                    for si, st in enumerate(stretches):
                         st_len = sum(
                             math.hypot(bx - ax, by - ay) for ax, ay, bx, by in st
                         )
                         if st_len < med * 8:
-                            continue
+                            # A short uncovered stretch BETWEEN two covered
+                            # ones is a gap in the drawn dashes — the drafter
+                            # left that piece to the route line — and the
+                            # operator wants it whole. Fill it, unless a
+                            # strand label sits in it: that gap is the
+                            # label's pause and painting it crosses the
+                            # circle.
+                            bridging = 0 < si < len(stretches) - 1
+                            if not bridging or st_len < med * 1.5:
+                                continue
+                            mid = st[len(st) // 2]
+                            if near_label(
+                                (mid[0] + mid[2]) / 2, (mid[1] + mid[3]) / 2
+                            ):
+                                continue
                         for ax, ay, bx, by in st:
                             step = Seg(ax, ay, bx, by)
                             # Routes chain among themselves only — they meet
