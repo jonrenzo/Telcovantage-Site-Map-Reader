@@ -765,6 +765,62 @@ def _continues_forward(
     return (tangent[0] * dx + tangent[1] * dy) / n > -0.34
 
 
+def _tip_direction(
+    pts: Sequence[Tuple[float, float]], at_tail: bool, baseline: float
+) -> Optional[Tuple[float, float]]:
+    """Direction of travel at one end, measured over ``baseline`` of arc.
+
+    The last edge of a chain is often a short hop between dashes, so a
+    two-point tangent points wherever that hop happened to land. Averaging
+    over a couple of dash lengths gives the direction the cable is actually
+    running.
+    """
+    if len(pts) < 2:
+        return None
+    if at_tail:
+        tip, back, acc = pts[-1], pts[0], 0.0
+        for i in range(len(pts) - 1, 0, -1):
+            acc += _dist(pts[i], pts[i - 1])
+            back = pts[i - 1]
+            if acc >= baseline:
+                break
+    else:
+        tip, back, acc = pts[0], pts[-1], 0.0
+        for i in range(len(pts) - 1):
+            acc += _dist(pts[i], pts[i + 1])
+            back = pts[i + 1]
+            if acc >= baseline:
+                break
+    dx, dy = tip[0] - back[0], tip[1] - back[1]
+    n = math.hypot(dx, dy)
+    if n <= 1e-12:
+        return None
+    return dx / n, dy / n
+
+
+def _sidesteps(
+    tip: Tuple[float, float],
+    tip_dir: Optional[Tuple[float, float]],
+    target: Tuple[float, float],
+    tol: float,
+) -> bool:
+    """Does this hop leave the lane instead of continuing along it?
+
+    Dashed cable changes direction a degree or two at a time — measured
+    across LP1709, half the joins turn under 2 degrees and nine in ten
+    under 14. A hop that steps sideways by more than a dash is not the
+    next dash of this cable; it is the cable drawn alongside, and taking it
+    doubles the run back on itself in a hairpin the operator sees as a
+    stray curve.
+    """
+    if tip_dir is None or tol <= 0:
+        return False
+    vx, vy = target[0] - tip[0], target[1] - tip[1]
+    along = vx * tip_dir[0] + vy * tip_dir[1]
+    lateral = abs(-vx * tip_dir[1] + vy * tip_dir[0])
+    return along <= 0 or lateral > tol
+
+
 def _point_at_length(
     pts: Sequence[Tuple[float, float]], target: float
 ) -> Tuple[float, float]:
@@ -1533,6 +1589,7 @@ def build_chains(
     weld_tol: float,
     parallel_tol: float = 0.0,
     blocker_grid: Optional[Dict] = None,
+    lane_tol: float = 0.0,
 ) -> List[CablePath]:
     """Join fragments end to end into runs — as many as the drawing contains.
 
@@ -1554,6 +1611,10 @@ def build_chains(
             head, tail = chain[0], chain[-1]
             tail_tangent = _outward_tangent(chain, at_tail=True)
             head_tangent = _outward_tangent(chain, at_tail=False)
+            # Travel direction over a couple of dashes, for the lane test —
+            # the two-point tangent points wherever the last hop landed.
+            tail_dir = _tip_direction(chain, True, lane_tol * 2.5)
+            head_dir = _tip_direction(chain, False, lane_tol * 2.5)
             best = None
             for frag in remaining.values():
                 # Routes and drawn cable meet in the pairing graph, never in
@@ -1574,12 +1635,16 @@ def build_chains(
                         # at a bend the true continuation IS the turn. The
                         # corners are cut by their poles now that tags anchor
                         # on the circles; distance stays the only rank.
-                        if not (
-                            d > weld_tol
-                            and _crosses_equipment(
+                        if d > weld_tol and (
+                            _crosses_equipment(
                                 tail, oriented.start, blocker_grid
                             )
+                            or _sidesteps(
+                                tail, tail_dir, oriented.start, lane_tol
+                            )
                         ):
+                            pass
+                        else:
                             cand = (d, frag.index, True, oriented)
                             if best is None or cand[:2] < best[:2]:
                                 best = cand
@@ -1589,12 +1654,14 @@ def build_chains(
                         oriented.end[0] - head[0],
                         oriented.end[1] - head[1],
                     ):
-                        if not (
-                            d > weld_tol
-                            and _crosses_equipment(
+                        if d > weld_tol and (
+                            _crosses_equipment(
                                 oriented.end, head, blocker_grid
                             )
+                            or _sidesteps(head, head_dir, oriented.end, lane_tol)
                         ):
+                            pass
+                        else:
                             cand = (d, frag.index, False, oriented)
                             if best is None or cand[:2] < best[:2]:
                                 best = cand
@@ -1699,7 +1766,13 @@ def detect_parallel_runs(
         for i in range(len(paths))
         if i not in duplicate and paths[i].total_length > 0
     ]
-    min_stretch = tol * 1.2
+    # A shared stretch half a span long is two cables over that stretch; the
+    # sampling that finds it must be finer than the stretch itself. Stepping
+    # at tol/2 — tol being pole spacing — took three samples across a whole
+    # span and JORDAN lost its second run the moment the street was drafted
+    # in two pieces instead of one.
+    min_stretch = tol * 0.5
+    sample_step = max(tol * 0.08, 1e-9)
 
     def _trim(
         iv: Tuple[float, float], existing: List[Tuple[float, float]]
@@ -1724,9 +1797,12 @@ def detect_parallel_runs(
             if paths[j].total_length > paths[i].total_length:
                 i, j = j, i
             longer, shorter = paths[i], paths[j]
-            n_samples = max(
-                PARALLEL_SAMPLES,
-                int(shorter.total_length / max(tol * 0.5, 1e-9)),
+            n_samples = min(
+                2000,
+                max(
+                    PARALLEL_SAMPLES,
+                    int(shorter.total_length / sample_step),
+                ),
             )
             stretches: List[List[Tuple[float, float]]] = []
             cur: List[Tuple[float, float]] = []
@@ -1845,6 +1921,7 @@ def build_spans_from_pieces(
         max(med_seg * WELD_FACTOR, 1e-9),
         parallel_tol,
         bgrid,
+        med_seg,
     )
 
     duplicate_runs, extra_runs, shadowed = detect_parallel_runs(paths, parallel_tol)
