@@ -1849,7 +1849,13 @@ def _dash_polylines(pool: list, med: float, blockers: Optional[list] = None) -> 
             return True
         return False
 
-    eps = med * 0.6
+    # How far the drawn trace may stray from the dashes it stands for. At
+    # 0.6 of a dash two dashes at slightly different angles collapsed into
+    # one straight stroke and the bend disappeared — the owner reads those
+    # as two dashes, "ung isa straight pa ung isa medyo naka tilt". At 0.15
+    # the worst stray falls from a fifth of a dash to a twelfth (p95 0.020
+    # -> 0.008 on LP1709) for 24 more strokes, which is a bargain.
+    eps = med * 0.15
     check_tol = med
     noise = 0
     kept_trains: List[Tuple[List[Tuple[float, float]], list, float]] = []
