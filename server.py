@@ -5491,7 +5491,27 @@ def v1_cable_spans_derive():
 
     try:
         if isinstance(poles, list):
-            POLE_STATE["tags"] = poles
+            # The client sends only what pairing needs — id, name, position.
+            # Overwriting the scan's tags with that shape threw away every
+            # other field, and `layer` above all: the viewer hides a pole
+            # whose layer is not visible, an undefined layer is never
+            # visible, and every pole vanished from the map the moment the
+            # first derivation returned. Merge instead: the client is the
+            # authority on the pole SET and its positions, the scan on
+            # everything else it knows about each pole.
+            known = {
+                p.get("pole_id"): p
+                for p in (POLE_STATE.get("tags") or [])
+                if isinstance(p, dict)
+            }
+            merged = []
+            for p in poles:
+                if not isinstance(p, dict):
+                    continue
+                base = dict(known.get(p.get("pole_id")) or {})
+                base.update(p)
+                merged.append(base)
+            POLE_STATE["tags"] = merged
         for r in state.get("results", []):
             did = str(r.get("digit_id"))
             if did in corrections and corrections[did] is not None:
