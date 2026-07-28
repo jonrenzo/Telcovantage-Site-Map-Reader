@@ -1174,7 +1174,7 @@ def derive_node_spans(
     # real spans and orphaned 13 poles when tried. So the pairing ignores
     # equipment and the geometry stops at it — no line through the tap.
     result = span_builder.build_node_spans(
-        segments_by_layer, poles, ocr, blockers=_equipment_zones(doc)
+        segments_by_layer, poles, ocr, blockers=_equipment_zones(doc, dxf_path)
     )
     SPAN_STATE["dxf_path"] = dxf_path
     SPAN_STATE["result"] = result
@@ -1582,7 +1582,7 @@ def _supplemental_strand_segments(
         # Equipment ends the ----; a gap holding a tap or splitter is that
         # equipment's break, not a piece the drafter left to the route, so
         # it stays open too (the owner's rule for the GM triangle).
-        zones = _equipment_zones(doc)
+        zones = _equipment_zones(doc, dxf_path)
 
         def near_equipment(px: float, py: float) -> bool:
             return any(
@@ -2100,40 +2100,63 @@ def _dash_connectors(pool: list, med: float, blockers: Optional[list] = None) ->
     return connectors
 
 
-def _equipment_zones(doc) -> list:
-    """Compact symbol footprints: taps, splitters, extenders, terminators.
+#: dxf_path -> (file mtime, zones). The shape pass reads every entity of
+#: every equipment layer, so it is done once per drawing.
+_EQUIPMENT_ZONE_CACHE: Dict[str, Tuple[float, list]] = {}
+
+
+def _equipment_zones(doc, dxf_path: Optional[str] = None) -> list:
+    """Where the equipment stands: one zone per SYMBOL, not per stroke.
 
     The ---- ends at equipment — what continues past one is the next span's
-    cable, the owner's rule — so neither the preview's connector glue nor the
-    derivation's chain bridges and graph joins may cross these zones.
+    cable, the owner's rule — so the preview's connector glue and a span's
+    synthetic fill must not cross these zones.
+
+    The symbols come from the same detector that fills the Equipment tab:
+    it reads a tap drawn as five separate strokes as ONE hexagon, and knows
+    a splitter circle from a tap square. Judging entity by entity, as this
+    did before, left a symbol as a scatter of pin-sized zones that a line
+    could thread straight between.
     """
+    if dxf_path:
+        try:
+            mtime = Path(dxf_path).stat().st_mtime
+        except OSError:
+            mtime = 0.0
+        hit = _EQUIPMENT_ZONE_CACHE.get(dxf_path)
+        if hit and hit[0] == mtime:
+            return hit[1]
+
+    from app_python.services.shape_service import extract_equipment_shapes
+
+    layer_kinds: Dict[str, set] = {}
+    for layer in (l.dxf.name for l in doc.layers):
+        low = layer.lower()
+        kinds = {
+            kind
+            for kind, keys in EQUIPMENT_KIND_LAYERS.items()
+            if any(k in low for k in keys)
+        }
+        if kinds:
+            layer_kinds[layer] = kinds
+
     zones: list = []
-    for e in doc.modelspace():
-        blayer = getattr(e.dxf, "layer", "") or ""
-        if not any(k in blayer for k in ("Passives", "Actives", "Symbols")):
+    for layer, kinds in layer_kinds.items():
+        try:
+            shapes = extract_equipment_shapes(doc, layer, **SHAPE_CONFIG)
+        except Exception:
             continue
-        bt = e.dxftype()
-        if bt == "CIRCLE":
-            cx0, cy0 = float(e.dxf.center.x), float(e.dxf.center.y)
-            r0 = float(e.dxf.radius)
-        elif bt == "LINE":
-            xs0 = (float(e.dxf.start.x), float(e.dxf.end.x))
-            ys0 = (float(e.dxf.start.y), float(e.dxf.end.y))
-            cx0, cy0 = sum(xs0) / 2, sum(ys0) / 2
-            r0 = math.hypot(xs0[1] - xs0[0], ys0[1] - ys0[0]) / 2
-        elif bt == "LWPOLYLINE":
-            bpts = [(float(x), float(y)) for x, y, *_ in e.get_points("xy")]
-            if not bpts:
+        for s in shapes:
+            if s.kind not in kinds:
                 continue
-            xs0 = [p[0] for p in bpts]
-            ys0 = [p[1] for p in bpts]
-            cx0, cy0 = (min(xs0) + max(xs0)) / 2, (min(ys0) + max(ys0)) / 2
-            r0 = math.hypot(max(xs0) - min(xs0), max(ys0) - min(ys0)) / 2
-        else:
-            continue
-        if r0 > 1.0:
-            continue  # a symbol is compact; anything larger is not one
-        zones.append((cx0, cy0, r0))
+            minx, miny, maxx, maxy = s.bbox
+            r = max(maxx - minx, maxy - miny) / 2.0
+            if r <= 0 or r > 1.0:
+                continue  # a symbol is compact; larger is a boundary or lot
+            zones.append((float(s.cx), float(s.cy), r))
+
+    if dxf_path:
+        _EQUIPMENT_ZONE_CACHE[dxf_path] = (mtime, zones)
     return zones
 
 
@@ -2187,7 +2210,7 @@ def _whole_cable_spans(dxf_path: str) -> Tuple[List[Dict[str, Any]], List[str]]:
         first = next(iter(per_layer))
         per_layer[first] = per_layer[first] + supplemental
 
-    blockers = _equipment_zones(doc)
+    blockers = _equipment_zones(doc, dxf_path)
 
     # Every ---- matters, and drafters file street cable on whatever layer was
     # active — LP1709 keeps whole streets on PDF_0 and Actives-PowerSupply.
@@ -2896,6 +2919,17 @@ SCAN_STATE = {
     "boundary": None,
     "progress": 0,
     "total": 0,
+}
+
+#: Which shape counts as equipment on which layer. Shared by the equipment
+#: scan and the zones that bound what a span may draw, so the map and the
+#: geometry always agree on what a tap is.
+EQUIPMENT_KIND_LAYERS = {
+    "circle": ["splitter", "tapoff", "tap-off", "tap_off", "splt"],
+    "hexagon": ["tapoff", "tap-off", "tap_off"],
+    "rectangle": ["node", "amplifier", "amp"],
+    "square": ["tapoff", "tap-off", "tap_off"],
+    "triangle": ["extender", "extend"],
 }
 
 SHAPE_CONFIG = {
