@@ -386,6 +386,19 @@ def _ink_selector(pool: Sequence[Any], med_seg: float):
     # 0.13+ (measured), well past this.
     lane_tol = med_seg * 0.75
 
+    def direction_at(path: CablePath, t: float) -> Optional[Tuple[float, float]]:
+        """The path's own heading where a dash lands on it."""
+        pts = path.points
+        acc = 0.0
+        for i in range(len(pts) - 1):
+            seg = _dist(pts[i], pts[i + 1])
+            if acc + seg >= t or i == len(pts) - 2:
+                dx, dy = pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]
+                n = math.hypot(dx, dy)
+                return (dx / n, dy / n) if n > 1e-12 else None
+            acc += seg
+        return None
+
     def select(path: CablePath, t0: float, t1: float) -> List[Dict[str, Any]]:
         if t1 <= t0:
             return []
@@ -410,6 +423,19 @@ def _ink_selector(pool: Sequence[Any], med_seg: float):
             # falls in, whole — never cut at the pole projection.
             if not (t0 - med_seg * 0.5 <= t <= t1 + med_seg * 0.5):
                 continue
+            # And it must run WITH this cable. At a tee the crossing street's
+            # dashes lie within a lane width of the path and were claimed by
+            # it — the operator saw a vertical span light up a horizontal
+            # street. A dash of this cable is near-parallel to the path here;
+            # a crossing street's dash stands across it.
+            heading = direction_at(path, t)
+            if heading is not None:
+                dxs, dys = s.x2 - s.x1, s.y2 - s.y1
+                ln = math.hypot(dxs, dys)
+                if ln > 1e-12:
+                    align = abs((dxs * heading[0] + dys * heading[1]) / ln)
+                    if align < 0.7:  # past 45 degrees is another street
+                        continue
             picked.append((t, {"x1": s.x1, "y1": s.y1, "x2": s.x2, "y2": s.y2}))
         picked.sort(key=lambda kv: kv[0])
         return [seg for _, seg in picked]
