@@ -873,6 +873,7 @@ def _sidesteps(
     tip_dir: Optional[Tuple[float, float]],
     target: Tuple[float, float],
     tol: float,
+    cand_axis: Optional[Tuple[float, float]] = None,
 ) -> bool:
     """Does this hop leave the lane instead of continuing along it?
 
@@ -896,7 +897,19 @@ def _sidesteps(
     # Direction decides as well as distance: dashed cable bends a degree or
     # two at a time, so a hop past ~50 degrees is the other street's.
     hop = math.hypot(vx, vy)
-    return hop > 1e-12 and along / hop < 0.64
+    if hop > 1e-12 and along / hop < 0.64:
+        return True
+    # The target point can land right where this tip's tangent predicts by
+    # coincidence — a street ending short of its pole lined up with a
+    # crossing street's extrapolated reach and got welded onto it (CV8-1038
+    # to 1594's stub read as the tangent of the perpendicular street
+    # starting nearby). The candidate must run along this line itself, not
+    # merely have an endpoint that happens to sit on it.
+    if cand_axis is not None:
+        axis_align = abs(tip_dir[0] * cand_axis[0] + tip_dir[1] * cand_axis[1])
+        if axis_align < 0.64:
+            return True
+    return False
 
 
 def _point_at_length(
@@ -1718,7 +1731,11 @@ def build_chains(
                                 tail, oriented.start, blocker_grid
                             )
                             or _sidesteps(
-                                tail, tail_dir, oriented.start, lane_tol
+                                tail,
+                                tail_dir,
+                                oriented.start,
+                                lane_tol,
+                                _tip_direction(oriented.points, True, lane_tol * 2.5),
                             )
                         ):
                             pass
@@ -1736,7 +1753,13 @@ def build_chains(
                             _crosses_equipment(
                                 oriented.end, head, blocker_grid
                             )
-                            or _sidesteps(head, head_dir, oriented.end, lane_tol)
+                            or _sidesteps(
+                                head,
+                                head_dir,
+                                oriented.end,
+                                lane_tol,
+                                _tip_direction(oriented.points, True, lane_tol * 2.5),
+                            )
                         ):
                             pass
                         else:
@@ -2841,15 +2864,38 @@ def attach_uncovered_linework(
                     (int(math.floor(gx / cell)), int(math.floor(gy / cell))), []
                 ).append((s, g))
 
-    def nearest_span(px: float, py: float) -> Tuple[Optional[DerivedSpan], float]:
+    def nearest_span(
+        px: float,
+        py: float,
+        direction: Optional[Tuple[float, float]] = None,
+    ) -> Tuple[Optional[DerivedSpan], float]:
+        # A stray stretch can sit closer to a span crossing it than to the
+        # span it actually continues — the piece heading north into 1594
+        # landed nearer the east-west street's ink at the CV8-1038 corner
+        # and got handed to that span instead. When the stretch's own
+        # direction is known, the nearest span that runs roughly ALONG it
+        # (not across it) wins; distance alone decides only when nothing
+        # nearby runs that way, so genuinely orphaned ink still attaches.
         kx, ky = int(math.floor(px / cell)), int(math.floor(py / cell))
         best, best_d = None, float("inf")
+        best_aligned, best_aligned_d = None, float("inf")
         for dx in (-2, -1, 0, 1, 2):
             for dy in (-2, -1, 0, 1, 2):
                 for s, g in grid.get((kx + dx, ky + dy), ()):
                     d, _ = _point_to_segment(px, py, g["x1"], g["y1"], g["x2"], g["y2"])
                     if d < best_d:
                         best, best_d = s, d
+                    if direction is None or d >= best_aligned_d:
+                        continue
+                    gx, gy = g["x2"] - g["x1"], g["y2"] - g["y1"]
+                    gn = math.hypot(gx, gy)
+                    if gn <= 1e-9:
+                        continue
+                    align = abs((gx / gn) * direction[0] + (gy / gn) * direction[1])
+                    if align >= 0.5:
+                        best_aligned, best_aligned_d = s, d
+        if direction is not None and best_aligned is not None:
+            return best_aligned, best_aligned_d
         return best, best_d
 
     covered_tol = spacing * 0.05
@@ -2894,7 +2940,12 @@ def attach_uncovered_linework(
             if b - a <= covered_tol:
                 continue
             mid = _point_at_length(path.points, (a + b) / 2)
-            owner, d = nearest_span(mid[0], mid[1])
+            pa = _point_at_length(path.points, a)
+            pb = _point_at_length(path.points, b)
+            svx, svy = pb[0] - pa[0], pb[1] - pa[1]
+            sn = math.hypot(svx, svy)
+            stretch_dir = (svx / sn, svy / sn) if sn > 1e-9 else None
+            owner, d = nearest_span(mid[0], mid[1], stretch_dir)
             if owner is None or d > attach_cap:
                 orphan_total += b - a
                 continue
