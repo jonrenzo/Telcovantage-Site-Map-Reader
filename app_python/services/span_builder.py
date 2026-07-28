@@ -2142,7 +2142,7 @@ def build_spans_from_pieces(
 
     # Whatever cable no route claimed still belongs on some span's geometry —
     # unowned linework is unhoverable linework.
-    attach_uncovered_linework(paths, spans, pole_spacing, warnings)
+    attach_uncovered_linework(paths, spans, pole_spacing, warnings, poles)
 
     return spans, sorted(positions.values(), key=lambda p: p.pole_index or "")
 
@@ -2457,6 +2457,27 @@ def _pair_neighbouring_poles(
                         owner = entry
             if owner is None:
                 continue
+            # A tail that leads to ANOTHER pole is that pole's street, not
+            # loose cable to hand out: the stub climbing to 1600 was drawn
+            # into the span between NPT-108 and NPT-110, two blocks away.
+            # It waits for its own span instead.
+            leads_elsewhere = False
+            n_probe = max(2, int((t1 - t0) / max(med_seg, 1e-9)))
+            for k in range(n_probe + 1):
+                probe = _point_at_length(path.points, t0 + (t1 - t0) * k / n_probe)
+                for pid2, p2 in pole_of.items():
+                    if pid2 == pid_:
+                        continue
+                    if (
+                        _dist(probe, (float(p2["cx"]), float(p2["cy"])))
+                        <= bypass_tol
+                    ):
+                        leads_elsewhere = True
+                        break
+                if leads_elsewhere:
+                    break
+            if leads_elsewhere:
+                continue
             # A tee route may already carry this very stretch — appending it
             # again would draw the same cable twice in one span.
             if any(
@@ -2611,6 +2632,7 @@ def attach_uncovered_linework(
     spans: List[DerivedSpan],
     spacing: float,
     warnings: Optional[List[Note]] = None,
+    poles: Sequence[Dict[str, Any]] = (),
 ) -> None:
     """Give every remaining stretch of drawn cable to its nearest span.
 
@@ -2649,6 +2671,12 @@ def attach_uncovered_linework(
 
     covered_tol = spacing * 0.05
     attach_cap = spacing * 1.5
+    pole_tol = spacing * 0.35 if spacing > 0 else 0.0
+    pole_pts = [
+        (p.get("pole_id"), float(p["cx"]), float(p["cy"]))
+        for p in poles
+        if p.get("cx") is not None and p.get("cy") is not None
+    ]
     orphan_total = 0.0
 
     for path in paths:
@@ -2684,6 +2712,32 @@ def attach_uncovered_linework(
             if owner is None or d > attach_cap:
                 orphan_total += b - a
                 continue
+            # Uncovered cable that runs to ANOTHER pole is that pole's
+            # street, not loose ink to hand out. The stub climbing to 1600
+            # — a pole still waiting for a span of its own — was adopted by
+            # NPT-108 to NPT-110 two blocks away, and selecting that span
+            # lit a street it has no part in. Cable belongs to the poles it
+            # reaches; until they pair, it belongs to no span at all.
+            if pole_pts:
+                own_ids = {
+                    (owner.from_ref or {}).get("pole_id"),
+                    (owner.to_ref or {}).get("pole_id"),
+                }
+                n_probe = max(2, int((b - a) / max(covered_tol * 2, 1e-9)))
+                foreign = False
+                for k in range(n_probe + 1):
+                    pr = _point_at_length(path.points, a + (b - a) * k / n_probe)
+                    for pid, px, py in pole_pts:
+                        if pid in own_ids:
+                            continue
+                        if _dist(pr, (px, py)) <= pole_tol:
+                            foreign = True
+                            break
+                    if foreign:
+                        break
+                if foreign:
+                    orphan_total += b - a
+                    continue
             for seg in slice_path(path, a, b):
                 seg["tail"] = True
                 owner.segments.append(seg)
