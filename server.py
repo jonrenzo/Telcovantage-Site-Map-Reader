@@ -1271,6 +1271,11 @@ def _repaint_from_preview(result, dxf_path: str, cable_layers: list) -> None:
     # each span gets its own stretch, and the pieces still add up to exactly
     # what was drawn.
     step = max(_trace_step(trace), 1e-6)
+    fallback_med = step * 4
+    try:
+        fallback_zones = _equipment_zones(ezdxf.readfile(dxf_path), dxf_path)
+    except Exception:
+        fallback_zones = []
     shares: Dict[int, list] = {}
     for g in trace:
         x1, y1, x2, y2 = g["x1"], g["y1"], g["x2"], g["y2"]
@@ -1308,8 +1313,11 @@ def _repaint_from_preview(result, dxf_path: str, cable_layers: list) -> None:
         if not own:
             # A short span between two others can lose every stretch to a
             # neighbour and end up with nothing to click. It keeps the ink
-            # the derivation found for it — drawn cable either way.
-            own = [dict(g) for g in s.segments]
+            # the derivation found for it — drawn cable either way, cut at
+            # the components like everything else the map draws.
+            own = _clip_at_equipment(
+                [dict(g) for g in s.segments], fallback_zones, fallback_med
+            )
         s.segments = own
         pts = [(g["x1"], g["y1"]) for g in own] + [(g["x2"], g["y2"]) for g in own]
         if pts:
@@ -2167,7 +2175,85 @@ def _dash_polylines(pool: list, med: float, blockers: Optional[list] = None) -> 
                 )
     if noise:
         print(f"[whole-cable] {noise} stray symbol stroke(s)/curl(s)/island(s) dropped from the preview")
-    return segs_out
+    return _clip_at_equipment(segs_out, blockers, med)
+
+
+def _clip_at_equipment(
+    segs: List[Dict[str, Any]], blockers: Optional[list], med: float
+) -> List[Dict[str, Any]]:
+    """The trace ends where a component begins — the owner's limit.
+
+    Joining dashes into clean strokes carried the trace straight over the
+    taps and extenders the dashes themselves stop at: 103 of LP1709's 191
+    strokes crossed one. Each stroke is cut at the zones it meets, so a
+    component is a break in the trace, and every span parted out of it
+    inherits the same break.
+    """
+    if not blockers:
+        return segs
+    # Only the zones a stroke could possibly meet, found through a grid —
+    # testing all 157 at every sample put the fine cut out of reach.
+    zcell = max(max(br for _, _, br in blockers) * 2, 0.2)
+    zgrid: Dict[Tuple[int, int], list] = {}
+    for bx, by, br in blockers:
+        kx, ky = int(math.floor(bx / zcell)), int(math.floor(by / zcell))
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                zgrid.setdefault((kx + dx, ky + dy), []).append((bx, by, br))
+
+    out: List[Dict[str, Any]] = []
+    step = max(med * 0.05, 1e-4)
+    for g in segs:
+        x1, y1, x2, y2 = g["x1"], g["y1"], g["x2"], g["y2"]
+        length = math.hypot(x2 - x1, y2 - y1)
+        if length <= 1e-9:
+            continue
+        near: Dict[Tuple[float, float, float], None] = {}
+        probes = max(2, int(length / zcell) + 2)
+        for k in range(probes + 1):
+            u = k / probes
+            px, py = x1 + (x2 - x1) * u, y1 + (y2 - y1) * u
+            for z in zgrid.get(
+                (int(math.floor(px / zcell)), int(math.floor(py / zcell))), ()
+            ):
+                near[z] = None
+        if not near:
+            out.append(g)
+            continue
+        zones = list(near)
+        n = max(1, int(length / step))
+        run_start = None
+        for k in range(n + 1):
+            u = k / n
+            px, py = x1 + (x2 - x1) * u, y1 + (y2 - y1) * u
+            # A hair outside the zone, so the cut never leaves a sliver in.
+            inside = any(
+                (bx - px) ** 2 + (by - py) ** 2 <= (br + step) ** 2
+                for bx, by, br in zones
+            )
+            if not inside and run_start is None:
+                run_start = u
+            elif inside and run_start is not None:
+                if u - run_start > 1e-9:
+                    out.append(
+                        {
+                            "x1": round(x1 + (x2 - x1) * run_start, 6),
+                            "y1": round(y1 + (y2 - y1) * run_start, 6),
+                            "x2": round(x1 + (x2 - x1) * u, 6),
+                            "y2": round(y1 + (y2 - y1) * u, 6),
+                        }
+                    )
+                run_start = None
+        if run_start is not None and 1.0 - run_start > 1e-9:
+            out.append(
+                {
+                    "x1": round(x1 + (x2 - x1) * run_start, 6),
+                    "y1": round(y1 + (y2 - y1) * run_start, 6),
+                    "x2": round(x2, 6),
+                    "y2": round(y2, 6),
+                }
+            )
+    return out
 
 
 def _dash_connectors(pool: list, med: float, blockers: Optional[list] = None) -> List[Dict[str, Any]]:
