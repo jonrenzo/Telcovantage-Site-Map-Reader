@@ -1229,7 +1229,7 @@ def _repair_hub_jumps(result) -> None:
     )
     pole_spacing = lens[len(lens) // 2] if lens else 1.0
     noise_floor = max(pole_spacing * 0.06, 1e-6)
-    lane_reach = max(pole_spacing * 0.2, noise_floor * 2)
+    lane_reach = max(pole_spacing * 0.3, noise_floor * 2)
 
     moves = []
     for i, s in enumerate(spans):
@@ -1242,17 +1242,25 @@ def _repair_hub_jumps(result) -> None:
             if gn <= 1e-9:
                 continue
             align = abs((gx * d[0] + gy * d[1]) / gn)
-            if align >= 0.3:
+            if align >= 0.6:
                 continue
             mx, my = (g["x1"] + g["x2"]) / 2.0, (g["y1"] + g["y2"]) / 2.0
             perp, _ = _point_to_segment(mx, my, *corridors[i])
-            if perp <= noise_floor:
+            if perp <= noise_floor * 0.85:
                 continue
-            # Unmistakably crosswise to this span's own line. Look for a
-            # nearby span whose line it actually runs with — not merely
-            # better, but clearly and confidently along it, or a genuinely
-            # ambiguous corner gets nudged around instead of left alone.
-            best_j, best_align, best_perp = None, 0.85, float("inf")
+            # Look for a nearby span whose line explains this stretch far
+            # better than its own — not merely a candidate clearing some
+            # fixed bar, but a clear win over the current fit. A segment
+            # reading 57 degrees off its own span (NPT-112 toward 113) but
+            # 91 degrees ON a neighbour's (toward CV8-1035) moves; a
+            # segment already a respectable, if imperfect, corner on its
+            # own span stays — only a decisive margin earns the move, or
+            # borderline corners get nudged around at random.
+            best_j, best_align, best_perp = (
+                None,
+                max(0.85, align + 0.25),
+                float("inf"),
+            )
             for j, cj in enumerate(corridors):
                 if j == i or dirs[j] is None:
                     continue
