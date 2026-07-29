@@ -3666,6 +3666,40 @@ def _untagged_pole_circles(doc, layer_names: list, tags: list) -> list:
     return extra
 
 
+def _demote_duplicate_pole_names(tags: list) -> None:
+    """A pole name identifies one physical pole — two circles reading the
+    same one means the matcher paired an unlabelled circle with a
+    neighbour's lettering instead of its own. CV7-106's second circle, a
+    real pole a run further up Vanguard with no tag of its own, matched
+    CV7-106's text too, and the span between them collapsed into a span
+    naming the same pole at both ends. Whichever circle reads the name
+    least confidently falls back to its own NPT placeholder, same as a
+    circle with no label at all, so the operator can name it for real
+    and the two poles stop being indistinguishable to everything
+    downstream that goes by name.
+    """
+    by_name: Dict[str, list] = {}
+    for t in tags:
+        name = t.get("name")
+        if not name or t.get("untagged"):
+            continue
+        by_name.setdefault(name, []).append(t)
+    next_id = max((t["pole_id"] for t in tags), default=-1) + 1
+    renamed = 0
+    for name, group in by_name.items():
+        if len(group) < 2:
+            continue
+        group.sort(key=lambda t: (-(t.get("ocr_conf") or 0.0), t["pole_id"]))
+        for t in group[1:]:
+            t["name"] = f"NPT-{next_id:03d}"
+            t["needs_review"] = True
+            t["untagged"] = True
+            next_id += 1
+            renamed += 1
+    if renamed:
+        print(f"[poles] {renamed} pole(s) demoted to NPT placeholders — duplicate name of another circle")
+
+
 def _median_spacing(points: list) -> float:
     """Median nearest-neighbour distance for a set of points."""
     if len(points) < 2:
@@ -3816,6 +3850,7 @@ def _run_pole_scan(dxf_path: str, layer_names: list[str]) -> None:
                         POLE_STATE["progress"] = len(all_tags)
 
         all_tags.extend(_untagged_pole_circles(doc, layer_names, all_tags))
+        _demote_duplicate_pole_names(all_tags)
         all_tags.sort(key=lambda t: t["pole_id"])
         POLE_STATE.update(
             {
