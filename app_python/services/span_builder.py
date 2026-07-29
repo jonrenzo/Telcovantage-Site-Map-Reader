@@ -2440,9 +2440,20 @@ def _pair_neighbouring_poles(
         total = paths[ci].total_length
         head = ("E", ci, 0)
         tail = ("E", ci, 1)
-        if hits and hits[0][0] <= end_zone:
+        # A run shorter than end_zone has its one touch sit within end_zone
+        # of BOTH ends at once — resolving both to that pole collapses the
+        # run onto itself with no reach left for a real second pole. 1600's
+        # short stub touched only at its head end (d=0.19 of a 0.25-long
+        # run) but end_zone alone still closed off its tail too, and the
+        # cable running on past it never found a partner. The lone hit
+        # settles whichever end it actually sits nearer.
+        if hits and hits[0][0] <= end_zone and (
+            len(hits) > 1 or hits[0][0] <= total - hits[0][0]
+        ):
             head = ("P", hits[0][1].get("pole_id"))
-        if hits and total - hits[-1][0] <= end_zone:
+        if hits and total - hits[-1][0] <= end_zone and (
+            len(hits) > 1 or (total - hits[-1][0]) <= hits[-1][0]
+        ):
             tail = ("P", hits[-1][1].get("pole_id"))
         end_node[(ci, 0)] = head
         end_node[(ci, 1)] = tail
