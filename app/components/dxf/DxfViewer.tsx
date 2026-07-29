@@ -2384,7 +2384,11 @@ export default function DxfViewer({
               ctx.translate(pole.cx, pole.cy + r * 1.2);
               ctx.scale(1, -1);
               ctx.fillStyle = textStyle;
-              ctx.font = `bold ${Math.max(0.2, 0.5 / vp.scale)}px monospace`;
+              // Font size is set in world units but rendered through the
+              // vp.scale transform, so it must be pixel-bounded like `r`
+              // above — otherwise drawings with a small coordinate extent
+              // (large vp.scale) blow this floor up to huge on-screen text.
+              ctx.font = `bold ${Math.min(20, Math.max(9, 0.2 * vp.scale)) / vp.scale}px monospace`;
               ctx.textAlign = "center";
               ctx.textBaseline = "top";
               ctx.fillText(pole.name || `POLE_${pole.pole_id}`, 0, 0);
@@ -2425,7 +2429,7 @@ export default function DxfViewer({
             ctx.translate(pole.cx, pole.cy + r * 1.2);
             ctx.scale(1, -1);
             ctx.fillStyle = isHoveredPole ? "#1d4ed8" : "#d97706";
-            ctx.font = `bold ${Math.max(0.2, 0.5 / vp.scale)}px monospace`;
+            ctx.font = `bold ${Math.min(20, Math.max(9, 0.2 * vp.scale)) / vp.scale}px monospace`;
             ctx.textAlign = "center";
             ctx.textBaseline = "top";
             ctx.fillText(pole.name || `POLE_${pole.pole_id}`, 0, 0);
