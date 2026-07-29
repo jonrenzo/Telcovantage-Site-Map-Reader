@@ -1249,7 +1249,25 @@ def _repair_hub_jumps(result) -> None:
             mx, my = (g["x1"] + g["x2"]) / 2.0, (g["y1"] + g["y2"]) / 2.0
             perp, _ = _point_to_segment(mx, my, *corridors[i])
             if perp <= noise_floor * 0.85:
-                continue
+                # Close to its own line reads as that line's own honest
+                # noise, corner or not — UNLESS nothing else this span
+                # owns sits anywhere near it either. A dash that is part
+                # of a real curve keeps company with the rest of its
+                # span's ink; CV7-29's stray sat 0.35 from the nearest
+                # other segment CV7-29<->CU7-30 actually owns, alone
+                # near CV7-29 while the span's real ink ran on toward
+                # CU7-30 — an isolated dash close to the line by
+                # coincidence, not a curve of it.
+                other_gap = min(
+                    (
+                        _point_to_segment(mx, my, og["x1"], og["y1"], og["x2"], og["y2"])[0]
+                        for og in s.segments
+                        if og is not g
+                    ),
+                    default=float("inf"),
+                )
+                if other_gap <= pole_spacing * 0.25:
+                    continue
             # Look for a nearby span whose line explains this stretch far
             # better than its own — not merely a candidate clearing some
             # fixed bar, but a clear win over the current fit. A segment
