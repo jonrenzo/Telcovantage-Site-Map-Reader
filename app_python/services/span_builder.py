@@ -2618,7 +2618,7 @@ def _pair_neighbouring_poles(
     # corner: NPT-114 paired with CV8-1038 in an L, sailing 0.3 from
     # CV8-1035. A pair whose route passes a third pole that close is a
     # bypass, not a span.
-    bypass_tol = pole_spacing * 0.35 if pole_spacing > 0 else med_seg * 4
+    bypass_tol = pole_spacing * 0.42 if pole_spacing > 0 else med_seg * 4
     clear_of_ends = pole_spacing * 0.9 if pole_spacing > 0 else med_seg * 9
     for key in list(raw):
         entry = raw[key]
