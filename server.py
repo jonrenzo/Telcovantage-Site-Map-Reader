@@ -1219,14 +1219,16 @@ def _repair_hub_jumps(result) -> None:
         return (vx / n, vy / n) if n > 1e-9 else None
 
     dirs = [unit_dir(c) for c in corridors]
+    cj_len = [
+        math.hypot(c[2] - c[0], c[3] - c[1]) if c is not None else 0.0
+        for c in corridors
+    ]
 
     # A crosswise dash reads as "wrong" by roughly a lane width, not by any
     # fraction of how far apart its own two poles happen to sit — a short
     # span and a long one carry the same street. Pole spacing, not corridor
     # length, sets the scale, same as span_builder's own tolerances.
-    lens = sorted(
-        math.hypot(c[2] - c[0], c[3] - c[1]) for c in corridors if c is not None
-    )
+    lens = sorted(v for v in cj_len if v > 0)
     pole_spacing = lens[len(lens) // 2] if lens else 1.0
     noise_floor = max(pole_spacing * 0.06, 1e-6)
     lane_reach = max(pole_spacing * 0.3, noise_floor * 2)
@@ -1269,7 +1271,14 @@ def _repair_hub_jumps(result) -> None:
                 if align_j < best_align:
                     continue
                 perp_j, _ = _point_to_segment(mx, my, *cj)
-                if perp_j > lane_reach:
+                # A long corridor's own straight line strays further from
+                # the real, curving street than the map-wide reach allows —
+                # CU8-1055 to CU8-1051 runs 1.7 long and the genuine ink
+                # sat half a unit off it. The reach for THIS candidate
+                # scales with its own length too, not only the map's
+                # typical span, so a longer street earns a wider berth.
+                cand_reach = max(lane_reach, cj_len[j] * 0.3)
+                if perp_j > cand_reach:
                     continue
                 if best_j is None or align_j > best_align or (
                     align_j == best_align and perp_j < best_perp
