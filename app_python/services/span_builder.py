@@ -2403,6 +2403,15 @@ def _pair_neighbouring_poles(
     """
     link_tol = pole_spacing * RUN_LINK_RATIO if pole_spacing > 0 else med_seg * 10
     skip_runs = skip_runs or set()
+    # Each pole's best (smallest) touch distance across every run it touches
+    # at all — used below to tell a pole's own street from a run it merely
+    # brushes within the generous global snap tolerance.
+    own_best: Dict[Any, float] = {}
+    for hits in touches.values():
+        for _, p, d in hits:
+            pid = p.get("pole_id")
+            if pid not in own_best or d < own_best[pid]:
+                own_best[pid] = d
     # A route path touching NO pole is a pure rail: nothing ever breaks it,
     # so through the end links it carries a contraction past every pole on
     # the street. A route with even one hit stays — it ends at its pole and
@@ -2433,6 +2442,7 @@ def _pair_neighbouring_poles(
     # others and how its middle pole ended up with spans to both of them.
     end_zone = pole_spacing * END_ZONE_RATIO if pole_spacing > 0 else med_seg * 5
     end_node: Dict[Tuple[int, int], Any] = {}
+    end_meta: Dict[Tuple[int, int], Tuple[Optional[Dict[str, Any]], float]] = {}
     hits_by_run: Dict[int, List[Tuple[float, Dict[str, Any], float]]] = {}
     for ci in live:
         hits = _dedupe_by_pole(sorted(touches.get(ci, []), key=lambda h: (h[0], h[2])))
@@ -2440,6 +2450,8 @@ def _pair_neighbouring_poles(
         total = paths[ci].total_length
         head = ("E", ci, 0)
         tail = ("E", ci, 1)
+        head_meta = (None, 0.0)
+        tail_meta = (None, 0.0)
         # A run shorter than end_zone has its one touch sit within end_zone
         # of BOTH ends at once — resolving both to that pole collapses the
         # run onto itself with no reach left for a real second pole. 1600's
@@ -2451,26 +2463,68 @@ def _pair_neighbouring_poles(
             len(hits) > 1 or hits[0][0] <= total - hits[0][0]
         ):
             head = ("P", hits[0][1].get("pole_id"))
+            head_meta = (hits[0][1], hits[0][2])
         if hits and total - hits[-1][0] <= end_zone and (
             len(hits) > 1 or (total - hits[-1][0]) <= hits[-1][0]
         ):
             tail = ("P", hits[-1][1].get("pole_id"))
+            tail_meta = (hits[-1][1], hits[-1][2])
         end_node[(ci, 0)] = head
         end_node[(ci, 1)] = tail
+        end_meta[(ci, 0)] = head_meta
+        end_meta[(ci, 1)] = tail_meta
 
     for ci in live:
         path = paths[ci]
-        chain: List[Tuple[Any, float]] = [(end_node[(ci, 0)], 0.0)]
-        chain += [(("P", p.get("pole_id")), t) for t, p, _ in hits_by_run[ci]]
-        chain.append((end_node[(ci, 1)], path.total_length))
+        # A pole resolved onto a run's own end keeps its real touch distance
+        # here too — dropping to a bare placeholder hid how weak that touch
+        # was and let NPT-158's 0.57-off graze of run 15's head look, once
+        # deduped, like an unquestionable zero-cost hop to NPT-136 sitting
+        # right after it, the same false-shortcut shape as the run-30 case
+        # above but invisible to that fix because the weak touch never
+        # reached it.
+        chain: List[Tuple[Any, float, Optional[Dict[str, Any]], float]] = [
+            (end_node[(ci, 0)], 0.0, *end_meta[(ci, 0)])
+        ]
+        chain += [(("P", p.get("pole_id")), t, p, d) for t, p, d in hits_by_run[ci]]
+        chain.append((end_node[(ci, 1)], path.total_length, *end_meta[(ci, 1)]))
         # Drop the duplicate when an end resolved to the pole already listed.
-        deduped: List[Tuple[Any, float]] = []
-        for node, t in chain:
+        deduped: List[Tuple[Any, float, Optional[Dict[str, Any]], float]] = []
+        for node, t, p, d in chain:
             if deduped and deduped[-1][0] == node:
                 continue
-            deduped.append((node, t))
-        for (u, t0), (v, t1) in zip(deduped, deduped[1:]):
-            link(u, v, max(0.0, t1 - t0), (ci, t0, t1))
+            deduped.append((node, t, p, d))
+        for (u, t0, pu, du), (v, t1, pv, dv) in zip(deduped, deduped[1:]):
+            arc_len = max(0.0, t1 - t0)
+            # Two poles that both merely touch this run near the same spot
+            # (typically its dangling end) are not necessarily close to each
+            # other — the touch tolerance is generous by design (see `snap`
+            # above), so a weak, far-off touch from each pole can land within
+            # a hair of the other's on the arc while the poles themselves sit
+            # far apart. NPT-136 and pole 49 both touched run 30's dead end
+            # from 0.5+ away — far worse than either pole's own best touch
+            # elsewhere — and the arc gap between those weak touches (0.09)
+            # briefly won the shortest-route race over their real ~0.9 apart.
+            # A touch this much worse than the pole's own best is the same
+            # "not really this pole's run" signal the interior-break check
+            # above already trusts (PIECE_AFFINITY), so it gets the same
+            # distrust here: fall back to the poles' real distance, always a
+            # valid lower bound, instead of the arc length neither touch
+            # backs up.
+            edge_len = arc_len
+            if u[0] == "P" and v[0] == "P" and pu is not None and pv is not None:
+                own_u = own_best.get(pu.get("pole_id"))
+                own_v = own_best.get(pv.get("pole_id"))
+                weak_u = own_u is not None and du > own_u * PIECE_AFFINITY + med_seg
+                weak_v = own_v is not None and dv > own_v * PIECE_AFFINITY + med_seg
+                if weak_u or weak_v:
+                    real = _dist(
+                        (float(pu["cx"]), float(pu["cy"])),
+                        (float(pv["cx"]), float(pv["cy"])),
+                    )
+                    if real > edge_len:
+                        edge_len = real
+            link(u, v, edge_len, (ci, t0, t1))
 
     # Tee joins. A street that ends against the MIDDLE of another street has
     # no run end there to link to — the graph only knew ends. Left that way,
