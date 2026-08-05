@@ -1502,7 +1502,12 @@ export default function AsbuiltExportModal({
                                   setSelectionMode("manual");
                                   setManualForm((f) => ({
                                     ...f,
+                                    // Same source, same value for both — the DXF
+                                    // filename is the only thing actually fetched
+                                    // here, so Node ID and Node Name both default
+                                    // to it instead of drifting apart.
                                     node_id: f.node_id || derivedNodeId,
+                                    node_name: f.node_name || derivedNodeId,
                                   }));
                                 }}
                                 className="p-4 rounded-xl border-2 border-border hover:border-emerald-500 hover:bg-emerald-50 transition-all text-left"
