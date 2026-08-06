@@ -1417,6 +1417,14 @@ export default function AsbuiltExportModal({
                       these counts can be saved to backend span summaries.
                     </div>
                   )}
+                  {componentTotalCount === 0 && (
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                      No equipment collectables are cached for this file yet
+                      — exporting now will leave every expected component
+                      count at 0 in twinbackend. If this node should have
+                      equipment counts, run the Equipment scan first.
+                    </div>
+                  )}
 
                   {/* Site selector */}
                   <div>
@@ -1719,21 +1727,42 @@ export default function AsbuiltExportModal({
                           </div>
                         </div>
 
-                        <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-4 space-y-3">
+                        <div
+                          className={`rounded-xl border p-4 space-y-3 ${
+                            componentTotalCount > 0
+                              ? "border-emerald-200 bg-emerald-50/70"
+                              : "border-amber-300 bg-amber-50"
+                          }`}
+                        >
                           <div className="flex items-center justify-between gap-3">
                             <div>
-                              <p className="text-xs font-semibold text-emerald-800 uppercase tracking-wider">
+                              <p
+                                className={`text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 ${
+                                  componentTotalCount > 0 ? "text-emerald-800" : "text-amber-800"
+                                }`}
+                              >
+                                {componentTotalCount === 0 && (
+                                  <svg
+                                    className="w-3.5 h-3.5 shrink-0"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                  >
+                                    <path d="M12 9v4m0 4h.01M10.29 3.86l-8.18 14.18A2 2 0 004 21h16a2 2 0 001.89-2.96L13.71 3.86a2 2 0 00-3.42 0z" />
+                                  </svg>
+                                )}
                                 Equipment Collectables
                               </p>
-                              <p className="text-xs text-emerald-700 mt-0.5">
+                              <p className={`text-xs mt-0.5 ${componentTotalCount > 0 ? "text-emerald-700" : "text-amber-700"}`}>
                                 Preview total for this node export
                               </p>
                             </div>
                             <div className="text-right">
-                              <p className="text-2xl font-bold text-emerald-900">
+                              <p className={`text-2xl font-bold ${componentTotalCount > 0 ? "text-emerald-900" : "text-amber-900"}`}>
                                 {componentTotalCount}
                               </p>
-                              <p className="text-[10px] text-emerald-700">
+                              <p className={`text-[10px] ${componentTotalCount > 0 ? "text-emerald-700" : "text-amber-700"}`}>
                                 total
                               </p>
                             </div>
@@ -1769,10 +1798,15 @@ export default function AsbuiltExportModal({
                               </div>
                             </div>
                           ) : (
-                            <p className="text-xs text-emerald-700">
-                              No equipment collectables are cached yet. Run the
-                              Equipment scan first if this node should include
-                              component counts.
+                            <p className="text-xs font-semibold text-amber-800">
+                              No equipment collectables are cached for this
+                              file. Exporting now will upload poles and spans
+                              only — every expected component count (node,
+                              amplifier, extender, taps/splitters) will show
+                              as 0 in twinbackend. If this node should have
+                              equipment counts, close this dialog, open the
+                              Equipment tab, run the scan there, then reopen
+                              Export.
                             </p>
                           )}
                         </div>
