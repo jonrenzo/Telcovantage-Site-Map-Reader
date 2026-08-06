@@ -10,7 +10,7 @@ API_TIMEOUT = 30
 IMPORT_API_TIMEOUT = 120
 ASBUILT_API_FALLBACK_URL = (
     os.getenv("ASBUILT_API_FALLBACK_URL")
-    or "https://lightgreen-koala-653522.hostingersite.com/api/v1"
+    or "https://saddlebrown-wolf-799636.hostingersite.com/api/v1"
 ).strip().rstrip("/")
 
 
