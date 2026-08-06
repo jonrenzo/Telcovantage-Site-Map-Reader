@@ -4,6 +4,6 @@
 # The Next.js frontend points here via NEXT_PUBLIC_BACKEND_URL in .env.local.
 
 $env:PORT = "5050"
-$env:ASBUILT_API_BASE_URL = "https://telcovantage.com/api/v1"
-$env:PLANNER_API_BASE_URL = "https://telcovantage.com/api/v1"
+$env:ASBUILT_API_BASE_URL = "https://asbuilt.telcovantage.com/api/v1"
+$env:PLANNER_API_BASE_URL = "https://asbuilt.telcovantage.com/api/v1"
 python server.py
