@@ -1,9 +1,19 @@
 import os
+import socket
 
 import requests
+import urllib3.util.connection as urllib3_connection
 from requests.exceptions import ConnectionError, Timeout
 
 from app_python.planner_config import ASBUILT_API_BASE_URL
+
+# This machine's network resolves the AsBuilt API's hostname to both an
+# IPv6 and an IPv4 address, but only the IPv4 path actually connects —
+# IPv6 hangs and gets reset mid-request (surfaces as
+# "Connection aborted... ConnectionResetError(10054)"). urllib3 doesn't
+# race the two like a browser would, so force IPv4 for every connection
+# this process makes, not just AsBuilt's.
+urllib3_connection.allowed_gai_family = lambda: socket.AF_INET
 
 ASBUILT_API_KEY = "asbuilt-iq-secret-key-2026"
 API_TIMEOUT = 30
