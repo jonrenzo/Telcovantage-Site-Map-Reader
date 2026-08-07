@@ -1,0 +1,33 @@
+- generic [active] [ref=f16e1]:
+  - generic [ref=f16e2]:
+    - banner [ref=f16e3]:
+      - button "Back" [ref=f16e192]
+      - generic [ref=f16e4]: AsBuiltIQ
+      - navigation [ref=f16e8]:
+        - generic [ref=f16e10]:
+          - generic [ref=f16e11]: ✓
+          - generic [ref=f16e12]: Load Plan
+        - generic [ref=f16e15]:
+          - generic [ref=f16e16]: ✓
+          - generic [ref=f16e17]: Reading
+        - generic [ref=f16e20]:
+          - generic [ref=f16e21]: "3"
+          - generic [ref=f16e22]: Review
+      - button "Export" [ref=f16e196]
+    - generic [ref=f16e202]:
+      - generic [ref=f16e204]:
+        - button "🔍 OCR Review" [ref=f16e205]:
+          - generic [ref=f16e206]: 🔍
+          - text: OCR Review
+        - button "🗺️ DXF Viewer" [ref=f16e207]:
+          - generic [ref=f16e208]: 🗺️
+          - text: DXF Viewer
+        - button "⚙️ Equipment" [ref=f16e209]:
+          - generic [ref=f16e210]: ⚙️
+          - text: Equipment
+        - button "🔵 Pole IDs" [ref=f16e211]:
+          - generic [ref=f16e212]: 🔵
+          - text: Pole IDs
+      - paragraph [ref=f16e798]: Loading DXF layers…
+  - button "Open Next.js Dev Tools" [ref=f16e103] [cursor=pointer]
+  - alert [ref=f16e107]

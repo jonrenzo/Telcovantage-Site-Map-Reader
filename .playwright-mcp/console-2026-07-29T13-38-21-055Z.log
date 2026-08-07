@@ -1,0 +1,3 @@
+[     770ms] [LOG] ðŸ“¥ Received active named poles from As-built: [] @ http://localhost:8000/?dxf_path=uploads%2FLP1709.dxf:726
+[    1817ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:8000/favicon.ico:0
+[    9261ms] [LOG] ðŸ“¥ Loaded poles through standalone fallback: [Object, Object, Object, Object, Object, Object, Object] @ http://localhost:8000/?dxf_path=uploads%2FLP1709.dxf:680

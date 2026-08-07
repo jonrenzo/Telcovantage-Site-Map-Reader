@@ -9,7 +9,7 @@ import { BeamsBackground } from "@/components/ui/beams-background";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_ASBUILT_API_BASE_URL ||
-  "https://lightgreen-koala-653522.hostingersite.com/api/v1";
+  "https://saddlebrown-wolf-799636.hostingersite.com/api/v1";
 const ASBUILT_URL = "/";
 const POLE_MASTER_URL = `${API_BASE_URL}/dashboard`;
 

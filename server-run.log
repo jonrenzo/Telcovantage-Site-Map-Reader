@@ -1,0 +1,441 @@
+[startup] Pre-warming strand recognizer (EasyOCR)...
+[startup] Port 5000 is unavailable on this machine. Falling back to 5050.
+
+==================================================
+  CAD OCR – Flask Backend  (EasyOCR engine)
+  http://localhost:5050
+==================================================
+
+  GeoTool server -> http://localhost:8000
+ * Serving Flask app 'server'
+ * Debug mode: off
+WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5050
+ * Running on http://192.168.1.4:5050
+Press CTRL+C to quit
+127.0.0.1 - - [30/Jul/2026 07:58:24] "GET /api/status HTTP/1.1" 200 -
+INFO:     Started server process [29396]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://localhost:8000 (Press CTRL+C to quit)
+127.0.0.1 - - [30/Jul/2026 07:58:34] "POST /api/pole_tags/scan HTTP/1.1" 200 -
+127.0.0.1 - - [30/Jul/2026 07:58:34] "GET /api/pole_tags HTTP/1.1" 200 -
+127.0.0.1 - - [30/Jul/2026 07:58:40] "GET /api/pole_tags HTTP/1.1" 200 -
+127.0.0.1 - - [30/Jul/2026 07:58:46] "GET /api/pole_tags HTTP/1.1" 200 -
+127.0.0.1 - - [30/Jul/2026 07:58:53] "GET /api/pole_tags HTTP/1.1" 200 -
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+127.0.0.1 - - [30/Jul/2026 07:58:59] "GET /api/pole_tags HTTP/1.1" 200 -
+[strand_recognizer] Loading EasyOCR (gpu=True)...
+[strand_recognizer] EasyOCR ready.
+[ocr] Loading EasyOCR reader (first-time download may take ~30s)...
+[ocr] EasyOCR device: cuda
+[ocr] EasyOCR ready.
+[startup] Strand recognizer ready.
+[startup] Pre-warming pole TrOCR model...
+[pole_ocr] Loading TrOCR (microsoft/trocr-base-printed) on cuda ...
+Loading weights:   0%|          | 0/478 [00:00<?, ?it/s]Loading weights:  23%|\u2588\u2588\u258e       | 110/478 [00:00<00:00, 1098.12it/s]Loading weights:  92%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258f| 439/478 [00:00<00:00, 2386.27it/s]Loading weights: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 478/478 [00:00<00:00, 2361.92it/s]
+[transformers] [1mVisionEncoderDecoderModel LOAD REPORT[0m from: microsoft/trocr-base-printed
+Key                         | Status  | 
+----------------------------+---------+-
+encoder.pooler.dense.weight | MISSING | 
+encoder.pooler.dense.bias   | MISSING | 
+
+Notes:
+- MISSING:	those params were newly initialized because missing from the checkpoint. Consider training on your downstream task.
+127.0.0.1 - - [30/Jul/2026 07:59:05] "GET /api/pole_tags HTTP/1.1" 200 -
+127.0.0.1 - - [30/Jul/2026 07:59:12] "GET /api/pole_tags HTTP/1.1" 200 -
+127.0.0.1 - - [30/Jul/2026 07:59:20] "GET /api/pole_tags HTTP/1.1" 200 -
+[pole_ocr] TrOCR ready.
+[startup] Pole TrOCR ready.
+[pole_ocr] pass1  rot=0  raw='30'  cleaned='30'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='30'  conf=1.000
+[pole_ocr] -> best text='30'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='33'  cleaned='33'  conf=0.999  valid=True
+[pole_ocr] -> fast-accept  text='33'  conf=0.999
+[pole_ocr] -> best text='33'  conf=0.999  valid=True
+[pole_ocr] pass1  rot=0  raw='23'  cleaned='23'  conf=0.999  valid=True
+[pole_ocr] -> fast-accept  text='23'  conf=0.999
+[pole_ocr] -> best text='23'  conf=0.999  valid=True
+[pole_ocr] pass1  rot=0  raw='38'  cleaned='38'  conf=0.998  valid=True
+[pole_ocr] -> fast-accept  text='38'  conf=0.998
+[pole_ocr] -> best text='38'  conf=0.998  valid=True
+[pole_ocr] pass1  rot=0  raw='48'  cleaned='48'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='48'  conf=1.000
+[pole_ocr] -> best text='48'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='22'  cleaned='22'  conf=0.963  valid=True
+[pole_ocr] -> fast-accept  text='22'  conf=0.963
+[pole_ocr] -> best text='22'  conf=0.963  valid=True
+[pole_ocr] pass1  rot=0  raw='2'  cleaned='2'  conf=0.403  valid=True
+[pole_ocr] pass1 not confident (conf=0.403, valid=True) - running rotation sweep
+[pole_ocr] pass1  rot=0  raw='20'  cleaned='20'  conf=0.927  valid=True
+[pole_ocr] pass1 not confident (conf=0.927, valid=True) - running rotation sweep
+[pole_ocr] pass1  rot=0  raw='40'  cleaned='40'  conf=0.983  valid=True
+[pole_ocr] -> fast-accept  text='40'  conf=0.983
+[pole_ocr] -> best text='40'  conf=0.983  valid=True
+[pole_ocr] pass1  rot=0  raw='49'  cleaned='49'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='49'  conf=1.000
+[pole_ocr] -> best text='49'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='20'  cleaned='20'  conf=0.980  valid=True
+[pole_ocr] -> fast-accept  text='20'  conf=0.980
+[pole_ocr] -> best text='20'  conf=0.980  valid=True
+[pole_ocr] pass1  rot=0  raw='43'  cleaned='43'  conf=0.992  valid=True
+[pole_ocr] -> fast-accept  text='43'  conf=0.992
+[pole_ocr] -> best text='43'  conf=0.992  valid=True
+[pole_ocr]  rot=    0  raw=          '20'  cleaned=      '20'  conf=0.927  valid=True
+[pole_ocr]  rot=   45  raw=          '20'  cleaned=      '20'  conf=0.915  valid=True
+[pole_ocr]  rot=   90  raw=          '20'  cleaned=      '20'  conf=0.997  valid=True
+[pole_ocr]  rot=  135  raw=          '20'  cleaned=      '20'  conf=0.969  valid=True
+[pole_ocr]  rot=  180  raw=           '2'  cleaned=       '2'  conf=0.419  valid=True
+[pole_ocr]  rot=  225  raw=           '8'  cleaned=       '8'  conf=0.344  valid=True
+[pole_ocr]  rot=  270  raw=           '2'  cleaned=       '2'  conf=0.396  valid=True
+[pole_ocr]  rot=  315  raw=          '02'  cleaned=      '02'  conf=0.477  valid=True
+[pole_ocr] -> best text='20'  conf=0.997  valid=True
+[pole_ocr]  rot=    0  raw=           '2'  cleaned=       '2'  conf=0.403  valid=True
+[pole_ocr]  rot=   45  raw=          '20'  cleaned=      '20'  conf=0.990  valid=True
+[pole_ocr]  rot=   90  raw=           '8'  cleaned=       '8'  conf=0.632  valid=True
+[pole_ocr]  rot=  135  raw=           '2'  cleaned=       '2'  conf=0.243  valid=True
+[pole_ocr]  rot=  180  raw=           '6'  cleaned=       '6'  conf=0.871  valid=True
+[pole_ocr]  rot=  225  raw=          'OZ'  cleaned=      'OZ'  conf=0.732  valid=False
+[pole_ocr]  rot=  270  raw=           '2'  cleaned=       '2'  conf=0.264  valid=True
+[pole_ocr]  rot=  315  raw=          '20'  cleaned=      '20'  conf=0.987  valid=True
+[pole_ocr] -> best text='20'  conf=0.990  valid=True
+[pole_ocr] pass1  rot=0  raw='19'  cleaned='19'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='19'  conf=1.000
+[pole_ocr] -> best text='19'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='35'  cleaned='35'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='35'  conf=1.000
+[pole_ocr] -> best text='35'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='27'  cleaned='27'  conf=0.999  valid=True
+[pole_ocr] -> fast-accept  text='27'  conf=0.999
+[pole_ocr] -> best text='27'  conf=0.999  valid=True
+[pole_ocr] pass1  rot=0  raw='30'  cleaned='30'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='30'  conf=1.000
+[pole_ocr] -> best text='30'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='26'  cleaned='26'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='26'  conf=1.000
+[pole_ocr] -> best text='26'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='39'  cleaned='39'  conf=0.352  valid=True
+[pole_ocr] pass1 not confident (conf=0.352, valid=True) - running rotation sweep
+[pole_ocr] pass1  rot=0  raw='28'  cleaned='28'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='28'  conf=1.000
+[pole_ocr] -> best text='28'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='27'  cleaned='27'  conf=0.993  valid=True
+[pole_ocr] -> fast-accept  text='27'  conf=0.993
+[pole_ocr] -> best text='27'  conf=0.993  valid=True
+[pole_ocr] pass1  rot=0  raw='30'  cleaned='30'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='30'  conf=1.000
+[pole_ocr] -> best text='30'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='48'  cleaned='48'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='48'  conf=1.000
+[pole_ocr] -> best text='48'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='39'  cleaned='39'  conf=0.512  valid=True
+[pole_ocr] pass1 not confident (conf=0.512, valid=True) - running rotation sweep
+[pole_ocr]  rot=    0  raw=          '39'  cleaned=      '39'  conf=0.352  valid=True
+[pole_ocr]  rot=   45  raw=           '3'  cleaned=       '3'  conf=0.636  valid=True
+[pole_ocr]  rot=   90  raw=          '99'  cleaned=      '99'  conf=0.803  valid=True
+[pole_ocr] mid-fix pos 1: '9S' -> '95'
+[pole_ocr]  rot=  135  raw=          '9S'  cleaned=      '95'  conf=0.383  valid=True
+[pole_ocr]  rot=  180  raw=          '36'  cleaned=      '36'  conf=0.519  valid=True
+[pole_ocr]  rot=  225  raw=          '36'  cleaned=      '36'  conf=0.998  valid=True
+[pole_ocr]  rot=  270  raw=          '36'  cleaned=      '36'  conf=0.874  valid=True
+[pole_ocr]  rot=  315  raw=          '36'  cleaned=      '36'  conf=0.999  valid=True
+[pole_ocr] -> best text='36'  conf=0.999  valid=True
+[pole_ocr] pass1  rot=0  raw='^'  cleaned=''  conf=0.197  valid=False
+[pole_ocr] pass1 not confident (conf=0.197, valid=False) - running rotation sweep
+[pole_ocr] pass1  rot=0  raw='50'  cleaned='50'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='50'  conf=1.000
+[pole_ocr] -> best text='50'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='50'  cleaned='50'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='50'  conf=1.000
+[pole_ocr] -> best text='50'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='27'  cleaned='27'  conf=0.997  valid=True
+[pole_ocr] -> fast-accept  text='27'  conf=0.997
+[pole_ocr] -> best text='27'  conf=0.997  valid=True
+[pole_ocr] pass1  rot=0  raw='40'  cleaned='40'  conf=0.999  valid=True
+[pole_ocr] -> fast-accept  text='40'  conf=0.999
+[pole_ocr] -> best text='40'  conf=0.999  valid=True
+[pole_ocr] pass1  rot=0  raw='37'  cleaned='37'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='37'  conf=1.000
+[pole_ocr] -> best text='37'  conf=1.000  valid=True
+[pole_ocr]  rot=    0  raw=          '39'  cleaned=      '39'  conf=0.512  valid=True
+[pole_ocr]  rot=   45  raw=           'S'  cleaned=       'S'  conf=0.699  valid=False
+[pole_ocr]  rot=   90  raw=          '99'  cleaned=      '99'  conf=0.269  valid=True
+[pole_ocr]  rot=  135  raw=           '9'  cleaned=       '9'  conf=0.737  valid=True
+[pole_ocr]  rot=  180  raw=          '36'  cleaned=      '36'  conf=1.000  valid=True
+[pole_ocr]  rot=  225  raw=          '36'  cleaned=      '36'  conf=0.563  valid=True
+[pole_ocr]  rot=  270  raw=          '36'  cleaned=      '36'  conf=1.000  valid=True
+[pole_ocr]  rot=  315  raw=          '36'  cleaned=      '36'  conf=0.985  valid=True
+[pole_ocr] -> best text='36'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='48'  cleaned='48'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='48'  conf=1.000127.0.0.1 - - [30/Jul/2026 07:59:27] "GET /api/pole_tags HTTP/1.1" 200 -
+
+[pole_ocr] -> best text='48'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='37'  cleaned='37'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='37'  conf=1.000
+[pole_ocr] -> best text='37'  conf=1.000  valid=True
+[pole_ocr]  rot=    0  raw=           '^'  cleaned=        ''  conf=0.197  valid=False
+[pole_ocr]  rot=   45  raw=          '43'  cleaned=      '43'  conf=0.493  valid=True
+[pole_ocr]  rot=   90  raw=         'QTY'  cleaned=     'QTY'  conf=0.544  valid=False
+[pole_ocr]  rot=  135  raw=          '43'  cleaned=      '43'  conf=0.850  valid=True
+[pole_ocr]  rot=  180  raw=          '15'  cleaned=      '15'  conf=0.278  valid=True
+[pole_ocr]  rot=  225  raw=          '43'  cleaned=      '43'  conf=0.514  valid=True
+[pole_ocr]  rot=  270  raw=          '45'  cleaned=      '45'  conf=0.565  valid=True
+[pole_ocr]  rot=  315  raw=          '43'  cleaned=      '43'  conf=1.000  valid=True
+[pole_ocr] -> best text='43'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='49'  cleaned='49'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='49'  conf=1.000
+[pole_ocr] -> best text='49'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='X'  cleaned='X'  conf=0.394  valid=False
+[pole_ocr] pass1 not confident (conf=0.394, valid=False) - running rotation sweep
+[pole_ocr] pass1  rot=0  raw='27'  cleaned='27'  conf=0.999  valid=True
+[pole_ocr] -> fast-accept  text='27'  conf=0.999
+[pole_ocr] -> best text='27'  conf=0.999  valid=True
+[pole_ocr] pass1  rot=0  raw='34'  cleaned='34'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='34'  conf=1.000
+[pole_ocr] -> best text='34'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='49'  cleaned='49'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='49'  conf=1.000
+[pole_ocr] -> best text='49'  conf=1.000  valid=True
+[pole_ocr]  rot=    0  raw=           'X'  cleaned=       'X'  conf=0.394  valid=False
+[pole_ocr]  rot=   45  raw=          '43'  cleaned=      '43'  conf=0.892  valid=True
+[pole_ocr]  rot=   90  raw=           '<'  cleaned=        ''  conf=0.201  valid=False
+[pole_ocr]  rot=  135  raw=          '43'  cleaned=      '43'  conf=0.931  valid=True
+[pole_ocr]  rot=  180  raw=           '*'  cleaned=        ''  conf=0.295  valid=False
+[pole_ocr]  rot=  225  raw=          '43'  cleaned=      '43'  conf=0.998  valid=True
+[pole_ocr] mid-fix pos 1: 'KS' -> 'K5'
+[pole_ocr]  rot=  270  raw=          'KS'  cleaned=      'K5'  conf=0.205  valid=True
+[pole_ocr]  rot=  315  raw=          '43'  cleaned=      '43'  conf=1.000  valid=True
+[pole_ocr] -> best text='43'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='28'  cleaned='28'  conf=0.999  valid=True
+[pole_ocr] -> fast-accept  text='28'  conf=0.999
+[pole_ocr] -> best text='28'  conf=0.999  valid=True
+[pole_ocr] pass1  rot=0  raw='29'  cleaned='29'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='29'  conf=1.000
+[pole_ocr] -> best text='29'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='27'  cleaned='27'  conf=0.998  valid=True
+[pole_ocr] -> fast-accept  text='27'  conf=0.998
+[pole_ocr] -> best text='27'  conf=0.998  valid=True
+[pole_ocr] pass1  rot=0  raw='30'  cleaned='30'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='30'  conf=1.000
+[pole_ocr] -> best text='30'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='48'  cleaned='48'  conf=0.999  valid=True
+[pole_ocr] -> fast-accept  text='48'  conf=0.999
+[pole_ocr] -> best text='48'  conf=0.999  valid=True
+[pole_ocr] pass1  rot=0  raw='37'  cleaned='37'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='37'  conf=1.000
+[pole_ocr] -> best text='37'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='24'  cleaned='24'  conf=0.999  valid=True
+[pole_ocr] -> fast-accept  text='24'  conf=0.999
+[pole_ocr] -> best text='24'  conf=0.999  valid=True
+[pole_ocr] pass1  rot=0  raw='37'  cleaned='37'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='37'  conf=1.000
+[pole_ocr] -> best text='37'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='52'  cleaned='52'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='52'  conf=1.000
+[pole_ocr] -> best text='52'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='30'  cleaned='30'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='30'  conf=1.000
+[pole_ocr] -> best text='30'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='36'  cleaned='36'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='36'  conf=1.000
+[pole_ocr] -> best text='36'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='36'  cleaned='36'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='36'  conf=1.000
+[pole_ocr] -> best text='36'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='36'  cleaned='36'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='36'  conf=1.000
+[pole_ocr] -> best text='36'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='36'  cleaned='36'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='36'  conf=1.000
+[pole_ocr] -> best text='36'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='6'  cleaned='6'  conf=0.942  valid=True
+[pole_ocr] pass1 not confident (conf=0.942, valid=True) - running rotation sweep
+[pole_ocr] pass1  rot=0  raw='48'  cleaned='48'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='48'  conf=1.000
+[pole_ocr] -> best text='48'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='37'  cleaned='37'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='37'  conf=1.000
+[pole_ocr] -> best text='37'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='37'  cleaned='37'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='37'  conf=1.000
+[pole_ocr] -> best text='37'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='36'  cleaned='36'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='36'  conf=1.000
+[pole_ocr] -> best text='36'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='36'  cleaned='36'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='36'  conf=1.000
+[pole_ocr] -> best text='36'  conf=1.000  valid=True
+[pole_ocr]  rot=    0  raw=           '6'  cleaned=       '6'  conf=0.942  valid=True
+[pole_ocr]  rot=   45  raw=          '62'  cleaned=      '62'  conf=0.999  valid=True
+[pole_ocr]  rot=   90  raw=          '62'  cleaned=      '62'  conf=0.488  valid=True
+[pole_ocr]  rot=  135  raw=          '62'  cleaned=      '62'  conf=0.761  valid=True
+[pole_ocr]  rot=  180  raw=          '19'  cleaned=      '19'  conf=0.244  valid=True
+[pole_ocr]  rot=  225  raw=          '79'  cleaned=      '79'  conf=0.314  valid=True
+[pole_ocr]  rot=  270  raw=         'CST'  cleaned=     'CST'  conf=0.372  valid=False
+[pole_ocr]  rot=  315  raw=          '62'  cleaned=      '62'  conf=0.829  valid=True
+[pole_ocr] -> best text='62'  conf=0.999  valid=True
+[pole_ocr] pass1  rot=0  raw='#'  cleaned=''  conf=0.167  valid=False
+[pole_ocr] pass1 not confident (conf=0.167, valid=False) - running rotation sweep
+[pole_ocr] pass1  rot=0  raw='36'  cleaned='36'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='36'  conf=1.000
+[pole_ocr] -> best text='36'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='36'  cleaned='36'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='36'  conf=1.000
+[pole_ocr] -> best text='36'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='36'  cleaned='36'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='36'  conf=1.000
+[pole_ocr] -> best text='36'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='38'  cleaned='38'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='38'  conf=1.000
+[pole_ocr] -> best text='38'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='38'  cleaned='38'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='38'  conf=1.000
+[pole_ocr] -> best text='38'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='56'  cleaned='56'  conf=0.325  valid=True
+[pole_ocr] pass1 not confident (conf=0.325, valid=True) - running rotation sweep
+[pole_ocr] pass1  rot=0  raw='37'  cleaned='37'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='37'  conf=1.000127.0.0.1 - - [30/Jul/2026 07:59:35] "GET /api/pole_tags HTTP/1.1" 200 -
+127.0.0.1 - - [30/Jul/2026 07:59:43] "GET /api/pole_tags HTTP/1.1" 200 -
+127.0.0.1 - - [30/Jul/2026 07:59:51] "GET /api/pole_tags HTTP/1.1" 200 -
+127.0.0.1 - - [30/Jul/2026 08:00:00] "GET /api/pole_tags HTTP/1.1" 200 -
+127.0.0.1 - - [30/Jul/2026 08:00:08] "GET /api/pole_tags HTTP/1.1" 200 -
+127.0.0.1 - - [30/Jul/2026 08:00:16] "GET /api/pole_tags HTTP/1.1" 200 -
+127.0.0.1 - - [30/Jul/2026 08:00:24] "GET /api/pole_tags HTTP/1.1" 200 -
+127.0.0.1 - - [30/Jul/2026 08:00:31] "GET /api/pole_tags HTTP/1.1" 200 -
+127.0.0.1 - - [30/Jul/2026 08:00:39] "GET /api/pole_tags HTTP/1.1" 200 -
+127.0.0.1 - - [30/Jul/2026 08:00:45] "GET /api/pole_tags HTTP/1.1" 200 -
+127.0.0.1 - - [30/Jul/2026 08:00:52] "GET /api/pole_tags HTTP/1.1" 200 -
+127.0.0.1 - - [30/Jul/2026 08:00:59] "GET /api/pole_tags HTTP/1.1" 200 -
+127.0.0.1 - - [30/Jul/2026 08:01:06] "GET /api/pole_tags HTTP/1.1" 200 -
+
+[pole_ocr] -> best text='37'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='36'  cleaned='36'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='36'  conf=1.000
+[pole_ocr] -> best text='36'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='38'  cleaned='38'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='38'  conf=1.000
+[pole_ocr] -> best text='38'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='37'  cleaned='37'  conf=0.999  valid=True
+[pole_ocr] -> fast-accept  text='37'  conf=0.999
+[pole_ocr] -> best text='37'  conf=0.999  valid=True
+[pole_ocr]  rot=    0  raw=          '56'  cleaned=      '56'  conf=0.325  valid=True
+[pole_ocr]  rot=   45  raw=          '56'  cleaned=      '56'  conf=0.999  valid=True
+[pole_ocr]  rot=   90  raw=          '56'  cleaned=      '56'  conf=0.989  valid=True
+[pole_ocr]  rot=  135  raw=           'S'  cleaned=       'S'  conf=0.394  valid=False
+[pole_ocr]  rot=  180  raw=           '%'  cleaned=        ''  conf=0.413  valid=False
+[pole_ocr]  rot=  225  raw=          '99'  cleaned=      '99'  conf=0.591  valid=True
+[pole_ocr]  rot=  270  raw=          '99'  cleaned=      '99'  conf=0.867  valid=True
+[pole_ocr]  rot=  315  raw=          '56'  cleaned=      '56'  conf=0.990  valid=True
+[pole_ocr] -> best text='56'  conf=0.999  valid=True
+[pole_ocr]  rot=    0  raw=           '#'  cleaned=        ''  conf=0.167  valid=False
+[pole_ocr]  rot=   45  raw=         'TAX'  cleaned=     'TAX'  conf=0.333  valid=False
+[pole_ocr]  rot=   90  raw=         '###'  cleaned=        ''  conf=0.179  valid=False
+[pole_ocr]  rot=  135  raw=          'SR'  cleaned=      'SR'  conf=0.420  valid=False
+[pole_ocr]  rot=  180  raw=          'AM'  cleaned=      'AM'  conf=0.335  valid=False
+[pole_ocr]  rot=  225  raw=           ':'  cleaned=        ''  conf=0.265  valid=False
+[pole_ocr]  rot=  270  raw=           ':'  cleaned=        ''  conf=0.266  valid=False
+[pole_ocr]  rot=  315  raw=         '***'  cleaned=        ''  conf=0.532  valid=False
+[pole_ocr] -> best text=''  conf=0.532  valid=False
+[pole_ocr] pass1  rot=0  raw='39'  cleaned='39'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='39'  conf=1.000
+[pole_ocr] -> best text='39'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='38'  cleaned='38'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='38'  conf=1.000
+[pole_ocr] -> best text='38'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='36'  cleaned='36'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='36'  conf=1.000
+[pole_ocr] -> best text='36'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='48'  cleaned='48'  conf=0.999  valid=True
+[pole_ocr] -> fast-accept  text='48'  conf=0.999
+[pole_ocr] -> best text='48'  conf=0.999  valid=True
+[pole_ocr] pass1  rot=0  raw='34'  cleaned='34'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='34'  conf=1.000
+[pole_ocr] -> best text='34'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='38'  cleaned='38'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='38'  conf=1.000
+[pole_ocr] -> best text='38'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='37'  cleaned='37'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='37'  conf=1.000
+[pole_ocr] -> best text='37'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='32'  cleaned='32'  conf=0.999  valid=True
+[pole_ocr] -> fast-accept  text='32'  conf=0.999
+[pole_ocr] -> best text='32'  conf=0.999  valid=True
+[pole_ocr] pass1  rot=0  raw='37'  cleaned='37'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='37'  conf=1.000
+[pole_ocr] -> best text='37'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='40'  cleaned='40'  conf=0.987  valid=True
+[pole_ocr] -> fast-accept  text='40'  conf=0.987
+[pole_ocr] -> best text='40'  conf=0.987  valid=True
+[pole_ocr] pass1  rot=0  raw='39'  cleaned='39'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='39'  conf=1.000
+[pole_ocr] -> best text='39'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='35'  cleaned='35'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='35'  conf=1.000
+[pole_ocr] -> best text='35'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='44'  cleaned='44'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='44'  conf=1.000
+[pole_ocr] -> best text='44'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='37'  cleaned='37'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='37'  conf=1.000
+[pole_ocr] -> best text='37'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='29'  cleaned='29'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='29'  conf=1.000
+[pole_ocr] -> best text='29'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='30'  cleaned='30'  conf=0.999  valid=True
+[pole_ocr] -> fast-accept  text='30'  conf=0.999
+[pole_ocr] -> best text='30'  conf=0.999  valid=True
+[pole_ocr] pass1  rot=0  raw='3'  cleaned='3'  conf=0.747  valid=True
+[pole_ocr] pass1 not confident (conf=0.747, valid=True) - running rotation sweep
+[pole_ocr] pass1  rot=0  raw='46'  cleaned='46'  conf=0.999  valid=True
+[pole_ocr] -> fast-accept  text='46'  conf=0.999
+[pole_ocr] -> best text='46'  conf=0.999  valid=True
+[pole_ocr] pass1  rot=0  raw='37'  cleaned='37'  conf=0.979  valid=True
+[pole_ocr] -> fast-accept  text='37'  conf=0.979
+[pole_ocr] -> best text='37'  conf=0.979  valid=True
+[pole_ocr] pass1  rot=0  raw='36'  cleaned='36'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='36'  conf=1.000
+[pole_ocr] -> best text='36'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='39'  cleaned='39'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='39'  conf=1.000
+[pole_ocr] -> best text='39'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='40'  cleaned='40'  conf=0.999  valid=True
+[pole_ocr] -> fast-accept  text='40'  conf=0.999
+[pole_ocr] -> best text='40'  conf=0.999  valid=True
+[pole_ocr] pass1  rot=0  raw='43'  cleaned='43'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='43'  conf=1.000
+[pole_ocr] -> best text='43'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='35'  cleaned='35'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='35'  conf=1.000
+[pole_ocr] -> best text='35'  conf=1.000  valid=True
+[pole_ocr]  rot=    0  raw=           '3'  cleaned=       '3'  conf=0.747  valid=True
+[pole_ocr]  rot=   45  raw=           '3'  cleaned=       '3'  conf=0.336  valid=True
+[pole_ocr]  rot=   90  raw=           '3'  cleaned=       '3'  conf=0.869  valid=True
+[pole_ocr]  rot=  135  raw=         'LOT'  cleaned=     'LOT'  conf=0.216  valid=False
+[pole_ocr]  rot=  180  raw=           '<'  cleaned=        ''  conf=0.661  valid=False
+[pole_ocr] mid-fix pos 1: 'LS' -> 'L5'
+[pole_ocr]  rot=  225  raw=          'LS'  cleaned=      'L5'  conf=0.787  valid=True
+[pole_ocr]  rot=  270  raw=           '<'  cleaned=        ''  conf=0.986  valid=False
+[pole_ocr]  rot=  315  raw=           '5'  cleaned=       '5'  conf=0.513  valid=True
+[pole_ocr] -> best text='3'  conf=0.869  valid=True
+[pole_ocr] pass1  rot=0  raw='49'  cleaned='49'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='49'  conf=1.000
+[pole_ocr] -> best text='49'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='36'  cleaned='36'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='36'  conf=1.000
+[pole_ocr] -> best text='36'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='43'  cleaned='43'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='43'  conf=1.000
+[pole_ocr] -> best text='43'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='36'  cleaned='36'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='36'  conf=1.000
+[pole_ocr] -> best text='36'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='36'  cleaned='36'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='36'  conf=1.000
+[pole_ocr] -> best text='36'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='36'  cleaned='36'  conf=1.000  valid=True
+[pole_ocr] -> fast-accept  text='36'  conf=1.000
+[pole_ocr] -> best text='36'  conf=1.000  valid=True
+[pole_ocr] pass1  rot=0  raw='43'  cleaned='43'  conf=1.000  valid=True127.0.0.1 - - [30/Jul/2026 08:01:13] "GET /api/pole_tags HTTP/1.1" 200 -
+127.0.0.1 - - [30/Jul/2026 08:01:20] "GET /api/pole_tags HTTP/1.1" 200 -
+127.0.0.1 - - [30/Jul/2026 08:02:08] "GET /api/cable_spans?dxf_path=uploads/LP1709.dxf HTTP/1.1" 200 -

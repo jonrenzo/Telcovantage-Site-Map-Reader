@@ -1,0 +1,174 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - button "Back" [ref=e181]
+      - generic [ref=e4]: AsBuiltIQ
+      - navigation [ref=e8]:
+        - generic [ref=e10]:
+          - generic [ref=e11]: ✓
+          - generic [ref=e12]: Load Plan
+        - generic [ref=e15]:
+          - generic [ref=e16]: ✓
+          - generic [ref=e17]: Reading
+        - generic [ref=e20]:
+          - generic [ref=e21]: "3"
+          - generic [ref=e22]: Review
+      - button "Export" [ref=e185]
+    - generic [ref=e191]:
+      - generic [ref=e193]:
+        - button "🔍 OCR Review" [ref=e194]:
+          - generic [ref=e195]: 🔍
+          - text: OCR Review
+        - button "🗺️ DXF Viewer" [ref=e196]:
+          - generic [ref=e197]: 🗺️
+          - text: DXF Viewer
+        - button "⚙️ Equipment" [ref=e198]:
+          - generic [ref=e199]: ⚙️
+          - text: Equipment
+        - button "🔵 Pole IDs" [ref=e200]:
+          - generic [ref=e201]: 🔵
+          - text: Pole IDs
+      - generic [ref=e204]:
+        - complementary [ref=e207]:
+          - generic [ref=e208]:
+            - heading "Drawing Results" [level=2] [ref=e209]
+            - paragraph [ref=e210]: Review and correct OCR results
+          - generic [ref=e211]:
+            - generic [ref=e212]:
+              - generic [ref=e213]: "26"
+              - generic [ref=e214]: Total
+            - generic [ref=e215]:
+              - generic [ref=e216]: "2"
+              - generic [ref=e217]: To Check
+            - generic [ref=e218]:
+              - generic [ref=e219]: "669"
+              - generic [ref=e220]: Sum
+          - button "⚠ Check 2 Uncertain" [ref=e222]
+          - button "Add Manually" [ref=e224]
+          - generic [ref=e227]:
+            - button "All" [ref=e228]
+            - button "⚠ Uncertain" [ref=e229]
+            - button "✏ Fixed" [ref=e230]
+          - generic [ref=e231]:
+            - generic [ref=e232] [cursor=pointer]:
+              - generic [ref=e233]: "#0"
+              - generic [ref=e234]: "19"
+              - generic [ref=e235]: ✓
+            - generic [ref=e236] [cursor=pointer]:
+              - generic [ref=e237]: "#1"
+              - generic [ref=e238]: "25"
+              - generic [ref=e239]: ✓
+            - generic [ref=e240] [cursor=pointer]:
+              - generic [ref=e241]: "#2"
+              - generic [ref=e242]: "34"
+              - generic [ref=e243]: ✓
+            - generic [ref=e244] [cursor=pointer]:
+              - generic [ref=e245]: "#3"
+              - generic [ref=e246]: "32"
+              - generic [ref=e247]: ⚠ Check
+            - generic [ref=e248] [cursor=pointer]:
+              - generic [ref=e249]: "#4"
+              - generic [ref=e250]: "15"
+              - generic [ref=e251]: ✓
+            - generic [ref=e252] [cursor=pointer]:
+              - generic [ref=e253]: "#5"
+              - generic [ref=e254]: "30"
+              - generic [ref=e255]: ✓
+            - generic [ref=e256] [cursor=pointer]:
+              - generic [ref=e257]: "#6"
+              - generic [ref=e258]: "25"
+              - generic [ref=e259]: ✓
+            - generic [ref=e260] [cursor=pointer]:
+              - generic [ref=e261]: "#7"
+              - generic [ref=e262]: "28"
+              - generic [ref=e263]: ✓
+            - generic [ref=e264] [cursor=pointer]:
+              - generic [ref=e265]: "#8"
+              - generic [ref=e266]: "14"
+              - generic [ref=e267]: ✓
+            - generic [ref=e268] [cursor=pointer]:
+              - generic [ref=e269]: "#9"
+              - generic [ref=e270]: "24"
+              - generic [ref=e271]: ✓
+            - generic [ref=e272] [cursor=pointer]:
+              - generic [ref=e273]: "#10"
+              - generic [ref=e274]: "18"
+              - generic [ref=e275]: ✓
+            - generic [ref=e276] [cursor=pointer]:
+              - generic [ref=e277]: "#11"
+              - generic [ref=e278]: "36"
+              - generic [ref=e279]: ✓
+            - generic [ref=e280] [cursor=pointer]:
+              - generic [ref=e281]: "#12"
+              - generic [ref=e282]: "22"
+              - generic [ref=e283]: ✓
+            - generic [ref=e284] [cursor=pointer]:
+              - generic [ref=e285]: "#13"
+              - generic [ref=e286]: "20"
+              - generic [ref=e287]: ✓
+            - generic [ref=e288] [cursor=pointer]:
+              - generic [ref=e289]: "#14"
+              - generic [ref=e290]: "23"
+              - generic [ref=e291]: ✓
+            - generic [ref=e292] [cursor=pointer]:
+              - generic [ref=e293]: "#15"
+              - generic [ref=e294]: "84"
+              - generic [ref=e295]: ⚠ Check
+            - generic [ref=e296] [cursor=pointer]:
+              - generic [ref=e297]: "#16"
+              - generic [ref=e298]: "15"
+              - generic [ref=e299]: ✓
+            - generic [ref=e300] [cursor=pointer]:
+              - generic [ref=e301]: "#17"
+              - generic [ref=e302]: "22"
+              - generic [ref=e303]: ✓
+            - generic [ref=e304] [cursor=pointer]:
+              - generic [ref=e305]: "#18"
+              - generic [ref=e306]: "14"
+              - generic [ref=e307]: ✓
+            - generic [ref=e308] [cursor=pointer]:
+              - generic [ref=e309]: "#19"
+              - generic [ref=e310]: "22"
+              - generic [ref=e311]: ✓
+            - generic [ref=e312] [cursor=pointer]:
+              - generic [ref=e313]: "#20"
+              - generic [ref=e314]: "34"
+              - generic [ref=e315]: ✓
+            - generic [ref=e316] [cursor=pointer]:
+              - generic [ref=e317]: "#21"
+              - generic [ref=e318]: "30"
+              - generic [ref=e319]: ✓
+            - generic [ref=e320] [cursor=pointer]:
+              - generic [ref=e321]: "#22"
+              - generic [ref=e322]: "16"
+              - generic [ref=e323]: ✓
+            - generic [ref=e324] [cursor=pointer]:
+              - generic [ref=e325]: "#23"
+              - generic [ref=e326]: "10"
+              - generic [ref=e327]: ✓
+            - generic [ref=e328] [cursor=pointer]:
+              - generic [ref=e329]: "#24"
+              - generic [ref=e330]: "27"
+              - generic [ref=e331]: ✓
+            - generic [ref=e332] [cursor=pointer]:
+              - generic [ref=e333]: "#25"
+              - generic [ref=e334]: "30"
+              - generic [ref=e335]: ✓
+        - generic [ref=e336]:
+          - generic [ref=e338]:
+            - button "⊡" [ref=e339]
+            - button "+" [ref=e340]
+            - button "−" [ref=e341]
+          - button "Collapse sidebar" [ref=e342]
+          - generic [ref=e345]:
+            - generic [ref=e346]: Read correctly
+            - generic [ref=e348]: Needs checking
+            - generic [ref=e350]: Manually corrected
+            - generic [ref=e352]: Added manually
+            - generic [ref=e354]:
+              - generic [ref=e355]:
+                - generic [ref=e356]: Marker size
+                - generic [ref=e357]: 1.0×
+              - slider "Adjust marker size" [ref=e358] [cursor=pointer]: "1"
+  - button "Open Next.js Dev Tools" [ref=e71] [cursor=pointer]
+  - alert [ref=e107]

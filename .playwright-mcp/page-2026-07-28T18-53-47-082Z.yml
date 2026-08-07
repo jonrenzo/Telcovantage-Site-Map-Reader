@@ -1,0 +1,58 @@
+- generic [active] [ref=f16e1]:
+  - generic [ref=f16e2]:
+    - banner [ref=f16e3]:
+      - generic [ref=f16e4]: AsBuiltIQ
+      - navigation [ref=f16e8]:
+        - generic [ref=f16e10]:
+          - generic [ref=f16e11]: "1"
+          - generic [ref=f16e12]: Load Plan
+        - generic [ref=f16e15]:
+          - generic [ref=f16e16]: "2"
+          - generic [ref=f16e17]: Reading
+        - generic [ref=f16e20]:
+          - generic [ref=f16e21]: "3"
+          - generic [ref=f16e22]: Review
+    - main [ref=f16e23]:
+      - complementary [ref=f16e24]:
+        - paragraph [ref=f16e26]: Workspace
+        - button "🗂️ My Drawings" [ref=f16e27]:
+          - generic [ref=f16e28]: 🗂️
+          - text: My Drawings
+        - paragraph [ref=f16e30]: Folders
+        - button "New Folder" [ref=f16e32]
+      - generic [ref=f16e35]:
+        - generic [ref=f16e36]:
+          - navigation [ref=f16e37]:
+            - button "My Drawings" [ref=f16e39]
+          - textbox "Search drawings…" [ref=f16e44]
+          - combobox [ref=f16e45] [cursor=pointer]:
+            - option "Last opened" [selected]
+            - option "Name"
+            - option "Size"
+          - generic [ref=f16e46]:
+            - button [ref=f16e47]
+            - button [ref=f16e53]
+          - button "Upload" [ref=f16e58]
+        - generic [ref=f16e63]:
+          - generic [ref=f16e66] [cursor=pointer]:
+            - img [ref=f16e67]:
+              - generic [ref=f16e71]: DXF
+            - paragraph [ref=f16e72]: MN6001
+            - paragraph [ref=f16e73]: 2.1 MB
+          - generic [ref=f16e74] [cursor=pointer]:
+            - img [ref=f16e75]:
+              - generic [ref=f16e79]: DXF
+            - paragraph [ref=f16e80]: BCR405
+            - paragraph [ref=f16e81]: 7.0 MB
+          - generic [ref=f16e82] [cursor=pointer]:
+            - img [ref=f16e83]:
+              - generic [ref=f16e87]: DXF
+            - paragraph [ref=f16e88]: TY1401
+            - paragraph [ref=f16e89]: 4.5 MB
+          - generic [ref=f16e90] [cursor=pointer]:
+            - img [ref=f16e91]:
+              - generic [ref=f16e95]: DXF
+            - paragraph [ref=f16e96]: LP1709
+            - paragraph [ref=f16e97]: 4.2 MB
+  - button "Open Next.js Dev Tools" [ref=f16e103] [cursor=pointer]
+  - alert [ref=f16e107]

@@ -1,0 +1,77 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e4]: AsBuiltIQ
+      - navigation [ref=e8]:
+        - generic [ref=e10]:
+          - generic [ref=e11]: "1"
+          - generic [ref=e12]: Load Plan
+        - generic [ref=e15]:
+          - generic [ref=e16]: "2"
+          - generic [ref=e17]: Reading
+        - generic [ref=e20]:
+          - generic [ref=e21]: "3"
+          - generic [ref=e22]: Review
+    - main [ref=e23]:
+      - complementary [ref=e24]:
+        - paragraph [ref=e26]: Workspace
+        - button "🗂️ My Drawings" [ref=e27]:
+          - generic [ref=e28]: 🗂️
+          - text: My Drawings
+        - paragraph [ref=e30]: Folders
+        - button "New Folder" [ref=e32]
+      - generic [ref=e35]:
+        - generic [ref=e36]:
+          - navigation [ref=e37]:
+            - button "My Drawings" [ref=e39]
+          - textbox "Search drawings…" [ref=e44]
+          - combobox [ref=e45] [cursor=pointer]:
+            - option "Last opened" [selected]
+            - option "Name"
+            - option "Size"
+          - generic [ref=e46]:
+            - button [ref=e47]
+            - button [ref=e53]
+          - button "Upload" [ref=e58]
+        - generic [ref=e63]:
+          - generic [ref=e64] [cursor=pointer]:
+            - img [ref=e65]:
+              - generic [ref=e69]: DXF
+            - paragraph [ref=e70]: MN6001
+            - paragraph [ref=e71]: 2.1 MB
+          - generic [ref=e72] [cursor=pointer]:
+            - img [ref=e73]:
+              - generic [ref=e77]: DXF
+            - paragraph [ref=e78]: BCR405
+            - paragraph [ref=e79]: 7.0 MB
+          - generic [ref=e80] [cursor=pointer]:
+            - img [ref=e81]:
+              - generic [ref=e85]: DXF
+            - paragraph [ref=e86]: TY1401
+            - paragraph [ref=e87]: 4.5 MB
+          - generic [ref=e88] [cursor=pointer]:
+            - img [ref=e89]:
+              - generic [ref=e93]: DXF
+            - paragraph [ref=e94]: LP1709
+            - paragraph [ref=e95]: 4.2 MB
+      - complementary [ref=e106]:
+        - generic [ref=e107]:
+          - heading "File Details" [level=3] [ref=e108]
+          - button "✕" [ref=e109]
+        - generic [ref=e110]:
+          - img [ref=e111]:
+            - generic [ref=e115]: DXF
+          - paragraph [ref=e116]: MN6001.dxf
+        - generic [ref=e117]:
+          - generic [ref=e118]:
+            - generic [ref=e119]: Size
+            - generic [ref=e120]: 2.1 MB
+          - generic [ref=e121]:
+            - generic [ref=e122]: Last modified
+            - generic [ref=e123]: Jun 25, 2026
+          - generic [ref=e124]:
+            - generic [ref=e125]: Location
+            - generic [ref=e126]: My Drawings
+        - button "Open Drawing" [ref=e128]
+  - button "Open Next.js Dev Tools" [ref=e101] [cursor=pointer]
+  - alert [ref=e105]

@@ -1,0 +1,136 @@
+- generic [ref=f16e1]:
+  - generic [ref=f16e2]:
+    - banner [ref=f16e3]:
+      - button "Back" [ref=f16e192]
+      - generic [ref=f16e4]: AsBuiltIQ
+      - navigation [ref=f16e8]:
+        - generic [ref=f16e10]:
+          - generic [ref=f16e11]: ✓
+          - generic [ref=f16e12]: Load Plan
+        - generic [ref=f16e15]:
+          - generic [ref=f16e16]: ✓
+          - generic [ref=f16e17]: Reading
+        - generic [ref=f16e20]:
+          - generic [ref=f16e21]: "3"
+          - generic [ref=f16e22]: Review
+      - button "Export" [ref=f16e196]
+    - generic [ref=f16e202]:
+      - generic [ref=f16e204]:
+        - button "🔍 OCR Review" [ref=f16e205]:
+          - generic [ref=f16e206]: 🔍
+          - text: OCR Review
+        - button "🗺️ DXF Viewer" [active] [ref=f16e207]:
+          - generic [ref=f16e208]: 🗺️
+          - text: DXF Viewer
+        - button "⚙️ Equipment" [ref=f16e209]:
+          - generic [ref=f16e210]: ⚙️
+          - text: Equipment
+        - button "🔵 Pole IDs" [ref=f16e211]:
+          - generic [ref=f16e212]: 🔵
+          - text: Pole IDs
+      - generic [ref=f16e795]:
+        - generic [ref=f16e800]:
+          - button "Layers 31/31" [ref=f16e801]:
+            - text: Layers
+            - generic [ref=f16e806]: 31/31
+          - generic [ref=f16e807]:
+            - button "⊡" [ref=f16e808]
+            - button "+" [ref=f16e809]
+            - button "−" [ref=f16e810]
+          - button "Sync status" [disabled] [ref=f16e811]
+          - button "Export PDF" [ref=f16e815]
+        - generic [ref=f16e819]:
+          - generic [ref=f16e820]:
+            - generic [ref=f16e821]:
+              - heading "Layers" [level=3] [ref=f16e822]
+              - paragraph [ref=f16e823]: 31 of 31 visible
+            - generic [ref=f16e824]:
+              - button "All on" [ref=f16e825]
+              - button "All off" [ref=f16e826]
+          - generic [ref=f16e827]:
+            - generic [ref=f16e829] [cursor=pointer]:
+              - generic [ref=f16e832]: ⚙
+              - generic [ref=f16e833]: Equipment
+              - generic [ref=f16e834]: 7/7
+              - generic [ref=f16e835]:
+                - button "Show all in group" [disabled] [ref=f16e836]
+                - button "Hide all in group" [ref=f16e840]
+            - generic [ref=f16e845]:
+              - generic [ref=f16e846] [cursor=pointer]:
+                - generic [ref=f16e849]: 📡
+                - generic [ref=f16e850]: Cable Strand
+                - generic [ref=f16e851]: 4/4
+                - generic [ref=f16e852]:
+                  - button "Show all in group" [disabled] [ref=f16e853]
+                  - button "Hide all in group" [ref=f16e857]
+              - generic [ref=f16e862]:
+                - generic [ref=f16e863] [cursor=pointer]:
+                  - generic "PDF_S102$Cable-540" [ref=f16e866]
+                  - generic [ref=f16e867]: "0"
+                - generic [ref=f16e871] [cursor=pointer]:
+                  - generic "PDF_S102$Cable-565" [ref=f16e874]
+                  - generic [ref=f16e875]: 1,301
+                - generic [ref=f16e879] [cursor=pointer]:
+                  - generic "PDF_S102$Cable-840" [ref=f16e882]
+                  - generic [ref=f16e883]: "21"
+                - generic [ref=f16e887] [cursor=pointer]:
+                  - generic "PDF_S102$STRAND" [ref=f16e890]
+                  - generic [ref=f16e891]: 2,945
+            - generic [ref=f16e896] [cursor=pointer]:
+              - generic [ref=f16e899]: 🔀
+              - generic [ref=f16e900]: Tapoffs / Splitters
+              - generic [ref=f16e901]: 1/1
+              - generic [ref=f16e902]:
+                - button "Show all in group" [disabled] [ref=f16e903]
+                - button "Hide all in group" [ref=f16e907]
+            - generic [ref=f16e913] [cursor=pointer]:
+              - generic [ref=f16e916]: ♾️
+              - generic [ref=f16e917]: Other Layers
+              - generic [ref=f16e918]: 19/19
+              - generic [ref=f16e919]:
+                - button "Show all in group" [disabled] [ref=f16e920]
+                - button "Hide all in group" [ref=f16e924]
+          - paragraph [ref=f16e930]: Click a layer to toggle · Use group buttons to show/hide all
+        - generic [ref=f16e931]:
+          - button "Scanning Poles..." [disabled] [ref=f16e947]
+          - button "👁️ Hide Actives" [ref=f16e949]
+        - generic [ref=f16e934]:
+          - generic [ref=f16e935]:
+            - generic [ref=f16e936]: Cable interaction
+            - generic [ref=f16e937]: "Recovered: 0.00 m"
+            - generic [ref=f16e938]: "Unrecovered/Partial: 0.00 m"
+            - generic [ref=f16e939]: "Missing: 0.00 m"
+            - generic [ref=f16e940]: "Total Strand length: 36.00 m"
+            - generic [ref=f16e941]: "Total Cables: 36.00 m"
+            - generic [ref=f16e942] [cursor=pointer]:
+              - checkbox "Show Status Labels" [checked] [ref=f16e943]
+              - generic [ref=f16e944]: Show Status Labels
+          - generic [ref=f16e950]:
+            - generic [ref=f16e952]:
+              - generic [ref=f16e953]: Selected cable span
+              - button "Delete Cable Span" [ref=f16e954]
+            - generic [ref=f16e958]: "ID: 0"
+            - generic [ref=f16e959]: "Strand length: 36.00 meters"
+            - generic [ref=f16e960]: "Cable runs: 1"
+            - generic [ref=f16e961]: "Actual Cable length: 36.00 meters"
+            - generic [ref=f16e962]: "Current label: Not labeled"
+            - generic [ref=f16e963]:
+              - generic [ref=f16e964]: Pole Connection
+              - generic [ref=f16e966]:
+                - generic [ref=f16e967]:
+                  - generic [ref=f16e968]: FROM
+                  - generic [ref=f16e969]: —
+                - generic [ref=f16e970]:
+                  - generic [ref=f16e971]: TO
+                  - generic [ref=f16e972]: —
+            - generic [ref=f16e973]:
+              - generic [ref=f16e974]:
+                - button "🔗 Select Cable runs" [ref=f16e975]
+                - button "➕ Merge Cables" [ref=f16e976]
+              - generic [ref=f16e977]:
+                - button "Recovered" [ref=f16e978]
+                - button "Partial" [ref=f16e979]
+                - button "Missing" [ref=f16e980]
+                - button "Clear" [ref=f16e981]
+  - button "Open Next.js Dev Tools" [ref=f16e103] [cursor=pointer]
+  - alert [ref=f16e107]

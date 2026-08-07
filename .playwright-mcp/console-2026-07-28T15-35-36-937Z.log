@@ -1,0 +1,804 @@
+[    5286ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[    5758ms] [LOG] [HMR] connected @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[   21464ms] [WARNING] [session] could not resolve session: Error: Supabase not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env
+    at throwNotConfigured (webpack-internal:///(app-pages-browser)/./app/hooks/useDatabase.ts:11:11)
+    at useDatabase.useCallback[getSb] (webpack-internal:///(app-pages-browser)/./app/hooks/useDatabase.ts:16:71)
+    at useDatabase.useCallback[checkForExistingSession] [as checkForExistingSession] (webpack-internal:///(app-pages-browser)/./app/hooks/useDatabase.ts:171:24)
+    at Home.useCallback[resolveSessionId] (webpack-internal:///(app-pages-browser)/./app/page.tsx:98:43)
+    at Home.useCallback[handleStartProcessing] (webpack-internal:///(app-pages-browser)/./app/page.tsx:218:13)
+    at onClick (webpack-internal:///(app-pages-browser)/./app/components/LoadScreen.tsx:2150:46)
+    at executeDispatch (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:20544:9)
+    at runWithFiberInDEV (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:987:30)
+    at processDispatchQueue (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:20594:19)
+    at eval (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:21165:9)
+    at batchedUpdates$1 (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3378:40)
+    at dispatchEventForPluginEventSystem (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:20748:7)
+    at dispatchEvent (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:25694:11)
+    at dispatchDiscreteEvent (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:25662:11) @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[   89401ms] [LOG] [PoleLayout mount] cachedData: poleDone=false tags=0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[   89426ms] [LOG] [PoleLayout mount] cachedData: poleDone=false tags=0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[   89702ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[   90995ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[   91335ms] [LOG] [Fast Refresh] done in 339ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[   93042ms] [LOG] [Fast Refresh] done in 2046ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[   93152ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[   93882ms] [LOG] [Fast Refresh] done in 730ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[   93987ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[   94427ms] [LOG] [Fast Refresh] done in 441ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[   95199ms] [LOG] [cache-update] sid= null poleTags= 123 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[   95200ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  710902ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  710917ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  710966ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  711183ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  711190ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  711201ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  711216ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  711266ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  711429ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  711442ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  711456ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  711624ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  711666ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  711675ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  711689ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  711716ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  711901ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  711933ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  711977ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  717086ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  717119ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  717185ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  733924ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  733960ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  733976ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  734027ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  734306ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  734343ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  740244ms] [LOG] [cache-update] sid= null poleTags= 0 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  740244ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  740794ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  741542ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  741590ms] [LOG] [Fast Refresh] done in 47ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  742491ms] [LOG] [cache-update] sid= null poleTags= 123 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  742491ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  742633ms] [LOG] [Fast Refresh] done in 1090ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  747042ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  747391ms] [LOG] [Fast Refresh] done in 350ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  748214ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  748498ms] [LOG] [Fast Refresh] done in 284ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  748533ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  748552ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  748606ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  748764ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  748783ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  748816ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  749010ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  749033ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  749050ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  749067ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  749083ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  749338ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  749367ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  749400ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  752430ms] [LOG] [cache-update] sid= null poleTags= 0 shapes= 151 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  752430ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  756910ms] [LOG] [cache-update] sid= null poleTags= 12 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  756911ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  759101ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  759133ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  759188ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  759378ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  759405ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  759438ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  759662ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  759678ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  759739ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  766154ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  766523ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  766552ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  766571ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  766814ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  766835ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  766843ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  766859ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  770432ms] [LOG] [cache-update] sid= null poleTags= 19 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  770432ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  772234ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  772311ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  773284ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  773344ms] [LOG] [cache-update] sid= null poleTags= 19 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  773344ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  776139ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  776163ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  776180ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  776196ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  776229ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  776413ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  776430ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  776446ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  776463ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  776663ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  776680ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  776699ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  776930ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  776953ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  776980ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  777037ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  777303ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  777347ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  779321ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  779331ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  779348ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  779364ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  779619ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  779631ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  779648ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  785574ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  785618ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  785624ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  785631ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  792361ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  792371ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  792810ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  792843ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  792870ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  793210ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  793217ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  793226ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  793505ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  793527ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  795829ms] [LOG] [cache-update] sid= null poleTags= 57 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  795829ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  798035ms] [LOG] [cache-update] sid= null poleTags= 57 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  798035ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  799530ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  799597ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  803606ms] [LOG] [cache-update] sid= null poleTags= 57 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  803606ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  805751ms] [LOG] [cache-update] sid= null poleTags= 57 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  805751ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  807874ms] [LOG] [cache-update] sid= null poleTags= 57 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  807874ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  811763ms] [LOG] [cache-update] sid= null poleTags= 61 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  811763ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  813988ms] [LOG] [cache-update] sid= null poleTags= 63 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  813989ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  816109ms] [LOG] [cache-update] sid= null poleTags= 64 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  816109ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  818328ms] [LOG] [cache-update] sid= null poleTags= 64 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  818328ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  820724ms] [LOG] [cache-update] sid= null poleTags= 64 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  820725ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  823205ms] [LOG] [cache-update] sid= null poleTags= 64 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  823205ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  825371ms] [LOG] [cache-update] sid= null poleTags= 64 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  825371ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  828161ms] [LOG] [cache-update] sid= null poleTags= 64 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  828162ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  830633ms] [LOG] [cache-update] sid= null poleTags= 64 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  830633ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  832885ms] [LOG] [cache-update] sid= null poleTags= 64 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  832885ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  835207ms] [LOG] [cache-update] sid= null poleTags= 64 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  835207ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  838013ms] [LOG] [cache-update] sid= null poleTags= 64 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  838014ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  840943ms] [LOG] [cache-update] sid= null poleTags= 64 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  840943ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  841878ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/v1/cable_spans/derive:0
+[  841900ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  842675ms] [LOG] [Fast Refresh] done in 775ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  842980ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  843571ms] [LOG] [Fast Refresh] done in 592ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  843674ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  844006ms] [LOG] [Fast Refresh] done in 332ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  844083ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  844153ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/v1/cable_spans/derive:0
+[  844570ms] [LOG] [Fast Refresh] done in 486ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  845529ms] [LOG] [cache-update] sid= null poleTags= 64 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  845530ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  846198ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/v1/cable_spans/derive:0
+[  848319ms] [LOG] [cache-update] sid= null poleTags= 64 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  848320ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  850401ms] [LOG] [cache-update] sid= null poleTags= 64 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  850401ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  852519ms] [LOG] [cache-update] sid= null poleTags= 64 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  852519ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  854849ms] [LOG] [cache-update] sid= null poleTags= 67 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  854849ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  857310ms] [LOG] [cache-update] sid= null poleTags= 67 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  857311ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  859435ms] [LOG] [cache-update] sid= null poleTags= 67 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  859435ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  861637ms] [LOG] [cache-update] sid= null poleTags= 67 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  861637ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  864061ms] [LOG] [cache-update] sid= null poleTags= 70 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  864062ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  866217ms] [LOG] [cache-update] sid= null poleTags= 70 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  866218ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  869218ms] [WARNING] The resource http://localhost:3000/_next/static/css/app/layout.css?v=1785253782227 was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ http://localhost:3000/:0
+[  869460ms] [LOG] [cache-update] sid= null poleTags= 70 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  869460ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  871870ms] [LOG] [cache-update] sid= null poleTags= 70 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  871870ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  874305ms] [LOG] [cache-update] sid= null poleTags= 70 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  874305ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  876580ms] [LOG] [cache-update] sid= null poleTags= 70 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  876580ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  878796ms] [LOG] [cache-update] sid= null poleTags= 70 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  878796ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  881364ms] [LOG] [cache-update] sid= null poleTags= 70 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  881364ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  883572ms] [LOG] [cache-update] sid= null poleTags= 70 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  883573ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  884951ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/v1/cable_spans/derive:0
+[  887145ms] [LOG] [cache-update] sid= null poleTags= 70 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  887145ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  889313ms] [LOG] [cache-update] sid= null poleTags= 70 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  889313ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  892313ms] [WARNING] The resource http://localhost:3000/_next/static/css/app/layout.css?v=1785253782227 was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ http://localhost:3000/:0
+[  892345ms] [LOG] [cache-update] sid= null poleTags= 70 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  892345ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  893356ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  893384ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  893406ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  893600ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  893623ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  893633ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  893666ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  893850ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  893867ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  894135ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  895041ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  895052ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  895068ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  895291ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  895307ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  895323ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  895640ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  895673ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  895717ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  896775ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  896791ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  896874ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  896884ms] [WARNING] The resource http://localhost:3000/_next/static/css/app/layout.css?v=1785253782227 was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ http://localhost:3000/:0
+[  897118ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  897157ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  898199ms] [LOG] [cache-update] sid= null poleTags= 79 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  898199ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  899259ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  899272ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  899293ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  899310ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  899342ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  899829ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  899836ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  899852ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  899870ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  899886ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  900419ms] [LOG] [cache-update] sid= null poleTags= 79 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  900419ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  901229ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  901277ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  901620ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  901653ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  901670ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  901926ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  901937ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  901970ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  902277ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  902303ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  902565ms] [LOG] [cache-update] sid= null poleTags= 79 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  902565ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  903061ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  903087ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  903476ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  903482ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  903491ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  903511ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  903521ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  904662ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  904722ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  904772ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  905564ms] [WARNING] The resource http://localhost:3000/_next/static/css/app/layout.css?v=1785253782227 was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ http://localhost:3000/:0
+[  906578ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  906606ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  906873ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  906923ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  907862ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  907877ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  907890ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  908148ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  908153ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  908160ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  908174ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  908190ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  908427ms] [LOG] [cache-update] sid= null poleTags= 79 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  908427ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  908459ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  908490ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  908510ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  909029ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  909041ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  909057ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  909073ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  909563ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  912283ms] [LOG] [cache-update] sid= null poleTags= 123 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  912283ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  913242ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  913259ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  913504ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  913511ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  913525ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  913542ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  913780ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  913809ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  913826ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  915283ms] [WARNING] The resource http://localhost:3000/_next/static/css/app/layout.css?v=1785253782227 was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ http://localhost:3000/:0
+[  916992ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  917027ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  917066ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  917236ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  917277ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  917500ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  917544ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  920461ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  920478ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  920495ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  920720ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  920746ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  920755ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  920974ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  920995ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  921012ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  921229ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  921246ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  921262ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  921488ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  921512ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  921529ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  921762ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  921779ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  921796ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  922068ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  922096ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  924971ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  924984ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  925186ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  925199ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  925212ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  925310ms] [WARNING] The resource http://localhost:3000/_next/static/css/app/layout.css?v=1785253782227 was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ http://localhost:3000/:0
+[  925398ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  925413ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  925428ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  925626ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  925637ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  925660ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  925854ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  925870ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  925895ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  925921ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  935534ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  935569ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  935760ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  935785ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  935819ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[  954677ms] [WARNING] The resource http://localhost:3000/_next/static/css/app/layout.css?v=1785253782227 was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ http://localhost:3000/:0
+[  962907ms] [WARNING] The resource http://localhost:3000/_next/static/css/app/layout.css?v=1785253782227 was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ http://localhost:3000/:0
+[  970365ms] [WARNING] The resource http://localhost:3000/_next/static/css/app/layout.css?v=1785253782227 was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ http://localhost:3000/:0
+[ 1696081ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 1696939ms] [LOG] [Fast Refresh] done in 858ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 1728620ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 1729137ms] [LOG] [Fast Refresh] done in 517ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 1786712ms] [WARNING] The resource http://localhost:3000/_next/static/css/app/layout.css?v=1785253782227 was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ http://localhost:3000/:0
+[ 1850465ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 1850754ms] [LOG] [HMR] connected @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 1974162ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 1974246ms] [LOG] [HMR] connected @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 1985132ms] [WARNING] [session] could not resolve session: Error: Supabase not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env
+    at throwNotConfigured (webpack-internal:///(app-pages-browser)/./app/hooks/useDatabase.ts:11:11)
+    at useDatabase.useCallback[getSb] (webpack-internal:///(app-pages-browser)/./app/hooks/useDatabase.ts:16:71)
+    at useDatabase.useCallback[checkForExistingSession] [as checkForExistingSession] (webpack-internal:///(app-pages-browser)/./app/hooks/useDatabase.ts:171:24)
+    at Home.useCallback[resolveSessionId] (webpack-internal:///(app-pages-browser)/./app/page.tsx:98:43)
+    at Home.useCallback[handleStartProcessing] (webpack-internal:///(app-pages-browser)/./app/page.tsx:218:13)
+    at onClick (webpack-internal:///(app-pages-browser)/./app/components/LoadScreen.tsx:2150:46)
+    at executeDispatch (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:20544:9)
+    at runWithFiberInDEV (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:987:30)
+    at processDispatchQueue (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:20594:19)
+    at eval (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:21165:9)
+    at batchedUpdates$1 (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3378:40)
+    at dispatchEventForPluginEventSystem (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:20748:7)
+    at dispatchEvent (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:25694:11)
+    at dispatchDiscreteEvent (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:25662:11) @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2017763ms] [LOG] [PoleLayout mount] cachedData: poleDone=false tags=0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2017781ms] [LOG] [PoleLayout mount] cachedData: poleDone=false tags=0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2017961ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2018668ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2018938ms] [LOG] [Fast Refresh] done in 269ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2021481ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2021735ms] [LOG] [Fast Refresh] done in 255ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2033146ms] [LOG] [Fast Refresh] done in 11666ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2040427ms] [LOG] [cache-update] sid= null poleTags= 0 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2040428ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2040537ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2040837ms] [LOG] [Fast Refresh] done in 300ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2041980ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2042233ms] [LOG] [Fast Refresh] done in 253ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2042304ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2042552ms] [LOG] [Fast Refresh] done in 247ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2043430ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2043668ms] [LOG] [Fast Refresh] done in 238ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2043729ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2043971ms] [LOG] [Fast Refresh] done in 242ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2044662ms] [LOG] [cache-update] sid= null poleTags= 0 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2044662ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2046749ms] [LOG] [cache-update] sid= null poleTags= 0 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2046749ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2048226ms] [LOG] [cache-update] sid= null poleTags= 0 shapes= 151 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2048226ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2048799ms] [LOG] [cache-update] sid= null poleTags= 1 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2048799ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2050846ms] [LOG] [cache-update] sid= null poleTags= 2 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2050847ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2052890ms] [LOG] [cache-update] sid= null poleTags= 7 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2052890ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2054932ms] [LOG] [cache-update] sid= null poleTags= 12 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2054932ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2056978ms] [LOG] [cache-update] sid= null poleTags= 18 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2056978ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2059027ms] [LOG] [cache-update] sid= null poleTags= 22 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2059027ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2061083ms] [LOG] [cache-update] sid= null poleTags= 28 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2061084ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2063135ms] [LOG] [cache-update] sid= null poleTags= 35 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2063135ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2065236ms] [LOG] [cache-update] sid= null poleTags= 43 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2065236ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2067332ms] [LOG] [cache-update] sid= null poleTags= 50 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2067332ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2069390ms] [LOG] [cache-update] sid= null poleTags= 54 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2069390ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2071457ms] [LOG] [cache-update] sid= null poleTags= 58 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2071457ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2073524ms] [LOG] [cache-update] sid= null poleTags= 62 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2073524ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2075592ms] [LOG] [cache-update] sid= null poleTags= 67 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2075592ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2077665ms] [LOG] [cache-update] sid= null poleTags= 71 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2077666ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2079761ms] [LOG] [cache-update] sid= null poleTags= 76 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2079762ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2081844ms] [LOG] [cache-update] sid= null poleTags= 80 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2081844ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2082689ms] [LOG] [cache-update] sid= null poleTags= 123 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2082690ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2083913ms] [LOG] [cache-update] sid= null poleTags= 123 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2083913ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2365952ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 2365997ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 2366030ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 2366117ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 2366301ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 2366330ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 2366364ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 2366563ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 2366580ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 2366597ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 2366822ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 2366881ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 2368448ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 2368498ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 2371271ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 2371302ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 2371349ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 2374851ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 2374867ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 2374917ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 2375144ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 2375184ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 2375217ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 2397386ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2397507ms] [LOG] [HMR] connected @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2400629ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2400707ms] [LOG] [HMR] connected @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2588866ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2588941ms] [LOG] [HMR] connected @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2589010ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/files/list:0
+[ 2589021ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2589525ms] [LOG] [Fast Refresh] done in 504ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2589659ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2589918ms] [LOG] [Fast Refresh] done in 259ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2660554ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2660636ms] [LOG] [HMR] connected @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2669189ms] [WARNING] [session] could not resolve session: Error: Supabase not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env
+    at throwNotConfigured (webpack-internal:///(app-pages-browser)/./app/hooks/useDatabase.ts:11:11)
+    at useDatabase.useCallback[getSb] (webpack-internal:///(app-pages-browser)/./app/hooks/useDatabase.ts:16:71)
+    at useDatabase.useCallback[checkForExistingSession] [as checkForExistingSession] (webpack-internal:///(app-pages-browser)/./app/hooks/useDatabase.ts:171:24)
+    at Home.useCallback[resolveSessionId] (webpack-internal:///(app-pages-browser)/./app/page.tsx:98:43)
+    at Home.useCallback[handleStartProcessing] (webpack-internal:///(app-pages-browser)/./app/page.tsx:218:13)
+    at onClick (webpack-internal:///(app-pages-browser)/./app/components/LoadScreen.tsx:2150:46)
+    at executeDispatch (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:20544:9)
+    at runWithFiberInDEV (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:987:30)
+    at processDispatchQueue (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:20594:19)
+    at eval (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:21165:9)
+    at batchedUpdates$1 (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3378:40)
+    at dispatchEventForPluginEventSystem (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:20748:7)
+    at dispatchEvent (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:25694:11)
+    at dispatchDiscreteEvent (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:25662:11) @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2695170ms] [LOG] [PoleLayout mount] cachedData: poleDone=false tags=0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2695184ms] [LOG] [PoleLayout mount] cachedData: poleDone=false tags=0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2695233ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2695821ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2696036ms] [LOG] [Fast Refresh] done in 215ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2698497ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2698737ms] [LOG] [Fast Refresh] done in 240ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2709068ms] [LOG] [Fast Refresh] done in 10572ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2989897ms] [LOG] [cache-update] sid= null poleTags= 0 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2989897ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2990121ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2990692ms] [LOG] [Fast Refresh] done in 571ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2990712ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2990921ms] [LOG] [Fast Refresh] done in 210ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2993343ms] [LOG] [cache-update] sid= null poleTags= 0 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2993343ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2995381ms] [LOG] [cache-update] sid= null poleTags= 1 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2995381ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2997428ms] [LOG] [cache-update] sid= null poleTags= 6 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2997429ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2999474ms] [LOG] [cache-update] sid= null poleTags= 8 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 2999474ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3001531ms] [LOG] [cache-update] sid= null poleTags= 12 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3001531ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3003595ms] [LOG] [cache-update] sid= null poleTags= 19 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3003595ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3005645ms] [LOG] [cache-update] sid= null poleTags= 23 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3005646ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3007707ms] [LOG] [cache-update] sid= null poleTags= 28 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3007707ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3009792ms] [LOG] [cache-update] sid= null poleTags= 40 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3009793ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3011925ms] [LOG] [cache-update] sid= null poleTags= 46 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3011926ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3014057ms] [LOG] [cache-update] sid= null poleTags= 53 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3014057ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3016137ms] [LOG] [cache-update] sid= null poleTags= 56 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3016138ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3018220ms] [LOG] [cache-update] sid= null poleTags= 61 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3018220ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3020315ms] [LOG] [cache-update] sid= null poleTags= 66 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3020315ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3022590ms] [LOG] [cache-update] sid= null poleTags= 70 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3022590ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3023633ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3023918ms] [LOG] [Fast Refresh] done in 284ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3023986ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3024353ms] [LOG] [Fast Refresh] done in 368ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3025094ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3025375ms] [LOG] [Fast Refresh] done in 281ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3025434ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3025666ms] [LOG] [Fast Refresh] done in 232ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3026415ms] [LOG] [cache-update] sid= null poleTags= 73 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3026415ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3028595ms] [LOG] [cache-update] sid= null poleTags= 73 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3028595ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3029294ms] [LOG] [cache-update] sid= null poleTags= 0 shapes= 151 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3029294ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3030685ms] [LOG] [cache-update] sid= null poleTags= 75 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3030685ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3032752ms] [LOG] [cache-update] sid= null poleTags= 79 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3032753ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3033379ms] [LOG] [cache-update] sid= null poleTags= 123 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3033379ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3034824ms] [LOG] [cache-update] sid= null poleTags= 123 shapes= 0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3034824ms] [WARNING] [cache-update] skipping save — no sessionId or db @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3044740ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 3044751ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 3044774ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 3044797ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 3044990ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 3045007ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 3045024ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 3045057ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 3045270ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 3045290ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 3045323ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 3045373ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 3046607ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 3046624ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 3046657ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 3046908ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 3046941ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 3046957ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 3065911ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 3065930ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 3065965ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 3065993ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 3066170ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 3066200ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 3066233ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 3066417ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 3066450ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 3069918ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 3069923ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 3069930ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 3069968ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 3071102ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 3071118ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 3071169ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 3072986ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 3073019ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 3073052ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 3077955ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 3077989ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 3080173ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 3080206ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 3080240ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 3080423ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 3080439ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 3080473ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 3081323ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 3081373ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 3081423ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 3081473ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 3081757ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 3081790ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3511
+[ 3341193ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3342002ms] [LOG] [Fast Refresh] done in 810ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3365023ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3365378ms] [LOG] [Fast Refresh] done in 356ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3482672ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3483271ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3483404ms] [LOG] [Fast Refresh] done in 133ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3483889ms] [LOG] [Fast Refresh] done in 619ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3523489ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3525318ms] [LOG] [Fast Refresh] done in 1829ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3537708ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3538558ms] [LOG] [Fast Refresh] done in 850ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3563402ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3564203ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3564600ms] [LOG] [Fast Refresh] done in 398ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3566937ms] [LOG] [Fast Refresh] done in 2735ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3652903ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3653536ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3653826ms] [LOG] [Fast Refresh] done in 291ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3654438ms] [LOG] [Fast Refresh] done in 902ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3655533ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3655923ms] [LOG] [Fast Refresh] done in 389ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3704301ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3704593ms] [LOG] [HMR] connected @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3725846ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3726565ms] [LOG] [Fast Refresh] done in 720ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3726759ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3727136ms] [LOG] [Fast Refresh] done in 377ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3761838ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 3761976ms] [LOG] [HMR] connected @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 4247008ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 4248004ms] [LOG] [Fast Refresh] done in 1002ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 4248025ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 4248336ms] [LOG] [Fast Refresh] done in 310ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 4248435ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 4248799ms] [LOG] [Fast Refresh] done in 364ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 4250784ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 4251522ms] [LOG] [Fast Refresh] done in 737ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 4251570ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 4251924ms] [LOG] [Fast Refresh] done in 354ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 5661580ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 5668318ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 5669649ms] [LOG] [Fast Refresh] done in 1327ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 5669869ms] [LOG] [Fast Refresh] done in 1550ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 5673057ms] [WARNING] The resource http://localhost:3000/_next/static/css/app/layout.css?v=1785258606335 was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ http://localhost:3000/:0
+[ 5676682ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 5678840ms] [LOG] [Fast Refresh] done in 2158ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 5682150ms] [WARNING] The resource http://localhost:3000/_next/static/css/app/layout.css?v=1785258606335 was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ http://localhost:3000/:0
+[ 5695212ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 5696580ms] [LOG] [Fast Refresh] done in 1369ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 5699719ms] [WARNING] The resource http://localhost:3000/_next/static/css/app/layout.css?v=1785258606335 was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ http://localhost:3000/:0
+[ 5751073ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 5751715ms] [LOG] [HMR] connected @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 5806878ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 5808775ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 5809531ms] [LOG] [Fast Refresh] done in 756ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 5811693ms] [LOG] [Fast Refresh] done in 2918ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 5813214ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 5814997ms] [LOG] [Fast Refresh] done in 1783ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 5934999ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 5936569ms] [LOG] [Fast Refresh] done in 1570ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 5936634ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 5937682ms] [LOG] [Fast Refresh] done in 1048ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 5939756ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 5941188ms] [LOG] [Fast Refresh] done in 1433ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 5941401ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 5943490ms] [LOG] [Fast Refresh] done in 2089ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 6691834ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 6693844ms] [LOG] [Fast Refresh] done in 2010ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 6711623ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 6713110ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 6713490ms] [LOG] [Fast Refresh] done in 379ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 6715462ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 6716657ms] [LOG] [Fast Refresh] done in 1195ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 6717040ms] [LOG] [Fast Refresh] done in 1579ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 6742439ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 6744258ms] [LOG] [Fast Refresh] done in 1818ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 6846446ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 6848285ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 6848724ms] [LOG] [Fast Refresh] done in 440ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 6850320ms] [LOG] [Fast Refresh] done in 2036ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 6850735ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 6852149ms] [LOG] [Fast Refresh] done in 1415ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 8112704ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 8113053ms] [LOG] [HMR] connected @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 8968934ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 8976199ms] [LOG] [Fast Refresh] done in 7278ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 8976265ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 8978945ms] [LOG] [Fast Refresh] done in 2679ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 9565672ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 9566045ms] [LOG] [HMR] connected @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 9807035ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 9808092ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 9808355ms] [LOG] [Fast Refresh] done in 263ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 9810166ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 9810684ms] [LOG] [Fast Refresh] done in 517ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 9812875ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 9813274ms] [LOG] [Fast Refresh] done in 399ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 9814813ms] [LOG] [Fast Refresh] done in 1937ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 9815840ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 9820878ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 9821668ms] [LOG] [Fast Refresh] done in 790ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 9824766ms] [LOG] [Fast Refresh] done in 3888ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 9825855ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 9826723ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 9827020ms] [LOG] [Fast Refresh] done in 298ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 9828547ms] [LOG] [Fast Refresh] done in 1825ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 9871489ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 9873098ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 9873595ms] [LOG] [Fast Refresh] done in 497ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 9875156ms] [LOG] [Fast Refresh] done in 2059ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 9882869ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 9885663ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 9886554ms] [LOG] [Fast Refresh] done in 891ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 9890262ms] [LOG] [Fast Refresh] done in 4599ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 9890430ms] [WARNING] The resource http://localhost:3000/_next/static/css/app/layout.css?v=1785262827021 was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ http://localhost:3000/:0
+[ 9914301ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 9917507ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 9918468ms] [LOG] [Fast Refresh] done in 962ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 9921813ms] [LOG] [Fast Refresh] done in 4307ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[ 9922377ms] [WARNING] The resource http://localhost:3000/_next/static/css/app/layout.css?v=1785262858614 was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ http://localhost:3000/:0
+[10410716ms] [WARNING] [session] could not resolve session: Error: Supabase not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env
+    at throwNotConfigured (webpack-internal:///(app-pages-browser)/./app/hooks/useDatabase.ts:11:11)
+    at useDatabase.useCallback[getSb] (webpack-internal:///(app-pages-browser)/./app/hooks/useDatabase.ts:16:71)
+    at useDatabase.useCallback[checkForExistingSession] [as checkForExistingSession] (webpack-internal:///(app-pages-browser)/./app/hooks/useDatabase.ts:171:24)
+    at Home.useCallback[resolveSessionId] (webpack-internal:///(app-pages-browser)/./app/page.tsx:98:43)
+    at Home.useCallback[handleStartProcessing] (webpack-internal:///(app-pages-browser)/./app/page.tsx:218:13)
+    at onClick (webpack-internal:///(app-pages-browser)/./app/components/LoadScreen.tsx:2150:46)
+    at executeDispatch (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:20544:9)
+    at runWithFiberInDEV (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:987:30)
+    at processDispatchQueue (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:20594:19)
+    at eval (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:21165:9)
+    at batchedUpdates$1 (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:3378:40)
+    at dispatchEventForPluginEventSystem (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:20748:7)
+    at dispatchEvent (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:25694:11)
+    at dispatchDiscreteEvent (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:25662:11) @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[10506124ms] [LOG] [PoleLayout mount] cachedData: poleDone=false tags=0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[10506186ms] [LOG] [PoleLayout mount] cachedData: poleDone=false tags=0 @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[10514981ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[10527261ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[10658161ms] [WARNING] [Fast Refresh] performing full reload
+
+Fast Refresh will perform a full reload when you edit a file that's imported by modules outside of the React rendering tree.
+You might have a file which exports a React component but also exports a value that is imported by a non-React component file.
+Consider migrating the non-React component export to a separate file and importing it into both files.
+
+It is also possible the parent component of the component you edited is a class component, which disables Fast Refresh.
+Fast Refresh requires at least one parent function component in your React tree. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[10970020ms] [LOG] [Fast Refresh] done in 442759ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[10975200ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[10981743ms] [LOG] [Fast Refresh] done in 6544ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[11023714ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[11024302ms] [LOG] [HMR] connected @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[11183137ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[11191822ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[11193664ms] [LOG] [Fast Refresh] done in 1843ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[11199545ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[11199999ms] [LOG] [Fast Refresh] done in 454ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[11204721ms] [LOG] [Fast Refresh] done in 5176ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
