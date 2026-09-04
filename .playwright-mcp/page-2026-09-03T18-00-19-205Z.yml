@@ -1,0 +1,183 @@
+- generic [ref=f5e2]:
+  - generic [ref=f5e4]:
+    - region "scrollable content" [ref=f5e9]:
+      - list [ref=f5e12]:
+        - listitem [ref=f5e13]: Main
+        - listitem [ref=f5e14]:
+          - link "Dashboard" [ref=f5e15] [cursor=pointer]:
+            - /url: /dashboard
+        - listitem [ref=f5e19]: Operations
+        - listitem [ref=f5e20]:
+          - link "Live Onsite Map" [ref=f5e21] [cursor=pointer]:
+            - /url: /field/live
+        - listitem [ref=f5e25]:
+          - link "Node List" [ref=f5e26] [cursor=pointer]:
+            - /url: /sites
+        - listitem [ref=f5e29]:
+          - link "Span List" [ref=f5e30] [cursor=pointer]:
+            - /url: /spans
+        - listitem [ref=f5e35]:
+          - link "Pole Master 󰅂" [ref=f5e36] [cursor=pointer]:
+            - /url: "javascript:throw new Error('React has blocked a javascript: URL as a security precaution.')"
+        - listitem [ref=f5e40]:
+          - link "NAP Inventory 󰅂" [ref=f5e41] [cursor=pointer]:
+            - /url: "javascript:throw new Error('React has blocked a javascript: URL as a security precaution.')"
+        - listitem [ref=f5e45]: Warehouse
+        - listitem [ref=f5e46]:
+          - link "Warehouses" [ref=f5e47] [cursor=pointer]:
+            - /url: /warehouses
+        - listitem [ref=f5e51]:
+          - link "Material Inventory" [ref=f5e52] [cursor=pointer]:
+            - /url: /warehouse/inventory
+        - listitem [ref=f5e57]:
+          - link "Delivery Tracker" [ref=f5e58] [cursor=pointer]:
+            - /url: /warehouse/inventory?tab=deliveries
+        - listitem [ref=f5e64]:
+          - link "Transfer Deliveries" [ref=f5e65] [cursor=pointer]:
+            - /url: /warehouses/deliveries
+        - listitem [ref=f5e68]: Reports
+        - listitem [ref=f5e69]:
+          - link "Teardown Logs" [ref=f5e70] [cursor=pointer]:
+            - /url: /reports/teardown-logs
+        - listitem [ref=f5e74]:
+          - link "Teardown Monitoring" [ref=f5e75] [cursor=pointer]:
+            - /url: /reports/teardown-monitoring
+        - listitem [ref=f5e78]:
+          - link "Audit Reports 󰅂" [expanded] [ref=f5e79] [cursor=pointer]:
+            - /url: "javascript:throw new Error('React has blocked a javascript: URL as a security precaution.')"
+          - list [ref=f5e81]:
+            - listitem [ref=f5e82]:
+              - link "Daily Reports" [ref=f5e83] [cursor=pointer]:
+                - /url: /dailyreports
+            - listitem [ref=f5e84]:
+              - link "RTD Reports" [ref=f5e85] [cursor=pointer]:
+                - /url: /reports/rtd
+            - listitem [ref=f5e86]:
+              - link "Vicinity Maps" [ref=f5e87] [cursor=pointer]:
+                - /url: /reports/vicinity
+            - listitem [ref=f5e88]:
+              - link "Pole Reports" [ref=f5e89] [cursor=pointer]:
+                - /url: /reports/pole-reports
+            - listitem [ref=f5e91]:
+              - link "Red Line Reports" [ref=f5e92] [cursor=pointer]:
+                - /url: /reports/redline
+        - listitem [ref=f5e93]: Teams
+        - listitem [ref=f5e94]:
+          - link "Subcontractors" [ref=f5e95] [cursor=pointer]:
+            - /url: /subcontractors
+        - listitem [ref=f5e99]:
+          - link "Support Tickets" [ref=f5e100] [cursor=pointer]:
+            - /url: /support/tickets
+        - listitem [ref=f5e103]: System
+        - listitem [ref=f5e104]:
+          - link "User Management 󰅂" [ref=f5e105] [cursor=pointer]:
+            - /url: "javascript:throw new Error('React has blocked a javascript: URL as a security precaution.')"
+        - listitem [ref=f5e111]:
+          - link "Maintenance Mode" [ref=f5e112] [cursor=pointer]:
+            - /url: /maintenance
+        - listitem [ref=f5e115]:
+          - link "Recycle Bin" [ref=f5e116] [cursor=pointer]:
+            - /url: /recycle-bin
+    - button "A admin@telcovantage.com admin" [ref=f5e120] [cursor=pointer]:
+      - generic [ref=f5e121]: A
+      - generic [ref=f5e122]:
+        - paragraph [ref=f5e123]: admin@telcovantage.com
+        - paragraph [ref=f5e124]: admin
+  - navigation [ref=f5e127]:
+    - generic [ref=f5e128]:
+      - generic [ref=f5e129]:
+        - link [ref=f5e131] [cursor=pointer]:
+          - /url: "#"
+          - img "Logo" [ref=f5e132]
+        - button "Toggle menu" [ref=f5e133] [cursor=pointer]:
+          - generic [ref=f5e134]: 
+        - link [ref=f5e135] [cursor=pointer]:
+          - /url: "#"
+          - img "Logo" [ref=f5e136]
+      - generic [ref=f5e137]:
+        - generic [ref=f5e139]:
+          - textbox "Search..." [ref=f5e140]
+          - button "" [ref=f5e141] [cursor=pointer]
+        - generic [ref=f5e143]:
+          - button "" [ref=f5e144] [cursor=pointer]
+          - button [ref=f5e147] [cursor=pointer]
+          - button [ref=f5e155] [cursor=pointer]
+          - button "TS Telcovantage S. 󰅀" [ref=f5e160] [cursor=pointer]:
+            - generic [ref=f5e161]: TS
+            - generic [ref=f5e162]: Telcovantage S.
+            - generic [ref=f5e163]: 󰅀
+  - generic [ref=f5e164]:
+    - generic [ref=f5e167]:
+      - generic [ref=f5e168]:
+        - generic [ref=f5e169]:
+          - generic [ref=f5e170]:
+            - generic [ref=f5e171]: Pole Reports
+            - heading "Pole photo reporting dashboard" [level=2] [ref=f5e173]
+            - paragraph [ref=f5e174]: Browse coverage sites first, then drill into node-level pole photo reporting with clearer progress visibility.
+            - generic [ref=f5e175]:
+              - generic [ref=f5e176]:
+                - paragraph [ref=f5e177]: Scope
+                - paragraph [ref=f5e178]: All Sites
+              - generic [ref=f5e179]:
+                - paragraph [ref=f5e180]: Visibility
+                - paragraph [ref=f5e181]: 0 avg/site
+              - generic [ref=f5e182]:
+                - paragraph [ref=f5e183]: Output
+                - paragraph [ref=f5e184]: Drill Down
+          - generic [ref=f5e185]:
+            - generic [ref=f5e187]:
+              - generic [ref=f5e188]:
+                - paragraph [ref=f5e189]: Total Sites
+                - paragraph [ref=f5e190]: "0"
+                - paragraph [ref=f5e191]: available photo-report groups
+              - generic [ref=f5e192]: 
+            - generic [ref=f5e195]:
+              - generic [ref=f5e196]:
+                - paragraph [ref=f5e197]: Total Nodes
+                - paragraph [ref=f5e198]: "0"
+                - paragraph [ref=f5e199]: total mapped node capacity
+              - generic [ref=f5e200]: 
+        - generic [ref=f5e202]:
+          - generic [ref=f5e203]: Coverage overview
+          - generic [ref=f5e204]: Photo report mode
+      - generic [ref=f5e206]:
+        - generic [ref=f5e209]:
+          - generic [ref=f5e210]:
+            - paragraph [ref=f5e211]: Total Sites
+            - paragraph [ref=f5e212]: "0"
+            - paragraph [ref=f5e213]: ready for drilldown
+          - generic [ref=f5e214]: 
+        - generic [ref=f5e218]:
+          - generic [ref=f5e219]:
+            - paragraph [ref=f5e220]: Total Nodes
+            - paragraph [ref=f5e221]: "0"
+            - paragraph [ref=f5e222]: pole photo coverage
+          - generic [ref=f5e223]: 
+        - generic [ref=f5e227]:
+          - generic [ref=f5e228]:
+            - paragraph [ref=f5e229]: Average Nodes
+            - paragraph [ref=f5e230]: "0"
+            - paragraph [ref=f5e231]: typical site density
+          - generic [ref=f5e232]: 
+        - generic [ref=f5e236]:
+          - generic [ref=f5e237]:
+            - paragraph [ref=f5e238]: Report Mode
+            - paragraph [ref=f5e239]: Photos
+            - paragraph [ref=f5e240]: before and after review
+          - generic [ref=f5e241]: 
+      - generic [ref=f5e243]:
+        - generic [ref=f5e244]:
+          - generic [ref=f5e245]:
+            - paragraph [ref=f5e246]: Site Selection
+            - heading "Choose a site to open pole photo reports" [level=3] [ref=f5e247]
+            - paragraph [ref=f5e248]: Each site card opens the node list for photo review and progress tracking.
+          - generic [ref=f5e249]: 0 sites
+        - paragraph [ref=f5e255]: Loading sites...
+    - contentinfo [ref=f5e256]:
+      - generic [ref=f5e257]:
+        - generic [ref=f5e258]: © 2026 Telcovantage Philippines
+        - generic [ref=f5e259]:
+          - text: Design & Develop by
+          - link "Telcovantage Developers" [ref=f5e260] [cursor=pointer]:
+            - /url: "#"
+  - button [ref=f5e263] [cursor=pointer]

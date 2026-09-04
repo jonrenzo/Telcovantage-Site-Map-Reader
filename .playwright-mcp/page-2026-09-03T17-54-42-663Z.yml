@@ -1,0 +1,28 @@
+- generic [ref=e5]:
+  - generic [ref=e8]:
+    - link [ref=e10] [cursor=pointer]:
+      - /url: /
+      - img "TelcoVantage" [ref=e11]
+    - generic [ref=e12]:
+      - generic [ref=e13]:
+        - heading "Welcome Back!" [level=5] [ref=e14]
+        - paragraph [ref=e15]: Sign in to continue to the dashboard.
+      - generic [ref=e16]:
+        - generic [ref=e17]:
+          - generic [ref=e18]: Email
+          - textbox "Enter email" [ref=e19]
+        - generic [ref=e20]:
+          - generic [ref=e21]:
+            - generic [ref=e22]: Password
+            - link "Forgot password?" [ref=e23] [cursor=pointer]:
+              - /url: "#"
+          - generic [ref=e24]:
+            - textbox "Enter password" [ref=e25]
+            - button "󰛐" [ref=e26] [cursor=pointer]
+        - generic [ref=e28]:
+          - checkbox "Remember me" [checked] [ref=e29] [cursor=pointer]
+          - generic [ref=e30]: Remember me
+        - button "Log In" [ref=e31] [cursor=pointer]
+  - generic [ref=e36]:
+    - heading "Welcome to TelcoVantage Philippines Dashboard" [level=2] [ref=e37]: Welcome toTelcoVantage PhilippinesDashboard
+    - paragraph [ref=e38]: Please sign in to access your account and manage field operations, teardown reports, and network spans in real time.

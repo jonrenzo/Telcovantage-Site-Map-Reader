@@ -3369,6 +3369,10 @@ EQUIPMENT_KIND_LAYERS = {
     "circle": ["splitter", "tapoff", "tap-off", "tap_off", "splt"],
     "hexagon": ["tapoff", "tap-off", "tap_off"],
     "rectangle": ["node", "amplifier", "amp"],
+    # Some drawings draw the amplifier/node marker as a dome icon (an ARC cap
+    # over housing fins) instead of a closed rectangle — not a different
+    # equipment type, just a different symbol for the same "amp"/"node" layer.
+    "dome": ["node", "amplifier", "amp"],
     "square": ["tapoff", "tap-off", "tap_off"],
     "triangle": ["extender", "extend"],
 }
@@ -3404,13 +3408,7 @@ def _run_full_scan(dxf_path: str, boundary_layer: Optional[str]):
         doc = ezdxf.readfile(dxf_path)
         layers = list_layers(dxf_path)
 
-        KIND_LAYER_MAP = {
-            "circle": ["splitter", "tapoff", "tap-off", "tap_off", "splt"],
-            "hexagon": ["tapoff", "tap-off", "tap_off"],
-            "rectangle": ["node", "amplifier", "amp"],
-            "square": ["tapoff", "tap-off", "tap_off"],
-            "triangle": ["extender", "extend"],
-        }
+        KIND_LAYER_MAP = EQUIPMENT_KIND_LAYERS
 
         layer_kind_targets: Dict[str, List[str]] = {}
         for layer in layers:
@@ -3599,7 +3597,14 @@ POLE_CONFIG = _poleid.PoleIdConfig(
     # circle still pass (require_circle_match stays False) — recall first.
     use_circle_markers=True,
     require_circle_match=False,
-    max_dist_factor=4.0,
+    # Now measured to the label's nearest bbox edge rather than its centroid
+    # (see match_poleids_to_circles), so this no longer needs to cover a wide
+    # multi-character word's full centroid offset — but real labels still
+    # measured ~9.4 units from a ~1.3-radius/~2.4-height marker's edge, just
+    # over the old 4x gate. Exclusive matching (each circle taken by its one
+    # true nearest label) is what keeps a larger gate from cross-matching
+    # neighbouring poles, not this factor, so raising it is safe.
+    max_dist_factor=5.0,
     default_text_height=0.25,
     stroke_connect_tol=0.20,
     stroke_min_total_length=0.30,
@@ -3737,6 +3742,96 @@ def _median_spacing(points: list) -> float:
     return nn[mid] if len(nn) % 2 else (nn[mid - 1] + nn[mid]) / 2.0
 
 
+#: A drafter can draw one pole ID as two separate stroke clusters (e.g. the
+#: "IML" prefix and the "-115" suffix land far enough apart that the primary
+#: connect-tolerance clustering in poleid.py never joins them) — each piece
+#: then reads on its own as an incomplete, invalid ID. Two same-baseline
+#: fragments within this many multiples of their own text height are
+#: candidates for re-OCR as one fused crop.
+FUSE_GAP_FACTOR = 6.0
+FUSE_VALIGN_FACTOR = 0.6
+
+
+def _fuse_split_stroke_labels(all_tags: list, lab_by_id: dict) -> None:
+    """Recover pole IDs that a drafter split across two stroke clusters.
+
+    Only ever touches tags OCR already flagged needs_review — a label that
+    already read correctly on its own is left completely alone, so drawings
+    where every ID already lands in one cluster see no change at all. Two
+    same-row, nearby "still wrong" fragments get re-rendered and re-OCR'd
+    together; the fused reading replaces both ONLY if it comes back as a
+    valid, accepted pole ID. Otherwise both originals are left exactly as
+    they were — this never makes a bad read worse.
+    """
+    candidates = [
+        t for t in all_tags if t.get("needs_review") and t["pole_id"] in lab_by_id
+    ]
+    if len(candidates) < 2:
+        return
+    candidates.sort(key=lambda t: (-t["cy"], t["cx"]))
+
+    used_ids = set()
+    fused_tags = []
+    for i, a in enumerate(candidates):
+        if a["pole_id"] in used_ids:
+            continue
+        la = lab_by_id[a["pole_id"]]
+        best = None
+        for b in candidates:
+            if b["pole_id"] == a["pole_id"] or b["pole_id"] in used_ids:
+                continue
+            lb = lab_by_id[b["pole_id"]]
+            h = max(la.height, lb.height, 1e-9)
+            acy = 0.5 * (la.bbox[1] + la.bbox[3])
+            bcy = 0.5 * (lb.bbox[1] + lb.bbox[3])
+            if abs(acy - bcy) > FUSE_VALIGN_FACTOR * h:
+                continue
+            gap = lb.bbox[0] - la.bbox[2]
+            if gap <= 0 or gap > FUSE_GAP_FACTOR * h:
+                continue
+            if best is None or gap < best[0]:
+                best = (gap, b, lb)
+        if best is None:
+            continue
+        _gap, b, lb = best
+
+        merged_segs = list(la.segments) + list(lb.segments)
+        bbox = (
+            min(la.bbox[0], lb.bbox[0]),
+            min(la.bbox[1], lb.bbox[1]),
+            max(la.bbox[2], lb.bbox[2]),
+            max(la.bbox[3], lb.bbox[3]),
+        )
+        try:
+            result = ocr_pole(merged_segs, bbox)
+        except Exception:
+            continue
+        if not (result.accepted and result.text):
+            continue
+
+        crop_b64 = base64.b64encode(result.crop_png).decode("ascii") if result.crop_png else None
+        fused_tags.append(
+            {
+                "pole_id": a["pole_id"],
+                "name": result.text,
+                "cx": round((a["cx"] + b["cx"]) / 2.0, 4),
+                "cy": round((a["cy"] + b["cy"]) / 2.0, 4),
+                "bbox": [round(v, 4) for v in bbox],
+                "layer": a["layer"],
+                "source": "stroke",
+                "crop_b64": crop_b64,
+                "ocr_conf": result.confidence,
+                "needs_review": False,
+            }
+        )
+        used_ids.add(a["pole_id"])
+        used_ids.add(b["pole_id"])
+
+    if fused_tags:
+        all_tags[:] = [t for t in all_tags if t["pole_id"] not in used_ids] + fused_tags
+        print(f"[poles] {len(fused_tags)} split label(s) fused into one valid pole ID")
+
+
 def _run_pole_scan(dxf_path: str, layer_names: list[str]) -> None:
     try:
         combined = ", ".join(layer_names)
@@ -3759,48 +3854,61 @@ def _run_pole_scan(dxf_path: str, layer_names: list[str]) -> None:
         global_pole_id = 0
         tags_lock = threading.Lock()
 
-        for layer_name in layer_names:
-            matches = _poleid.find_pole_labels(doc, layer_name, config=POLE_CONFIG)
-            layer_segs = extract_stroke_segments(doc, layer_name, include_circles=False)
+        # A drafter can split a pole's marker (circle) and its tag (text)
+        # across two different layers that both match the "pole" naming
+        # pattern (e.g. "...POLE NUMBER" for the tag, "...POLEPED" for the
+        # marker). Passing every layer to find_pole_labels together lets a
+        # label on one pair with a circle on another, instead of each layer
+        # being scanned — and matched — in isolation.
+        matches = _poleid.find_pole_labels(doc, layer_names, config=POLE_CONFIG)
+        layer_segs_by_layer = {
+            ln: extract_stroke_segments(doc, ln, include_circles=False) for ln in layer_names
+        }
 
-            for lab, circ in matches:
-                bbox = list(lab.bbox) if lab.bbox else [lab.x, lab.y, lab.x, lab.y]
-                source = getattr(lab, "source", "unknown")
-                display_name = _poleid.clean_label(lab.text)
-                is_placeholder = source == "stroke" and display_name.upper().startswith(placeholder_prefix)
+        for lab, circ in matches:
+            bbox = list(lab.bbox) if lab.bbox else [lab.x, lab.y, lab.x, lab.y]
+            source = getattr(lab, "source", "unknown")
+            display_name = _poleid.clean_label(lab.text)
+            is_placeholder = source == "stroke" and display_name.upper().startswith(placeholder_prefix)
 
-                # The pole IS the circle; the label is lettering beside it.
-                # Anchoring tags at the label put seven corner poles ~0.3 off
-                # their circles, the derivation saw empty corners, and streets
-                # chained around the bend into L-shaped spans.
-                ax = round(circ.x if circ is not None else lab.x, 4)
-                ay = round(circ.y if circ is not None else lab.y, 4)
+            # The pole IS the circle; the label is lettering beside it.
+            # Anchoring tags at the label put seven corner poles ~0.3 off
+            # their circles, the derivation saw empty corners, and streets
+            # chained around the bend into L-shaped spans.
+            ax = round(circ.x if circ is not None else lab.x, 4)
+            ay = round(circ.y if circ is not None else lab.y, 4)
 
-                if is_placeholder:
-                    all_ocr_queue.append(
-                        (global_pole_id, lab, bbox, source, layer_name, layer_segs, ax, ay)
-                    )
-                else:
-                    all_tags.append(
-                        {
-                            "pole_id": global_pole_id,
-                            "name": display_name,
-                            "cx": ax,
-                            "cy": ay,
-                            "bbox": [round(v, 4) for v in bbox],
-                            "layer": layer_name,
-                            "source": source,
-                            "crop_b64": None,
-                            "ocr_conf": None,
-                            "needs_review": False,
-                        }
-                    )
-                global_pole_id += 1
+            # The circle's own layer is where the pole physically lives;
+            # fall back to the label's layer, then whichever layer was
+            # scanned first, if either entity didn't carry one.
+            tag_layer = (circ.layer if circ is not None else "") or lab.layer or layer_names[0]
+            layer_segs = layer_segs_by_layer.get(lab.layer) or layer_segs_by_layer.get(tag_layer) or []
 
-            with tags_lock:
-                POLE_STATE["total"] = global_pole_id
-                POLE_STATE["progress"] = len(all_tags)
-                POLE_STATE["tags"] = list(all_tags)
+            if is_placeholder:
+                all_ocr_queue.append(
+                    (global_pole_id, lab, bbox, source, tag_layer, layer_segs, ax, ay)
+                )
+            else:
+                all_tags.append(
+                    {
+                        "pole_id": global_pole_id,
+                        "name": display_name,
+                        "cx": ax,
+                        "cy": ay,
+                        "bbox": [round(v, 4) for v in bbox],
+                        "layer": tag_layer,
+                        "source": source,
+                        "crop_b64": None,
+                        "ocr_conf": None,
+                        "needs_review": False,
+                    }
+                )
+            global_pole_id += 1
+
+        with tags_lock:
+            POLE_STATE["total"] = global_pole_id
+            POLE_STATE["progress"] = len(all_tags)
+            POLE_STATE["tags"] = list(all_tags)
 
         def _ocr_one(args):
             pole_id, lab, bbox, source, layer_name, layer_segs, ax, ay = args
@@ -3866,6 +3974,9 @@ def _run_pole_scan(dxf_path: str, layer_names: list[str]) -> None:
                         all_tags.sort(key=lambda t: t["pole_id"])
                         POLE_STATE["tags"] = list(all_tags)
                         POLE_STATE["progress"] = len(all_tags)
+
+        lab_by_id = {pid: lab for (pid, lab, *_rest) in all_ocr_queue}
+        _fuse_split_stroke_labels(all_tags, lab_by_id)
 
         all_tags.extend(_untagged_pole_circles(doc, layer_names, all_tags))
         _demote_duplicate_pole_names(all_tags)
@@ -3965,7 +4076,7 @@ def kind_to_equipment_name(kind: str, layer: str = "") -> str:
         return "8-Way Tap"
     if kind == "triangle":
         return "Line Extender"
-    if kind == "rectangle":
+    if kind in ("rectangle", "dome"):
         l = layer.lower()
         if "node" in l:
             return "Node"
@@ -4710,13 +4821,7 @@ def _run_precompute(checksum: str, dxf_path: str):
 
     # ── equipment shapes ──────────────────────────────────────────────────────
     # Reuse the same detection logic as _run_full_scan but without touching SCAN_STATE
-    KIND_LAYER_MAP = {
-        "circle": ["splitter", "tapoff", "tap-off", "tap_off", "splt"],
-        "hexagon": ["tapoff", "tap-off", "tap_off"],
-        "rectangle": ["node", "amplifier", "amp"],
-        "square": ["tapoff", "tap-off", "tap_off"],
-        "triangle": ["extender", "extend"],
-    }
+    KIND_LAYER_MAP = EQUIPMENT_KIND_LAYERS
     layer_kind_targets: Dict[str, list] = {}
     for layer in layers:
         l_lower = layer.lower()

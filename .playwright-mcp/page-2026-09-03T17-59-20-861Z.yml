@@ -1,0 +1,195 @@
+- generic [ref=f3e2]:
+  - generic [ref=f3e4]:
+    - region "scrollable content" [ref=f3e9]:
+      - list [ref=f3e12]:
+        - listitem [ref=f3e13]: Main
+        - listitem [ref=f3e14]:
+          - link "Dashboard" [ref=f3e15] [cursor=pointer]:
+            - /url: /dashboard
+        - listitem [ref=f3e19]: Operations
+        - listitem [ref=f3e20]:
+          - link "Live Onsite Map" [ref=f3e21] [cursor=pointer]:
+            - /url: /field/live
+        - listitem [ref=f3e25]:
+          - link "Node List" [ref=f3e26] [cursor=pointer]:
+            - /url: /sites
+        - listitem [ref=f3e29]:
+          - link "Span List" [ref=f3e30] [cursor=pointer]:
+            - /url: /spans
+        - listitem [ref=f3e35]:
+          - link "Pole Master 󰅂" [ref=f3e36] [cursor=pointer]:
+            - /url: "javascript:throw new Error('React has blocked a javascript: URL as a security precaution.')"
+        - listitem [ref=f3e40]:
+          - link "NAP Inventory 󰅂" [ref=f3e41] [cursor=pointer]:
+            - /url: "javascript:throw new Error('React has blocked a javascript: URL as a security precaution.')"
+        - listitem [ref=f3e45]: Warehouse
+        - listitem [ref=f3e46]:
+          - link "Warehouses" [ref=f3e47] [cursor=pointer]:
+            - /url: /warehouses
+        - listitem [ref=f3e51]:
+          - link "Material Inventory" [ref=f3e52] [cursor=pointer]:
+            - /url: /warehouse/inventory
+        - listitem [ref=f3e57]:
+          - link "Delivery Tracker" [ref=f3e58] [cursor=pointer]:
+            - /url: /warehouse/inventory?tab=deliveries
+        - listitem [ref=f3e64]:
+          - link "Transfer Deliveries" [ref=f3e65] [cursor=pointer]:
+            - /url: /warehouses/deliveries
+        - listitem [ref=f3e68]: Reports
+        - listitem [ref=f3e69]:
+          - link "Teardown Logs" [ref=f3e70] [cursor=pointer]:
+            - /url: /reports/teardown-logs
+        - listitem [ref=f3e74]:
+          - link "Teardown Monitoring" [ref=f3e75] [cursor=pointer]:
+            - /url: /reports/teardown-monitoring
+        - listitem [ref=f3e78]:
+          - link "Audit Reports 󰅂" [expanded] [ref=f3e79] [cursor=pointer]:
+            - /url: "javascript:throw new Error('React has blocked a javascript: URL as a security precaution.')"
+          - list [ref=f3e81]:
+            - listitem [ref=f3e82]:
+              - link "Daily Reports" [ref=f3e83] [cursor=pointer]:
+                - /url: /dailyreports
+            - listitem [ref=f3e84]:
+              - link "RTD Reports" [ref=f3e85] [cursor=pointer]:
+                - /url: /reports/rtd
+            - listitem [ref=f3e86]:
+              - link "Vicinity Maps" [ref=f3e87] [cursor=pointer]:
+                - /url: /reports/vicinity
+            - listitem [ref=f3e89]:
+              - link "Pole Reports" [ref=f3e90] [cursor=pointer]:
+                - /url: /reports/pole-reports
+            - listitem [ref=f3e91]:
+              - link "Red Line Reports" [ref=f3e92] [cursor=pointer]:
+                - /url: /reports/redline
+        - listitem [ref=f3e93]: Teams
+        - listitem [ref=f3e94]:
+          - link "Subcontractors" [ref=f3e95] [cursor=pointer]:
+            - /url: /subcontractors
+        - listitem [ref=f3e99]:
+          - link "Support Tickets" [ref=f3e100] [cursor=pointer]:
+            - /url: /support/tickets
+        - listitem [ref=f3e103]: System
+        - listitem [ref=f3e104]:
+          - link "User Management 󰅂" [ref=f3e105] [cursor=pointer]:
+            - /url: "javascript:throw new Error('React has blocked a javascript: URL as a security precaution.')"
+        - listitem [ref=f3e111]:
+          - link "Maintenance Mode" [ref=f3e112] [cursor=pointer]:
+            - /url: /maintenance
+        - listitem [ref=f3e115]:
+          - link "Recycle Bin" [ref=f3e116] [cursor=pointer]:
+            - /url: /recycle-bin
+    - button "A admin@telcovantage.com admin" [ref=f3e120] [cursor=pointer]:
+      - generic [ref=f3e121]: A
+      - generic [ref=f3e122]:
+        - paragraph [ref=f3e123]: admin@telcovantage.com
+        - paragraph [ref=f3e124]: admin
+  - navigation [ref=f3e127]:
+    - generic [ref=f3e128]:
+      - generic [ref=f3e129]:
+        - link [ref=f3e131] [cursor=pointer]:
+          - /url: "#"
+          - img "Logo" [ref=f3e132]
+        - button "Toggle menu" [ref=f3e133] [cursor=pointer]:
+          - generic [ref=f3e134]: 
+        - link [ref=f3e135] [cursor=pointer]:
+          - /url: "#"
+          - img "Logo" [ref=f3e136]
+      - generic [ref=f3e137]:
+        - generic [ref=f3e139]:
+          - textbox "Search..." [ref=f3e140]
+          - button "" [ref=f3e141] [cursor=pointer]
+        - generic [ref=f3e143]:
+          - button "" [ref=f3e144] [cursor=pointer]
+          - button [ref=f3e147] [cursor=pointer]
+          - button [ref=f3e155] [cursor=pointer]
+          - button "TS Telcovantage S. 󰅀" [ref=f3e160] [cursor=pointer]:
+            - generic [ref=f3e161]: TS
+            - generic [ref=f3e162]: Telcovantage S.
+            - generic [ref=f3e163]: 󰅀
+  - generic [ref=f3e164]:
+    - generic [ref=f3e167]:
+      - generic [ref=f3e168]:
+        - generic [ref=f3e169]:
+          - generic [ref=f3e170]:
+            - generic [ref=f3e171]: Vicinity Reports
+            - heading "Pole vicinity map dashboard" [level=2] [ref=f3e173]
+            - paragraph [ref=f3e174]: Browse coverage sites first, then drill into node-level vicinity maps with clearer status and recovery signals.
+            - generic [ref=f3e175]:
+              - generic [ref=f3e176]:
+                - paragraph [ref=f3e177]: Coverage
+                - paragraph [ref=f3e178]: Site Overview
+              - generic [ref=f3e179]:
+                - paragraph [ref=f3e180]: Status
+                - paragraph [ref=f3e181]: 3 avg/site
+              - generic [ref=f3e182]:
+                - paragraph [ref=f3e183]: Target
+                - paragraph [ref=f3e184]: Drill Down
+          - generic [ref=f3e185]:
+            - generic [ref=f3e187]:
+              - generic [ref=f3e188]:
+                - paragraph [ref=f3e189]: Total Sites
+                - paragraph [ref=f3e190]: "1"
+                - paragraph [ref=f3e191]: available vicinity groups
+              - generic [ref=f3e192]: 
+            - generic [ref=f3e195]:
+              - generic [ref=f3e196]:
+                - paragraph [ref=f3e197]: Total Nodes
+                - paragraph [ref=f3e198]: "3"
+                - paragraph [ref=f3e199]: total mapped node capacity
+              - generic [ref=f3e200]: 
+        - generic [ref=f3e202]:
+          - generic [ref=f3e203]: Coverage overview
+          - generic [ref=f3e204]: 3 avg nodes per site
+          - generic [ref=f3e205]:
+            - generic [ref=f3e206]: 
+            - text: Refreshing cached data
+      - generic [ref=f3e207]:
+        - generic [ref=f3e210]:
+          - generic [ref=f3e211]:
+            - paragraph [ref=f3e212]: Total Sites
+            - paragraph [ref=f3e213]: "1"
+            - paragraph [ref=f3e214]: ready for drilldown
+          - generic [ref=f3e215]: 
+        - generic [ref=f3e219]:
+          - generic [ref=f3e220]:
+            - paragraph [ref=f3e221]: Total Nodes
+            - paragraph [ref=f3e222]: "3"
+            - paragraph [ref=f3e223]: coverage across all sites
+          - generic [ref=f3e224]: 
+        - generic [ref=f3e228]:
+          - generic [ref=f3e229]:
+            - paragraph [ref=f3e230]: Average Nodes
+            - paragraph [ref=f3e231]: "3"
+            - paragraph [ref=f3e232]: typical site density
+          - generic [ref=f3e233]: 
+        - generic [ref=f3e237]:
+          - generic [ref=f3e238]:
+            - paragraph [ref=f3e239]: Largest Site
+            - paragraph [ref=f3e240]: "3"
+            - paragraph [ref=f3e241]: NCR
+          - generic [ref=f3e242]: 
+      - generic [ref=f3e244]:
+        - generic [ref=f3e245]:
+          - generic [ref=f3e246]:
+            - paragraph [ref=f3e247]: Site Selection
+            - heading "Choose a site to open node vicinity maps" [level=3] [ref=f3e248]
+            - paragraph [ref=f3e249]: Each card shows how much node coverage is available before you drill down.
+          - generic [ref=f3e250]: 1 sites
+        - button "Coverage 1 Telcovantage Philippines NCR Vicinity map coverage and node readiness 3 Nodes " [ref=f3e254] [cursor=pointer]:
+          - generic [ref=f3e256]:
+            - generic [ref=f3e257]: Coverage 1
+            - img "Telcovantage Philippines" [ref=f3e260]
+            - generic [ref=f3e261]:
+              - generic [ref=f3e262]:
+                - heading "NCR" [level=3] [ref=f3e263]
+                - paragraph [ref=f3e264]: Vicinity map coverage and node readiness
+                - paragraph [ref=f3e265]: 3 Nodes
+              - generic [ref=f3e266]: 
+    - contentinfo [ref=f3e268]:
+      - generic [ref=f3e269]:
+        - generic [ref=f3e270]: © 2026 Telcovantage Philippines
+        - generic [ref=f3e271]:
+          - text: Design & Develop by
+          - link "Telcovantage Developers" [ref=f3e272] [cursor=pointer]:
+            - /url: "#"
+  - button [ref=f3e275] [cursor=pointer]

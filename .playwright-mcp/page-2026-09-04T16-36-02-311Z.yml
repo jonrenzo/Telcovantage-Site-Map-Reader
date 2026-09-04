@@ -1,0 +1,583 @@
+- generic [ref=f2e1]:
+  - generic [ref=f2e2]:
+    - banner [ref=f2e3]:
+      - button "Back" [ref=f2e4]
+      - generic [ref=f2e7]: AsBuiltIQ
+      - navigation [ref=f2e11]:
+        - generic [ref=f2e13]:
+          - generic [ref=f2e14]: ✓
+          - generic [ref=f2e15]: Load Plan
+        - generic [ref=f2e18]:
+          - generic [ref=f2e19]: ✓
+          - generic [ref=f2e20]: Reading
+        - generic [ref=f2e23]:
+          - generic [ref=f2e24]: "3"
+          - generic [ref=f2e25]: Review
+      - button "Export" [ref=f2e27]
+    - generic [ref=f2e33]:
+      - generic [ref=f2e35]:
+        - button "🔍 OCR Review" [ref=f2e36]:
+          - generic [ref=f2e37]: 🔍
+          - text: OCR Review
+        - button "🗺️ DXF Viewer" [ref=f2e38]:
+          - generic [ref=f2e39]: 🗺️
+          - text: DXF Viewer
+        - button "⚙️ Equipment" [ref=f2e40]:
+          - generic [ref=f2e41]: ⚙️
+          - text: Equipment
+        - button "🔵 Pole IDs" [ref=f2e42]:
+          - generic [ref=f2e43]: 🔵
+          - text: Pole IDs
+      - generic [ref=f2e46]:
+        - generic [ref=f2e47]:
+          - generic [ref=f2e48]:
+            - generic [ref=f2e49]:
+              - generic [ref=f2e50]: Pole IDs
+              - button "Visible" [ref=f2e56]
+            - generic [ref=f2e60]:
+              - generic [ref=f2e61]:
+                - button "2 layers selected" [active] [ref=f2e62]
+                - generic [ref=f2e1087]:
+                  - generic [ref=f2e1088]:
+                    - textbox "Search layers..." [ref=f2e1089]
+                    - button "+ Select all pole/stp/tag/label layers" [ref=f2e1090]
+                  - generic [ref=f2e1091] [cursor=pointer]:
+                    - checkbox "0" [ref=f2e1092]
+                    - generic "0" [ref=f2e1093]
+                  - generic [ref=f2e1094] [cursor=pointer]:
+                    - checkbox "Defpoints" [ref=f2e1095]
+                    - generic "Defpoints" [ref=f2e1096]
+                  - generic [ref=f2e1097] [cursor=pointer]:
+                    - checkbox "PDF_Level 1" [ref=f2e1098]
+                    - generic "PDF_Level 1" [ref=f2e1099]
+                  - generic [ref=f2e1100] [cursor=pointer]:
+                    - checkbox "PDF_Level 21" [ref=f2e1101]
+                    - generic "PDF_Level 21" [ref=f2e1102]
+                  - generic [ref=f2e1103] [cursor=pointer]:
+                    - checkbox "PDF_Level 22" [ref=f2e1104]
+                    - generic "PDF_Level 22" [ref=f2e1105]
+                  - generic [ref=f2e1106] [cursor=pointer]:
+                    - checkbox "PDF_Level 35" [ref=f2e1107]
+                    - generic "PDF_Level 35" [ref=f2e1108]
+                  - generic [ref=f2e1109] [cursor=pointer]:
+                    - checkbox "PDF_RICKLEE_AMPBLOCK" [ref=f2e1110]
+                    - generic "PDF_RICKLEE_AMPBLOCK" [ref=f2e1111]
+                  - generic [ref=f2e1112] [cursor=pointer]:
+                    - checkbox "PDF_RICKLEE_COAXCABLE" [ref=f2e1113]
+                    - generic "PDF_RICKLEE_COAXCABLE" [ref=f2e1114]
+                  - generic [ref=f2e1115] [cursor=pointer]:
+                    - checkbox "PDF_RICKLEE_ENDOFTAPOFFBLOCK" [ref=f2e1116]
+                    - generic "PDF_RICKLEE_ENDOFTAPOFFBLOCK" [ref=f2e1117]
+                  - generic [ref=f2e1118] [cursor=pointer]:
+                    - checkbox "PDF_RICKLEE_NODEBOUNDARY" [ref=f2e1119]
+                    - generic "PDF_RICKLEE_NODEBOUNDARY" [ref=f2e1120]
+                  - generic [ref=f2e1121] [cursor=pointer]:
+                    - checkbox "PDF_RICKLEE_NODEDETAILS" [ref=f2e1122]
+                    - generic "PDF_RICKLEE_NODEDETAILS" [ref=f2e1123]
+                  - generic [ref=f2e1124] [cursor=pointer]:
+                    - checkbox "PDF_RICKLEE_POWERSUPPLY" [ref=f2e1125]
+                    - generic "PDF_RICKLEE_POWERSUPPLY" [ref=f2e1126]
+                  - generic [ref=f2e1127] [cursor=pointer]:
+                    - checkbox "PDF_SKY-Lipa$0$LANDMARK" [ref=f2e1128]
+                    - generic "PDF_SKY-Lipa$0$LANDMARK" [ref=f2e1129]
+                  - generic [ref=f2e1130] [cursor=pointer]:
+                    - checkbox "PDF_SKY-Lipa$0$POLE NUMBER" [ref=f2e1131]
+                    - generic "PDF_SKY-Lipa$0$POLE NUMBER" [ref=f2e1132]
+                  - generic [ref=f2e1133] [cursor=pointer]:
+                    - checkbox "PDF_SKY-Lipa$0$RICKLEE_HOUSECOUNT" [checked] [ref=f2e1134]
+                    - generic "PDF_SKY-Lipa$0$RICKLEE_HOUSECOUNT" [ref=f2e1135]
+                  - generic [ref=f2e1136] [cursor=pointer]:
+                    - checkbox "PDF_SKY-Lipa$0$RICKLEE_POLEPED" [checked] [ref=f2e1137]
+                    - generic "PDF_SKY-Lipa$0$RICKLEE_POLEPED" [ref=f2e1138]
+                  - generic [ref=f2e1139] [cursor=pointer]:
+                    - checkbox "PDF_SKY-Lipa$0$RICKLEE_ROAD" [ref=f2e1140]
+                    - generic "PDF_SKY-Lipa$0$RICKLEE_ROAD" [ref=f2e1141]
+                  - generic [ref=f2e1142] [cursor=pointer]:
+                    - checkbox "PDF_SKY-Lipa$0$RICKLEE_STRAND" [ref=f2e1143]
+                    - generic "PDF_SKY-Lipa$0$RICKLEE_STRAND" [ref=f2e1144]
+                  - generic [ref=f2e1145] [cursor=pointer]:
+                    - checkbox "PDF_SKY-Lipa$0$RICKLEE_STRANDDISTANCE" [ref=f2e1146]
+                    - generic "PDF_SKY-Lipa$0$RICKLEE_STRANDDISTANCE" [ref=f2e1147]
+                  - generic [ref=f2e1148] [cursor=pointer]:
+                    - checkbox "PDF_Text" [ref=f2e1149]
+                    - generic "PDF_Text" [ref=f2e1150]
+              - button "Scan" [ref=f2e502]
+            - generic [ref=f2e503]:
+              - paragraph [ref=f2e504]: Found 51 poles across 1 layer
+              - paragraph [ref=f2e505]:
+                - text: "OCR: 5/51 names resolved"
+                - generic [ref=f2e506]: (46 need review)
+          - generic [ref=f2e507]:
+            - textbox "Search pole name…" [ref=f2e508]
+            - generic [ref=f2e509]:
+              - button "A-Z" [ref=f2e510]
+              - button "↕" [ref=f2e511]
+          - generic [ref=f2e136]:
+            - generic [ref=f2e513] [cursor=pointer]:
+              - generic [ref=f2e515]:
+                - paragraph [ref=f2e516]: NPT-064
+                - paragraph [ref=f2e517]: (716.64, 991.60)
+              - generic [ref=f2e518]:
+                - generic [ref=f2e519]: 62%
+                - generic [ref=f2e520]: STR
+                - button "✏" [ref=f2e521]
+            - generic [ref=f2e523] [cursor=pointer]:
+              - generic [ref=f2e525]:
+                - paragraph [ref=f2e526]: "1"
+                - paragraph [ref=f2e527]: (715.98, 991.55)
+              - generic [ref=f2e528]:
+                - generic [ref=f2e529]: 100%
+                - generic [ref=f2e530]: STR
+                - button "✏" [ref=f2e531]
+            - generic [ref=f2e533] [cursor=pointer]:
+              - generic [ref=f2e535]:
+                - paragraph [ref=f2e536]: NPT-055
+                - paragraph [ref=f2e537]: (711.56, 990.45)
+              - generic [ref=f2e538]:
+                - generic [ref=f2e539]: 81%
+                - generic [ref=f2e540]: STR
+                - button "✏" [ref=f2e541]
+            - generic [ref=f2e543] [cursor=pointer]:
+              - generic [ref=f2e545]:
+                - paragraph [ref=f2e546]: POLE_001
+                - paragraph [ref=f2e547]: (721.87, 942.87)
+              - generic [ref=f2e548]:
+                - generic [ref=f2e549]: 41%
+                - generic [ref=f2e550]: STR
+                - button "✏" [ref=f2e551]
+            - generic [ref=f2e553] [cursor=pointer]:
+              - generic [ref=f2e555]:
+                - paragraph [ref=f2e556]: NPT-066
+                - paragraph [ref=f2e557]: (726.90, 941.60)
+              - generic [ref=f2e558]:
+                - generic [ref=f2e559]: 34%
+                - generic [ref=f2e560]: STR
+                - button "✏" [ref=f2e561]
+            - generic [ref=f2e563] [cursor=pointer]:
+              - generic [ref=f2e565]:
+                - paragraph [ref=f2e566]: POLE_002
+                - paragraph [ref=f2e567]: (732.58, 891.10)
+              - generic [ref=f2e568]:
+                - generic [ref=f2e569]: 87%
+                - generic [ref=f2e570]: STR
+                - button "✏" [ref=f2e571]
+            - generic [ref=f2e573] [cursor=pointer]:
+              - generic [ref=f2e575]:
+                - paragraph [ref=f2e576]: POLE_003
+                - paragraph [ref=f2e577]: (685.41, 882.00)
+              - generic [ref=f2e578]:
+                - generic [ref=f2e579]: 56%
+                - generic [ref=f2e580]: STR
+                - button "✏" [ref=f2e581]
+            - generic [ref=f2e583] [cursor=pointer]:
+              - generic [ref=f2e585]:
+                - paragraph [ref=f2e586]: POLE_004
+                - paragraph [ref=f2e587]: (685.45, 876.96)
+              - generic [ref=f2e588]:
+                - generic [ref=f2e589]: 100%
+                - generic [ref=f2e590]: STR
+                - button "✏" [ref=f2e591]
+            - generic [ref=f2e593] [cursor=pointer]:
+              - generic [ref=f2e595]:
+                - paragraph [ref=f2e596]: POLE_006
+                - paragraph [ref=f2e597]: (744.65, 835.38)
+              - generic [ref=f2e598]:
+                - generic [ref=f2e599]: 100%
+                - generic [ref=f2e600]: STR
+                - button "✏" [ref=f2e601]
+            - generic [ref=f2e603] [cursor=pointer]:
+              - generic [ref=f2e605]:
+                - paragraph [ref=f2e606]: POLE_008
+                - paragraph [ref=f2e607]: (751.50, 804.14)
+              - generic [ref=f2e608]:
+                - generic [ref=f2e609]: 48%
+                - generic [ref=f2e610]: STR
+                - button "✏" [ref=f2e611]
+            - generic [ref=f2e613] [cursor=pointer]:
+              - generic [ref=f2e615]:
+                - paragraph [ref=f2e616]: POLE_011
+                - paragraph [ref=f2e617]: (771.17, 738.75)
+              - generic [ref=f2e618]:
+                - generic [ref=f2e619]: 40%
+                - generic [ref=f2e620]: STR
+                - button "✏" [ref=f2e621]
+            - generic [ref=f2e623] [cursor=pointer]:
+              - generic [ref=f2e625]:
+                - paragraph [ref=f2e626]: "0"
+                - paragraph [ref=f2e627]: (766.07, 737.91)
+              - generic [ref=f2e628]:
+                - generic [ref=f2e629]: 100%
+                - generic [ref=f2e630]: STR
+                - button "✏" [ref=f2e631]
+            - generic [ref=f2e633] [cursor=pointer]:
+              - generic [ref=f2e635]:
+                - paragraph [ref=f2e636]: NPT-065
+                - paragraph [ref=f2e637]: (773.97, 698.81)
+              - generic [ref=f2e638]:
+                - generic [ref=f2e639]: 62%
+                - generic [ref=f2e640]: STR
+                - button "✏" [ref=f2e641]
+            - generic [ref=f2e643] [cursor=pointer]:
+              - generic [ref=f2e645]:
+                - paragraph [ref=f2e646]: POLE_014
+                - paragraph [ref=f2e647]: (782.14, 660.61)
+              - generic [ref=f2e648]:
+                - generic [ref=f2e649]: 40%
+                - generic [ref=f2e650]: STR
+                - button "✏" [ref=f2e651]
+            - generic [ref=f2e653] [cursor=pointer]:
+              - generic [ref=f2e655]:
+                - paragraph [ref=f2e656]: "6"
+                - paragraph [ref=f2e657]: (797.93, 587.65)
+              - generic [ref=f2e658]:
+                - generic [ref=f2e659]: 99%
+                - generic [ref=f2e660]: STR
+                - button "✏" [ref=f2e661]
+            - generic [ref=f2e663] [cursor=pointer]:
+              - generic [ref=f2e665]:
+                - paragraph [ref=f2e666]: NPT-052
+                - paragraph [ref=f2e667]: (804.73, 587.30)
+              - generic [ref=f2e668]:
+                - generic [ref=f2e669]: 96%
+                - generic [ref=f2e670]: STR
+                - button "✏" [ref=f2e671]
+            - generic [ref=f2e673] [cursor=pointer]:
+              - generic [ref=f2e675]:
+                - paragraph [ref=f2e676]: POLE_017
+                - paragraph [ref=f2e677]: (803.07, 587.24)
+              - generic [ref=f2e678]:
+                - generic [ref=f2e679]: 40%
+                - generic [ref=f2e680]: STR
+                - button "✏" [ref=f2e681]
+            - generic [ref=f2e683] [cursor=pointer]:
+              - generic [ref=f2e685]:
+                - paragraph [ref=f2e686]: POLE_019
+                - paragraph [ref=f2e687]: (806.67, 547.99)
+              - generic [ref=f2e688]:
+                - generic [ref=f2e689]: 40%
+                - generic [ref=f2e690]: STR
+                - button "✏" [ref=f2e691]
+            - generic [ref=f2e693] [cursor=pointer]:
+              - generic [ref=f2e695]:
+                - paragraph [ref=f2e696]: NPT-051
+                - paragraph [ref=f2e697]: (824.05, 492.58)
+              - generic [ref=f2e698]:
+                - generic [ref=f2e699]: 98%
+                - generic [ref=f2e700]: STR
+                - button "✏" [ref=f2e701]
+            - generic [ref=f2e703] [cursor=pointer]:
+              - generic [ref=f2e705]:
+                - paragraph [ref=f2e706]: POLE_023
+                - paragraph [ref=f2e707]: (822.39, 492.47)
+              - generic [ref=f2e708]:
+                - generic [ref=f2e709]: 40%
+                - generic [ref=f2e710]: STR
+                - button "✏" [ref=f2e711]
+            - generic [ref=f2e713] [cursor=pointer]:
+              - generic [ref=f2e715]:
+                - paragraph [ref=f2e716]: POLE_022
+                - paragraph [ref=f2e717]: (817.25, 491.81)
+              - generic [ref=f2e718]:
+                - generic [ref=f2e719]: 37%
+                - generic [ref=f2e720]: STR
+                - button "✏" [ref=f2e721]
+            - generic [ref=f2e723] [cursor=pointer]:
+              - generic [ref=f2e725]:
+                - paragraph [ref=f2e726]: NPT-057
+                - paragraph [ref=f2e727]: (826.81, 439.38)
+              - generic [ref=f2e728]:
+                - generic [ref=f2e729]: 77%
+                - generic [ref=f2e730]: STR
+                - button "✏" [ref=f2e731]
+            - generic [ref=f2e733] [cursor=pointer]:
+              - generic [ref=f2e735]:
+                - paragraph [ref=f2e736]: POLE_025
+                - paragraph [ref=f2e737]: (831.56, 437.28)
+              - generic [ref=f2e738]:
+                - generic [ref=f2e739]: 40%
+                - generic [ref=f2e740]: STR
+                - button "✏" [ref=f2e741]
+            - generic [ref=f2e743] [cursor=pointer]:
+              - generic [ref=f2e745]:
+                - paragraph [ref=f2e746]: "14"
+                - paragraph [ref=f2e747]: (832.11, 437.28)
+              - generic [ref=f2e748]:
+                - generic [ref=f2e749]: 100%
+                - generic [ref=f2e750]: STR
+                - button "✏" [ref=f2e751]
+            - generic [ref=f2e753] [cursor=pointer]:
+              - generic [ref=f2e755]:
+                - paragraph [ref=f2e756]: POLE_026
+                - paragraph [ref=f2e757]: (835.27, 395.10)
+              - generic [ref=f2e758]:
+                - generic [ref=f2e759]: 100%
+                - generic [ref=f2e760]: STR
+                - button "✏" [ref=f2e761]
+            - generic [ref=f2e762]:
+              - generic [ref=f2e763] [cursor=pointer]:
+                - generic [ref=f2e765]:
+                  - paragraph [ref=f2e766]: POLE_005
+                  - paragraph [ref=f2e767]: (844.00, 349.44)
+                - generic [ref=f2e768]:
+                  - generic [ref=f2e769]: 95%
+                  - generic [ref=f2e770]: STR
+                  - button "✏" [ref=f2e771]
+              - generic [ref=f2e772]:
+                - img "pole name crop" [ref=f2e774]
+                - generic [ref=f2e775]:
+                  - generic [ref=f2e776]: 95% confidence
+                  - generic [ref=f2e777]: ⚠ Needs review
+                - generic [ref=f2e778]:
+                  - textbox "Type correct name…" [ref=f2e779]: POLE_005
+                  - button "Save" [ref=f2e780]
+                - button "Delete pole" [ref=f2e781]
+            - generic [ref=f2e785] [cursor=pointer]:
+              - generic [ref=f2e787]:
+                - paragraph [ref=f2e788]: NPT-053
+                - paragraph [ref=f2e789]: (853.85, 335.39)
+              - generic [ref=f2e790]:
+                - generic [ref=f2e791]: 96%
+                - generic [ref=f2e792]: STR
+                - button "✏" [ref=f2e793]
+            - generic [ref=f2e795] [cursor=pointer]:
+              - generic [ref=f2e797]:
+                - paragraph [ref=f2e798]: NPT-068
+                - paragraph [ref=f2e799]: (847.05, 335.29)
+              - generic [ref=f2e800]:
+                - generic [ref=f2e801]: 100%
+                - generic [ref=f2e802]: STR
+                - button "✏" [ref=f2e803]
+            - generic [ref=f2e805] [cursor=pointer]:
+              - generic [ref=f2e807]:
+                - paragraph [ref=f2e808]: NPT-060
+                - paragraph [ref=f2e809]: (852.20, 335.28)
+              - generic [ref=f2e810]:
+                - generic [ref=f2e811]: 63%
+                - generic [ref=f2e812]: STR
+                - button "✏" [ref=f2e813]
+            - generic [ref=f2e815] [cursor=pointer]:
+              - generic [ref=f2e817]:
+                - paragraph [ref=f2e818]: NPT-061
+                - paragraph [ref=f2e819]: (857.83, 307.79)
+              - generic [ref=f2e820]:
+                - generic [ref=f2e821]: 63%
+                - generic [ref=f2e822]: STR
+                - button "✏" [ref=f2e823]
+            - generic [ref=f2e825] [cursor=pointer]:
+              - generic [ref=f2e827]:
+                - paragraph [ref=f2e828]: NPT-067
+                - paragraph [ref=f2e829]: (852.68, 307.47)
+              - generic [ref=f2e830]:
+                - generic [ref=f2e831]: 95%
+                - generic [ref=f2e832]: STR
+                - button "✏" [ref=f2e833]
+            - generic [ref=f2e835] [cursor=pointer]:
+              - generic [ref=f2e837]:
+                - paragraph [ref=f2e838]: POLE_033
+                - paragraph [ref=f2e839]: (865.22, 272.57)
+              - generic [ref=f2e840]:
+                - generic [ref=f2e841]: 40%
+                - generic [ref=f2e842]: STR
+                - button "✏" [ref=f2e843]
+            - generic [ref=f2e845] [cursor=pointer]:
+              - generic [ref=f2e847]:
+                - paragraph [ref=f2e848]: NPT-056
+                - paragraph [ref=f2e849]: (860.04, 272.02)
+              - generic [ref=f2e850]:
+                - generic [ref=f2e851]: 81%
+                - generic [ref=f2e852]: STR
+                - button "✏" [ref=f2e853]
+            - generic [ref=f2e855] [cursor=pointer]:
+              - generic [ref=f2e857]:
+                - paragraph [ref=f2e858]: POLE_035
+                - paragraph [ref=f2e859]: (704.61, 265.29)
+              - generic [ref=f2e860]:
+                - generic [ref=f2e861]: 56%
+                - generic [ref=f2e862]: STR
+                - button "✏" [ref=f2e863]
+            - generic [ref=f2e865] [cursor=pointer]:
+              - generic [ref=f2e867]:
+                - paragraph [ref=f2e868]: NPT-054
+                - paragraph [ref=f2e869]: (709.13, 264.13)
+              - generic [ref=f2e870]:
+                - generic [ref=f2e871]: 82%
+                - generic [ref=f2e872]: STR
+                - button "✏" [ref=f2e873]
+            - generic [ref=f2e875] [cursor=pointer]:
+              - generic [ref=f2e877]:
+                - paragraph [ref=f2e878]: POLE_037
+                - paragraph [ref=f2e879]: (702.72, 236.48)
+              - generic [ref=f2e880]:
+                - generic [ref=f2e881]: 100%
+                - generic [ref=f2e882]: STR
+                - button "✏" [ref=f2e883]
+            - generic [ref=f2e885] [cursor=pointer]:
+              - generic [ref=f2e887]:
+                - paragraph [ref=f2e888]: POLE_039
+                - paragraph [ref=f2e889]: (870.75, 204.63)
+              - generic [ref=f2e890]:
+                - generic [ref=f2e891]: 40%
+                - generic [ref=f2e892]: STR
+                - button "✏" [ref=f2e893]
+            - generic [ref=f2e895] [cursor=pointer]:
+              - generic [ref=f2e897]:
+                - paragraph [ref=f2e898]: NPT-062
+                - paragraph [ref=f2e899]: (841.80, 201.08)
+              - generic [ref=f2e900]:
+                - generic [ref=f2e901]: 63%
+                - generic [ref=f2e902]: STR
+                - button "✏" [ref=f2e903]
+            - generic [ref=f2e905] [cursor=pointer]:
+              - generic [ref=f2e907]:
+                - paragraph [ref=f2e908]: POLE_043
+                - paragraph [ref=f2e909]: (722.27, 194.09)
+              - generic [ref=f2e910]:
+                - generic [ref=f2e911]: 100%
+                - generic [ref=f2e912]: STR
+                - button "✏" [ref=f2e913]
+            - generic [ref=f2e915] [cursor=pointer]:
+              - generic [ref=f2e917]:
+                - paragraph [ref=f2e918]: NPT-069
+                - paragraph [ref=f2e919]: (809.75, 192.65)
+              - generic [ref=f2e920]:
+                - generic [ref=f2e921]: 98%
+                - generic [ref=f2e922]: STR
+                - button "✏" [ref=f2e923]
+            - generic [ref=f2e925] [cursor=pointer]:
+              - generic [ref=f2e927]:
+                - paragraph [ref=f2e928]: NPT-063
+                - paragraph [ref=f2e929]: (813.19, 189.03)
+              - generic [ref=f2e930]:
+                - generic [ref=f2e931]: 62%
+                - generic [ref=f2e932]: STR
+                - button "✏" [ref=f2e933]
+            - generic [ref=f2e935] [cursor=pointer]:
+              - generic [ref=f2e937]:
+                - paragraph [ref=f2e938]: POLE_047
+                - paragraph [ref=f2e939]: (767.41, 169.13)
+              - generic [ref=f2e940]:
+                - generic [ref=f2e941]: 23%
+                - generic [ref=f2e942]: STR
+                - button "✏" [ref=f2e943]
+            - generic [ref=f2e945] [cursor=pointer]:
+              - generic [ref=f2e947]:
+                - paragraph [ref=f2e948]: POLE_049
+                - paragraph [ref=f2e949]: (699.54, 166.14)
+              - generic [ref=f2e950]:
+                - generic [ref=f2e951]: 40%
+                - generic [ref=f2e952]: STR
+                - button "✏" [ref=f2e953]
+            - generic [ref=f2e955] [cursor=pointer]:
+              - generic [ref=f2e957]:
+                - paragraph [ref=f2e958]: POLE_052
+                - paragraph [ref=f2e959]: (736.01, 158.16)
+              - generic [ref=f2e960]:
+                - generic [ref=f2e961]: 40%
+                - generic [ref=f2e962]: STR
+                - button "✏" [ref=f2e963]
+            - generic [ref=f2e965] [cursor=pointer]:
+              - generic [ref=f2e967]:
+                - paragraph [ref=f2e968]: "2"
+                - paragraph [ref=f2e969]: (733.41, 154.12)
+              - generic [ref=f2e970]:
+                - generic [ref=f2e971]: 100%
+                - generic [ref=f2e972]: STR
+                - button "✏" [ref=f2e973]
+            - generic [ref=f2e975] [cursor=pointer]:
+              - generic [ref=f2e977]:
+                - paragraph [ref=f2e978]: POLE_053
+                - paragraph [ref=f2e979]: (886.42, 149.71)
+              - generic [ref=f2e980]:
+                - generic [ref=f2e981]: 40%
+                - generic [ref=f2e982]: STR
+                - button "✏" [ref=f2e983]
+            - generic [ref=f2e985] [cursor=pointer]:
+              - generic [ref=f2e987]:
+                - paragraph [ref=f2e988]: NPT-058
+                - paragraph [ref=f2e989]: (882.22, 147.12)
+              - generic [ref=f2e990]:
+                - generic [ref=f2e991]: 77%
+                - generic [ref=f2e992]: STR
+                - button "✏" [ref=f2e993]
+            - generic [ref=f2e995] [cursor=pointer]:
+              - generic [ref=f2e997]:
+                - paragraph [ref=f2e998]: POLE_055
+                - paragraph [ref=f2e999]: (715.86, 130.62)
+              - generic [ref=f2e1000]:
+                - generic [ref=f2e1001]: 55%
+                - generic [ref=f2e1002]: STR
+                - button "✏" [ref=f2e1003]
+            - generic [ref=f2e1005] [cursor=pointer]:
+              - generic [ref=f2e1007]:
+                - paragraph [ref=f2e1008]: POLE_057
+                - paragraph [ref=f2e1009]: (672.27, 122.06)
+              - generic [ref=f2e1010]:
+                - generic [ref=f2e1011]: 40%
+                - generic [ref=f2e1012]: STR
+                - button "✏" [ref=f2e1013]
+            - generic [ref=f2e1015] [cursor=pointer]:
+              - generic [ref=f2e1017]:
+                - paragraph [ref=f2e1018]: POLE_059
+                - paragraph [ref=f2e1019]: (892.74, 90.50)
+              - generic [ref=f2e1020]:
+                - generic [ref=f2e1021]: 100%
+                - generic [ref=f2e1022]: STR
+                - button "✏" [ref=f2e1023]
+            - generic [ref=f2e1025] [cursor=pointer]:
+              - generic [ref=f2e1027]:
+                - paragraph [ref=f2e1028]: NPT-059
+                - paragraph [ref=f2e1029]: (899.89, 47.82)
+              - generic [ref=f2e1030]:
+                - generic [ref=f2e1031]: 76%
+                - generic [ref=f2e1032]: STR
+                - button "✏" [ref=f2e1033]
+          - generic [ref=f2e1034]:
+            - generic [ref=f2e1035]: 51 / 51 poles
+            - button "Add Pole" [ref=f2e1037]
+        - generic [ref=f2e463]:
+          - button "Fit to view" [ref=f2e465]
+          - button "🌍 Insert Coordinates" [ref=f2e1040]
+          - generic [ref=f2e469]:
+            - generic [ref=f2e470]: Pole label
+            - generic [ref=f2e473]:
+              - generic [ref=f2e474]: TXT
+              - generic [ref=f2e475]: Text entity
+            - generic [ref=f2e476]:
+              - generic [ref=f2e477]: STR
+              - generic [ref=f2e478]: Stroked polylines
+          - generic [ref=f2e1041]:
+            - generic [ref=f2e1042]:
+              - textbox [ref=f2e1046]: POLE_005
+              - button "✕" [ref=f2e1047]
+            - generic [ref=f2e1048]:
+              - img "pole name" [ref=f2e1049]
+              - button "Rotate 90°" [ref=f2e1051]
+              - generic [ref=f2e1055]: POLE_005
+            - generic [ref=f2e1056]:
+              - generic [ref=f2e1057]:
+                - generic [ref=f2e1058]: Source
+                - generic [ref=f2e1059]: Stroked polyline
+              - generic [ref=f2e1061]:
+                - generic [ref=f2e1062]: Coordinates
+                - generic [ref=f2e1063]:
+                  - generic [ref=f2e1064]:
+                    - paragraph [ref=f2e1065]: X
+                    - paragraph [ref=f2e1066]: "844.004"
+                  - generic [ref=f2e1067]:
+                    - paragraph [ref=f2e1068]: "Y"
+                    - paragraph [ref=f2e1069]: "349.444"
+              - generic [ref=f2e1071]:
+                - generic [ref=f2e1072]: Layer
+                - generic [ref=f2e1073]: PDF_SKY-Lipa$0$RICKLEE_POLEPED
+              - generic [ref=f2e1074]:
+                - generic [ref=f2e1075]: Index
+                - generic [ref=f2e1076]: "#5"
+              - generic [ref=f2e1078]:
+                - generic [ref=f2e1079]: OCR Confidence
+                - generic [ref=f2e1080]: 95%
+              - paragraph [ref=f2e1081]:
+                - generic [ref=f2e1082]: ⚠
+                - text: Name needs review
+              - button "Delete this pole" [ref=f2e1084]
+  - button "Open Next.js Dev Tools" [ref=f2e484] [cursor=pointer]
+  - alert [ref=f2e488]

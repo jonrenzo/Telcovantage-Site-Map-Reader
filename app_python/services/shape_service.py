@@ -75,6 +75,72 @@ def _extract_closed_poly_points(entity) -> Optional[List[Tuple[float, float]]]:
         pts = pts[:-1]
     return pts if len(pts) >= 3 else None
 
+def _detect_dome_shapes(doc, layer_name: str) -> List[EquipmentShape]:
+    """Amplifier/node icons drawn as a dome (one ARC cap) over a housing of
+    parallel horizontal "fin" lines — not a closed polygon, so
+    _classify_polygon never sees it and these equipment markers were
+    invisible to the scanner (only the tap-off layer's plain CIRCLE markers
+    got detected). Recognised here by shape signature instead: an ARC
+    sweeping roughly like a dome (its chord close to horizontal), with two or
+    more short, roughly-horizontal 2-point polylines sitting under it whose
+    x-extent overlaps the arc's.
+    """
+    arcs = []
+    h_lines = []
+    for space in iter_spaces(doc):
+        for e in space:
+            if getattr(e.dxf, "layer", None) != layer_name:
+                continue
+            if e.dxftype() == "ARC":
+                c = e.dxf.center
+                r = float(e.dxf.radius)
+                a0 = math.radians(float(e.dxf.start_angle))
+                a1 = math.radians(float(e.dxf.end_angle))
+                if a1 < a0:
+                    a1 += 2 * math.pi
+                span = a1 - a0
+                # A dome cap: roughly a half-circle (not a full circle, not a
+                # short tick), swept starting somewhere near the horizontal.
+                if math.radians(100) <= span <= math.radians(200):
+                    arcs.append((float(c.x), float(c.y), r))
+            elif e.dxftype() == "LWPOLYLINE" and not bool(e.closed):
+                pts = [(float(x), float(y)) for x, y, *_ in e.get_points("xy")]
+                if len(pts) == 2:
+                    (x1, y1), (x2, y2) = pts
+                    dx, dy = abs(x2 - x1), abs(y2 - y1)
+                    if dx > 1e-9 and dy <= dx * 0.25:  # roughly horizontal
+                        h_lines.append((min(x1, x2), max(x1, x2), (y1 + y2) / 2.0))
+
+    if not arcs or not h_lines:
+        return []
+
+    shapes: List[EquipmentShape] = []
+    used = [False] * len(h_lines)
+    for cx, cy, r in arcs:
+        minx, maxx = cx - r, cx + r
+        miny, maxy = cy - 2.5 * r, cy + r
+        members = []
+        for i, (lx0, lx1, ly) in enumerate(h_lines):
+            if used[i]:
+                continue
+            if lx1 < minx - r * 0.3 or lx0 > maxx + r * 0.3:
+                continue
+            if ly < miny or ly > maxy:
+                continue
+            members.append(i)
+        if len(members) < 2:
+            continue
+        for i in members:
+            used[i] = True
+        xs = [cx - r, cx + r] + [x for i in members for x in h_lines[i][:2]]
+        ys = [cy, cy - r] + [h_lines[i][2] for i in members]
+        bbox = (min(xs), min(ys), max(xs), max(ys))
+        shapes.append(
+            EquipmentShape(-1, "dome", bbox, (bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2)
+        )
+    return shapes
+
+
 def _snap_key(p: Tuple[float, float], eps: float) -> Tuple[int, int]:
     eps = max(eps, 1e-12)
     return (int(round(p[0] / eps)), int(round(p[1] / eps)))
@@ -159,7 +225,11 @@ def extract_equipment_shapes(doc, layer_name: str, min_circle_r: float = 1e-5, m
                         minx, miny, maxx, maxy = bbox_from_points(pts)
                         shapes.append(EquipmentShape(-1, kind, (minx, miny, maxx, maxy), (minx + maxx) / 2, (miny + maxy) / 2))
 
-    # 2. Graph cycle detection
+    # 2. Dome icons (ARC cap + housing fins) — not a closed polygon, so the
+    # cycle/polygon classifiers below never see them.
+    shapes.extend(_detect_dome_shapes(doc, layer_name))
+
+    # 3. Graph cycle detection
     eps = cycle_eps if cycle_eps is not None else max(dedup_eps * 10.0, 1e-4)
     coords, adj = _build_segment_graph(doc, layer_name, eps=eps)
     for length in [3, 4, 6]:

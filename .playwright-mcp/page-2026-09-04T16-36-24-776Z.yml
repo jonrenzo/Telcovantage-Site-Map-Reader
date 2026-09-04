@@ -1,0 +1,294 @@
+- generic [active] [ref=f2e1]:
+  - generic [ref=f2e2]:
+    - banner [ref=f2e3]:
+      - button "Back" [ref=f2e4]
+      - generic [ref=f2e7]: AsBuiltIQ
+      - navigation [ref=f2e11]:
+        - generic [ref=f2e13]:
+          - generic [ref=f2e14]: ✓
+          - generic [ref=f2e15]: Load Plan
+        - generic [ref=f2e18]:
+          - generic [ref=f2e19]: ✓
+          - generic [ref=f2e20]: Reading
+        - generic [ref=f2e23]:
+          - generic [ref=f2e24]: "3"
+          - generic [ref=f2e25]: Review
+      - button "Export" [ref=f2e27]
+    - generic [ref=f2e33]:
+      - generic [ref=f2e35]:
+        - button "🔍 OCR Review" [ref=f2e36]:
+          - generic [ref=f2e37]: 🔍
+          - text: OCR Review
+        - button "🗺️ DXF Viewer" [ref=f2e38]:
+          - generic [ref=f2e39]: 🗺️
+          - text: DXF Viewer
+        - button "⚙️ Equipment" [ref=f2e40]:
+          - generic [ref=f2e41]: ⚙️
+          - text: Equipment
+        - button "🔵 Pole IDs" [ref=f2e42]:
+          - generic [ref=f2e43]: 🔵
+          - text: Pole IDs
+      - generic [ref=f2e46]:
+        - generic [ref=f2e47]:
+          - generic [ref=f2e48]:
+            - generic [ref=f2e49]:
+              - generic [ref=f2e50]: Pole IDs
+              - button "Visible" [ref=f2e56]
+            - generic [ref=f2e60]:
+              - button "PDF_SKY-Lipa$0$RICKLEE_POLEPED" [ref=f2e1151]
+              - button "Scan" [ref=f2e1165]
+            - generic [ref=f2e1166]:
+              - paragraph [ref=f2e1167]: Found 31 poles across 1 layer
+              - paragraph [ref=f2e1168]:
+                - text: "OCR: 1/11 names resolved"
+                - generic [ref=f2e1169]: (10 need review)
+          - generic [ref=f2e1170]:
+            - textbox "Search pole name…" [ref=f2e1171]
+            - generic [ref=f2e1172]:
+              - button "A-Z" [ref=f2e1173]
+              - button "↕" [ref=f2e1174]
+          - generic [ref=f2e136]:
+            - generic [ref=f2e1176] [cursor=pointer]:
+              - generic [ref=f2e1178]:
+                - paragraph [ref=f2e1179]: NPT-031
+                - paragraph [ref=f2e1180]: (711.56, 990.45)
+              - generic [ref=f2e1181]:
+                - generic [ref=f2e1182]: 81%
+                - generic [ref=f2e1183]: STR
+                - button "✏" [ref=f2e1184]
+            - generic [ref=f2e1186] [cursor=pointer]:
+              - generic [ref=f2e1188]:
+                - paragraph [ref=f2e1189]: POLE_001
+                - paragraph [ref=f2e1190]: (721.87, 942.87)
+              - generic [ref=f2e1191]:
+                - generic [ref=f2e1192]: 41%
+                - generic [ref=f2e1193]: STR
+                - button "✏" [ref=f2e1194]
+            - generic [ref=f2e1196] [cursor=pointer]:
+              - generic [ref=f2e1198]:
+                - paragraph [ref=f2e1199]: POLE_002
+                - paragraph [ref=f2e1200]: (732.58, 891.10)
+              - generic [ref=f2e1201]:
+                - generic [ref=f2e1202]: 87%
+                - generic [ref=f2e1203]: STR
+                - button "✏" [ref=f2e1204]
+            - generic [ref=f2e1206] [cursor=pointer]:
+              - generic [ref=f2e1208]:
+                - paragraph [ref=f2e1209]: POLE_003
+                - paragraph [ref=f2e1210]: (685.41, 882.00)
+              - generic [ref=f2e1211]:
+                - generic [ref=f2e1212]: 56%
+                - generic [ref=f2e1213]: STR
+                - button "✏" [ref=f2e1214]
+            - generic [ref=f2e1216] [cursor=pointer]:
+              - generic [ref=f2e1218]:
+                - paragraph [ref=f2e1219]: NPT-029
+                - paragraph [ref=f2e1220]: (744.65, 835.38)
+              - generic [ref=f2e1221]:
+                - generic [ref=f2e1222]: STR
+                - button "✏" [ref=f2e1223]
+            - generic [ref=f2e1225] [cursor=pointer]:
+              - generic [ref=f2e1227]:
+                - paragraph [ref=f2e1228]: NPT-028
+                - paragraph [ref=f2e1229]: (751.50, 804.14)
+              - generic [ref=f2e1230]:
+                - generic [ref=f2e1231]: STR
+                - button "✏" [ref=f2e1232]
+            - generic [ref=f2e1234] [cursor=pointer]:
+              - generic [ref=f2e1236]:
+                - paragraph [ref=f2e1237]: NPT-027
+                - paragraph [ref=f2e1238]: (766.07, 737.91)
+              - generic [ref=f2e1239]:
+                - generic [ref=f2e1240]: STR
+                - button "✏" [ref=f2e1241]
+            - generic [ref=f2e1243] [cursor=pointer]:
+              - generic [ref=f2e1245]:
+                - paragraph [ref=f2e1246]: NPT-026
+                - paragraph [ref=f2e1247]: (773.97, 698.81)
+              - generic [ref=f2e1248]:
+                - generic [ref=f2e1249]: STR
+                - button "✏" [ref=f2e1250]
+            - generic [ref=f2e1252] [cursor=pointer]:
+              - generic [ref=f2e1254]:
+                - paragraph [ref=f2e1255]: NPT-025
+                - paragraph [ref=f2e1256]: (782.14, 660.61)
+              - generic [ref=f2e1257]:
+                - generic [ref=f2e1258]: STR
+                - button "✏" [ref=f2e1259]
+            - generic [ref=f2e1261] [cursor=pointer]:
+              - generic [ref=f2e1263]:
+                - paragraph [ref=f2e1264]: NPT-024
+                - paragraph [ref=f2e1265]: (797.93, 587.65)
+              - generic [ref=f2e1266]:
+                - generic [ref=f2e1267]: STR
+                - button "✏" [ref=f2e1268]
+            - generic [ref=f2e1270] [cursor=pointer]:
+              - generic [ref=f2e1272]:
+                - paragraph [ref=f2e1273]: NPT-023
+                - paragraph [ref=f2e1274]: (806.67, 547.99)
+              - generic [ref=f2e1275]:
+                - generic [ref=f2e1276]: STR
+                - button "✏" [ref=f2e1277]
+            - generic [ref=f2e1279] [cursor=pointer]:
+              - generic [ref=f2e1281]:
+                - paragraph [ref=f2e1282]: NPT-022
+                - paragraph [ref=f2e1283]: (817.25, 491.81)
+              - generic [ref=f2e1284]:
+                - generic [ref=f2e1285]: STR
+                - button "✏" [ref=f2e1286]
+            - generic [ref=f2e1288] [cursor=pointer]:
+              - generic [ref=f2e1290]:
+                - paragraph [ref=f2e1291]: NPT-033
+                - paragraph [ref=f2e1292]: (826.81, 439.38)
+              - generic [ref=f2e1293]:
+                - generic [ref=f2e1294]: 77%
+                - generic [ref=f2e1295]: STR
+                - button "✏" [ref=f2e1296]
+            - generic [ref=f2e1298] [cursor=pointer]:
+              - generic [ref=f2e1300]:
+                - paragraph [ref=f2e1301]: NPT-021
+                - paragraph [ref=f2e1302]: (835.27, 395.10)
+              - generic [ref=f2e1303]:
+                - generic [ref=f2e1304]: STR
+                - button "✏" [ref=f2e1305]
+            - generic [ref=f2e1307] [cursor=pointer]:
+              - generic [ref=f2e1309]:
+                - paragraph [ref=f2e1310]: POLE_005
+                - paragraph [ref=f2e1311]: (844.00, 349.44)
+              - generic [ref=f2e1312]:
+                - generic [ref=f2e1313]: 95%
+                - generic [ref=f2e1314]: STR
+                - button "✏" [ref=f2e1315]
+            - generic [ref=f2e1317] [cursor=pointer]:
+              - generic [ref=f2e1319]:
+                - paragraph [ref=f2e1320]: POLE_006
+                - paragraph [ref=f2e1321]: (852.68, 307.47)
+              - generic [ref=f2e1322]:
+                - generic [ref=f2e1323]: 95%
+                - generic [ref=f2e1324]: STR
+                - button "✏" [ref=f2e1325]
+            - generic [ref=f2e1327] [cursor=pointer]:
+              - generic [ref=f2e1329]:
+                - paragraph [ref=f2e1330]: NPT-032
+                - paragraph [ref=f2e1331]: (860.04, 272.02)
+              - generic [ref=f2e1332]:
+                - generic [ref=f2e1333]: 81%
+                - generic [ref=f2e1334]: STR
+                - button "✏" [ref=f2e1335]
+            - generic [ref=f2e1337] [cursor=pointer]:
+              - generic [ref=f2e1339]:
+                - paragraph [ref=f2e1340]: "0"
+                - paragraph [ref=f2e1341]: (709.13, 264.13)
+              - generic [ref=f2e1342]:
+                - generic [ref=f2e1343]: 82%
+                - generic [ref=f2e1344]: STR
+                - button "✏" [ref=f2e1345]
+            - generic [ref=f2e1347] [cursor=pointer]:
+              - generic [ref=f2e1349]:
+                - paragraph [ref=f2e1350]: NPT-017
+                - paragraph [ref=f2e1351]: (702.72, 236.48)
+              - generic [ref=f2e1352]:
+                - generic [ref=f2e1353]: STR
+                - button "✏" [ref=f2e1354]
+            - generic [ref=f2e1356] [cursor=pointer]:
+              - generic [ref=f2e1358]:
+                - paragraph [ref=f2e1359]: NPT-011
+                - paragraph [ref=f2e1360]: (870.75, 204.63)
+              - generic [ref=f2e1361]:
+                - generic [ref=f2e1362]: STR
+                - button "✏" [ref=f2e1363]
+            - generic [ref=f2e1365] [cursor=pointer]:
+              - generic [ref=f2e1367]:
+                - paragraph [ref=f2e1368]: NPT-012
+                - paragraph [ref=f2e1369]: (841.80, 201.08)
+              - generic [ref=f2e1370]:
+                - generic [ref=f2e1371]: STR
+                - button "✏" [ref=f2e1372]
+            - generic [ref=f2e1374] [cursor=pointer]:
+              - generic [ref=f2e1376]:
+                - paragraph [ref=f2e1377]: NPT-016
+                - paragraph [ref=f2e1378]: (722.27, 194.09)
+              - generic [ref=f2e1379]:
+                - generic [ref=f2e1380]: STR
+                - button "✏" [ref=f2e1381]
+            - generic [ref=f2e1383] [cursor=pointer]:
+              - generic [ref=f2e1385]:
+                - paragraph [ref=f2e1386]: NPT-013
+                - paragraph [ref=f2e1387]: (813.19, 189.03)
+              - generic [ref=f2e1388]:
+                - generic [ref=f2e1389]: STR
+                - button "✏" [ref=f2e1390]
+            - generic [ref=f2e1392] [cursor=pointer]:
+              - generic [ref=f2e1394]:
+                - paragraph [ref=f2e1395]: NPT-014
+                - paragraph [ref=f2e1396]: (767.41, 169.13)
+              - generic [ref=f2e1397]:
+                - generic [ref=f2e1398]: STR
+                - button "✏" [ref=f2e1399]
+            - generic [ref=f2e1401] [cursor=pointer]:
+              - generic [ref=f2e1403]:
+                - paragraph [ref=f2e1404]: NPT-020
+                - paragraph [ref=f2e1405]: (699.54, 166.14)
+              - generic [ref=f2e1406]:
+                - generic [ref=f2e1407]: STR
+                - button "✏" [ref=f2e1408]
+            - generic [ref=f2e1410] [cursor=pointer]:
+              - generic [ref=f2e1412]:
+                - paragraph [ref=f2e1413]: NPT-015
+                - paragraph [ref=f2e1414]: (733.41, 154.12)
+              - generic [ref=f2e1415]:
+                - generic [ref=f2e1416]: STR
+                - button "✏" [ref=f2e1417]
+            - generic [ref=f2e1419] [cursor=pointer]:
+              - generic [ref=f2e1421]:
+                - paragraph [ref=f2e1422]: NPT-034
+                - paragraph [ref=f2e1423]: (882.22, 147.12)
+              - generic [ref=f2e1424]:
+                - generic [ref=f2e1425]: 77%
+                - generic [ref=f2e1426]: STR
+                - button "✏" [ref=f2e1427]
+            - generic [ref=f2e1429] [cursor=pointer]:
+              - generic [ref=f2e1431]:
+                - paragraph [ref=f2e1432]: NPT-018
+                - paragraph [ref=f2e1433]: (715.86, 130.62)
+              - generic [ref=f2e1434]:
+                - generic [ref=f2e1435]: STR
+                - button "✏" [ref=f2e1436]
+            - generic [ref=f2e1438] [cursor=pointer]:
+              - generic [ref=f2e1440]:
+                - paragraph [ref=f2e1441]: NPT-019
+                - paragraph [ref=f2e1442]: (672.27, 122.06)
+              - generic [ref=f2e1443]:
+                - generic [ref=f2e1444]: STR
+                - button "✏" [ref=f2e1445]
+            - generic [ref=f2e1447] [cursor=pointer]:
+              - generic [ref=f2e1449]:
+                - paragraph [ref=f2e1450]: NPT-030
+                - paragraph [ref=f2e1451]: (892.74, 90.50)
+              - generic [ref=f2e1452]:
+                - generic [ref=f2e1453]: STR
+                - button "✏" [ref=f2e1454]
+            - generic [ref=f2e1456] [cursor=pointer]:
+              - generic [ref=f2e1458]:
+                - paragraph [ref=f2e1459]: NPT-035
+                - paragraph [ref=f2e1460]: (899.89, 47.82)
+              - generic [ref=f2e1461]:
+                - generic [ref=f2e1462]: 76%
+                - generic [ref=f2e1463]: STR
+                - button "✏" [ref=f2e1464]
+          - generic [ref=f2e1465]:
+            - generic [ref=f2e1466]: 31 / 31 poles
+            - button "Add Pole" [ref=f2e1468]
+        - generic [ref=f2e463]:
+          - button "Fit to view" [ref=f2e465]
+          - button "🌍 Insert Coordinates" [ref=f2e1471]
+          - generic [ref=f2e469]:
+            - generic [ref=f2e470]: Pole label
+            - generic [ref=f2e473]:
+              - generic [ref=f2e474]: TXT
+              - generic [ref=f2e475]: Text entity
+            - generic [ref=f2e476]:
+              - generic [ref=f2e477]: STR
+              - generic [ref=f2e478]: Stroked polylines
+  - button "Open Next.js Dev Tools" [ref=f2e484] [cursor=pointer]
+  - alert [ref=f2e488]

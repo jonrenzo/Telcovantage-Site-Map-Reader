@@ -1,0 +1,273 @@
+- generic [ref=f3e2]:
+  - generic [ref=f3e4]:
+    - region "scrollable content" [ref=f3e9]:
+      - list [ref=f3e12]:
+        - listitem [ref=f3e13]: Main
+        - listitem [ref=f3e14]:
+          - link "Dashboard" [ref=f3e15] [cursor=pointer]:
+            - /url: /dashboard
+        - listitem [ref=f3e19]: Operations
+        - listitem [ref=f3e20]:
+          - link "Live Onsite Map" [ref=f3e21] [cursor=pointer]:
+            - /url: /field/live
+        - listitem [ref=f3e25]:
+          - link "Node List" [ref=f3e26] [cursor=pointer]:
+            - /url: /sites
+        - listitem [ref=f3e29]:
+          - link "Span List" [ref=f3e30] [cursor=pointer]:
+            - /url: /spans
+        - listitem [ref=f3e35]:
+          - link "Pole Master 󰅂" [ref=f3e36] [cursor=pointer]:
+            - /url: "javascript:throw new Error('React has blocked a javascript: URL as a security precaution.')"
+        - listitem [ref=f3e40]:
+          - link "NAP Inventory 󰅂" [ref=f3e41] [cursor=pointer]:
+            - /url: "javascript:throw new Error('React has blocked a javascript: URL as a security precaution.')"
+        - listitem [ref=f3e45]: Warehouse
+        - listitem [ref=f3e46]:
+          - link "Warehouses" [ref=f3e47] [cursor=pointer]:
+            - /url: /warehouses
+        - listitem [ref=f3e51]:
+          - link "Material Inventory" [ref=f3e52] [cursor=pointer]:
+            - /url: /warehouse/inventory
+        - listitem [ref=f3e57]:
+          - link "Delivery Tracker" [ref=f3e58] [cursor=pointer]:
+            - /url: /warehouse/inventory?tab=deliveries
+        - listitem [ref=f3e64]:
+          - link "Transfer Deliveries" [ref=f3e65] [cursor=pointer]:
+            - /url: /warehouses/deliveries
+        - listitem [ref=f3e68]: Reports
+        - listitem [ref=f3e69]:
+          - link "Teardown Logs" [ref=f3e70] [cursor=pointer]:
+            - /url: /reports/teardown-logs
+        - listitem [ref=f3e74]:
+          - link "Teardown Monitoring" [ref=f3e75] [cursor=pointer]:
+            - /url: /reports/teardown-monitoring
+        - listitem [ref=f3e78]:
+          - link "Audit Reports 󰅂" [expanded] [ref=f3e79] [cursor=pointer]:
+            - /url: "javascript:throw new Error('React has blocked a javascript: URL as a security precaution.')"
+          - list [ref=f3e81]:
+            - listitem [ref=f3e82]:
+              - link "Daily Reports" [ref=f3e83] [cursor=pointer]:
+                - /url: /dailyreports
+            - listitem [ref=f3e84]:
+              - link "RTD Reports" [ref=f3e85] [cursor=pointer]:
+                - /url: /reports/rtd
+            - listitem [ref=f3e86]:
+              - link "Vicinity Maps" [ref=f3e87] [cursor=pointer]:
+                - /url: /reports/vicinity
+            - listitem [ref=f3e89]:
+              - link "Pole Reports" [ref=f3e90] [cursor=pointer]:
+                - /url: /reports/pole-reports
+            - listitem [ref=f3e91]:
+              - link "Red Line Reports" [ref=f3e92] [cursor=pointer]:
+                - /url: /reports/redline
+        - listitem [ref=f3e93]: Teams
+        - listitem [ref=f3e94]:
+          - link "Subcontractors" [ref=f3e95] [cursor=pointer]:
+            - /url: /subcontractors
+        - listitem [ref=f3e99]:
+          - link "Support Tickets" [ref=f3e100] [cursor=pointer]:
+            - /url: /support/tickets
+        - listitem [ref=f3e103]: System
+        - listitem [ref=f3e104]:
+          - link "User Management 󰅂" [ref=f3e105] [cursor=pointer]:
+            - /url: "javascript:throw new Error('React has blocked a javascript: URL as a security precaution.')"
+        - listitem [ref=f3e111]:
+          - link "Maintenance Mode" [ref=f3e112] [cursor=pointer]:
+            - /url: /maintenance
+        - listitem [ref=f3e115]:
+          - link "Recycle Bin" [ref=f3e116] [cursor=pointer]:
+            - /url: /recycle-bin
+    - button "A admin@telcovantage.com admin" [ref=f3e120] [cursor=pointer]:
+      - generic [ref=f3e121]: A
+      - generic [ref=f3e122]:
+        - paragraph [ref=f3e123]: admin@telcovantage.com
+        - paragraph [ref=f3e124]: admin
+  - navigation [ref=f3e127]:
+    - generic [ref=f3e128]:
+      - generic [ref=f3e129]:
+        - link [ref=f3e131] [cursor=pointer]:
+          - /url: "#"
+          - img "Logo" [ref=f3e132]
+        - button "Toggle menu" [ref=f3e133] [cursor=pointer]:
+          - generic [ref=f3e134]: 
+        - link [ref=f3e135] [cursor=pointer]:
+          - /url: "#"
+          - img "Logo" [ref=f3e136]
+      - generic [ref=f3e137]:
+        - generic [ref=f3e139]:
+          - textbox "Search..." [ref=f3e140]
+          - button "" [ref=f3e141] [cursor=pointer]
+        - generic [ref=f3e143]:
+          - button "" [ref=f3e144] [cursor=pointer]
+          - button [ref=f3e147] [cursor=pointer]
+          - button [ref=f3e155] [cursor=pointer]
+          - button "TS Telcovantage S. 󰅀" [ref=f3e160] [cursor=pointer]:
+            - generic [ref=f3e161]: TS
+            - generic [ref=f3e162]: Telcovantage S.
+            - generic [ref=f3e163]: 󰅀
+  - generic [ref=f3e164]:
+    - generic [ref=f3e167]:
+      - generic [ref=f3e168]:
+        - generic [ref=f3e169]:
+          - generic [ref=f3e170]:
+            - generic [ref=f3e171]: Vicinity Reports
+            - heading "NCR" [level=2] [ref=f3e278]
+            - paragraph [ref=f3e174]: Review node readiness, cable recovery, and map access for the selected site from one cleaner control surface.
+            - generic [ref=f3e175]:
+              - generic [ref=f3e176]:
+                - paragraph [ref=f3e177]: Coverage
+                - paragraph [ref=f3e178]: Site Focus
+              - generic [ref=f3e179]:
+                - paragraph [ref=f3e180]: Status
+                - paragraph [ref=f3e181]: 0 ready
+              - generic [ref=f3e182]:
+                - paragraph [ref=f3e183]: Target
+                - paragraph [ref=f3e184]: Node Maps
+          - generic [ref=f3e185]:
+            - generic [ref=f3e187]:
+              - generic [ref=f3e188]:
+                - paragraph [ref=f3e189]: Visible Nodes
+                - paragraph [ref=f3e190]: "3"
+                - paragraph [ref=f3e191]: matching current filters
+              - generic [ref=f3e192]: 
+            - generic [ref=f3e195]:
+              - generic [ref=f3e196]:
+                - paragraph [ref=f3e197]: Recovery
+                - paragraph [ref=f3e198]: 0%
+                - paragraph [ref=f3e199]: collected vs expected cable
+              - generic [ref=f3e200]: 
+        - generic [ref=f3e202]:
+          - button " All Sites" [ref=f3e279] [cursor=pointer]:
+            - generic [ref=f3e280]: 
+            - text: All Sites
+          - generic [ref=f3e204]: NCR
+      - generic [ref=f3e282]:
+        - generic [ref=f3e285]:
+          - generic [ref=f3e286]:
+            - paragraph [ref=f3e287]: Total Nodes
+            - paragraph [ref=f3e288]: "3"
+            - paragraph [ref=f3e289]: current result set
+          - generic [ref=f3e290]: 
+        - generic [ref=f3e294]:
+          - generic [ref=f3e295]:
+            - paragraph [ref=f3e296]: In Progress
+            - paragraph [ref=f3e297]: "3"
+            - paragraph [ref=f3e298]: active recovery work
+          - generic [ref=f3e299]: 
+        - generic [ref=f3e303]:
+          - generic [ref=f3e304]:
+            - paragraph [ref=f3e305]: Pending
+            - paragraph [ref=f3e306]: "0"
+            - paragraph [ref=f3e307]: awaiting work
+          - generic [ref=f3e308]: 
+        - generic [ref=f3e312]:
+          - generic [ref=f3e313]:
+            - paragraph [ref=f3e314]: Recovery
+            - paragraph [ref=f3e315]: 0%
+            - paragraph [ref=f3e316]: 170.0m of 0.0m
+          - generic [ref=f3e317]: 
+      - generic [ref=f3e319]:
+        - generic [ref=f3e320]:
+          - generic [ref=f3e321]:
+            - paragraph [ref=f3e322]: Node Directory
+            - heading "Nodes in NCR" [level=3] [ref=f3e323]
+            - paragraph [ref=f3e324]: Search and open the correct node map without dealing with dense, repetitive cards.
+          - generic [ref=f3e325]:
+            - generic [ref=f3e326]: 3 results
+            - generic [ref=f3e327]: 0.0m expected
+        - generic [ref=f3e328]:
+          - generic [ref=f3e329]:
+            - generic [ref=f3e330]:
+              - generic [ref=f3e331]: 
+              - textbox "Search node name, label, or area..." [ref=f3e332]
+            - generic [ref=f3e333]:
+              - generic [ref=f3e334]: 0 completed
+              - generic [ref=f3e335]: 0 pending
+          - generic [ref=f3e336]:
+            - button "LP1709 In Progress Telcovantage Philippines LP1709 NCR  Progress 0% Expected 0.0m Collected 0.0m Recovery 0% View map " [ref=f3e337] [cursor=pointer]:
+              - generic [ref=f3e339]:
+                - generic [ref=f3e340]: LP1709
+                - generic [ref=f3e341]: In Progress
+              - img "Telcovantage Philippines" [ref=f3e344]
+              - generic [ref=f3e345]:
+                - generic [ref=f3e346]:
+                  - heading "LP1709" [level=3] [ref=f3e347]
+                  - paragraph [ref=f3e348]: NCR
+                - generic [ref=f3e349]: 
+              - generic [ref=f3e352]:
+                - paragraph [ref=f3e353]: Progress
+                - paragraph [ref=f3e354]: 0%
+              - generic [ref=f3e357]:
+                - generic [ref=f3e358]:
+                  - paragraph [ref=f3e359]: Expected
+                  - paragraph [ref=f3e360]: 0.0m
+                - generic [ref=f3e361]:
+                  - paragraph [ref=f3e362]: Collected
+                  - paragraph [ref=f3e363]: 0.0m
+                - generic [ref=f3e364]:
+                  - paragraph [ref=f3e365]: Recovery
+                  - paragraph [ref=f3e366]: 0%
+              - generic [ref=f3e368]:
+                - text: View map
+                - generic [ref=f3e369]: 
+            - button "MR1034 In Progress Telcovantage Philippines MR1034 NCR  Progress 6% Expected 0.0m Collected 170.0m Recovery 0% View map " [ref=f3e370] [cursor=pointer]:
+              - generic [ref=f3e372]:
+                - generic [ref=f3e373]: MR1034
+                - generic [ref=f3e374]: In Progress
+              - img "Telcovantage Philippines" [ref=f3e377]
+              - generic [ref=f3e378]:
+                - generic [ref=f3e379]:
+                  - heading "MR1034" [level=3] [ref=f3e380]
+                  - paragraph [ref=f3e381]: NCR
+                - generic [ref=f3e382]: 
+              - generic [ref=f3e385]:
+                - paragraph [ref=f3e386]: Progress
+                - paragraph [ref=f3e387]: 6%
+              - generic [ref=f3e390]:
+                - generic [ref=f3e391]:
+                  - paragraph [ref=f3e392]: Expected
+                  - paragraph [ref=f3e393]: 0.0m
+                - generic [ref=f3e394]:
+                  - paragraph [ref=f3e395]: Collected
+                  - paragraph [ref=f3e396]: 170.0m
+                - generic [ref=f3e397]:
+                  - paragraph [ref=f3e398]: Recovery
+                  - paragraph [ref=f3e399]: 0%
+              - generic [ref=f3e401]:
+                - text: View map
+                - generic [ref=f3e402]: 
+            - button "QC9075 In Progress Telcovantage Philippines QC9075 NCR  Progress 0% Expected 0.0m Collected 0.0m Recovery 0% View map " [ref=f3e403] [cursor=pointer]:
+              - generic [ref=f3e405]:
+                - generic [ref=f3e406]: QC9075
+                - generic [ref=f3e407]: In Progress
+              - img "Telcovantage Philippines" [ref=f3e410]
+              - generic [ref=f3e411]:
+                - generic [ref=f3e412]:
+                  - heading "QC9075" [level=3] [ref=f3e413]
+                  - paragraph [ref=f3e414]: NCR
+                - generic [ref=f3e415]: 
+              - generic [ref=f3e418]:
+                - paragraph [ref=f3e419]: Progress
+                - paragraph [ref=f3e420]: 0%
+              - generic [ref=f3e423]:
+                - generic [ref=f3e424]:
+                  - paragraph [ref=f3e425]: Expected
+                  - paragraph [ref=f3e426]: 0.0m
+                - generic [ref=f3e427]:
+                  - paragraph [ref=f3e428]: Collected
+                  - paragraph [ref=f3e429]: 0.0m
+                - generic [ref=f3e430]:
+                  - paragraph [ref=f3e431]: Recovery
+                  - paragraph [ref=f3e432]: 0%
+              - generic [ref=f3e434]:
+                - text: View map
+                - generic [ref=f3e435]: 
+    - contentinfo [ref=f3e268]:
+      - generic [ref=f3e269]:
+        - generic [ref=f3e270]: © 2026 Telcovantage Philippines
+        - generic [ref=f3e271]:
+          - text: Design & Develop by
+          - link "Telcovantage Developers" [ref=f3e272] [cursor=pointer]:
+            - /url: "#"
+  - button [ref=f3e275] [cursor=pointer]

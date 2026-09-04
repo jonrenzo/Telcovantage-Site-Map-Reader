@@ -1,0 +1,2 @@
+[      84ms] [LOG] ðŸ“¥ Received active named poles from As-built: [Object, Object, Object, Object, Object, Object, Object, Object, Object, Object, Object, Object, Object, Object, Object, Object, Object, Object, Object, Object, Object, Object, Object, Object, Object, Object, Object, Object, Object, Object, Object] @ http://localhost:8000/?dxf_path=C%3A%5Czander%5CTelcovantage-Site-Map-Reader%5Cuploads%5CLPA120.dxf:726
+[     335ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:8000/favicon.ico:0

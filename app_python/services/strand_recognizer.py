@@ -238,6 +238,16 @@ def _load_easyocr():
     return _easyocr_reader
 
 
+# Labels on the distance layer are digits followed by a unit suffix
+# ("38m"), not bare numbers. A digit-only allowlist can't recognise the "m"
+# as a letter, so it forces that glyph into the closest digit shape instead
+# — "38m" came back "380", which still passes the 1-500 valid-value check
+# and silently corrupts the reading. Allowing "m"/"M" lets EasyOCR read it
+# correctly; _clean() already strips non-digit characters afterward, so the
+# stored value is still the bare number.
+_ALLOWLIST = "0123456789mM"
+
+
 def _easyocr_read(img_bw: np.ndarray) -> Tuple[str, float]:
     """Run EasyOCR on a black-on-white image. Returns (cleaned_text, conf)."""
     reader = _load_easyocr()
@@ -246,10 +256,10 @@ def _easyocr_read(img_bw: np.ndarray) -> Tuple[str, float]:
     try:
         results = reader.recognize(
             padded, horizontal_list=[[0, pw, 0, ph]], free_list=[],
-            allowlist="0123456789", detail=1,
+            allowlist=_ALLOWLIST, detail=1,
         )
     except Exception:
-        results = reader.readtext(padded, allowlist="0123456789", detail=1, paragraph=False)
+        results = reader.readtext(padded, allowlist=_ALLOWLIST, detail=1, paragraph=False)
 
     if not results:
         return "", 0.0

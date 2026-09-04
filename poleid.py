@@ -18,6 +18,12 @@ class TextLabel:
     # rasterising the whole layer around the bbox, which drags the pole circle
     # and neighbouring labels into every crop.
     segments: List["Seg"] = field(default_factory=list)
+    # DXF layer this label's own geometry came from. A drafter can split a
+    # pole's marker (circle) and its tag (text) across two different layers
+    # that happen to share a naming pattern like "...POLE NUMBER" and
+    # "...POLEPED" — callers matching across several pooled layers need this
+    # to know which layer to re-query for a fallback OCR crop.
+    layer: str = ""
 
 
 @dataclass
@@ -25,6 +31,7 @@ class CircleMarker:
     x: float
     y: float
     r: float
+    layer: str = ""
 
 
 @dataclass
@@ -33,6 +40,7 @@ class Seg:
     y1: float
     x2: float
     y2: float
+    layer: str = ""
 
     def p1(self) -> Tuple[float, float]:
         return (self.x1, self.y1)
@@ -62,6 +70,12 @@ class PoleIdConfig:
     stroke_max_dom_dir: float = 0.97
     stroke_max_endpoints: int = 24
     stroke_placeholder_prefix: str = "POLE"
+    # Some drawings draw every character of a label as its own disconnected
+    # polyline — a gap wider than stroke_connect_tol but still clearly one
+    # word. See _merge_baseline_clusters.
+    stroke_baseline_merge: bool = True
+    stroke_baseline_valign_factor: float = 0.5
+    stroke_baseline_gap_factor: float = 1.5
 
     # Circle handling
     use_circle_markers: bool = False
@@ -70,7 +84,14 @@ class PoleIdConfig:
     default_text_height: float = 0.25
 
 
-_POLEID_RE = re.compile(r"^(?:NPT|[A-Z]{0,2}\d+(?:-\d+)?)$", re.IGNORECASE)
+# Prefixes vary per site (IML, CUB, CVSY, ...) with no fixed length rule; the
+# old two-letter cap silently dropped valid 3+-letter-prefix IDs like
+# "IML-115" before they ever reached circle-matching. Mirrors the fix already
+# applied to app_python/services/pole_ocr.py's _POLEID_RE — including the
+# optional hyphen between the letter prefix and the number, without which
+# "IML-115"/"CUB-508" still wouldn't match (the letters run straight into
+# "-", not into a digit).
+_POLEID_RE = re.compile(r"^(?:NPT|[A-Z]{0,5}-?\d+(?:-\d+)?)$", re.IGNORECASE)
 
 
 def clean_label(s: str) -> str:
@@ -132,6 +153,7 @@ def extract_text_labels_from_entities(
                     h,
                     bbox=_estimate_text_bbox(x, y, txt, h),
                     source="text",
+                    layer=str(getattr(e.dxf, "layer", "") or ""),
                 )
             )
 
@@ -154,19 +176,76 @@ def extract_text_labels_from_entities(
                     h,
                     bbox=_estimate_text_bbox(x, y, txt, h),
                     source="mtext",
+                    layer=str(getattr(e.dxf, "layer", "") or ""),
                 )
             )
 
     return labels
 
 
+def _approx_circle_from_closed_poly(
+    pts: List[Tuple[float, float]],
+    min_vertices: int = 8,
+    max_radius_rel_std: float = 0.15,
+) -> Optional[Tuple[float, float, float]]:
+    """(cx, cy, r) if a closed polygon's vertices approximate a circle.
+
+    Some drawings draw a pole's circle marker as a many-sided closed
+    LWPOLYLINE (a drafting-software circle approximation) instead of a true
+    CIRCLE entity — invisible to a CIRCLE-only scan, so that pole's marker
+    (and anything matched to it) silently didn't exist as far as the matcher
+    was concerned. A regular polygon with enough vertices and a tight,
+    near-constant centroid distance reads as a circle; anything with sharp
+    corners or few vertices (a rectangle, a triangle, real linework) does
+    not.
+    """
+    n = len(pts)
+    if n < min_vertices:
+        return None
+    cx = sum(p[0] for p in pts) / n
+    cy = sum(p[1] for p in pts) / n
+    dists = [math.hypot(p[0] - cx, p[1] - cy) for p in pts]
+    mean_r = sum(dists) / n
+    if mean_r < 1e-9:
+        return None
+    variance = sum((d - mean_r) ** 2 for d in dists) / n
+    rel_std = math.sqrt(variance) / mean_r
+    if rel_std > max_radius_rel_std:
+        return None
+    return (cx, cy, mean_r)
+
+
 def extract_circle_markers_from_entities(entities: List[Any]) -> List[CircleMarker]:
     circles: List[CircleMarker] = []
     for e in entities:
-        if e.dxftype() == "CIRCLE":
+        t = e.dxftype()
+        if t == "CIRCLE":
             c = e.dxf.center
             r = float(e.dxf.radius)
-            circles.append(CircleMarker(float(c.x), float(c.y), r))
+            circles.append(
+                CircleMarker(
+                    float(c.x),
+                    float(c.y),
+                    r,
+                    layer=str(getattr(e.dxf, "layer", "") or ""),
+                )
+            )
+        elif t == "LWPOLYLINE" and bool(e.closed):
+            pts = [(float(x), float(y)) for x, y, *_ in e.get_points("xy")]
+            approx = _approx_circle_from_closed_poly(pts)
+            if approx:
+                cx, cy, r = approx
+                circles.append(
+                    CircleMarker(cx, cy, r, layer=str(getattr(e.dxf, "layer", "") or ""))
+                )
+        elif t == "POLYLINE" and bool(e.is_closed):
+            pts = [(float(v.dxf.location.x), float(v.dxf.location.y)) for v in e.vertices]
+            approx = _approx_circle_from_closed_poly(pts)
+            if approx:
+                cx, cy, r = approx
+                circles.append(
+                    CircleMarker(cx, cy, r, layer=str(getattr(e.dxf, "layer", "") or ""))
+                )
     return circles
 
 
@@ -176,34 +255,54 @@ def match_poleids_to_circles(
     max_dist_factor: float = 4.0,
     default_text_height: float = 0.25,
 ) -> List[Tuple[TextLabel, Optional[CircleMarker]]]:
-    out: List[Tuple[TextLabel, Optional[CircleMarker]]] = []
+    """Pair each label with the circle it names.
 
+    Exclusive greedy assignment: every (label, circle) pair within the
+    distance gate is a candidate, closest first, and a candidate is only
+    taken if neither side has already been claimed. A plain nearest-circle-
+    per-label match lets two different poles' circles and labels cross-match
+    in a tight cluster (e.g. a circle-with-X sitting next to a plain circle),
+    which then reads as two circles sharing one name downstream. Exclusivity
+    prevents that: once a circle is claimed by its true nearest label, it's
+    no longer available to a second, more distant label.
+    """
     if not circles:
-        for lab in labels:
-            out.append((lab, None))
-        return out
+        return [(lab, None) for lab in labels]
 
-    for lab in labels:
+    candidates: List[Tuple[float, int, int]] = []
+    for li, lab in enumerate(labels):
         th = lab.height if lab.height > 1e-9 else default_text_height
-
-        best = None
-        best_d2 = 1e18
-        for c in circles:
-            dx = lab.x - c.x
-            dy = lab.y - c.y
+        for ci, c in enumerate(circles):
+            # Nearest point on the label's own bbox, not its centroid — a
+            # wide multi-character word's centroid sits proportionally
+            # farther from an adjacent marker than a short one's would,
+            # which under-counted a label's true (edge) distance to the
+            # circle it names as its width grew.
+            if lab.bbox is not None:
+                bx0, by0, bx1, by1 = lab.bbox
+                dx = max(bx0 - c.x, 0.0, c.x - bx1)
+                dy = max(by0 - c.y, 0.0, c.y - by1)
+            else:
+                dx = lab.x - c.x
+                dy = lab.y - c.y
             d2 = dx * dx + dy * dy
-            if d2 < best_d2:
-                best_d2 = d2
-                best = c
+            gate = max_dist_factor * max(th, c.r, 1e-6)
+            if d2 <= gate * gate:
+                candidates.append((d2, li, ci))
 
-        if best is None:
-            out.append((lab, None))
+    candidates.sort(key=lambda t: t[0])
+
+    assigned_label: Set[int] = set()
+    assigned_circle: Set[int] = set()
+    match: Dict[int, CircleMarker] = {}
+    for d2, li, ci in candidates:
+        if li in assigned_label or ci in assigned_circle:
             continue
+        assigned_label.add(li)
+        assigned_circle.add(ci)
+        match[li] = circles[ci]
 
-        gate = max_dist_factor * max(th, best.r, 1e-6)
-        out.append((lab, best if best_d2 <= gate * gate else None))
-
-    return out
+    return [(lab, match.get(li)) for li, lab in enumerate(labels)]
 
 
 def match_poleids_to_circles_from_entities(
@@ -281,7 +380,134 @@ def _segmentize_polyline_points(pts: List[Tuple[float, float]], closed: bool) ->
     return segs
 
 
+def _segment_intersection(
+    p1: Tuple[float, float],
+    p2: Tuple[float, float],
+    p3: Tuple[float, float],
+    p4: Tuple[float, float],
+) -> Optional[Tuple[float, float]]:
+    """Intersection point of segments p1-p2 and p3-p4, or None if they don't cross."""
+    x1, y1 = p1
+    x2, y2 = p2
+    x3, y3 = p3
+    x4, y4 = p4
+    d = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
+    if abs(d) < 1e-12:
+        return None
+    t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / d
+    u = ((x1 - x3) * (y1 - y2) - (y1 - y3) * (x1 - x2)) / d
+    if not (0.0 <= t <= 1.0 and 0.0 <= u <= 1.0):
+        return None
+    return (x1 + t * (x2 - x1), y1 + t * (y2 - y1))
+
+
+def _line_like_endpoints(e: Any) -> Optional[Tuple[Tuple[float, float], Tuple[float, float]]]:
+    """(p1, p2) for a LINE, or a 2-vertex open LWPOLYLINE drawn as a line."""
+    t = e.dxftype()
+    if t == "LINE":
+        return (
+            (float(e.dxf.start.x), float(e.dxf.start.y)),
+            (float(e.dxf.end.x), float(e.dxf.end.y)),
+        )
+    if t == "LWPOLYLINE" and not bool(e.closed):
+        pts = [(float(x), float(y)) for x, y, *_ in e.get_points("xy")]
+        if len(pts) == 2:
+            return (pts[0], pts[1])
+    return None
+
+
+def _circle_marker_polygon_ids(entities: List[Any]) -> Set[int]:
+    """id() of closed LWPOLYLINE/POLYLINE entities that approximate a circle.
+
+    Their ring segments aren't label lettering — excluded from the stroke
+    pool the same way a true CIRCLE entity already is (see
+    _extract_stroke_segments_from_entities), so a many-sided circle
+    approximation doesn't get treated as (or merged into) candidate text.
+    """
+    ids: Set[int] = set()
+    for e in entities:
+        t = e.dxftype()
+        if t == "LWPOLYLINE" and bool(e.closed):
+            pts = [(float(x), float(y)) for x, y, *_ in e.get_points("xy")]
+        elif t == "POLYLINE" and bool(e.is_closed):
+            pts = [(float(v.dxf.location.x), float(v.dxf.location.y)) for v in e.vertices]
+        else:
+            continue
+        if _approx_circle_from_closed_poly(pts):
+            ids.add(id(e))
+    return ids
+
+
+def _circle_x_mark_line_ids(entities: List[Any], circles: List[CircleMarker]) -> Set[int]:
+    """Line-like entities that form the "X" through a circle marker's center.
+
+    A circle-with-X pole symbol is drawn as a circle (a true CIRCLE entity,
+    or a many-sided closed polyline approximating one) plus two crossing
+    lines (LINE entities, or 2-vertex open polylines drawn as a line).
+    Those lines aren't the marker's name — they're part of the marker itself
+    — but nothing in the DXF ties them to the circle, so left alone they
+    fall into the generic stroke pool and can get unioned by proximity into
+    a neighbouring label's cluster, corrupting its OCR. Excluding them here
+    keeps the marker's own X out of every label's stroke cluster.
+    """
+    if not circles:
+        return set()
+
+    lines = [e for e in entities if _line_like_endpoints(e) is not None]
+    if len(lines) < 2:
+        return set()
+
+    excluded: Set[int] = set()
+    for circ in circles:
+        center = (circ.x, circ.y)
+        candidates = [
+            e
+            for e in lines
+            if id(e) not in excluded
+            and _dist2(
+                tuple(
+                    (a + b) / 2.0 for a, b in zip(*_line_like_endpoints(e))
+                ),
+                center,
+            )
+            <= (circ.r * 1.5) ** 2
+        ]
+        if len(candidates) < 2:
+            continue
+
+        found = False
+        for i in range(len(candidates)):
+            if found:
+                break
+            for j in range(i + 1, len(candidates)):
+                a, b = candidates[i], candidates[j]
+                p1, p2 = _line_like_endpoints(a)
+                p3, p4 = _line_like_endpoints(b)
+
+                pt = _segment_intersection(p1, p2, p3, p4)
+                if pt is None or _dist2(pt, center) > (circ.r * 0.6) ** 2:
+                    continue
+
+                a_ang = math.atan2(p2[1] - p1[1], p2[0] - p1[0])
+                b_ang = math.atan2(p4[1] - p3[1], p4[0] - p3[0])
+                diff = abs((a_ang - b_ang + math.pi) % (2 * math.pi) - math.pi)
+                diff = min(diff, math.pi - diff)
+                if diff < math.radians(30):
+                    # Near-parallel lines crossing at the center aren't an X.
+                    continue
+
+                excluded.add(id(a))
+                excluded.add(id(b))
+                found = True
+                break
+
+    return excluded
+
+
 def _extract_stroke_segments_from_entities(entities: List[Any]) -> List[Seg]:
+    circles = extract_circle_markers_from_entities(entities)
+    excluded_line_ids = _circle_x_mark_line_ids(entities, circles)
+    excluded_line_ids |= _circle_marker_polygon_ids(entities)
     segments: List[Seg] = []
 
     def arc_steps_for(r: float, a0: float, a1: float) -> int:
@@ -305,16 +531,25 @@ def _extract_stroke_segments_from_entities(entities: List[Any]) -> List[Seg]:
             # CIRCLE is intentionally ignored for pole-name stroke recognition.
             continue
 
+        layer = str(getattr(e.dxf, "layer", "") or "")
+        before = len(segments)
+
         if t == "LINE":
+            if id(e) in excluded_line_ids:
+                continue
             p1 = e.dxf.start
             p2 = e.dxf.end
             segments.append(Seg(float(p1.x), float(p1.y), float(p2.x), float(p2.y)))
 
         elif t == "LWPOLYLINE":
+            if id(e) in excluded_line_ids:
+                continue
             pts = [(float(x), float(y)) for x, y, *_ in e.get_points("xy")]
             segments.extend(_segmentize_polyline_points(pts, closed=bool(e.closed)))
 
         elif t == "POLYLINE":
+            if id(e) in excluded_line_ids:
+                continue
             pts = [(float(v.dxf.location.x), float(v.dxf.location.y)) for v in e.vertices]
             segments.extend(_segmentize_polyline_points(pts, closed=bool(e.is_closed)))
 
@@ -343,6 +578,9 @@ def _extract_stroke_segments_from_entities(entities: List[Any]) -> List[Seg]:
                 segments.extend(_segmentize_polyline_points(pts, closed=False))
             except Exception:
                 pass
+
+        for s in segments[before:]:
+            s.layer = layer
 
     return [s for s in segments if s.length() > 1e-12]
 
@@ -518,6 +756,64 @@ def _dedupe_labels(labels: List[TextLabel], tol: float) -> List[TextLabel]:
     return out
 
 
+def _merge_baseline_clusters(
+    segments: List[Seg],
+    clusters: List[List[int]],
+    valign_factor: float,
+    gap_factor: float,
+) -> List[List[int]]:
+    """Union same-baseline, closely-spaced raw clusters before the
+    segment-count/size filters run.
+
+    Some drawings draw every character of a label as its own disconnected
+    polyline, with a real (if small) gap to its neighbour — too wide for the
+    primary connect-tolerance clustering above to bridge (that tolerance has
+    to stay tight, or it would merge genuinely different nearby labels), but
+    clearly still the same word. A single character often has too few
+    strokes to pass the segment-count floor on its own and would otherwise
+    be silently dropped entirely; merging by baseline alignment and a gap
+    sized off each fragment's own text height (not the drawing's global
+    connect-tolerance scale) lets it join its word before that floor is
+    ever checked. Gated by height, not distance alone, so it can't reach
+    past one line of text into an unrelated label sitting further down.
+    """
+    n = len(clusters)
+    if n < 2:
+        return clusters
+
+    boxes = [_bbox_from_segments(segments, idxs) for idxs in clusters]
+    parent = list(range(n))
+
+    def find(a: int) -> int:
+        while parent[a] != a:
+            parent[a] = parent[parent[a]]
+            a = parent[a]
+        return a
+
+    def union(a: int, b: int) -> None:
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            parent[rb] = ra
+
+    for i in range(n):
+        bx = boxes[i]
+        icy = 0.5 * (bx[1] + bx[3])
+        for j in range(i + 1, n):
+            by = boxes[j]
+            gap = (by[0] - bx[2]) if by[0] >= bx[0] else (bx[0] - by[2])
+            h = max(bx[3] - bx[1], by[3] - by[1], 1e-9)
+            if gap <= 0 or gap > gap_factor * h:
+                continue
+            jcy = 0.5 * (by[1] + by[3])
+            if abs(icy - jcy) <= valign_factor * h:
+                union(i, j)
+
+    groups: Dict[int, List[int]] = {}
+    for i, idxs in enumerate(clusters):
+        groups.setdefault(find(i), []).extend(idxs)
+    return list(groups.values())
+
+
 def _build_stroke_pole_labels_from_entities(
     entities: List[Any],
     *,
@@ -543,6 +839,13 @@ def _build_stroke_pole_labels_from_entities(
         scale = 1.0
 
     clusters = _cluster_segments(segments, tol=config.stroke_connect_tol * scale)
+    if config.stroke_baseline_merge:
+        clusters = _merge_baseline_clusters(
+            segments,
+            clusters,
+            valign_factor=config.stroke_baseline_valign_factor,
+            gap_factor=config.stroke_baseline_gap_factor,
+        )
     out: List[TextLabel] = []
 
     for idxs in clusters:
@@ -579,6 +882,10 @@ def _build_stroke_pole_labels_from_entities(
 
         cx = 0.5 * (minx + maxx)
         cy = 0.5 * (miny + maxy)
+        layer_counts: Dict[str, int] = {}
+        for i in idxs:
+            layer_counts[segments[i].layer] = layer_counts.get(segments[i].layer, 0) + 1
+        cluster_layer = max(layer_counts, key=layer_counts.get) if layer_counts else ""
         out.append(
             TextLabel(
                 text="",
@@ -588,6 +895,7 @@ def _build_stroke_pole_labels_from_entities(
                 bbox=bbox,
                 source="stroke",
                 segments=[segments[i] for i in idxs],
+                layer=cluster_layer,
             )
         )
 
@@ -600,35 +908,52 @@ def _build_stroke_pole_labels_from_entities(
 
 def find_pole_labels(
     doc,
-    layer_name: str,
+    layer_name,
     *,
     config: Optional[PoleIdConfig] = None,
 ) -> List[Tuple[TextLabel, Optional[CircleMarker]]]:
+    """Find pole labels and pair them with their circle markers.
+
+    ``layer_name`` may be a single layer name or a list of them. A drafter
+    often splits a pole's marker (circle) and its tag (text/stroke lettering)
+    across two different layers that both happen to match the "pole" naming
+    pattern (e.g. "...POLE NUMBER" for the tag and "...POLEPED" for the
+    marker) — passing every candidate layer here lets a label on one layer
+    pair with a circle on another. Text/stroke extraction still runs once per
+    layer, so clustering never merges geometry across layers; only the final
+    circle match is pooled.
+    """
     config = config or PoleIdConfig()
-    entities = _layer_entities(doc, layer_name)
+    layer_names = [layer_name] if isinstance(layer_name, str) else list(layer_name)
 
     labels: List[TextLabel] = []
+    circles: List[CircleMarker] = []
 
-    if config.include_text or config.include_mtext:
-        text_labels = extract_text_labels_from_entities(
-            entities,
-            include_text=config.include_text,
-            include_mtext=config.include_mtext,
-        )
-        if config.filter_text_by_regex:
-            text_labels = [lab for lab in text_labels if is_pole_id(lab.text)]
-        labels.extend(text_labels)
+    for ln in layer_names:
+        entities = _layer_entities(doc, ln)
 
-    if config.include_stroke:
-        stroke_labels = _build_stroke_pole_labels_from_entities(entities, config=config)
-        labels.extend(stroke_labels)
+        if config.include_text or config.include_mtext:
+            text_labels = extract_text_labels_from_entities(
+                entities,
+                include_text=config.include_text,
+                include_mtext=config.include_mtext,
+            )
+            if config.filter_text_by_regex:
+                text_labels = [lab for lab in text_labels if is_pole_id(lab.text)]
+            labels.extend(text_labels)
+
+        if config.include_stroke:
+            stroke_labels = _build_stroke_pole_labels_from_entities(entities, config=config)
+            labels.extend(stroke_labels)
+
+        if config.use_circle_markers:
+            circles.extend(extract_circle_markers_from_entities(entities))
 
     labels = _dedupe_labels(labels, tol=max(config.stroke_connect_tol * 0.75, 1e-6))
 
     if not config.use_circle_markers:
         return [(lab, None) for lab in labels]
 
-    circles = extract_circle_markers_from_entities(entities)
     matches = match_poleids_to_circles(
         labels=labels,
         circles=circles,

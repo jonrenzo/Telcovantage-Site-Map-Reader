@@ -41,6 +41,14 @@ _processor = None
 _model = None
 _device = None
 _load_lock = _threading.Lock()
+# server.py runs OCR_WORKERS=4 threads against this one shared model/processor.
+# VisionEncoderDecoderModel.generate() isn't safe to call concurrently from
+# multiple threads on CPU — overlapping forward passes can cross-contaminate
+# each other's decoder state, which is why identical re-scans were coming
+# back with different (sometimes duplicate/garbage) names each run. The
+# threads still rasterise crops and build pixel_values in parallel; only the
+# processor call + generate() are serialised.
+_infer_lock = _threading.Lock()
 
 # ── constants ─────────────────────────────────────────────────────────────────
 MODEL_ID = "microsoft/trocr-base-printed"
@@ -59,9 +67,11 @@ _ROTATIONS = [0, 45, 90, 135, 180, 225, 270, 315]
 # Pole ID shape. Prefixes vary per site (CU7, CUB, CVSY, NPT, ...) with no fixed
 # rule, so the pattern is permissive — up to five letters — and overridable per
 # deployment via POLE_ID_PATTERN. The old two-letter cap forced correctly-read
-# IDs like CUB-508 and CVSY-110 into manual review at 0.999 confidence.
+# IDs like CUB-508 and CVSY-110 into manual review at 0.999 confidence. The
+# optional hyphen right after the letters is required too — without it,
+# "CUB-508" still can't match: the letters run into "-", not into a digit.
 _POLEID_RE = re.compile(
-    os.environ.get("POLE_ID_PATTERN", r"^(?:[A-Z]{0,5}\d+(?:-\d+)?|NPT)$"),
+    os.environ.get("POLE_ID_PATTERN", r"^(?:[A-Z]{0,5}-?\d+(?:-\d+)?|NPT)$"),
     re.IGNORECASE,
 )
 
@@ -355,9 +365,10 @@ def _run_angles(
     all_raw: List[Tuple[str, float]] = []
     for start in range(0, len(pils), BATCH_SIZE):
         chunk = pils[start : start + BATCH_SIZE]
-        pixel_values = _processor(images=chunk, return_tensors="pt").pixel_values
-        pixel_values = pixel_values.to(_device)
-        all_raw.extend(_generate_batch(pixel_values, max_new_tokens))
+        with _infer_lock:
+            pixel_values = _processor(images=chunk, return_tensors="pt").pixel_values
+            pixel_values = pixel_values.to(_device)
+            all_raw.extend(_generate_batch(pixel_values, max_new_tokens))
     return all_raw
 
 
