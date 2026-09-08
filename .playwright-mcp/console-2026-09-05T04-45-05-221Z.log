@@ -1,0 +1,91 @@
+[      56ms] [LOG] ðŸ“¥ Received active named poles from As-built: [Object, Object, Object, Object, Object, Object, Object, Object, Object, Object, Object, Object, Object, Object, Object, Object, Object, Object, Object, Object, Object, Object, Object, Object] @ http://localhost:8000/?dxf_path=C%3A%5Czander%5CTelcovantage-Site-Map-Reader%5Cuploads%5CLPA115.dxf:726
+[ 1553378ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=20a7dcd3:14337
+[ 1553863ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) %o @ http://localhost:5173/login:0
+[ 1561704ms] [LOG] [auth] login response: {token: 54|S0Lnw8whDcuUXIgqNZQnBIOyhfDaKinym8IDneNYd6033fe4, password_reset_required: false, user: Object} @ http://localhost:5173/src/pages/Login.tsx:69
+[ 1566536ms] [ERROR] Error: <svg> attribute width: Expected length, "NaN". @ http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:5
+[ 1566536ms] [ERROR] Error: <foreignObject> attribute width: Expected length, "NaN". @ http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:5
+[ 1566540ms] [ERROR] Error: <circle> attribute r: A negative value is not valid. ("-3.0975") @ http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:5
+[ 1566540ms] [ERROR] Error: <g> attribute transform: Expected number, "translate(NaN, 0)". @ http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:5
+[ 1566541ms] [ERROR] Error: <svg> attribute width: Expected length, "NaN". @ http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:5
+[ 1566541ms] [ERROR] Error: <foreignObject> attribute width: Expected length, "NaN". @ http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:5
+[ 1566545ms] [ERROR] Error: <g> attribute transform: Expected number, "translate(NaN, 0) scale(1)". @ http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:5
+[ 1566545ms] [ERROR] Error: <g> attribute transform: Expected number, "translate(NaN, 0) scale(1)". @ http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:5
+[ 1566560ms] [ERROR] Error: <svg> attribute width: Expected length, "NaN". @ http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:5
+[ 1566560ms] [ERROR] Error: <foreignObject> attribute width: Expected length, "NaN". @ http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:5
+[ 1566564ms] [ERROR] Error: <g> attribute transform: Expected number, "translate(NaN, 0) scale(1)". @ http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:5
+[ 1566564ms] [ERROR] Error: <g> attribute transform: Expected number, "translate(NaN, 0) scale(1)". @ http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:5
+[ 1566576ms] [ERROR] Error: <svg> attribute width: Expected length, "NaN". @ http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:5
+[ 1566576ms] [ERROR] Error: <foreignObject> attribute width: Expected length, "NaN". @ http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:5
+[ 1566578ms] [ERROR] Error: <g> attribute transform: Expected number, "translate(NaN, 0) scale(1)". @ http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:5
+[ 1566579ms] [ERROR] Error: <g> attribute transform: Expected number, "translate(NaN, 0) scale(1)". @ http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:5
+[ 1566585ms] [ERROR] Error: <svg> attribute width: Expected length, "NaN". @ http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:5
+[ 1566585ms] [ERROR] Error: <foreignObject> attribute width: Expected length, "NaN". @ http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:5
+[ 1566586ms] [ERROR] Error: <g> attribute transform: Expected number, "translate(NaN, 0) scale(1)". @ http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:5
+[ 1566586ms] [ERROR] Error: <g> attribute transform: Expected number, "translate(NaN, 0) scale(1)". @ http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:5
+[ 1566594ms] [ERROR] Error: <path> attribute d: Expected number, "M e -16 4 A -4 -4 …". @ http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:5
+[ 1566618ms] TypeError: Cannot read properties of null (reading 'node')
+    at t.value (http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:6:98485)
+    at t.value (http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:6:440232)
+    at t.value (http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:6:436589)
+    at t.value (http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:6:506523)
+    at t.value (http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:38:31443)
+    at t.create (http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:6:5772)
+    at http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:38:36431
+    at new Promise (<anonymous>)
+    at t.value (http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:38:36359)
+    at http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:38:40375
+[ 1605233ms] [ERROR] Access to fetch at 'https://asbuilt.telcovantage.com/api/v1/skycable/poles/360/gps' from origin 'http://localhost:5173' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://localhost:5173/spans/south-luzon/LPA120:0
+[ 1605234ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://asbuilt.telcovantage.com/api/v1/skycable/poles/360/gps:0
+[ 1610918ms] [ERROR] Access to fetch at 'https://asbuilt.telcovantage.com/api/v1/skycable/poles/356/gps' from origin 'http://localhost:5173' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: Redirect is not allowed for a preflight request. @ http://localhost:5173/spans/south-luzon/LPA120:0
+[ 1610918ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://asbuilt.telcovantage.com/api/v1/skycable/poles/356/gps:0
+[ 1611846ms] [ERROR] Access to fetch at 'https://asbuilt.telcovantage.com/api/v1/skycable/poles/357/gps' from origin 'http://localhost:5173' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: Redirect is not allowed for a preflight request. @ http://localhost:5173/spans/south-luzon/LPA120:0
+[ 1611846ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://asbuilt.telcovantage.com/api/v1/skycable/poles/357/gps:0
+[ 1614015ms] [ERROR] Access to fetch at 'https://asbuilt.telcovantage.com/api/v1/skycable/spans?node_id=5&per_page=200' from origin 'http://localhost:5173' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://localhost:5173/spans/south-luzon/LPA120:0
+[ 1614015ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://asbuilt.telcovantage.com/api/v1/skycable/spans?node_id=5&per_page=200:0
+[ 1614484ms] [ERROR] Access to fetch at 'https://asbuilt.telcovantage.com/api/v1/skycable/poles/359/gps' from origin 'http://localhost:5173' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: Redirect is not allowed for a preflight request. @ http://localhost:5173/spans/south-luzon/LPA120:0
+[ 1614484ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://asbuilt.telcovantage.com/api/v1/skycable/poles/359/gps:0
+[ 1618248ms] [ERROR] Access to fetch at 'https://asbuilt.telcovantage.com/api/v1/skycable/poles/356/gps' from origin 'http://localhost:5173' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: Redirect is not allowed for a preflight request. @ http://localhost:5173/spans/south-luzon/LPA120:0
+[ 1618249ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://asbuilt.telcovantage.com/api/v1/skycable/poles/356/gps:0
+[ 1638726ms] [WARNING] Google Maps JavaScript API has been loaded directly without loading=async. This can result in suboptimal performance. For best-practice loading patterns please see https://goo.gle/js-api-loading @ http://localhost:5173/@vite/client:509
+[ 1643778ms] [WARNING] Google Maps JavaScript API warning: NoApiKeys https://developers.google.com/maps/documentation/javascript/error-messages#no-api-keys @ http://localhost:5173/@vite/client:509
+[ 1811461ms] [ERROR] Access to fetch at 'https://asbuilt.telcovantage.com/api/v1/admin/users?status=on_hold&per_page=1' from origin 'http://localhost:5173' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://localhost:5173/spans/south-luzon/LPA120:0
+[ 1811461ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://asbuilt.telcovantage.com/api/v1/admin/users?status=on_hold&per_page=1:0
+[ 1811463ms] [ERROR] Access to fetch at 'https://asbuilt.telcovantage.com/api/v1/skycable/notifications/unread-count' from origin 'http://localhost:5173' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://localhost:5173/spans/south-luzon/LPA120:0
+[ 1811463ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://asbuilt.telcovantage.com/api/v1/skycable/notifications/unread-count:0
+[ 1811465ms] [ERROR] Access to fetch at 'https://asbuilt.telcovantage.com/api/v1/skycable/poles/map' from origin 'http://localhost:5173' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://localhost:5173/spans/south-luzon/LPA120:0
+[ 1811465ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://asbuilt.telcovantage.com/api/v1/skycable/poles/map:0
+[ 1813950ms] [ERROR] Access to fetch at 'https://asbuilt.telcovantage.com/api/v1/skycable/nodes/5/poles' from origin 'http://localhost:5173' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://localhost:5173/spans/south-luzon/LPA120:0
+[ 1813950ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://asbuilt.telcovantage.com/api/v1/skycable/nodes/5/poles:0
+[ 1813993ms] [ERROR] Access to fetch at 'https://asbuilt.telcovantage.com/api/v1/skycable/spans?node_id=5&per_page=200' from origin 'http://localhost:5173' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://localhost:5173/spans/south-luzon/LPA120:0
+[ 1813994ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://asbuilt.telcovantage.com/api/v1/skycable/spans?node_id=5&per_page=200:0
+[ 2038872ms] [ERROR] Access to fetch at 'https://asbuilt.telcovantage.com/api/v1/maintenance' from origin 'http://localhost:5173' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://localhost:5173/reports/redline/5:0
+[ 2038873ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://asbuilt.telcovantage.com/api/v1/maintenance:0
+[ 2108578ms] [LOG] [TeamDetail] rawTeam: {id: 1, company: skycable, subcontractor_id: 21, name: TEAM MARK, status: active} rawSubcon: {id: 21, company: skycable, name: Test 2, erp_vendor_id: 5ec2b556-cc29-47d3-bfea-65afd7e4cfd5, vendor_code: null} @ http://localhost:5173/src/pages/subcontractors/TeamDetail.tsx:227
+[ 2108578ms] [LOG] [TeamDetail] teamData: {id: 1, company: skycable, subcontractor_id: 21, name: TEAM MARK, status: active} @ http://localhost:5173/src/pages/subcontractors/TeamDetail.tsx:229
+[ 2108680ms] [LOG] [TeamDetail] rawTeam: {id: 1, company: skycable, subcontractor_id: 21, name: TEAM MARK, status: active} rawSubcon: {id: 21, company: skycable, name: Test 2, erp_vendor_id: 5ec2b556-cc29-47d3-bfea-65afd7e4cfd5, vendor_code: null} @ http://localhost:5173/src/pages/subcontractors/TeamDetail.tsx:227
+[ 2108681ms] [LOG] [TeamDetail] teamData: {id: 1, company: skycable, subcontractor_id: 21, name: TEAM MARK, status: active} @ http://localhost:5173/src/pages/subcontractors/TeamDetail.tsx:229
+[ 2227684ms] [ERROR] Access to fetch at 'https://asbuilt.telcovantage.com/api/v1/admin/users?status=on_hold&per_page=1' from origin 'http://localhost:5173' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://localhost:5173/subcontractors/21/teams/1:0
+[ 2227685ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://asbuilt.telcovantage.com/api/v1/admin/users?status=on_hold&per_page=1:0
+[ 2227686ms] [ERROR] Access to fetch at 'https://asbuilt.telcovantage.com/api/v1/skycable/notifications/unread-count' from origin 'http://localhost:5173' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://localhost:5173/subcontractors/21/teams/1:0
+[ 2227686ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://asbuilt.telcovantage.com/api/v1/skycable/notifications/unread-count:0
+[ 2227686ms] [ERROR] Access to fetch at 'https://asbuilt.telcovantage.com/api/v1/admin/subcontractors/21' from origin 'http://localhost:5173' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://localhost:5173/subcontractors/21/teams/1:0
+[ 2227686ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://asbuilt.telcovantage.com/api/v1/admin/subcontractors/21:0
+[ 2229290ms] [ERROR] Access to fetch at 'https://asbuilt.telcovantage.com/api/v1/admin/teams/1' from origin 'http://localhost:5173' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://localhost:5173/subcontractors/21/teams/1:0
+[ 2229290ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://asbuilt.telcovantage.com/api/v1/admin/teams/1:0
+[ 2229388ms] [LOG] [TeamDetail] rawTeam: {id: 1, company: skycable, subcontractor_id: 21, name: TEAM MARK, status: active} rawSubcon: {id: 21, company: skycable, name: Test 2, erp_vendor_id: 5ec2b556-cc29-47d3-bfea-65afd7e4cfd5, vendor_code: null} @ http://localhost:5173/src/pages/subcontractors/TeamDetail.tsx:227
+[ 2229389ms] [LOG] [TeamDetail] teamData: {id: 1, company: skycable, subcontractor_id: 21, name: TEAM MARK, status: active} @ http://localhost:5173/src/pages/subcontractors/TeamDetail.tsx:229
+[ 2363148ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=20a7dcd3:14337
+[ 2363955ms] [LOG] [TeamDetail] rawTeam: {id: 1, company: skycable, subcontractor_id: 21, name: TEAM MARK, status: active} rawSubcon: {id: 21, company: skycable, name: Test 2, erp_vendor_id: 5ec2b556-cc29-47d3-bfea-65afd7e4cfd5, vendor_code: null} @ http://localhost:5173/src/pages/subcontractors/TeamDetail.tsx?t=1788585739151:227
+[ 2363956ms] [LOG] [TeamDetail] teamData: {id: 1, company: skycable, subcontractor_id: 21, name: TEAM MARK, status: active} @ http://localhost:5173/src/pages/subcontractors/TeamDetail.tsx?t=1788585739151:229
+[ 2364045ms] [LOG] [TeamDetail] rawTeam: {id: 1, company: skycable, subcontractor_id: 21, name: TEAM MARK, status: active} rawSubcon: {id: 21, company: skycable, name: Test 2, erp_vendor_id: 5ec2b556-cc29-47d3-bfea-65afd7e4cfd5, vendor_code: null} @ http://localhost:5173/src/pages/subcontractors/TeamDetail.tsx?t=1788585739151:227
+[ 2364045ms] [LOG] [TeamDetail] teamData: {id: 1, company: skycable, subcontractor_id: 21, name: TEAM MARK, status: active} @ http://localhost:5173/src/pages/subcontractors/TeamDetail.tsx?t=1788585739151:229
+[ 2547433ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=20a7dcd3:14337
+[ 2570815ms] [LOG] [TeamDetail] rawTeam: {id: 1, company: skycable, subcontractor_id: 21, name: TEAM MARK, status: active} rawSubcon: {id: 21, company: skycable, name: Test 2, erp_vendor_id: 5ec2b556-cc29-47d3-bfea-65afd7e4cfd5, vendor_code: null} @ http://localhost:5173/src/pages/subcontractors/TeamDetail.tsx?t=1788585739151:227
+[ 2570816ms] [LOG] [TeamDetail] teamData: {id: 1, company: skycable, subcontractor_id: 21, name: TEAM MARK, status: active} @ http://localhost:5173/src/pages/subcontractors/TeamDetail.tsx?t=1788585739151:229
+[ 2570913ms] [LOG] [TeamDetail] rawTeam: {id: 1, company: skycable, subcontractor_id: 21, name: TEAM MARK, status: active} rawSubcon: {id: 21, company: skycable, name: Test 2, erp_vendor_id: 5ec2b556-cc29-47d3-bfea-65afd7e4cfd5, vendor_code: null} @ http://localhost:5173/src/pages/subcontractors/TeamDetail.tsx?t=1788585739151:227
+[ 2570913ms] [LOG] [TeamDetail] teamData: {id: 1, company: skycable, subcontractor_id: 21, name: TEAM MARK, status: active} @ http://localhost:5173/src/pages/subcontractors/TeamDetail.tsx?t=1788585739151:229
+[ 2575855ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=20a7dcd3:14337
+[ 2576058ms] [LOG] [TeamDetail] rawTeam: {id: 1, company: skycable, subcontractor_id: 21, name: TEAM MARK, status: active} rawSubcon: {id: 21, company: skycable, name: Test 2, erp_vendor_id: 5ec2b556-cc29-47d3-bfea-65afd7e4cfd5, vendor_code: null} @ http://localhost:5173/src/pages/subcontractors/TeamDetail.tsx?t=1788585739151:227
+[ 2576058ms] [LOG] [TeamDetail] teamData: {id: 1, company: skycable, subcontractor_id: 21, name: TEAM MARK, status: active} @ http://localhost:5173/src/pages/subcontractors/TeamDetail.tsx?t=1788585739151:229
+[ 2576170ms] [LOG] [TeamDetail] rawTeam: {id: 1, company: skycable, subcontractor_id: 21, name: TEAM MARK, status: active} rawSubcon: {id: 21, company: skycable, name: Test 2, erp_vendor_id: 5ec2b556-cc29-47d3-bfea-65afd7e4cfd5, vendor_code: null} @ http://localhost:5173/src/pages/subcontractors/TeamDetail.tsx?t=1788585739151:227
+[ 2576170ms] [LOG] [TeamDetail] teamData: {id: 1, company: skycable, subcontractor_id: 21, name: TEAM MARK, status: active} @ http://localhost:5173/src/pages/subcontractors/TeamDetail.tsx?t=1788585739151:229

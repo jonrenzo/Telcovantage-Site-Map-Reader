@@ -1,0 +1,42 @@
+- generic [active] [ref=f58e1]:
+  - generic [ref=f58e2]:
+    - banner [ref=f58e3]:
+      - generic [ref=f58e4]: AsBuiltIQ
+      - navigation [ref=f58e8]:
+        - generic [ref=f58e10]:
+          - generic [ref=f58e11]: "1"
+          - generic [ref=f58e12]: Load Plan
+        - generic [ref=f58e15]:
+          - generic [ref=f58e16]: "2"
+          - generic [ref=f58e17]: Reading
+        - generic [ref=f58e20]:
+          - generic [ref=f58e21]: "3"
+          - generic [ref=f58e22]: Review
+    - main [ref=f58e23]:
+      - complementary [ref=f58e24]:
+        - paragraph [ref=f58e26]: Workspace
+        - button "🗂️ My Drawings" [ref=f58e27]:
+          - generic [ref=f58e28]: 🗂️
+          - text: My Drawings
+        - paragraph [ref=f58e30]: Folders
+        - button "New Folder" [ref=f58e32]
+      - generic [ref=f58e35]:
+        - generic [ref=f58e36]:
+          - navigation [ref=f58e37]:
+            - button "My Drawings" [ref=f58e39]
+          - textbox "Search drawings…" [ref=f58e44]
+          - combobox [ref=f58e45] [cursor=pointer]:
+            - option "Last opened" [selected]
+            - option "Name"
+            - option "Size"
+          - generic [ref=f58e46]:
+            - button [ref=f58e47]
+            - button [ref=f58e53]
+          - button "Upload" [ref=f58e58]
+        - generic [ref=f58e64] [cursor=pointer]:
+          - img [ref=f58e65]:
+            - generic [ref=f58e69]: DXF
+          - paragraph [ref=f58e70]: LPA115
+          - paragraph [ref=f58e71]: 658.4 KB
+  - button "Open Next.js Dev Tools" [ref=f58e77] [cursor=pointer]
+  - alert [ref=f58e81]

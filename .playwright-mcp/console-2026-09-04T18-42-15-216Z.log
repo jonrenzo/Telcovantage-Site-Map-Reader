@@ -1,0 +1,292 @@
+[     120ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[     193ms] [LOG] [Fast Refresh] done in 175ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[     354ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[     397ms] [LOG] [HMR] connected @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[     602ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[     603ms] [LOG] [Fast Refresh] done in 105ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[    4019ms] [WARNING] [session] could not resolve session: Error: Supabase not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env
+    at throwNotConfigured (http://localhost:3000/_next/static/chunks/app_72cdfce5._.js:189:11)
+    at useDatabase.useCallback[getSb] (http://localhost:3000/_next/static/chunks/app_72cdfce5._.js:195:153)
+    at useDatabase.useCallback[checkForExistingSession] [as checkForExistingSession] (http://localhost:3000/_next/static/chunks/app_72cdfce5._.js:350:24)
+    at Home.useCallback[resolveSessionId] (http://localhost:3000/_next/static/chunks/app_72cdfce5._.js:1495:43)
+    at Home.useCallback[handleStartProcessing] (http://localhost:3000/_next/static/chunks/app_72cdfce5._.js:1615:13)
+    at onClick (http://localhost:3000/_next/static/chunks/app_components_LoadScreen_tsx_13da77f7._.js:2153:46)
+    at executeDispatch (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:10314:13)
+    at runWithFiberInDEV (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:965:74)
+    at processDispatchQueue (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:10340:41)
+    at http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:10615:13
+    at batchedUpdates$1 (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2253:44)
+    at dispatchEventForPluginEventSystem (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:10416:9)
+    at dispatchEvent (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:12935:37)
+    at dispatchDiscreteEvent (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:12917:64) @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[    9495ms] [LOG] [PoleLayout mount] cachedData: poleDone=false tags=0 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[    9504ms] [LOG] [PoleLayout mount] cachedData: poleDone=false tags=0 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   13348ms] [LOG] [cache-update] sid= null poleTags= 39 shapes= 0 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   13348ms] [WARNING] [cache-update] skipping save — no sessionId or db @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   13438ms] [LOG] [cache-update] sid= null poleTags= 0 shapes= 0 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   13438ms] [WARNING] [cache-update] skipping save — no sessionId or db @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   19346ms] [LOG] [cache-update] sid= null poleTags= 11 shapes= 0 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   19347ms] [WARNING] [cache-update] skipping save — no sessionId or db @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   21380ms] [LOG] [cache-update] sid= null poleTags= 15 shapes= 0 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   21380ms] [WARNING] [cache-update] skipping save — no sessionId or db @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   23073ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   23123ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   23140ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   23361ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   23383ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   23408ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   23422ms] [LOG] [cache-update] sid= null poleTags= 20 shapes= 0 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   23422ms] [WARNING] [cache-update] skipping save — no sessionId or db @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   23429ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   23487ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   23488ms] [LOG] [Fast Refresh] done in 109ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   24057ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   24067ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   24541ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   24551ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   24601ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   24990ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   25001ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   25017ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   25035ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   25101ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   25103ms] [LOG] [Fast Refresh] done in 109ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   25478ms] [LOG] [cache-update] sid= null poleTags= 25 shapes= 0 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   25478ms] [WARNING] [cache-update] skipping save — no sessionId or db @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   25708ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   25718ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   25758ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   26202ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   26241ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   26335ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   26551ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   26585ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   26602ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   26618ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   26675ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   26677ms] [LOG] [Fast Refresh] done in 109ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   27087ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   27108ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   27135ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   27168ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   27224ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   27229ms] [LOG] [Fast Refresh] done in 106ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   27409ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   27419ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   27442ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   27537ms] [LOG] [cache-update] sid= null poleTags= 31 shapes= 0 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   27537ms] [WARNING] [cache-update] skipping save — no sessionId or db @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   27660ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   27686ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   27703ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   27722ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   27777ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   27786ms] [LOG] [Fast Refresh] done in 109ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   27794ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   27992ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   28002ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   28019ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   28058ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   28910ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   28925ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   28959ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   29309ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   29325ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   29336ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   29353ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   29587ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   29605ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   29617ms] [LOG] [cache-update] sid= null poleTags= 35 shapes= 0 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   29617ms] [WARNING] [cache-update] skipping save — no sessionId or db @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   29628ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   29637ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   29653ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   29671ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   29672ms] [LOG] [Fast Refresh] done in 108ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   29863ms] [LOG] [cache-update] sid= null poleTags= 39 shapes= 0 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   29863ms] [WARNING] [cache-update] skipping save — no sessionId or db @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   29920ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   29937ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   29953ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   29976ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   29986ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   30043ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   30044ms] [LOG] [Fast Refresh] done in 108ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   30604ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   30629ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   31354ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   31411ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   31668ms] [LOG] [cache-update] sid= null poleTags= 39 shapes= 0 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   31669ms] [WARNING] [cache-update] skipping save — no sessionId or db @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   35072ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   35123ms] [LOG] [Fast Refresh] done in 155ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   38508ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   38511ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   38546ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   38767ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   38817ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   38863ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   39242ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   39275ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   39297ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   39576ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   39591ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   39612ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   39708ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   39926ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   39991ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   40008ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   40041ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   40263ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   40302ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   40331ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   41143ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   41161ms] [LOG] [Fast Refresh] done in 132ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   41493ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   41525ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   41531ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   41775ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   41808ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   41825ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   50347ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   50363ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   50379ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   50396ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   50412ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   50471ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   50472ms] [LOG] [Fast Refresh] done in 107ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   51980ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   51981ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   52013ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   52030ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   52246ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   52248ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   52263ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   52314ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   52480ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   52497ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   52513ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   52551ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   52730ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   52764ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   52780ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   53215ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   53247ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   53264ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   53314ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   53597ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   53604ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   53630ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   53647ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   53868ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   53897ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   53914ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   53947ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   54612ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   54632ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   54665ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   54666ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   54681ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   54698ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   55732ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   55748ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   55765ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   55798ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   56001ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   56022ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   56038ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   56054ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   56081ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   60663ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   60679ms] [LOG] [Fast Refresh] done in 123ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   67215ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   67277ms] [LOG] [Fast Refresh] done in 162ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   82020ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   82037ms] [LOG] [Fast Refresh] done in 123ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   93483ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   93516ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   97100ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   97102ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   97103ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   97117ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   97134ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   97397ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   97406ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   97431ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   97432ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   97436ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   97737ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   97753ms] [LOG] [Fast Refresh] done in 123ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   99221ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   99239ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   99276ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   99466ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   99502ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   99518ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   99551ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   99724ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   99735ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   99752ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   99768ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   99952ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   99968ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   99985ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  100019ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  100035ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  100064ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  100127ms] [LOG] [Fast Refresh] done in 168ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  100185ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  100219ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  100225ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  100242ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  108339ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  108353ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  108389ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  108668ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  108714ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  162368ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  162536ms] [LOG] [Fast Refresh] done in 273ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  172389ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  172405ms] [LOG] [Fast Refresh] done in 124ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  190069ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  190086ms] [LOG] [Fast Refresh] done in 123ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  204275ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  204337ms] [LOG] [Fast Refresh] done in 168ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  243508ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  243847ms] [LOG] [Fast Refresh] done in 385ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  246221ms] [LOG] [cache-update] sid= null poleTags= 39 shapes= 0 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  246221ms] [WARNING] [cache-update] skipping save — no sessionId or db @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  266755ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  266954ms] [LOG] [Fast Refresh] done in 270ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  269237ms] [LOG] [cache-update] sid= null poleTags= 39 shapes= 0 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  269237ms] [WARNING] [cache-update] skipping save — no sessionId or db @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  295716ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  295912ms] [LOG] [Fast Refresh] done in 198ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  299835ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  299893ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  304939ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  305231ms] [LOG] [Fast Refresh] done in 280ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  307413ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  307415ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  307446ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  307497ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  307663ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  307680ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  307713ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  316980ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  317203ms] [LOG] [Fast Refresh] done in 207ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  319371ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  319372ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  319385ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  319591ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  319602ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  319619ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  319636ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  319809ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  319824ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  319842ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  319869ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  320052ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  320059ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  320085ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  320152ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325

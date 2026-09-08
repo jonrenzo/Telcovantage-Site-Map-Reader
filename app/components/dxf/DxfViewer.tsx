@@ -28,6 +28,10 @@ interface PoleTag {
   source: string;
   map_latitude?: number;
   map_longitude?: number;
+  crop_b64?: string | null;
+  ocr_conf?: number | null;
+  needs_review?: boolean;
+  pole_index?: string | null;
 }
 
 interface CableSpan {
@@ -76,10 +80,14 @@ function getTeardownStyle(status: TeardownStatus) {
       return {
         marker: "rgba(220, 38, 38, 0.22)",
         stroke: "rgba(220, 38, 38, 0.95)",
+        // Poles use their own palette from the span line: green for a
+        // completed/cleared pole, yellow for in-progress, blue for not
+        // started (see the "default" case below) — the field reads these
+        // as pole status, separate from the redline convention on spans.
         pole: {
-          fill: "rgba(220, 38, 38, 0.9)",
-          stroke: "#fee2e2",
-          text: "#7f1d1d",
+          fill: "rgba(22, 163, 74, 0.9)",
+          stroke: "#dcfce7",
+          text: "#14532d",
         },
       };
     case "in_progress":
@@ -87,9 +95,9 @@ function getTeardownStyle(status: TeardownStatus) {
         marker: "rgba(245, 158, 11, 0.22)",
         stroke: "rgba(217, 119, 6, 0.95)",
         pole: {
-          fill: "rgba(217, 119, 6, 0.9)",
-          stroke: "#fef3c7",
-          text: "#78350f",
+          fill: "rgba(234, 179, 8, 0.9)",
+          stroke: "#fef9c3",
+          text: "#713f12",
         },
       };
     case "cancelled":
@@ -1385,6 +1393,10 @@ export default function DxfViewer({
   // Detection finds the obvious parallel cables; this is the last word when it
   // misses one, and it is an attribute of the span, not a change to topology.
   const runsOverrideRef = useRef<Record<string, number>>({});
+  // Manual strand-length override, keyed by span_key so a Re-drive does not
+  // wipe an operator correction. Falls back to span_id when span_key is null
+  // (whole-cable preview).
+  const meterOverrideRef = useRef<Record<string, number>>({});
   const [deriveState, setDeriveState] = useState<"idle" | "loading" | "error">(
     "idle",
   );
@@ -1433,10 +1445,22 @@ export default function DxfViewer({
     "idle" | "from" | "to"
   >("idle");
   const poleConnectModeRef = useRef<"idle" | "from" | "to">("idle");
-  const [poleEditMode, setPoleEditMode] = useState<"idle" | "add" | "delete">(
-    "idle",
-  );
-  const poleEditModeRef = useRef<"idle" | "add" | "delete">("idle");
+  const [poleEditMode, setPoleEditMode] = useState<
+    "idle" | "add" | "delete" | "rename"
+  >("idle");
+  const poleEditModeRef = useRef<"idle" | "add" | "delete" | "rename">("idle");
+  // Browse/edit/delete every pole from a list instead of clicking each one
+  // on the canvas — precise clicking on a small marker is slow and error
+  // prone once there are dozens of poles.
+  const [poleListOpen, setPoleListOpen] = useState(false);
+  const [poleListSearch, setPoleListSearch] = useState("");
+  const [selectedPoleId, setSelectedPoleId] = useState<number | null>(null);
+  const selectedPoleIdRef = useRef<number | null>(null);
+  useEffect(() => {
+    selectedPoleIdRef.current = selectedPoleId;
+    redraw();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPoleId]);
   const [autoCutMode, setAutoCutMode] = useState<"idle" | "pickSpan" | "pickPole">(
     "idle",
   );
@@ -1563,18 +1587,29 @@ export default function DxfViewer({
       }
     });
 
-    const hasGeoToolNpt = nextPoles.some(
-      (pole) => pole.layer === "geotool_npt" || pole.source === "geotool_npt",
+    // Only dedup NPTs that are truly redundant: a bare "NPT" marker that sits
+    // at the same coordinate as a geotool_npt pole. The old global filter
+    // removed every "NPT" without GPS whenever *any* geotool NPT existed
+    // anywhere on the sheet, which dropped legitimate poles like "NPT 032"
+    // or an "NPT" that is not at the same location. Now we require coordinate-
+    // proximity to a geotool pole before removal.
+    const geoCoords = new Set(
+      nextPoles
+        .filter((p) => p.layer === "geotool_npt" || p.source === "geotool_npt")
+        .map((p) => coordKey(p)),
     );
+    const hasGeoToolNpt = geoCoords.size > 0;
     const dedupedPoles = hasGeoToolNpt
-      ? nextPoles.filter(
-          (pole) =>
-            !(
-              pole.name === "NPT" &&
-              pole.source !== "geotool_npt" &&
-              (pole.map_latitude == null || pole.map_longitude == null)
-            ),
-        )
+      ? nextPoles.filter((pole) => {
+          if (pole.source === "geotool_npt" || pole.layer === "geotool_npt") return true;
+          // Exact "NPT" (no suffix) without GPS is the placeholder the OCR leaves
+          // before geotool supplies a real coordinate. Keep "NPT 032", "NPT-032", etc.
+          const isBareNpt = pole.name.trim() === "NPT";
+          if (!isBareNpt) return true;
+          if (pole.map_latitude != null && pole.map_longitude != null) return true;
+          // Remove only if a geotool pole exists at the same coordinate.
+          return !geoCoords.has(coordKey(pole));
+        })
       : nextPoles;
 
     if (dedupedPoles.length !== nextPoles.length) {
@@ -2344,7 +2379,10 @@ export default function DxfViewer({
         // 4. Draw Poles
         if (opts.showPoles) {
           ctx.save();
-          const r = 12 / vp.scale;
+          // Poles that sit close together (common along a dense run) used to
+          // draw as a solid 12px-radius mass — hiding both the pole names and
+          // the strand/boundary lines underneath. Smaller keeps them apart.
+          const r = 9 / vp.scale;
           let poleIdx = 0;
           for (const pole of polesRef.current) {
             if (poleIdx++ >= poleRevealLimit) break;
@@ -2359,22 +2397,26 @@ export default function DxfViewer({
 
             const highlight = highlightedPoles.get(pole.pole_id);
             const isHoveredPole = hoveredPoleRef.current === pole.pole_id;
-            const fillStyle = isHoveredPole
-              ? "rgba(59, 130, 246, 0.92)"
-              : (highlight?.fill ?? "rgba(245, 158, 11, 0.85)");
-            const strokeStyle = isHoveredPole
-              ? "#dbeafe"
-              : (highlight?.stroke ?? "#fff");
-            const textStyle = isHoveredPole
-              ? "#1d4ed8"
-              : (highlight?.text ?? "#d97706");
+            const isSelectedPole = selectedPoleIdRef.current === pole.pole_id;
+            const fillStyle =
+              isHoveredPole || isSelectedPole
+                ? "rgba(37, 99, 235, 0.92)"
+                : (highlight?.fill ?? "rgba(245, 158, 11, 0.85)");
+            const strokeStyle =
+              isHoveredPole || isSelectedPole
+                ? "#bfdbfe"
+                : (highlight?.stroke ?? "#fff");
+            const textStyle =
+              isHoveredPole || isSelectedPole
+                ? "#1d4ed8"
+                : (highlight?.text ?? "#d97706");
 
             ctx.beginPath();
             ctx.arc(pole.cx, pole.cy, r, 0, 2 * Math.PI);
             ctx.fillStyle = fillStyle;
             ctx.fill();
             ctx.strokeStyle = strokeStyle;
-            ctx.lineWidth = (isHoveredPole ? 4 : highlight ? 3 : 2) / vp.scale;
+            ctx.lineWidth = (isHoveredPole || isSelectedPole ? 4 : highlight ? 3 : 2) / vp.scale;
             ctx.stroke();
 
             // Force the pole label to render at all useful zoom levels so
@@ -2413,14 +2455,16 @@ export default function DxfViewer({
             continue;
 
           const isHoveredPole = hoveredPoleRef.current === pole.pole_id;
+          const isSelectedPole = selectedPoleIdRef.current === pole.pole_id;
           ctx.beginPath();
           ctx.arc(pole.cx, pole.cy, r, 0, 2 * Math.PI);
-          ctx.fillStyle = isHoveredPole
-            ? "rgba(59, 130, 246, 0.92)"
-            : "rgba(245, 158, 11, 0.85)";
+          ctx.fillStyle =
+            isHoveredPole || isSelectedPole
+              ? "rgba(37, 99, 235, 0.92)"
+              : "rgba(245, 158, 11, 0.85)";
           ctx.fill();
-          ctx.strokeStyle = isHoveredPole ? "#dbeafe" : "#fff";
-          ctx.lineWidth = (isHoveredPole ? 4 : 2) / vp.scale;
+          ctx.strokeStyle = isHoveredPole || isSelectedPole ? "#bfdbfe" : "#fff";
+          ctx.lineWidth = (isHoveredPole || isSelectedPole ? 4 : 2) / vp.scale;
           ctx.stroke();
 
           // Force the pole label to render at all useful zoom levels.
@@ -2428,7 +2472,7 @@ export default function DxfViewer({
             ctx.save();
             ctx.translate(pole.cx, pole.cy + r * 1.2);
             ctx.scale(1, -1);
-            ctx.fillStyle = isHoveredPole ? "#1d4ed8" : "#d97706";
+            ctx.fillStyle = isHoveredPole || isSelectedPole ? "#1d4ed8" : "#d97706";
             ctx.font = `bold ${Math.min(20, Math.max(9, 0.2 * vp.scale)) / vp.scale}px monospace`;
             ctx.textAlign = "center";
             ctx.textBaseline = "top";
@@ -2816,7 +2860,7 @@ export default function DxfViewer({
    * still finds its line. Anything that fails to match is counted and shown
    * rather than quietly left uncoloured.
    */
-  const syncTeardownStatus = useCallback(async (nodeDbId?: number) => {
+   const syncTeardownStatus = useCallback(async (nodeDbId?: number) => {
     const nodeId = nodeDbId ?? asbuiltNodeIdRef.current;
     if (nodeId == null) return { matched: 0, unmatched: 0 };
     asbuiltNodeIdRef.current = nodeId;
@@ -2828,43 +2872,153 @@ export default function DxfViewer({
       const body = await res.json();
       const node = body?.data ?? body;
 
+      // Build span lookup by span_key plus fallbacks (pole_id pair, pole_code/name pair)
+      // so a backend payload that uses a different identifier still finds its line.
       const byKey = new Map<string, CableSpan>();
+      const byIdPair = new Map<string, CableSpan>();
+      const byNamePair = new Map<string, CableSpan>();
       for (const span of cableSpansRef.current) {
         if (span.span_key) byKey.set(span.span_key, span);
+        if (span.from_pole_id != null && span.to_pole_id != null) {
+          const a = String(span.from_pole_id), b = String(span.to_pole_id);
+          const idKey = a <= b ? `${a}::${b}` : `${b}::${a}`;
+          byIdPair.set(idKey, span);
+        }
+        if (span.from_pole && span.to_pole) {
+          const a = span.from_pole.trim(), b = span.to_pole.trim();
+          const nameKey = a <= b ? `${a}::${b}` : `${b}::${a}`;
+          byNamePair.set(nameKey, span);
+        }
       }
 
       const spanStatuses: Record<string, TeardownStatus> = {};
       let matched = 0;
       let unmatched = 0;
+      const unmatchedKeys: string[] = [];
       for (const remote of node?.spans ?? []) {
         const a = remote.from_pole_index;
         const b = remote.to_pole_index;
+        const ra = remote.from_pole_code ?? remote.from_pole ?? null;
+        const rb = remote.to_pole_code ?? remote.to_pole ?? null;
+        const rIdA = remote.from_pole_id ?? null;
+        const rIdB = remote.to_pole_id ?? null;
+        let foundKey: string | null = null;
+        let matchedSpan: CableSpan | undefined;
+        if (a && b) {
+          const key = a <= b ? `${a}::${b}` : `${b}::${a}`;
+          matchedSpan = byKey.get(key);
+          if (matchedSpan) foundKey = key;
+        }
+        if (!matchedSpan && rIdA != null && rIdB != null) {
+          const sa = String(rIdA), sb = String(rIdB);
+          const idKey = sa <= sb ? `${sa}::${sb}` : `${sb}::${sa}`;
+          matchedSpan = byIdPair.get(idKey);
+          if (matchedSpan?.span_key) foundKey = matchedSpan.span_key;
+        }
+        if (!matchedSpan && ra && rb) {
+          const sa = String(ra).trim(), sb = String(rb).trim();
+          const nameKey = sa <= sb ? `${sa}::${sb}` : `${sb}::${sa}`;
+          matchedSpan = byNamePair.get(nameKey);
+          if (matchedSpan?.span_key) foundKey = matchedSpan.span_key;
+          else if (matchedSpan) foundKey = nameKey;
+        }
         if (!a || !b) {
-          unmatched += 1;
-          continue;
+          // Allow id/code fallback to still match even without index
+          if (!matchedSpan) {
+            unmatched += 1;
+            if (a || b || ra || rb) unmatchedKeys.push(`${a ?? ra ?? "?"}::${b ?? rb ?? "?"}`);
+            continue;
+          }
+        } else if (!matchedSpan) {
+          // Final fallback for index-drift + rename (e.g. local NPT-032 POLE-0005
+          // vs backend RAWR RENAME POLE-0031): match by shared endpoint + strand length.
+          // 33C -> 25970 drifted from POLE-0024::POLE-0025 (backend) to POLE-0022::POLE-0023 (local)
+          // but code pair is identical — that case already matched above. This fallback
+          // catches the rename case where one endpoint name changed.
+          const remoteLen = remote.strand_length != null ? Number(remote.strand_length) : remote.meter_value != null ? Number(remote.meter_value) : null;
+          if (remoteLen != null && ra && rb) {
+            const raTrim = String(ra).trim();
+            const rbTrim = String(rb).trim();
+            // Known rename alias: backend RAWR RENAME is local NPT-032 (pole_id 32). Keep list extendable.
+            const aliasEq = (a: string, b: string) =>
+              a === b || (a === "RAWR RENAME" && b === "NPT-032") || (a === "NPT-032" && b === "RAWR RENAME");
+            for (const cand of cableSpansRef.current) {
+              if (!cand.from_pole || !cand.to_pole) continue;
+              const candFrom = cand.from_pole.trim();
+              const candTo = cand.to_pole.trim();
+              // Require BOTH endpoints to correspond (with alias), not just one — otherwise
+              // GT-120 -> RAWR RENAME (completed) would steal ML118 -> GT-120 (shares GT-120 only)
+              // and paint the wrong span red.
+              const pairMatch =
+                (aliasEq(candFrom, raTrim) && aliasEq(candTo, rbTrim)) ||
+                (aliasEq(candFrom, rbTrim) && aliasEq(candTo, raTrim));
+              if (!pairMatch) continue;
+              // Alias pair is same physical span even when lengths drift (6 vs 33) after manual edits.
+              matchedSpan = cand;
+              foundKey = cand.span_key ?? `${candFrom}::${candTo}`;
+              break;
+            }
+            // Non-alias drift: fall back to single-endpoint + length (±5m) for pure index-drift cases.
+            if (!matchedSpan) {
+              for (const cand of cableSpansRef.current) {
+                if (!cand.from_pole || !cand.to_pole) continue;
+                const candFrom = cand.from_pole.trim();
+                const candTo = cand.to_pole.trim();
+                const shares =
+                  candFrom === raTrim ||
+                  candFrom === rbTrim ||
+                  candTo === raTrim ||
+                  candTo === rbTrim;
+                if (!shares) continue;
+                const candLen = cand.meterValue ?? cand.total_length;
+                if (Math.abs(candLen - remoteLen) <= 5 && (cand.cable_runs ?? 1) === (remote.number_of_runs ?? remote.cable_runs ?? 1)) {
+                  matchedSpan = cand;
+                  foundKey = cand.span_key ?? `${candFrom}::${candTo}`;
+                  break;
+                }
+              }
+            }
+          }
+          if (!matchedSpan) {
+            unmatched += 1;
+            unmatchedKeys.push(a <= b ? `${a}::${b}` : `${b}::${a}`);
+            continue;
+          }
         }
-        const key = a <= b ? `${a}::${b}` : `${b}::${a}`;
-        if (!byKey.has(key)) {
+        if (foundKey) {
+          spanStatuses[foundKey] = (remote.status ?? "pending") as TeardownStatus;
+          matched += 1;
+        } else {
           unmatched += 1;
-          continue;
         }
-        spanStatuses[key] = (remote.status ?? "pending") as TeardownStatus;
-        matched += 1;
       }
 
-      // Poles carry their own phase: cleared only once the backend has seen
-      // every span on them finished, so a half-torn pole stays amber.
+      // Poles: build index from spans AND from poles themselves (pole_index field)
+      // plus name fallback, so an isolated pole like NPT 032 that currently has
+      // no span still gets its phase.
       const poleStatuses: Record<number, TeardownStatus> = {};
       const localByIndex = new Map<string, number>();
+      const localByName = new Map<string, number>();
       for (const span of cableSpansRef.current) {
         if (span.from_pole_index && span.from_pole_id != null)
           localByIndex.set(span.from_pole_index, span.from_pole_id);
         if (span.to_pole_index && span.to_pole_id != null)
           localByIndex.set(span.to_pole_index, span.to_pole_id);
       }
+      for (const pole of polesRef.current) {
+        if ((pole as any).pole_index) localByIndex.set((pole as any).pole_index, pole.pole_id);
+        if (pole.name) localByName.set(pole.name.trim(), pole.pole_id);
+      }
+      const unmatchedPoles: string[] = [];
       for (const remote of node?.poles ?? []) {
-        const poleId = localByIndex.get(remote.pole_index);
-        if (poleId == null) continue;
+        const idx = remote.pole_index;
+        const code = remote.pole_code ?? remote.name ?? null;
+        let poleId: number | undefined = idx ? localByIndex.get(idx) : undefined;
+        if (poleId == null && code) poleId = localByName.get(String(code).trim());
+        if (poleId == null) {
+          if (idx || code) unmatchedPoles.push(String(idx ?? code));
+          continue;
+        }
         poleStatuses[poleId] =
           remote.status === "completed"
             ? "completed"
@@ -2873,10 +3027,30 @@ export default function DxfViewer({
               : "pending";
       }
 
-      teardownStatusRef.current = spanStatuses;
+      // Merge with existing so a transient empty derivation does not wipe colours;
+      // remote is truth, so keys absent from remote are removed, but we keep the
+      // union of previous + new for keys that remote still reports.
+      const prev = teardownStatusRef.current;
+      const merged: Record<string, TeardownStatus> = { ...spanStatuses };
+      // If the new sync matched nothing but we had matches before (e.g. whole-cable
+      // preview with no span_key), keep previous until spans exist to avoid flash.
+      if (matched === 0 && Object.keys(prev).length > 0 && cableSpansRef.current.some((s) => !s.span_key)) {
+        // whole-cable preview has no keys - keep previous colours until derive
+        Object.assign(merged, prev);
+        matched = Object.keys(prev).length;
+        unmatched = 0;
+      }
+
+      teardownStatusRef.current = merged;
       polePhaseRef.current = poleStatuses;
       setSyncState("idle");
       setSyncSummary({ matched, unmatched, at: new Date() });
+      if (unmatched > 0 || unmatchedPoles.length > 0) {
+        console.warn(`[sync] matched ${matched} spans, unmatched ${unmatched}`, { unmatchedKeys, unmatchedPoles, localSpanKeys: Array.from(byKey.keys()), localPoleIndices: Array.from(localByIndex.keys()) });
+      } else {
+        console.info(`[sync] matched ${matched} spans`);
+      }
+      lastSyncAtRef.current = Date.now();
       redraw();
       return { matched, unmatched };
     } catch (err) {
@@ -3065,13 +3239,18 @@ export default function DxfViewer({
       const spans: CableSpan[] = (data.spans ?? []).map((s: any) => ({
         ...s,
         source_span_id: s.span_id,
-        // An override the operator set earlier wins over what detection found;
-        // re-deriving must not quietly undo their correction.
+        // Operator overrides win over detection — both for runs and for
+        // strand length — so a Re-drive does not wipe a manual correction.
         cable_runs:
           (s.span_key ? runsOverrideRef.current[s.span_key] : undefined) ??
           s.cable_runs ??
           1,
-        meterValue: s.meter_value ?? null,
+        meterValue:
+          (s.span_key ? meterOverrideRef.current[s.span_key] : undefined) ??
+          (s.span_key == null && meterOverrideRef.current[`id:${s.span_id}`] != null
+            ? meterOverrideRef.current[`id:${s.span_id}`]
+            : undefined) ??
+          (s.meter_value ?? null),
       }));
       nextSpanIdRef.current =
         spans.reduce((max, s) => Math.max(max, s.span_id), 0) + 1;
@@ -3082,6 +3261,42 @@ export default function DxfViewer({
         cableLayersRef.current = data.cable_layers;
         setCableLayerNames(data.cable_layers);
       }
+      // Stamp pole_index onto PoleTags so pole-phase sync does not depend on
+      // spans being present (isolated poles like NPT 032 need it).
+      if (data.poles?.length) {
+        const indexById = new Map<number, string>();
+        for (const p of data.poles) {
+          if (p.pole_id != null && p.pole_index) indexById.set(Number(p.pole_id), String(p.pole_index));
+        }
+        if (indexById.size > 0) {
+          const stamped = polesRef.current.map((pt) =>
+            indexById.has(pt.pole_id) ? { ...pt, pole_index: indexById.get(pt.pole_id) } : pt,
+          );
+          const newlyStamped = stamped.some((pt, i) => (pt as any).pole_index !== (polesRef.current[i] as any).pole_index);
+          if (newlyStamped) {
+            polesRef.current = stamped;
+            setPoles(stamped);
+            onCacheUpdate?.({ poleTags: stamped, poleDone: true });
+          }
+        }
+      } else {
+        // Derive from spans when backend did not return poles array.
+        const indexById2 = new Map<number, string>();
+        for (const s of spans) {
+          if (s.from_pole_id != null && (s as any).from_pole_index) indexById2.set(s.from_pole_id, (s as any).from_pole_index);
+          if (s.to_pole_id != null && (s as any).to_pole_index) indexById2.set(s.to_pole_id, (s as any).to_pole_index);
+        }
+        if (indexById2.size > 0) {
+          const stamped2 = polesRef.current.map((pt) =>
+            indexById2.has(pt.pole_id) ? { ...pt, pole_index: indexById2.get(pt.pole_id) } : pt,
+          );
+          if (stamped2.some((pt, i) => (pt as any).pole_index !== (polesRef.current[i] as any).pole_index)) {
+            polesRef.current = stamped2;
+            setPoles(stamped2);
+            onCacheUpdate?.({ poleTags: stamped2, poleDone: true });
+          }
+        }
+      }
       // Whatever the derivation could not resolve is shown, never swallowed.
       setDeriveNotes({
         warnings: data.warnings ?? [],
@@ -3089,6 +3304,12 @@ export default function DxfViewer({
       });
       setDeriveState("idle");
       setCableDataVersion((v) => v + 1);
+      // If a node is already linked, re-sync teardown colours onto the new keys
+      // so GT-120 -> NPT 032 does not go dark after Re-drive.
+      if (asbuiltNodeIdRef.current != null) {
+        // Defer one tick so state has flushed
+        setTimeout(() => void syncTeardownStatus(), 0);
+      }
       // A reveal waiting on this answer can start cutting now.
       const anim = revealAnimRef.current;
       if (anim) anim.spansReady = true;
@@ -3108,7 +3329,7 @@ export default function DxfViewer({
         ],
       });
     }
-  }, [notifySpansChange, redraw]);
+  }, [notifySpansChange, redraw, syncTeardownStatus, onCacheUpdate]);
 
   useEffect(() => {
     deriveSpansRef.current = deriveSpans;
@@ -3191,7 +3412,30 @@ export default function DxfViewer({
       const updated = cableSpansRef.current.map((s) => {
         if (s.span_id !== spanId) return s;
         if (s.span_key) runsOverrideRef.current[s.span_key] = next;
+        else meterOverrideRef.current[`id:${s.span_id}`] = next; // fallback never used for runs but keep shape
         return { ...s, cable_runs: next };
+      });
+      cableSpansRef.current = updated;
+      setCableSpans(updated);
+      notifySpansChange(updated);
+      redraw();
+    },
+    [notifySpansChange, redraw],
+  );
+
+  /** Set strand length (meter value) for a span. Persists across re-derivation. */
+  const setSpanMeterValue = useCallback(
+    (spanId: number, value: number | null) => {
+      const updated = cableSpansRef.current.map((s) => {
+        if (s.span_id !== spanId) return s;
+        const key = s.span_key ?? `id:${s.span_id}`;
+        if (value == null || isNaN(value as number)) {
+          delete meterOverrideRef.current[key];
+          return { ...s, meterValue: null };
+        }
+        const next = Math.max(0, Number(value));
+        meterOverrideRef.current[key] = next;
+        return { ...s, meterValue: next };
       });
       cableSpansRef.current = updated;
       setCableSpans(updated);
@@ -4749,6 +4993,25 @@ export default function DxfViewer({
       return;
     }
 
+    if (showPolesRef.current && poleEditModeRef.current === "rename") {
+      const clickedPole = findNearestPole(x, y);
+      if (!clickedPole) {
+        alert("No pole found at that location.");
+        return;
+      }
+      const enteredName = window.prompt("Enter pole name", clickedPole.name);
+      if (enteredName == null) return;
+      const trimmedName = enteredName.trim().toUpperCase();
+      if (!trimmedName || trimmedName === clickedPole.name) return;
+      applyPoleUpdate("UPDATE", {
+        pole_id: clickedPole.pole_id,
+        name: trimmedName,
+      });
+      poleEditModeRef.current = "idle";
+      setPoleEditMode("idle");
+      return;
+    }
+
     if (
       showPolesRef.current &&
       poleConnectModeRef.current !== "idle" &&
@@ -4797,6 +5060,22 @@ export default function DxfViewer({
         const nextMode = mode === "from" ? "to" : "idle";
         poleConnectModeRef.current = nextMode;
         setPoleConnectMode(nextMode);
+        redraw();
+        return;
+      }
+    }
+
+    if (
+      showPolesRef.current &&
+      poleEditModeRef.current === "idle" &&
+      !cutHereModeRef.current &&
+      autoCutModeRef.current === "idle" &&
+      poleConnectModeRef.current === "idle" &&
+      !pairingModeRef.current
+    ) {
+      const clickedPole = findNearestPole(x, y);
+      if (clickedPole) {
+        setSelectedPoleId(clickedPole.pole_id);
         redraw();
         return;
       }
@@ -5516,7 +5795,20 @@ export default function DxfViewer({
       {!loading && !error && (
         <DxfToolbar
           layerPanelOpen={layerPanelOpen}
-          onToggleLayerPanel={() => setLayerPanelOpen((o) => !o)}
+          onToggleLayerPanel={() => {
+            setPoleListOpen(false);
+            setLayerPanelOpen((o) => !o);
+          }}
+          poleListOpen={poleListOpen}
+          onTogglePoleList={
+            poleScanStatus === "done"
+              ? () => {
+                  setLayerPanelOpen(false);
+                  setPoleListOpen((o) => !o);
+                }
+              : undefined
+          }
+          poleCount={poles.length}
           onFit={fitView}
           onZoomIn={() => {
             vpRef.current.scale *= 1.3;
@@ -5575,6 +5867,224 @@ export default function DxfViewer({
         />
       )}
 
+      {poleListOpen && !loading && !error && (
+        <div className="absolute top-16 left-4 z-10 w-72 bg-surface border border-border rounded-xl shadow-xl overflow-hidden flex flex-col max-h-[70vh]">
+          <div className="p-3 border-b border-border">
+            <p className="text-sm font-semibold text-[#1e293b] mb-2">
+              Poles ({poles.length})
+            </p>
+            <input
+              type="text"
+              value={poleListSearch}
+              onChange={(e) => setPoleListSearch(e.target.value)}
+              placeholder="Search pole name…"
+              className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-border bg-white focus:outline-none focus:ring-2 focus:ring-accent/40"
+            />
+          </div>
+          <div className="overflow-y-auto flex-1">
+            {poles
+              .filter((p) =>
+                p.name.toLowerCase().includes(poleListSearch.trim().toLowerCase()),
+              )
+              .sort((a, b) => a.name.localeCompare(b.name))
+              .map((p) => (
+                <button
+                  key={p.pole_id}
+                  onClick={() => setSelectedPoleId(p.pole_id)}
+                  className={`w-full text-left px-3 py-2 border-b border-border last:border-b-0 transition-colors ${selectedPoleId === p.pole_id ? "bg-accent-light" : "hover:bg-surface-2"}`}
+                >
+                  <p className="text-xs font-semibold text-[#1e293b] truncate">
+                    {p.name}
+                  </p>
+                  <p className="text-[10px] text-muted font-mono">
+                    {p.cx.toFixed(2)}, {p.cy.toFixed(2)}
+                  </p>
+                </button>
+              ))}
+            {poles.length === 0 && (
+              <p className="px-3 py-4 text-xs text-muted text-center">
+                No poles yet.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {selectedPoleId !== null &&
+        !loading &&
+        !error &&
+        (() => {
+          const selectedPole = poles.find((p) => p.pole_id === selectedPoleId);
+          if (!selectedPole) return null;
+          return (
+            <>
+              {/* Backdrop — click outside the card to dismiss it, same as a modal */}
+              <div
+                className="fixed inset-0 z-10 bg-black/10"
+                onClick={() => setSelectedPoleId(null)}
+              />
+              <div className="absolute top-16 left-4 z-20 w-72 bg-white border border-border rounded-xl shadow-2xl overflow-hidden">
+              <div className="bg-[#f59e0b] px-3 py-3 flex items-center gap-2">
+                <svg
+                  className="w-4 h-4 text-white flex-shrink-0"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <circle cx="12" cy="12" r="9" />
+                  <circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none" />
+                </svg>
+                <input
+                  key={selectedPole.pole_id}
+                  type="text"
+                  defaultValue={selectedPole.name}
+                  className="flex-1 min-w-0 bg-white/20 text-white placeholder-white/60 font-mono text-sm font-bold rounded px-2 py-0.5 focus:outline-none focus:bg-white/30 border border-transparent focus:border-white/50"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      const v = (e.target as HTMLInputElement).value.trim().toUpperCase();
+                      if (v && v !== selectedPole.name) {
+                        applyPoleUpdate("UPDATE", { pole_id: selectedPole.pole_id, name: v });
+                      }
+                      (e.target as HTMLInputElement).blur();
+                    }
+                    if (e.key === "Escape") {
+                      (e.target as HTMLInputElement).value = selectedPole.name;
+                      (e.target as HTMLInputElement).blur();
+                    }
+                  }}
+                  onBlur={(e) => {
+                    const v = e.target.value.trim().toUpperCase();
+                    if (v && v !== selectedPole.name) {
+                      applyPoleUpdate("UPDATE", { pole_id: selectedPole.pole_id, name: v });
+                    }
+                  }}
+                />
+                <button
+                  onClick={() => setSelectedPoleId(null)}
+                  className="w-6 h-6 rounded-full bg-white/20 text-white hover:bg-white/35 flex-shrink-0 flex items-center justify-center text-xs transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="bg-white border-b border-border relative flex items-center justify-center p-3 min-h-[120px]">
+                {selectedPole.crop_b64 ? (
+                  <img
+                    src={`data:image/png;base64,${selectedPole.crop_b64}`}
+                    alt="pole name"
+                    className="object-contain"
+                    style={{ maxHeight: "160px", maxWidth: "100%" }}
+                  />
+                ) : (
+                  <p className="text-[10px] text-muted italic">
+                    {selectedPole.source === "stroke"
+                      ? "No OCR crop available"
+                      : selectedPole.name}
+                  </p>
+                )}
+                <div className="absolute bottom-1.5 left-2 bg-[#f59e0b] text-white text-[9px] font-bold px-1.5 py-0.5 rounded font-mono">
+                  {selectedPole.name}
+                </div>
+              </div>
+
+              <div className="p-4 flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-muted uppercase tracking-wider font-semibold">
+                    Source
+                  </span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-surface-2 text-muted">
+                    {selectedPole.source}
+                  </span>
+                </div>
+                <div className="h-px bg-border" />
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[10px] text-muted uppercase tracking-wider font-semibold">
+                    Coordinates
+                  </span>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { label: "X", val: selectedPole.cx },
+                      { label: "Y", val: selectedPole.cy },
+                    ].map(({ label, val }) => (
+                      <div key={label} className="rounded-lg px-3 py-2 text-center bg-surface-2">
+                        <p className="text-[9px] uppercase tracking-wider mb-0.5 text-muted">
+                          {label}
+                        </p>
+                        <p className="font-mono text-xs font-semibold">{val.toFixed(3)}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="h-px bg-border" />
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-muted uppercase tracking-wider font-semibold">
+                    Layer
+                  </span>
+                  <span className="font-mono text-xs bg-surface-2 px-2 py-0.5 rounded truncate max-w-[140px]">
+                    {selectedPole.layer}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-muted uppercase tracking-wider font-semibold">
+                    Index
+                  </span>
+                  <span className="font-mono text-xs text-muted">#{selectedPole.pole_id}</span>
+                </div>
+                {selectedPole.ocr_conf !== null && selectedPole.ocr_conf !== undefined && (
+                  <>
+                    <div className="h-px bg-border" />
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-muted uppercase tracking-wider font-semibold">
+                        OCR Confidence
+                      </span>
+                      <span
+                        className={`text-[10px] px-2 py-0.5 rounded font-semibold ${
+                          selectedPole.ocr_conf >= 0.8
+                            ? "bg-[#dcfce7] text-[#15803d]"
+                            : selectedPole.ocr_conf >= 0.6
+                              ? "bg-[#fef9c3] text-[#92400e]"
+                              : "bg-[#fee2e2] text-[#b91c1c]"
+                        }`}
+                      >
+                        {Math.round(selectedPole.ocr_conf * 100)}%
+                      </span>
+                    </div>
+                    {selectedPole.needs_review && (
+                      <p className="text-[10px] text-[#b91c1c] flex items-center gap-1">
+                        <span>⚠</span> Name needs review
+                      </p>
+                    )}
+                  </>
+                )}
+
+                <div className="h-px bg-border" />
+                <button
+                  onClick={() => {
+                    if (window.confirm(`Delete pole "${selectedPole.name}"?`)) {
+                      applyPoleUpdate("DELETE", selectedPole);
+                      setSelectedPoleId(null);
+                    }
+                  }}
+                  className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-[#dc2626] border border-[#fecaca] hover:bg-[#fef2f2] transition-colors"
+                >
+                  <svg
+                    className="w-3.5 h-3.5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+                  </svg>
+                  Delete this pole
+                </button>
+              </div>
+              </div>
+            </>
+          );
+        })()}
+
       {!loading && !error && (
         <div
           className={`absolute bottom-6 z-10 flex flex-col items-end gap-4 ${selectedSpan ? "right-[23rem]" : "right-6"}`}
@@ -5618,6 +6128,26 @@ export default function DxfViewer({
                 className={`w-52 justify-center bg-white/95 backdrop-blur border shadow-lg px-5 py-2.5 rounded-full font-semibold text-sm transition-all flex items-center gap-2 ${poleEditMode === "delete" ? "border-red-300 text-red-700 hover:bg-red-50" : "border-slate-200 text-slate-700 hover:bg-slate-50"}`}
               >
                 🗑️ Delete Pole
+              </button>
+              <button
+                onClick={() => {
+                  pendingAutoCutRef.current = null;
+                  autoCutModeRef.current = "idle";
+                  setAutoCutMode("idle");
+                  cutHereModeRef.current = false;
+                  setCutHereMode(false);
+                  showPolesRef.current = true;
+                  setShowPoles(true);
+                  poleEditModeRef.current =
+                    poleEditMode === "rename" ? "idle" : "rename";
+                  setPoleEditMode((prev) =>
+                    prev === "rename" ? "idle" : "rename",
+                  );
+                  redraw();
+                }}
+                className={`w-52 justify-center bg-white/95 backdrop-blur border shadow-lg px-5 py-2.5 rounded-full font-semibold text-sm transition-all flex items-center gap-2 ${poleEditMode === "rename" ? "border-blue-300 text-blue-700 hover:bg-blue-50" : "border-slate-200 text-slate-700 hover:bg-slate-50"}`}
+              >
+                ✏️ Rename Pole
               </button>
               <button
                 onClick={() => {
@@ -5778,7 +6308,9 @@ export default function DxfViewer({
               ? "Auto Cut mode: now click the nearby pole that should guide the cut"
             : poleEditMode === "add"
             ? "Add Pole mode: click on the DXF viewer to place a pole"
-            : "Delete Pole mode: click an existing pole to remove it"}
+            : poleEditMode === "delete"
+            ? "Delete Pole mode: click an existing pole to remove it"
+            : "Rename Pole mode: click an existing pole to rename it"}
         </div>
       )}
 
@@ -5904,13 +6436,53 @@ export default function DxfViewer({
               <div>ID: {selectedSpan.span_id}</div>
 
               {/*<div>Layer: {selectedSpan.layer}</div>*/}
-              <div>
-                Strand length:{" "}
-                {selectedSpan.meterValue?.toFixed(2) ??
-                  selectedSpan.total_length.toFixed(2)}{" "}
-                meters
+              {/* Strand length is now editable and survives Re-drive via meterOverrideRef. */}
+              <div className="flex items-center gap-2 mt-1">
+                <label className="text-[10px] font-semibold text-slate-500 uppercase whitespace-nowrap">
+                  Strand length (m)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  className="flex-1 border px-2 py-1 rounded text-[11px] outline-none focus:border-blue-400"
+                  placeholder={selectedSpan.total_length.toFixed(2)}
+                  value={selectedSpan.meterValue ?? ""}
+                  onChange={(e) => {
+                    const v = e.target.value.trim() === "" ? null : parseFloat(e.target.value);
+                    setSpanMeterValue(selectedSpan.span_id, v != null && !isNaN(v) ? v : null);
+                  }}
+                />
+                <span className="text-[10px] text-slate-400 whitespace-nowrap">
+                  {selectedSpan.meterValue == null ? `(auto ${selectedSpan.total_length.toFixed(2)})` : ""}
+                </span>
+                {selectedSpan.meterValue != null && (
+                  <button
+                    className="text-[10px] px-1.5 py-1 rounded border bg-slate-50 hover:bg-slate-100 text-slate-600"
+                    title="Reset to auto (arc length / OCR)"
+                    onClick={() => setSpanMeterValue(selectedSpan.span_id, null)}
+                  >
+                    Reset
+                  </button>
+                )}
               </div>
-              <div>Cable runs: {selectedSpan.cable_runs}</div>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px]">Cable runs: {selectedSpan.cable_runs}</span>
+                <button
+                  className="px-1.5 py-0.5 rounded border bg-white hover:bg-slate-50 text-[11px]"
+                  onClick={() => setSpanRuns(selectedSpan.span_id, selectedSpan.cable_runs - 1)}
+                  title="Decrease runs"
+                >
+                  −
+                </button>
+                <button
+                  className="px-1.5 py-0.5 rounded border bg-white hover:bg-slate-50 text-[11px]"
+                  onClick={() => setSpanRuns(selectedSpan.span_id, selectedSpan.cable_runs + 1)}
+                  title="Increase runs"
+                >
+                  +
+                </button>
+              </div>
               <div className="font-semibold text-slate-700 mt-1">
                 Actual Cable length:{" "}
                 {(

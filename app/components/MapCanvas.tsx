@@ -3,7 +3,7 @@
 import { useRef, useEffect, useCallback } from "react";
 import type { DigitResult, Segment, FilterMode } from "../types";
 // --- NEW: Import the math utility from page.tsx (adjust path if necessary) ---
-import { isPointInPolygon } from "../page";
+import { isPointInPolygon, findNoWireNearbyIndices } from "../page";
 
 interface BoundaryPoint {
   x: number;
@@ -78,6 +78,7 @@ export default function MapCanvas({
   const boundaryRef = useRef(boundary);
   const maskEnabledRef = useRef(isMaskEnabled);
   const markerScaleRef = useRef(markerScale);
+  const noWireIdsRef = useRef<Set<number>>(new Set());
 
   useEffect(() => {
     resultsRef.current = results;
@@ -164,18 +165,27 @@ export default function MapCanvas({
     // Size the dot in SCREEN pixels, then convert to world units, so the
     // floor is a screen-space minimum (not world units — which on small-extent
     // drawings blew up into map-covering blobs and ignored the slider).
-    const r = Math.max(2, 9 * sizeScale) / vp.scale;
+    // Pole mode draws one marker per OCR reading at that reading's own
+    // position (not clustered at the pole), and several readings naturally
+    // sit within a few meters of the same pole — full-size markers there
+    // pile on top of each other, hiding both the numbers and the background
+    // strand/boundary lines underneath. Smaller dots keep them distinguishable.
+    const r = (mode === "pole" ? Math.max(1.4, 5 * sizeScale) : Math.max(2, 9 * sizeScale)) / vp.scale;
     for (const result of res) {
       const { center_x: cx, center_y: cy } = result;
 
-      // --- NEW: Skip drawing if point is outside the active boundary ---
-      if (
+      // Outside the active boundary is exactly the shape a bad OCR read
+      // takes — hiding it made those readings invisible instead of easy to
+      // find and delete. Dim it instead: still drawn, still clickable, but
+      // visually flagged as "outside the site, probably wrong."
+      const isOutOfBounds =
         isMaskOn &&
-        currentBoundary &&
-        !isPointInPolygon(cx, cy, currentBoundary)
-      ) {
-        continue;
-      }
+        !!currentBoundary &&
+        !isPointInPolygon(cx, cy, currentBoundary);
+      // Sitting inside the boundary but nowhere near any cable — a count
+      // with no wire behind it, same "probably wrong" treatment.
+      const hasNoWireNearby = noWireIdsRef.current.has(result.digit_id);
+      const isFlagged = isOutOfBounds || hasNoWireNearby;
 
       if (filter === "review" && !result.needs_review) continue;
       if (filter === "corrected" && !result.corrected_value) continue;
@@ -204,10 +214,16 @@ export default function MapCanvas({
 
       ctx.beginPath();
       ctx.arc(cx, cy, r, 0, 2 * Math.PI);
-      ctx.fillStyle = isSel ? selColor : baseColor + "cc";
+      ctx.fillStyle = isFlagged ? "#94a3b8aa" : isSel ? selColor : baseColor + "cc";
       ctx.fill();
 
-      if (isSel) {
+      if (isFlagged) {
+        ctx.strokeStyle = isSel ? "#fff" : "#64748b";
+        ctx.lineWidth = (isSel ? 2 : 1.5) / vp.scale;
+        ctx.setLineDash([4 / vp.scale, 3 / vp.scale]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      } else if (isSel) {
         ctx.strokeStyle = "#fff";
         ctx.lineWidth = 2 / vp.scale;
         ctx.stroke();
@@ -228,6 +244,22 @@ export default function MapCanvas({
 
     ctx.restore();
   }, [segments]);
+
+  // Readings that sit nowhere near any strand/cable segment — usually a
+  // stray OCR pickup off-cable rather than a real reading. Robust/adaptive
+  // (outlier vs. the file's own median distance) so it works across DXFs of
+  // very different scales without a hardcoded distance.
+  useEffect(() => {
+    const flaggedIdxs = findNoWireNearbyIndices(
+      results,
+      (r) => ({ x: r.center_x, y: r.center_y }),
+      segments,
+    );
+    const ids = new Set<number>();
+    flaggedIdxs.forEach((idx) => ids.add(results[idx].digit_id));
+    noWireIdsRef.current = ids;
+    redraw();
+  }, [results, segments, redraw]);
 
   const fitView = useCallback(() => {
     const canvas = canvasRef.current;
@@ -300,13 +332,25 @@ export default function MapCanvas({
   }
 
   function hitTest(wx: number, wy: number) {
-    // Scale hit tolerance with marker size so larger/smaller dots stay clickable
-    const tol = (14 * (markerScaleRef.current || 1)) / vpRef.current.scale;
+    // Scale hit tolerance with marker size so larger/smaller dots stay clickable.
+    // Pole mode's markers are drawn smaller (see redraw) to keep closely-spaced
+    // readings near the same pole distinguishable — match the tolerance so a
+    // click actually picks the nearest one instead of whichever overlapping
+    // neighbor happened to be tested first.
+    const base = labelModeRef.current === "pole" ? 8 : 14;
+    const tol = (base * (markerScaleRef.current || 1)) / vpRef.current.scale;
+    let best: DigitResult | null = null;
+    let bestDist = tol;
     for (const r of resultsRef.current) {
-      if (Math.abs(wx - r.center_x) < tol && Math.abs(wy - r.center_y) < tol)
-        return r;
+      const dx = wx - r.center_x;
+      const dy = wy - r.center_y;
+      const dist = Math.hypot(dx, dy);
+      if (dist < bestDist) {
+        best = r;
+        bestDist = dist;
+      }
     }
-    return null;
+    return best;
   }
 
   const onMouseDown = (e: React.MouseEvent) => {

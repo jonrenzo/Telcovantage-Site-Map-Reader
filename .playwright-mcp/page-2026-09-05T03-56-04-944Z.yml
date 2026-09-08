@@ -1,0 +1,73 @@
+- generic [active] [ref=f113e1]:
+  - generic [ref=f113e2]:
+    - banner [ref=f113e3]:
+      - generic [ref=f113e4]: AsBuiltIQ
+      - navigation [ref=f113e8]:
+        - generic [ref=f113e10]:
+          - generic [ref=f113e11]: "1"
+          - generic [ref=f113e12]: Load Plan
+        - generic [ref=f113e15]:
+          - generic [ref=f113e16]: "2"
+          - generic [ref=f113e17]: Reading
+        - generic [ref=f113e20]:
+          - generic [ref=f113e21]: "3"
+          - generic [ref=f113e22]: Review
+    - main [ref=f113e23]:
+      - complementary [ref=f113e24]:
+        - paragraph [ref=f113e26]: Workspace
+        - button "🗂️ My Drawings" [ref=f113e27]:
+          - generic [ref=f113e28]: 🗂️
+          - text: My Drawings
+        - paragraph [ref=f113e30]: Folders
+        - button "New Folder" [ref=f113e32]
+      - generic [ref=f113e35]:
+        - generic [ref=f113e36]:
+          - navigation [ref=f113e37]:
+            - button "My Drawings" [ref=f113e39]
+          - textbox "Search drawings…" [ref=f113e44]
+          - combobox [ref=f113e45] [cursor=pointer]:
+            - option "Last opened" [selected]
+            - option "Name"
+            - option "Size"
+          - generic [ref=f113e46]:
+            - button [ref=f113e47]
+            - button [ref=f113e53]
+          - button "Upload" [ref=f113e58]
+        - generic [ref=f113e63]:
+          - generic [ref=f113e124] [cursor=pointer]:
+            - img [ref=f113e125]:
+              - generic [ref=f113e129]: DXF
+            - paragraph [ref=f113e130]: LPA115
+            - paragraph [ref=f113e131]: 658.4 KB
+          - generic [ref=f113e132] [cursor=pointer]:
+            - img [ref=f113e133]:
+              - generic [ref=f113e137]: DXF
+            - paragraph [ref=f113e138]: LPA120
+            - paragraph [ref=f113e139]: 821.6 KB
+          - generic [ref=f113e140] [cursor=pointer]:
+            - img [ref=f113e141]:
+              - generic [ref=f113e145]: DXF
+            - paragraph [ref=f113e146]: QC9075
+            - paragraph [ref=f113e147]: 7.2 MB
+          - generic [ref=f113e148] [cursor=pointer]:
+            - img [ref=f113e149]:
+              - generic [ref=f113e153]: DXF
+            - paragraph [ref=f113e154]: MR1038
+            - paragraph [ref=f113e155]: 4.9 MB
+          - generic [ref=f113e156] [cursor=pointer]:
+            - img [ref=f113e157]:
+              - generic [ref=f113e161]: DXF
+            - paragraph [ref=f113e162]: MR1034
+            - paragraph [ref=f113e163]: 2.8 MB
+          - generic [ref=f113e164] [cursor=pointer]:
+            - img [ref=f113e165]:
+              - generic [ref=f113e169]: DXF
+            - paragraph [ref=f113e170]: MR1004
+            - paragraph [ref=f113e171]: 4.3 MB
+          - generic [ref=f113e172] [cursor=pointer]:
+            - img [ref=f113e173]:
+              - generic [ref=f113e177]: DXF
+            - paragraph [ref=f113e178]: LP1709
+            - paragraph [ref=f113e179]: 4.2 MB
+  - button "Open Next.js Dev Tools" [ref=f113e71] [cursor=pointer]
+  - alert [ref=f113e75]

@@ -1,0 +1,92 @@
+- generic [active] [ref=f11e1]:
+  - generic [ref=f11e2]:
+    - banner [ref=f11e3]:
+      - generic [ref=f11e4]: AsBuiltIQ
+      - navigation [ref=f11e8]:
+        - generic [ref=f11e10]:
+          - generic [ref=f11e11]: "1"
+          - generic [ref=f11e12]: Load Plan
+        - generic [ref=f11e15]:
+          - generic [ref=f11e16]: "2"
+          - generic [ref=f11e17]: Reading
+        - generic [ref=f11e20]:
+          - generic [ref=f11e21]: "3"
+          - generic [ref=f11e22]: Review
+    - main [ref=f11e23]:
+      - complementary [ref=f11e24]:
+        - paragraph [ref=f11e26]: Workspace
+        - button "🗂️ My Drawings" [ref=f11e27]:
+          - generic [ref=f11e28]: 🗂️
+          - text: My Drawings
+        - paragraph [ref=f11e30]: Folders
+        - button "New Folder" [ref=f11e32]
+      - generic [ref=f11e35]:
+        - generic [ref=f11e36]:
+          - navigation [ref=f11e37]:
+            - button "My Drawings" [ref=f11e39]
+          - textbox "Search drawings…" [ref=f11e44]
+          - combobox [ref=f11e45] [cursor=pointer]:
+            - option "Last opened" [selected]
+            - option "Name"
+            - option "Size"
+          - generic [ref=f11e46]:
+            - button [ref=f11e47]
+            - button [ref=f11e53]
+          - button "Upload" [ref=f11e58]
+        - generic [ref=f11e63]:
+          - generic [ref=f11e76] [cursor=pointer]:
+            - img [ref=f11e77]:
+              - generic [ref=f11e81]: DXF
+            - paragraph [ref=f11e82]: LPA115
+            - paragraph [ref=f11e83]: 658.4 KB
+          - generic [ref=f11e84] [cursor=pointer]:
+            - img [ref=f11e85]:
+              - generic [ref=f11e89]: DXF
+            - paragraph [ref=f11e90]: LPA120
+            - paragraph [ref=f11e91]: 821.6 KB
+          - generic [ref=f11e92] [cursor=pointer]:
+            - img [ref=f11e93]:
+              - generic [ref=f11e97]: DXF
+            - paragraph [ref=f11e98]: QC9075
+            - paragraph [ref=f11e99]: 7.2 MB
+          - generic [ref=f11e100] [cursor=pointer]:
+            - img [ref=f11e101]:
+              - generic [ref=f11e105]: DXF
+            - paragraph [ref=f11e106]: MR1038
+            - paragraph [ref=f11e107]: 4.9 MB
+          - generic [ref=f11e108] [cursor=pointer]:
+            - img [ref=f11e109]:
+              - generic [ref=f11e113]: DXF
+            - paragraph [ref=f11e114]: MR1034
+            - paragraph [ref=f11e115]: 2.8 MB
+          - generic [ref=f11e116] [cursor=pointer]:
+            - img [ref=f11e117]:
+              - generic [ref=f11e121]: DXF
+            - paragraph [ref=f11e122]: MR1004
+            - paragraph [ref=f11e123]: 4.3 MB
+          - generic [ref=f11e124] [cursor=pointer]:
+            - img [ref=f11e125]:
+              - generic [ref=f11e129]: DXF
+            - paragraph [ref=f11e130]: LP1709
+            - paragraph [ref=f11e131]: 4.2 MB
+      - complementary [ref=f11e132]:
+        - generic [ref=f11e133]:
+          - heading "File Details" [level=3] [ref=f11e134]
+          - button "✕" [ref=f11e135]
+        - generic [ref=f11e136]:
+          - img [ref=f11e137]:
+            - generic [ref=f11e141]: DXF
+          - paragraph [ref=f11e142]: LPA120.dxf
+        - generic [ref=f11e143]:
+          - generic [ref=f11e144]:
+            - generic [ref=f11e145]: Size
+            - generic [ref=f11e146]: 821.6 KB
+          - generic [ref=f11e147]:
+            - generic [ref=f11e148]: Last modified
+            - generic [ref=f11e149]: Today
+          - generic [ref=f11e150]:
+            - generic [ref=f11e151]: Location
+            - generic [ref=f11e152]: My Drawings
+        - button "Open Drawing" [ref=f11e154]
+  - button "Open Next.js Dev Tools" [ref=f11e71] [cursor=pointer]
+  - alert [ref=f11e75]

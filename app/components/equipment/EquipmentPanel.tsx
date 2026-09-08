@@ -19,6 +19,10 @@ interface Props {
   scanProgress: number;
   scanTotal: number;
   onRescan: (boundaryLayer: string) => void;
+  /** Shapes outside the boundary, or inside it but with no cable nearby —
+   * dimmed on the canvas, worth a one-click purge. */
+  flaggedCount?: number;
+  onDeleteFlagged?: () => void;
 }
 
 export default function EquipmentPanel({
@@ -36,6 +40,8 @@ export default function EquipmentPanel({
   scanProgress,
   scanTotal,
   onRescan,
+  flaggedCount = 0,
+  onDeleteFlagged,
 }: Props) {
   const [layerSearch, setLayerSearch] = useState("");
   const [showLayers, setShowLayers] = useState(false);
@@ -163,6 +169,20 @@ export default function EquipmentPanel({
           )}
         </button>
       </div>
+
+      {/* Outside-boundary / no-wire bulk delete */}
+      {flaggedCount > 0 && onDeleteFlagged && (
+        <div className="px-5 py-3 border-b border-border">
+          <button
+            onClick={onDeleteFlagged}
+            className="w-full py-2 text-xs font-semibold rounded-lg border-[1.5px]
+                          bg-slate-100 text-slate-600 border-slate-300
+                          hover:bg-slate-200 transition-colors"
+          >
+            🗑 Delete {flaggedCount} Flagged
+          </button>
+        </div>
+      )}
 
       {/* Kind filters — uses display kind so Node and Amplifier are separate */}
       {allDisplayKinds.length > 0 && (

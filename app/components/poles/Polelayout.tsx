@@ -38,6 +38,10 @@ interface Props {
   // --- NEW 2: Boundary Props ---
   boundary: BoundaryPoint[] | null;
   isMaskEnabled: boolean;
+  /** Jumps straight to the DXF Viewer tab for a fast, read-mostly report view
+   * — no new component, just reuses the viewer that already knows how to
+   * restore poles/spans/teardown status without rescanning. */
+  onViewReport?: () => void;
 }
 
 function sourceLabel(tag: PoleTag): { text: string; color: string } {
@@ -57,6 +61,7 @@ export default function PoleLayout({
   isActive,
   boundary, // NEW
   isMaskEnabled, // NEW
+  onViewReport,
 }: Props) {
   // ── Pole scan state ───────────────────────────────────────────────────────
   const [tags, setTags] = useState<PoleTag[]>([]);
@@ -442,7 +447,10 @@ export default function PoleLayout({
     if (showOnMapRef.current) {
       const vTags = visibleTagsRef.current;
       const selId = selectedIdRef.current;
-      const r = 12 / vp.scale;
+      // Poles that sit close together (common along a dense run) used to
+      // draw as a solid 12px-radius mass — hiding both the pole names and
+      // the strand lines underneath. Smaller keeps them apart.
+      const r = 9 / vp.scale;
 
       for (const tag of vTags) {
         const isPreviewMatch = !previewLayer || tag.layer === previewLayer;
@@ -463,12 +471,16 @@ export default function PoleLayout({
           ctx.stroke();
         }
 
-        if (vp.scale > 1.2) {
+        // Force the pole label to render at all useful zoom levels (matches
+        // DxfViewer's pole-label gate) — it used to require zooming in past
+        // 1.2x AND the font-size formula always evaluated to 0.2px, so
+        // names were invisible at effectively every zoom level.
+        if (vp.scale > 0.05) {
           ctx.save();
           ctx.translate(tag.cx, tag.cy + r * 1.6);
           ctx.scale(1, -1);
           ctx.fillStyle = isSel ? "#d97706" : "#f59e0b";
-          ctx.font = `bold ${Math.min(0.2, Math.max(8, 10 / vp.scale))}px monospace`;
+          ctx.font = `bold ${Math.min(20, Math.max(9, 0.2 * vp.scale)) / vp.scale}px monospace`;
           ctx.textAlign = "center";
           ctx.textBaseline = "top";
           ctx.fillText(tag.name || `POLE_${tag.pole_id}`, 0, 0);
@@ -781,7 +793,7 @@ export default function PoleLayout({
         return;
       }
 
-      const r = Math.max(1.0, 12 / vp.scale);
+      const r = Math.max(1.0, 9 / vp.scale);
 
       let closest: PoleTag | null = null;
       let bestD = Infinity;
@@ -880,6 +892,18 @@ export default function PoleLayout({
             className="absolute bottom-16 right-4 z-10 bg-indigo-600 shadow-lg px-4 py-2 rounded-lg font-semibold text-sm text-white hover:bg-indigo-700 transition-all flex items-center gap-2"
           >
             🌍 Insert Coordinates
+          </button>
+        )}
+
+        {/* View Full Report — jumps to the DXF Viewer tab, which restores
+            already-scanned poles/spans (and teardown/redline status) instead
+            of rescanning. */}
+        {scanStatus === "done" && tags.length > 0 && onViewReport && (
+          <button
+            onClick={onViewReport}
+            className="absolute bottom-16 right-48 z-10 bg-emerald-600 shadow-lg px-4 py-2 rounded-lg font-semibold text-sm text-white hover:bg-emerald-700 transition-all flex items-center gap-2"
+          >
+            📋 View Full Report
           </button>
         )}
 

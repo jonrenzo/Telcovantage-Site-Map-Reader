@@ -1,0 +1,120 @@
+- generic [ref=f7e1]:
+  - generic [ref=f7e2]:
+    - banner [ref=f7e3]:
+      - button "Back" [ref=f7e176]
+      - generic [ref=f7e4]: AsBuiltIQ
+      - navigation [ref=f7e8]:
+        - generic [ref=f7e10]:
+          - generic [ref=f7e11]: ✓
+          - generic [ref=f7e12]: Load Plan
+        - generic [ref=f7e15]:
+          - generic [ref=f7e16]: ✓
+          - generic [ref=f7e17]: Reading
+        - generic [ref=f7e20]:
+          - generic [ref=f7e21]: "3"
+          - generic [ref=f7e22]: Review
+      - button "Export" [ref=f7e180]
+    - generic [ref=f7e186]:
+      - generic [ref=f7e188]:
+        - button "🔍 OCR Review" [ref=f7e189]:
+          - generic [ref=f7e190]: 🔍
+          - text: OCR Review
+        - button "🗺️ DXF Viewer" [ref=f7e191]:
+          - generic [ref=f7e192]: 🗺️
+          - text: DXF Viewer
+        - button "⚙️ Equipment" [ref=f7e193]:
+          - generic [ref=f7e194]: ⚙️
+          - text: Equipment
+        - button "🔵 Pole IDs" [ref=f7e195]:
+          - generic [ref=f7e196]: 🔵
+          - text: Pole IDs
+      - generic [ref=f7e637]:
+        - generic [ref=f7e639]:
+          - button "Layers 20/20" [ref=f7e640]:
+            - text: Layers
+            - generic [ref=f7e645]: 20/20
+          - generic [ref=f7e646]:
+            - button "⊡" [ref=f7e647]
+            - button "+" [ref=f7e648]
+            - button "−" [ref=f7e649]
+          - button "Sync status" [disabled] [ref=f7e650]
+          - button "Export PDF" [ref=f7e654]
+        - generic [ref=f7e1193]:
+          - paragraph [ref=f7e1194]: 8 stretch(es) of cable run alongside another — those spans upload with more than one run rather than as duplicate spans.
+          - paragraph [ref=f7e1195]: Skipped 8 pole pair(s) sitting on the same short piece of cable — too close together to be a real span.
+          - paragraph [ref=f7e1196]: 1 pole(s) sit further than 30.417 from any cable and were left out.
+          - paragraph [ref=f7e1197]: 1 pole(s) could not be paired — each has a span with its FROM filled and the TO left for you to pick.
+          - paragraph [ref=f7e1198]: 7 span(s) had no strand length nearby — their length is measured off the drawing instead.
+          - paragraph [ref=f7e1199]: 2 strand length(s) could not be matched to any span.
+        - generic [ref=f7e658]:
+          - generic [ref=f7e659]:
+            - generic [ref=f7e660]:
+              - heading "Layers" [level=3] [ref=f7e661]
+              - paragraph [ref=f7e662]: 20 of 20 visible
+            - generic [ref=f7e663]:
+              - button "All on" [ref=f7e664]
+              - button "All off" [ref=f7e665]
+          - generic [ref=f7e666]:
+            - generic [ref=f7e668] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f7e671]: ⚙
+              - generic [ref=f7e672]: Equipment
+              - generic [ref=f7e673]: 5/5
+              - generic [ref=f7e674]:
+                - button "Show all in group" [disabled] [ref=f7e675]
+                - button "Hide all in group" [ref=f7e679]
+            - generic [ref=f7e684]:
+              - generic [ref=f7e685] [cursor=pointer]:
+                - generic [aria-hidden] [ref=f7e688]: 📡
+                - generic [ref=f7e689]: Cable Strand
+                - generic [ref=f7e690]: 3/3
+                - generic [ref=f7e691]:
+                  - button "Show all in group" [disabled] [ref=f7e692]
+                  - button "Hide all in group" [ref=f7e696]
+              - generic [ref=f7e701]:
+                - generic [ref=f7e702] [cursor=pointer]:
+                  - generic "PDF_RICKLEE_COAXCABLE" [ref=f7e705]
+                  - generic [ref=f7e706]: "339"
+                - generic [ref=f7e710] [cursor=pointer]:
+                  - generic "PDF_SKY-Lipa$0$RICKLEE_STRAND" [ref=f7e713]
+                  - generic [ref=f7e714]: "33"
+                - generic [ref=f7e718] [cursor=pointer]:
+                  - generic "PDF_SKY-Lipa$0$RICKLEE_STRANDDISTANCE" [ref=f7e721]
+                  - generic [ref=f7e722]: 1,243
+            - generic [ref=f7e727] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f7e730]: 🔀
+              - generic [ref=f7e731]: Tapoffs / Splitters
+              - generic [ref=f7e732]: 1/1
+              - generic [ref=f7e733]:
+                - button "Show all in group" [disabled] [ref=f7e734]
+                - button "Hide all in group" [ref=f7e738]
+            - generic [ref=f7e744] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f7e747]: ♾️
+              - generic [ref=f7e748]: Other Layers
+              - generic [ref=f7e749]: 11/11
+              - generic [ref=f7e750]:
+                - button "Show all in group" [disabled] [ref=f7e751]
+                - button "Hide all in group" [ref=f7e755]
+          - paragraph [ref=f7e761]: Click a layer to toggle · Use group buttons to show/hide all
+        - generic [ref=f7e762]:
+          - button "➕ Add Pole" [ref=f7e1186]
+          - button "🗑️ Delete Pole" [ref=f7e1187]
+          - button "✏️ Rename Pole" [active] [ref=f7e1188]
+          - button "🌍 Insert Coordinates" [ref=f7e1189]
+          - button "⚡ Re-derive Spans" [ref=f7e1190]
+          - button "✂ Cut Here" [ref=f7e1191]
+          - button "✂️ Auto Cut Spans" [ref=f7e1192]
+          - button "📍 Hide Poles" [ref=f7e1200]
+          - button "🔌 Show Actives" [ref=f7e771]
+        - generic [ref=f7e1201]: "Rename Pole mode: click an existing pole to rename it"
+        - generic [ref=f7e773]:
+          - generic [ref=f7e774]: Cable interaction
+          - generic [ref=f7e775]: "Recovered: 0.00 m"
+          - generic [ref=f7e776]: "Unrecovered/Partial: 0.00 m"
+          - generic [ref=f7e777]: "Missing: 0.00 m"
+          - generic [ref=f7e778]: "Total Strand length: 1866.00 m"
+          - generic [ref=f7e779]: "Total Cables: 2863.00 m"
+          - generic [ref=f7e780] [cursor=pointer]:
+            - checkbox "Show Status Labels" [checked] [ref=f7e781]
+            - generic [ref=f7e782]: Show Status Labels
+  - button "Open Next.js Dev Tools" [ref=f7e71] [cursor=pointer]
+  - alert [ref=f7e131]

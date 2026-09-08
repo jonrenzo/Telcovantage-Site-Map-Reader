@@ -69,9 +69,12 @@ _ROTATIONS = [0, 45, 90, 135, 180, 225, 270, 315]
 # deployment via POLE_ID_PATTERN. The old two-letter cap forced correctly-read
 # IDs like CUB-508 and CVSY-110 into manual review at 0.999 confidence. The
 # optional hyphen right after the letters is required too — without it,
-# "CUB-508" still can't match: the letters run into "-", not into a digit.
+# "CUB-508" still can't match: the letters run into "-", not into a digit. The
+# suffix after the number isn't always letters-only either — "IML-18R",
+# "IML-133CI", "IML-180M2" interleave letters back into digits — so it's a
+# general alphanumeric tail, not letters-then-done.
 _POLEID_RE = re.compile(
-    os.environ.get("POLE_ID_PATTERN", r"^(?:[A-Z]{0,5}-?\d+(?:-\d+)?|NPT)$"),
+    os.environ.get("POLE_ID_PATTERN", r"^(?:[A-Z]{0,5}-?\d+(?:-\d+)?[A-Z0-9]{0,4}|NPT|PT)$"),
     re.IGNORECASE,
 )
 
@@ -302,6 +305,13 @@ _PREFIX_SUBS = {
 def _clean(text: str) -> str:
     text = text.strip()
     text = re.sub(r"^[^A-Za-z0-9]+|[^A-Za-z0-9]+$", "", text)
+    # TrOCR sometimes inserts a stray space mid-read ("ML-18 R" for "ML-18R")
+    # — a real, high-confidence read then fails the no-space pole-ID regex
+    # and loses to a garbled-but-space-free low-confidence guess elsewhere
+    # in the rotation sweep, since _pick_best only compares validity before
+    # confidence. No pole ID legitimately contains whitespace, so stripping
+    # it all (not just the ends) is always correct here.
+    text = re.sub(r"\s+", "", text)
     return text.upper()
 
 

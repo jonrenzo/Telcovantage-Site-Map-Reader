@@ -11,6 +11,12 @@ interface Props {
   onOpenReviewModal: () => void;
   manualMode: boolean;
   onToggleManual: () => void;
+  /** Results sitting outside the site boundary, or inside it but with no
+   * cable/strand nearby — shown dimmed on the map, left out of this list's
+   * count/rows, but still worth a one-click purge once the operator has
+   * glanced at them. */
+  outOfBoundsCount?: number;
+  onDeleteOutOfBounds?: () => void;
 }
 
 const FILTERS: { key: FilterMode; label: string }[] = [
@@ -81,6 +87,8 @@ export default function ReviewSidebar({
   onOpenReviewModal,
   manualMode,
   onToggleManual,
+  outOfBoundsCount = 0,
+  onDeleteOutOfBounds,
 }: Props) {
   const filtered = results.filter((r) => {
     if (filterMode === "review") return r.needs_review;
@@ -137,6 +145,20 @@ export default function ReviewSidebar({
           {toReview > 0 ? `⚠ Check ${toReview} Uncertain` : "✓ All confident"}
         </button>
       </div>
+
+      {/* ── Outside-boundary bulk delete ── */}
+      {outOfBoundsCount > 0 && onDeleteOutOfBounds && (
+        <div className="px-5 py-3 border-b border-border flex-shrink-0">
+          <button
+            onClick={onDeleteOutOfBounds}
+            className="w-full py-2 text-xs font-semibold rounded-lg border-[1.5px]
+                          bg-slate-100 text-slate-600 border-slate-300
+                          hover:bg-slate-200 transition-colors"
+          >
+            🗑 Delete {outOfBoundsCount} Flagged
+          </button>
+        </div>
+      )}
 
       {/* ── Add Manually button ── */}
       <div className="px-5 py-3 border-b border-border flex-shrink-0">

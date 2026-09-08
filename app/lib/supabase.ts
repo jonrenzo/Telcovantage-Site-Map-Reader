@@ -16,6 +16,7 @@ export interface Project {
   dxf_file_name: string;
   dxf_checksum: string | null;
   dxf_file_path: string | null;
+  asbuilt_node_id: number | null;
   created_at: string;
   updated_at: string;
 }

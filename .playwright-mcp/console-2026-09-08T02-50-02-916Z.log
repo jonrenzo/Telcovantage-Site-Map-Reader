@@ -1,0 +1,327 @@
+[     656ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[     872ms] [LOG] [HMR] connected @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[    1137ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[    1289ms] [LOG] [Fast Refresh] done in 253ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[    2538ms] [ERROR] Failed to load resource: the server responded with a status of 406 () @ https://epjfulzqbvpvnxakgany.supabase.co/rest/v1/session_config?select=*&session_id=eq.7166062a-496e-4294-99e5-9c4eee65dd26:0
+[    2539ms] [ERROR] Failed to load resource: the server responded with a status of 406 () @ https://epjfulzqbvpvnxakgany.supabase.co/rest/v1/boundaries?select=id&session_id=eq.7166062a-496e-4294-99e5-9c4eee65dd26:0
+[   10492ms] [ERROR] Failed to load resource: the server responded with a status of 406 () @ https://epjfulzqbvpvnxakgany.supabase.co/rest/v1/session_config?select=*&session_id=eq.7166062a-496e-4294-99e5-9c4eee65dd26:0
+[   11000ms] [ERROR] Failed to load resource: the server responded with a status of 406 () @ https://epjfulzqbvpvnxakgany.supabase.co/rest/v1/boundaries?select=*&session_id=eq.7166062a-496e-4294-99e5-9c4eee65dd26:0
+[   11000ms] [LOG] [restore] session: 7166062a-496e-4294-99e5-9c4eee65dd26 poles: 34 equipment: 18 digits: 52 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   11000ms] [LOG] [restore] cache written — poleDone: true path: C:\zander\Telcovantage-Site-Map-Reader\uploads\LPA120.dxf dxfPath state: C:\zander\Telcovantage-Site-Map-Reader\uploads\LPA120.dxf @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   11101ms] [LOG] [PoleLayout mount] cachedData: poleDone=true tags=34 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   11109ms] [LOG] [PoleLayout mount] cachedData: poleDone=true tags=34 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   11764ms] [WARNING] [sync] matched 0 spans, unmatched 30 {unmatchedKeys: Array(30), unmatchedPoles: Array(32), localSpanKeys: Array(0), localPoleIndices: Array(0)} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   12249ms] [WARNING] [sync] matched 0 spans, unmatched 30 {unmatchedKeys: Array(30), unmatchedPoles: Array(32), localSpanKeys: Array(0), localPoleIndices: Array(0)} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   13030ms] [LOG] [cache-update] sid= 7166062a-496e-4294-99e5-9c4eee65dd26 poleTags= 0 shapes= 0 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   13626ms] [LOG] [DB] Deleted 34 stale pole(s): [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   16377ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   16377ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   18468ms] [LOG] [cache-update] sid= 7166062a-496e-4294-99e5-9c4eee65dd26 poleTags= 8 shapes= 0 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   18992ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   18992ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   19052ms] [LOG] [DB] Saved 8 poles @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   21151ms] [LOG] [cache-update] sid= 7166062a-496e-4294-99e5-9c4eee65dd26 poleTags= 12 shapes= 0 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   21691ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   21691ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   21726ms] [LOG] [DB] Saved 12 poles @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   23826ms] [LOG] [cache-update] sid= 7166062a-496e-4294-99e5-9c4eee65dd26 poleTags= 18 shapes= 0 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   24344ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   24345ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   24395ms] [LOG] [DB] Saved 18 poles @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   24833ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   24858ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   24888ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   25132ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   25159ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   25215ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   26517ms] [LOG] [cache-update] sid= 7166062a-496e-4294-99e5-9c4eee65dd26 poleTags= 23 shapes= 0 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   27094ms] [LOG] [DB] Saved 23 poles @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   27149ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   27149ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   27688ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   27698ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   27705ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   27714ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   27729ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   28290ms] [LOG] [cache-update] sid= 7166062a-496e-4294-99e5-9c4eee65dd26 poleTags= 34 shapes= 0 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   28478ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   28499ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   28534ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   28855ms] [LOG] [DB] Saved 34 poles @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   29913ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   29927ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   29934ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   30157ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   30183ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   30197ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   30211ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   30219ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   30233ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   30272ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   30324ms] [LOG] [Fast Refresh] done in 153ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   30958ms] [LOG] [cache-update] sid= 7166062a-496e-4294-99e5-9c4eee65dd26 poleTags= 34 shapes= 0 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   31472ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   31473ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   31516ms] [LOG] [DB] Saved 34 poles @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   34359ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   34359ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   35659ms] [LOG] [cache-update] sid= 7166062a-496e-4294-99e5-9c4eee65dd26 poleTags= 34 shapes= 0 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   36188ms] [WARNING] [sync] matched 28 spans, unmatched 2 {unmatchedKeys: Array(2), unmatchedPoles: Array(0), localSpanKeys: Array(34), localPoleIndices: Array(34)} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   36325ms] [LOG] [DB] Saved 34 poles @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   38936ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   38937ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   39225ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   39260ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   39295ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   39635ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   39663ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   39690ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   39746ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   39747ms] [LOG] [Fast Refresh] done in 108ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   40161ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   40206ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   40240ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   41566ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   41566ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   41829ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   41857ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   42120ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   42149ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   42169ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   42217ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   42458ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   42529ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[   44146ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   44146ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   46763ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   46763ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   49423ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   49423ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   52053ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   52053ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   54685ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   54685ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   57298ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   57298ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   59916ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   59916ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   62588ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   62588ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   65236ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   65237ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   67859ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   67859ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   70499ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   70499ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   73138ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   73139ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   75779ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   75779ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   78420ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   78421ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   81055ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   81055ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   83689ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   83690ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   86337ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   86338ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   88968ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   88968ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   91584ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   91585ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   94245ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   94245ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   96911ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   96911ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   99562ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   99562ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  102202ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  102202ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  104855ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  104855ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  107486ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  107486ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  110142ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  110142ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  112771ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  112771ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  115432ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  115432ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  118063ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  118064ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  120672ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  120672ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  123277ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  123277ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  125896ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  125896ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  128506ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  128506ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  129265ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  129285ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  129300ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  129320ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  129377ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  129384ms] [LOG] [Fast Refresh] done in 108ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  131119ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  131119ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  133734ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  133735ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  136360ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  136360ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  138995ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  138995ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  141708ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  141708ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  144320ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  144321ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  146935ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  146935ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  149530ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  149530ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  152159ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  152159ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  154799ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  154799ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  157435ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  157435ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  160068ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  160069ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  162712ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  162712ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  165322ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  165322ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  167949ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  167949ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  170636ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  170636ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  173272ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  173272ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  175905ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  175905ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  178529ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  178529ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  181148ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  181148ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  183778ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  183779ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  186398ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  186398ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  189012ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  189012ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  191643ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  191643ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  194254ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  194254ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  196855ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  196855ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  199488ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  199488ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  202117ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  202118ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  204736ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  204737ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  207358ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  207359ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  209978ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  209978ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  212595ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  212595ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  215208ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  215209ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  217837ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  217837ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  220492ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  220493ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  223183ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  223184ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  225809ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  225810ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  228490ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  228491ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  231127ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  231127ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  233774ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  233774ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  236401ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  236401ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  239076ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  239076ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  241735ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  241735ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  244446ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  244446ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  247126ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  247126ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  249792ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  249793ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  250455ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  251905ms] [LOG] [Fast Refresh] done in 1440ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  252573ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  252573ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  252919ms] [WARNING] [sync] matched 0 spans, unmatched 30 {unmatchedKeys: Array(30), unmatchedPoles: Array(32), localSpanKeys: Array(0), localPoleIndices: Array(0)} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  255240ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  255240ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  257381ms] [LOG] [cache-update] sid= 7166062a-496e-4294-99e5-9c4eee65dd26 poleTags= 34 shapes= 0 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  257913ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  257913ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  257992ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  257993ms] [LOG] [DB] Saved 34 poles @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  258586ms] [LOG] [Fast Refresh] done in 639ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  259646ms] [WARNING] [sync] matched 0 spans, unmatched 30 {unmatchedKeys: Array(30), unmatchedPoles: Array(1), localSpanKeys: Array(0), localPoleIndices: Array(0)} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  261909ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  261909ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  264607ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  264607ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  267267ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  267268ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  269923ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  269923ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  272555ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  272555ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  275184ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  275184ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  277820ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  277820ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  280457ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  280458ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  283066ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  283066ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  285717ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  285717ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  288370ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  288371ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  290100ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  290435ms] [LOG] [Fast Refresh] done in 383ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  291204ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  291204ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  291369ms] [WARNING] [sync] matched 0 spans, unmatched 30 {unmatchedKeys: Array(30), unmatchedPoles: Array(32), localSpanKeys: Array(0), localPoleIndices: Array(0)} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  293883ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  293884ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  296001ms] [LOG] [cache-update] sid= 7166062a-496e-4294-99e5-9c4eee65dd26 poleTags= 34 shapes= 0 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  296519ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  296519ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  296604ms] [LOG] [DB] Saved 34 poles @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  299256ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  299256ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  301911ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  301911ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  304538ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  304539ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  305696ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  306646ms] [LOG] [Fast Refresh] done in 931ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  306767ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  306787ms] [LOG] [Fast Refresh] done in 124ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  307633ms] [WARNING] [sync] matched 0 spans, unmatched 30 {unmatchedKeys: Array(30), unmatchedPoles: Array(1), localSpanKeys: Array(0), localPoleIndices: Array(0)} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  310003ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  310003ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  312660ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  312661ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  315317ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  315317ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  318020ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  318020ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  320654ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  320655ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  323310ms] [LOG] [DB] Saved 52 digit results @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  323310ms] [LOG] [AutoSave] Save completed successfully @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297

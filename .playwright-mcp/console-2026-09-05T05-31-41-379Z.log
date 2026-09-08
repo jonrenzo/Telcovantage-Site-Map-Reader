@@ -1,0 +1,37 @@
+[     247ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=20a7dcd3:14337
+[    3265ms] [ERROR] Error: <svg> attribute width: Expected length, "NaN". @ http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:5
+[    3265ms] [ERROR] Error: <foreignObject> attribute width: Expected length, "NaN". @ http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:5
+[    3269ms] [ERROR] Error: <circle> attribute r: A negative value is not valid. ("-3.0975") @ http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:5
+[    3270ms] [ERROR] Error: <g> attribute transform: Expected number, "translate(NaN, 0)". @ http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:5
+[    3271ms] [ERROR] Error: <svg> attribute width: Expected length, "NaN". @ http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:5
+[    3271ms] [ERROR] Error: <foreignObject> attribute width: Expected length, "NaN". @ http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:5
+[    3273ms] [ERROR] Error: <g> attribute transform: Expected number, "translate(NaN, 0) scale(1)". @ http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:5
+[    3274ms] [ERROR] Error: <g> attribute transform: Expected number, "translate(NaN, 0) scale(1)". @ http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:5
+[    3278ms] [ERROR] Error: <svg> attribute width: Expected length, "NaN". @ http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:5
+[    3278ms] [ERROR] Error: <foreignObject> attribute width: Expected length, "NaN". @ http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:5
+[    3279ms] [ERROR] Error: <g> attribute transform: Expected number, "translate(NaN, 0) scale(1)". @ http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:5
+[    3279ms] [ERROR] Error: <g> attribute transform: Expected number, "translate(NaN, 0) scale(1)". @ http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:5
+[    3282ms] [ERROR] Error: <svg> attribute width: Expected length, "NaN". @ http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:5
+[    3282ms] [ERROR] Error: <foreignObject> attribute width: Expected length, "NaN". @ http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:5
+[    3283ms] [ERROR] Error: <g> attribute transform: Expected number, "translate(NaN, 0) scale(1)". @ http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:5
+[    3284ms] [ERROR] Error: <g> attribute transform: Expected number, "translate(NaN, 0) scale(1)". @ http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:5
+[    3288ms] [ERROR] Error: <svg> attribute width: Expected length, "NaN". @ http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:5
+[    3288ms] [ERROR] Error: <foreignObject> attribute width: Expected length, "NaN". @ http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:5
+[    3289ms] [ERROR] Error: <g> attribute transform: Expected number, "translate(NaN, 0) scale(1)". @ http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:5
+[    3289ms] [ERROR] Error: <g> attribute transform: Expected number, "translate(NaN, 0) scale(1)". @ http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:5
+[    3293ms] [ERROR] Error: <path> attribute d: Expected number, "M e -16 4 A -4 -4 …". @ http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:5
+[    3294ms] [ERROR] Error: <svg> attribute width: Expected length, "NaN". @ http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:5
+[    3294ms] [ERROR] Error: <foreignObject> attribute width: Expected length, "NaN". @ http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:5
+[    3297ms] [ERROR] Error: <g> attribute transform: Expected number, "translate(NaN, 0) scale(1)". @ http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:5
+[    3297ms] [ERROR] Error: <g> attribute transform: Expected number, "translate(NaN, 0) scale(1)". @ http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:5
+[    3309ms] TypeError: Cannot read properties of null (reading 'node')
+    at t.value (http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:6:98485)
+    at t.value (http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:6:440232)
+    at t.value (http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:6:436589)
+    at t.value (http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:6:506523)
+    at t.value (http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:38:31443)
+    at t.create (http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:6:5772)
+    at http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:38:36431
+    at new Promise (<anonymous>)
+    at t.value (http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:38:36359)
+    at http://localhost:5173/assets/libs/apexcharts/apexcharts.min.js:38:40375

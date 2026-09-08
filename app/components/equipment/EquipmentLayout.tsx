@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import type { EquipmentShape, BoundaryPoint, Segment } from "../../types";
 import type { FileCache } from "../../hooks/useSessionCache";
 import EquipmentPanel from "./EquipmentPanel";
 import EquipmentCanvas, { getDisplayKind } from "./EquipmentCanvas";
+import { isPointInPolygon, findNoWireNearbyIndices } from "../../page";
 
 interface Props {
   dxfPath: string;
@@ -109,6 +110,52 @@ export default function EquipmentLayout({
     [dxfPath, onCacheUpdate],
   );
 
+  // Shapes outside the boundary, or inside it but with no cable/strand
+  // nearby — flagged the same way OCR Review flags its outliers, so they
+  // can be spotted and purged instead of quietly skewing counts.
+  const flaggedShapes = useMemo(() => {
+    const outOfBounds =
+      isMaskEnabled && boundary && boundary.length > 2
+        ? shapes.filter(
+            (s) =>
+              !isPointInPolygon(s.cx ?? s.bbox[0], s.cy ?? s.bbox[1], boundary),
+          )
+        : [];
+    const noWireIdxs = findNoWireNearbyIndices(
+      shapes,
+      (s) => ({ x: s.cx ?? s.bbox[0], y: s.cy ?? s.bbox[1] }),
+      segments,
+    );
+    const ids = new Set<number>();
+    const combined: EquipmentShape[] = [];
+    for (const s of outOfBounds) {
+      if (!ids.has(s.shape_id)) {
+        ids.add(s.shape_id);
+        combined.push(s);
+      }
+    }
+    shapes.forEach((s, idx) => {
+      if (noWireIdxs.has(idx) && !ids.has(s.shape_id)) {
+        ids.add(s.shape_id);
+        combined.push(s);
+      }
+    });
+    return combined;
+  }, [shapes, segments, boundary, isMaskEnabled]);
+
+  const handleDeleteFlagged = useCallback(() => {
+    if (flaggedShapes.length === 0) return;
+    if (
+      !window.confirm(
+        `Delete ${flaggedShapes.length} flagged shape(s) (outside the boundary or with no nearby wire)? This can't be undone.`,
+      )
+    )
+      return;
+    const idsToRemove = new Set(flaggedShapes.map((s) => s.shape_id));
+    setShapes((prev) => prev.filter((s) => !idsToRemove.has(s.shape_id)));
+    setSelectedId((id) => (id !== null && idsToRemove.has(id) ? null : id));
+  }, [flaggedShapes]);
+
   const [fitTrigger, setFitTrigger] = useState(0);
 
   useEffect(() => {
@@ -154,6 +201,8 @@ export default function EquipmentLayout({
         scanProgress={progress}
         scanTotal={total}
         onRescan={startScan}
+        flaggedCount={flaggedShapes.length}
+        onDeleteFlagged={handleDeleteFlagged}
       />
 
       <div className="flex-1 relative overflow-hidden bg-[#e8edf5]">

@@ -1,0 +1,182 @@
+- generic [active] [ref=f63e1]:
+  - generic [ref=f63e2]:
+    - banner [ref=f63e3]:
+      - button "Back" [ref=f63e210]
+      - generic [ref=f63e4]: AsBuiltIQ
+      - navigation [ref=f63e8]:
+        - generic [ref=f63e10]:
+          - generic [ref=f63e11]: ✓
+          - generic [ref=f63e12]: Load Plan
+        - generic [ref=f63e15]:
+          - generic [ref=f63e16]: ✓
+          - generic [ref=f63e17]: Reading
+        - generic [ref=f63e20]:
+          - generic [ref=f63e21]: "3"
+          - generic [ref=f63e22]: Review
+      - button "Export" [ref=f63e214]
+    - generic [ref=f63e220]:
+      - generic [ref=f63e221]:
+        - generic [ref=f63e222]:
+          - button "🔍 OCR Review" [ref=f63e223]:
+            - generic [ref=f63e224]: 🔍
+            - text: OCR Review
+          - button "🗺️ DXF Viewer" [ref=f63e225]:
+            - generic [ref=f63e226]: 🗺️
+            - text: DXF Viewer
+          - button "⚙️ Equipment" [ref=f63e227]:
+            - generic [ref=f63e228]: ⚙️
+            - text: Equipment
+          - button "🔵 Pole IDs" [ref=f63e229]:
+            - generic [ref=f63e230]: 🔵
+            - text: Pole IDs
+        - generic [ref=f63e479]:
+          - generic [ref=f63e480]: "Boundary Mask:"
+          - button [ref=f63e481]
+          - generic [ref=f63e483]: "ON"
+      - generic [ref=f63e413]:
+        - complementary [ref=f63e414]:
+          - generic [ref=f63e415]:
+            - heading "Equipment Detection" [level=2] [ref=f63e416]
+            - paragraph [ref=f63e417]: 18 shapes found across 2 layers
+          - generic [ref=f63e418]:
+            - generic [ref=f63e419]: Boundary Layer(optional)
+            - combobox [ref=f63e420] [cursor=pointer]:
+              - option "— None —"
+              - option "0"
+              - option "Defpoints"
+              - option "PDF_Level 1"
+              - option "PDF_Level 21"
+              - option "PDF_Level 22"
+              - option "PDF_Level 35"
+              - option "PDF_RICKLEE_AMPBLOCK"
+              - option "PDF_RICKLEE_COAXCABLE"
+              - option "PDF_RICKLEE_ENDOFTAPOFFBLOCK"
+              - option "PDF_RICKLEE_NODEBOUNDARY" [selected]
+              - option "PDF_RICKLEE_NODEDETAILS"
+              - option "PDF_RICKLEE_POWERSUPPLY"
+              - option "PDF_SKY-Lipa$0$LANDMARK"
+              - option "PDF_SKY-Lipa$0$POLE NUMBER"
+              - option "PDF_SKY-Lipa$0$RICKLEE_HOUSECOUNT"
+              - option "PDF_SKY-Lipa$0$RICKLEE_POLEPED"
+              - option "PDF_SKY-Lipa$0$RICKLEE_ROAD"
+              - option "PDF_SKY-Lipa$0$RICKLEE_STRAND"
+              - option "PDF_SKY-Lipa$0$RICKLEE_STRANDDISTANCE"
+              - option "PDF_Text"
+            - button "↺ Re-scan" [ref=f63e421]
+          - generic [ref=f63e484]:
+            - generic [ref=f63e485]:
+              - generic [ref=f63e486]: Equipment Type
+              - generic [ref=f63e487]:
+                - button "All" [ref=f63e488]
+                - generic [ref=f63e489]: ·
+                - button "None" [ref=f63e490]
+            - generic [ref=f63e491]:
+              - button "2 Way Tap 11" [ref=f63e492]:
+                - text: 2 Way Tap
+                - generic [ref=f63e494]: "11"
+              - button "dome 7" [ref=f63e495]:
+                - text: dome
+                - generic [ref=f63e497]: "7"
+          - button "Layers (2/2 visible)" [ref=f63e499]
+          - generic [ref=f63e422]:
+            - generic [ref=f63e503] [cursor=pointer]:
+              - generic [ref=f63e505]: "#1"
+              - generic [ref=f63e506]: 2 Way Tap
+              - generic [ref=f63e507]: PDF_RICKLEE_ENDOFTAPOFFBLOCK
+            - generic [ref=f63e508] [cursor=pointer]:
+              - generic [ref=f63e510]: "#2"
+              - generic [ref=f63e511]: 2 Way Tap
+              - generic [ref=f63e512]: PDF_RICKLEE_ENDOFTAPOFFBLOCK
+            - generic [ref=f63e513] [cursor=pointer]:
+              - generic [ref=f63e515]: "#3"
+              - generic [ref=f63e516]: dome
+              - generic [ref=f63e517]: PDF_RICKLEE_AMPBLOCK
+            - generic [ref=f63e518] [cursor=pointer]:
+              - generic [ref=f63e520]: "#4"
+              - generic [ref=f63e521]: dome
+              - generic [ref=f63e522]: PDF_RICKLEE_AMPBLOCK
+            - generic [ref=f63e523] [cursor=pointer]:
+              - generic [ref=f63e525]: "#5"
+              - generic [ref=f63e526]: 2 Way Tap
+              - generic [ref=f63e527]: PDF_RICKLEE_ENDOFTAPOFFBLOCK
+            - generic [ref=f63e528] [cursor=pointer]:
+              - generic [ref=f63e530]: "#6"
+              - generic [ref=f63e531]: 2 Way Tap
+              - generic [ref=f63e532]: PDF_RICKLEE_ENDOFTAPOFFBLOCK
+            - generic [ref=f63e533] [cursor=pointer]:
+              - generic [ref=f63e535]: "#7"
+              - generic [ref=f63e536]: dome
+              - generic [ref=f63e537]: PDF_RICKLEE_AMPBLOCK
+            - generic [ref=f63e538] [cursor=pointer]:
+              - generic [ref=f63e540]: "#8"
+              - generic [ref=f63e541]: dome
+              - generic [ref=f63e542]: PDF_RICKLEE_AMPBLOCK
+            - generic [ref=f63e543] [cursor=pointer]:
+              - generic [ref=f63e545]: "#9"
+              - generic [ref=f63e546]: 2 Way Tap
+              - generic [ref=f63e547]: PDF_RICKLEE_ENDOFTAPOFFBLOCK
+            - generic [ref=f63e548] [cursor=pointer]:
+              - generic [ref=f63e550]: "#10"
+              - generic [ref=f63e551]: 2 Way Tap
+              - generic [ref=f63e552]: PDF_RICKLEE_ENDOFTAPOFFBLOCK
+            - generic [ref=f63e553] [cursor=pointer]:
+              - generic [ref=f63e555]: "#11"
+              - generic [ref=f63e556]: dome
+              - generic [ref=f63e557]: PDF_RICKLEE_AMPBLOCK
+            - generic [ref=f63e558] [cursor=pointer]:
+              - generic [ref=f63e560]: "#12"
+              - generic [ref=f63e561]: dome
+              - generic [ref=f63e562]: PDF_RICKLEE_AMPBLOCK
+            - generic [ref=f63e563] [cursor=pointer]:
+              - generic [ref=f63e565]: "#13"
+              - generic [ref=f63e566]: 2 Way Tap
+              - generic [ref=f63e567]: PDF_RICKLEE_ENDOFTAPOFFBLOCK
+            - generic [ref=f63e568] [cursor=pointer]:
+              - generic [ref=f63e570]: "#14"
+              - generic [ref=f63e571]: 2 Way Tap
+              - generic [ref=f63e572]: PDF_RICKLEE_ENDOFTAPOFFBLOCK
+            - generic [ref=f63e573] [cursor=pointer]:
+              - generic [ref=f63e575]: "#15"
+              - generic [ref=f63e576]: 2 Way Tap
+              - generic [ref=f63e577]: PDF_RICKLEE_ENDOFTAPOFFBLOCK
+            - generic [ref=f63e578] [cursor=pointer]:
+              - generic [ref=f63e580]: "#16"
+              - generic [ref=f63e581]: 2 Way Tap
+              - generic [ref=f63e582]: PDF_RICKLEE_ENDOFTAPOFFBLOCK
+            - generic [ref=f63e583] [cursor=pointer]:
+              - generic [ref=f63e585]: "#17"
+              - generic [ref=f63e586]: dome
+              - generic [ref=f63e587]: PDF_RICKLEE_AMPBLOCK
+            - generic [ref=f63e588] [cursor=pointer]:
+              - generic [ref=f63e590]: "#18"
+              - generic [ref=f63e591]: 2 Way Tap
+              - generic [ref=f63e592]: PDF_RICKLEE_ENDOFTAPOFFBLOCK
+          - generic [ref=f63e593]:
+            - generic [ref=f63e594]: Showing
+            - generic [ref=f63e595]: "18"
+            - generic [ref=f63e596]: of 18 shapes
+          - button "Export Equipment" [ref=f63e598]
+        - generic [ref=f63e426]:
+          - generic [ref=f63e602]:
+            - generic [ref=f63e603]:
+              - generic [ref=f63e605]: "10"
+              - generic [ref=f63e606]: 2 Way Tap
+            - generic [ref=f63e607]:
+              - generic [ref=f63e609]: "7"
+              - generic [ref=f63e610]: dome
+            - generic [ref=f63e612]: 17 total
+          - generic [ref=f63e428]:
+            - button "⊡" [ref=f63e429]
+            - button "+" [ref=f63e430]
+            - button "−" [ref=f63e431]
+          - generic [ref=f63e432]:
+            - generic [ref=f63e433]: 2 Way Tap
+            - generic [ref=f63e437]: Splitter
+            - generic [ref=f63e441]: 4 Way Tap
+            - generic [ref=f63e445]: 8 Way Tap
+            - generic [ref=f63e449]: Node
+            - generic [ref=f63e453]: Amplifier
+            - generic [ref=f63e457]: Line Extender
+            - generic [ref=f63e461]: Boundary
+  - button "Open Next.js Dev Tools" [ref=f63e150] [cursor=pointer]
+  - alert [ref=f63e154]

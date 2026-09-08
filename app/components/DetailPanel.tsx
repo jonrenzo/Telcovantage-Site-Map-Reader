@@ -111,14 +111,12 @@ export default function DetailPanel({
           Press Enter to save · Esc to close
         </p>
 
-        {result.manual && (
-          <button
-            onClick={() => onDelete(result.digit_id)}
-            className="mt-3 w-full px-3 py-2 rounded-lg text-xs font-semibold text-[#dc2626] border border-[#fecaca] hover:bg-[#fef2f2] transition-colors"
-          >
-            🗑 Remove this entry
-          </button>
-        )}
+        <button
+          onClick={() => onDelete(result.digit_id)}
+          className="mt-3 w-full px-3 py-2 rounded-lg text-xs font-semibold text-[#dc2626] border border-[#fecaca] hover:bg-[#fef2f2] transition-colors"
+        >
+          🗑 {result.manual ? "Remove this entry" : "Delete this reading"}
+        </button>
       </div>
     </div>
   );

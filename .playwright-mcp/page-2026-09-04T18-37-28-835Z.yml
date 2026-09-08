@@ -1,0 +1,198 @@
+- generic [active] [ref=f11e1]:
+  - generic [ref=f11e2]:
+    - banner [ref=f11e3]:
+      - button "Back" [ref=f11e212]
+      - generic [ref=f11e4]: AsBuiltIQ
+      - navigation [ref=f11e8]:
+        - generic [ref=f11e10]:
+          - generic [ref=f11e11]: ✓
+          - generic [ref=f11e12]: Load Plan
+        - generic [ref=f11e15]:
+          - generic [ref=f11e16]: ✓
+          - generic [ref=f11e17]: Reading
+        - generic [ref=f11e20]:
+          - generic [ref=f11e21]: "3"
+          - generic [ref=f11e22]: Review
+      - button "Export" [ref=f11e216]
+    - generic [ref=f11e222]:
+      - generic [ref=f11e224]:
+        - button "🔍 OCR Review" [ref=f11e225]:
+          - generic [ref=f11e226]: 🔍
+          - text: OCR Review
+        - button "🗺️ DXF Viewer" [ref=f11e227]:
+          - generic [ref=f11e228]: 🗺️
+          - text: DXF Viewer
+        - button "⚙️ Equipment" [ref=f11e229]:
+          - generic [ref=f11e230]: ⚙️
+          - text: Equipment
+        - button "🔵 Pole IDs" [ref=f11e231]:
+          - generic [ref=f11e232]: 🔵
+          - text: Pole IDs
+      - generic [ref=f11e235]:
+        - complementary [ref=f11e238]:
+          - generic [ref=f11e239]:
+            - heading "Drawing Results" [level=2] [ref=f11e240]
+            - paragraph [ref=f11e241]: Review and correct OCR results
+          - generic [ref=f11e242]:
+            - generic [ref=f11e243]:
+              - generic [ref=f11e244]: "32"
+              - generic [ref=f11e245]: Total
+            - generic [ref=f11e246]:
+              - generic [ref=f11e247]: "11"
+              - generic [ref=f11e248]: To Check
+            - generic [ref=f11e249]:
+              - generic [ref=f11e250]: "1655"
+              - generic [ref=f11e251]: Sum
+          - button "⚠ Check 11 Uncertain" [ref=f11e253]
+          - button "Add Manually" [ref=f11e255]
+          - generic [ref=f11e258]:
+            - button "All" [ref=f11e259]
+            - button "⚠ Uncertain" [ref=f11e260]
+            - button "✏ Fixed" [ref=f11e261]
+          - generic [ref=f11e262]:
+            - generic [ref=f11e263] [cursor=pointer]:
+              - generic [ref=f11e264]: "#0"
+              - generic [ref=f11e265]: "40"
+              - generic [ref=f11e266]: ⚠ Check
+            - generic [ref=f11e267] [cursor=pointer]:
+              - generic [ref=f11e268]: "#1"
+              - generic [ref=f11e269]: "50"
+              - generic [ref=f11e270]: ✓
+            - generic [ref=f11e271] [cursor=pointer]:
+              - generic [ref=f11e272]: "#2"
+              - generic [ref=f11e273]: "42"
+              - generic [ref=f11e274]: ✓
+            - generic [ref=f11e275] [cursor=pointer]:
+              - generic [ref=f11e276]: "#3"
+              - generic [ref=f11e277]: "48"
+              - generic [ref=f11e278]: ✓
+            - generic [ref=f11e279] [cursor=pointer]:
+              - generic [ref=f11e280]: "#4"
+              - generic [ref=f11e281]: "58"
+              - generic [ref=f11e282]: ✓
+            - generic [ref=f11e283] [cursor=pointer]:
+              - generic [ref=f11e284]: "#5"
+              - generic [ref=f11e285]: "06"
+              - generic [ref=f11e286]: ⚠ Check
+            - generic [ref=f11e287] [cursor=pointer]:
+              - generic [ref=f11e288]: "#6"
+              - generic [ref=f11e289]: "70"
+              - generic [ref=f11e290]: ✓
+            - generic [ref=f11e291] [cursor=pointer]:
+              - generic [ref=f11e292]: "#7"
+              - generic [ref=f11e293]: "420"
+              - generic [ref=f11e294]: ✓
+            - generic [ref=f11e295] [cursor=pointer]:
+              - generic [ref=f11e296]: "#8"
+              - generic [ref=f11e297]: "49"
+              - generic [ref=f11e298]: ✓
+            - generic [ref=f11e299] [cursor=pointer]:
+              - generic [ref=f11e300]: "#9"
+              - generic [ref=f11e301]: "72"
+              - generic [ref=f11e302]: ⚠ Check
+            - generic [ref=f11e303] [cursor=pointer]:
+              - generic [ref=f11e304]: "#10"
+              - generic [ref=f11e305]: "42"
+              - generic [ref=f11e306]: ✓
+            - generic [ref=f11e307] [cursor=pointer]:
+              - generic [ref=f11e308]: "#11"
+              - generic [ref=f11e309]: "59"
+              - generic [ref=f11e310]: ✓
+            - generic [ref=f11e311] [cursor=pointer]:
+              - generic [ref=f11e312]: "#12"
+              - generic [ref=f11e313]: "46"
+              - generic [ref=f11e314]: ⚠ Check
+            - generic [ref=f11e315] [cursor=pointer]:
+              - generic [ref=f11e316]: "#13"
+              - generic [ref=f11e317]: "41"
+              - generic [ref=f11e318]: ✓
+            - generic [ref=f11e319] [cursor=pointer]:
+              - generic [ref=f11e320]: "#14"
+              - generic [ref=f11e321]: "49"
+              - generic [ref=f11e322]: ✓
+            - generic [ref=f11e323] [cursor=pointer]:
+              - generic [ref=f11e324]: "#15"
+              - generic [ref=f11e325]: "8"
+              - generic [ref=f11e326]: ⚠ Check
+            - generic [ref=f11e327] [cursor=pointer]:
+              - generic [ref=f11e328]: "#16"
+              - generic [ref=f11e329]: "30"
+              - generic [ref=f11e330]: ⚠ Check
+            - generic [ref=f11e331] [cursor=pointer]:
+              - generic [ref=f11e332]: "#17"
+              - generic [ref=f11e333]: "38"
+              - generic [ref=f11e334]: ✓
+            - generic [ref=f11e335] [cursor=pointer]:
+              - generic [ref=f11e336]: "#18"
+              - generic [ref=f11e337]: "42"
+              - generic [ref=f11e338]: ✓
+            - generic [ref=f11e339] [cursor=pointer]:
+              - generic [ref=f11e340]: "#19"
+              - generic [ref=f11e341]: "22"
+              - generic [ref=f11e342]: ⚠ Check
+            - generic [ref=f11e343] [cursor=pointer]:
+              - generic [ref=f11e344]: "#20"
+              - generic [ref=f11e345]: "8"
+              - generic [ref=f11e346]: ⚠ Check
+            - generic [ref=f11e347] [cursor=pointer]:
+              - generic [ref=f11e348]: "#21"
+              - generic [ref=f11e349]: "26"
+              - generic [ref=f11e350]: ⚠ Check
+            - generic [ref=f11e351] [cursor=pointer]:
+              - generic [ref=f11e352]: "#22"
+              - generic [ref=f11e353]: "31"
+              - generic [ref=f11e354]: ✓
+            - generic [ref=f11e355] [cursor=pointer]:
+              - generic [ref=f11e356]: "#23"
+              - generic [ref=f11e357]: "50"
+              - generic [ref=f11e358]: ✓
+            - generic [ref=f11e359] [cursor=pointer]:
+              - generic [ref=f11e360]: "#24"
+              - generic [ref=f11e361]: "009"
+              - generic [ref=f11e362]: ⚠ Check
+            - generic [ref=f11e363] [cursor=pointer]:
+              - generic [ref=f11e364]: "#25"
+              - generic [ref=f11e365]: "42"
+              - generic [ref=f11e366]: ✓
+            - generic [ref=f11e367] [cursor=pointer]:
+              - generic [ref=f11e368]: "#26"
+              - generic [ref=f11e369]: "32"
+              - generic [ref=f11e370]: ⚠ Check
+            - generic [ref=f11e371] [cursor=pointer]:
+              - generic [ref=f11e372]: "#27"
+              - generic [ref=f11e373]: "50"
+              - generic [ref=f11e374]: ✓
+            - generic [ref=f11e375] [cursor=pointer]:
+              - generic [ref=f11e376]: "#28"
+              - generic [ref=f11e377]: "29"
+              - generic [ref=f11e378]: ✓
+            - generic [ref=f11e379] [cursor=pointer]:
+              - generic [ref=f11e380]: "#29"
+              - generic [ref=f11e381]: "52"
+              - generic [ref=f11e382]: ✓
+            - generic [ref=f11e383] [cursor=pointer]:
+              - generic [ref=f11e384]: "#30"
+              - generic [ref=f11e385]: "58"
+              - generic [ref=f11e386]: ✓
+            - generic [ref=f11e387] [cursor=pointer]:
+              - generic [ref=f11e388]: "#31"
+              - generic [ref=f11e389]: "36"
+              - generic [ref=f11e390]: ✓
+        - generic [ref=f11e391]:
+          - generic [ref=f11e393]:
+            - button "⊡" [ref=f11e394]
+            - button "+" [ref=f11e395]
+            - button "−" [ref=f11e396]
+          - button "Collapse sidebar" [ref=f11e397]
+          - generic [ref=f11e400]:
+            - generic [ref=f11e401]: Read correctly
+            - generic [ref=f11e403]: Needs checking
+            - generic [ref=f11e405]: Manually corrected
+            - generic [ref=f11e407]: Added manually
+            - generic [ref=f11e409]:
+              - generic [ref=f11e410]:
+                - generic [ref=f11e411]: Marker size
+                - generic [ref=f11e412]: 1.0×
+              - slider "Adjust marker size" [ref=f11e413] [cursor=pointer]: "1"
+  - button "Open Next.js Dev Tools" [ref=f11e71] [cursor=pointer]
+  - alert [ref=f11e75]

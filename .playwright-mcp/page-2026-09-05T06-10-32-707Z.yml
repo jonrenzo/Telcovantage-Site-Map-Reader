@@ -1,0 +1,124 @@
+- generic [ref=f140e1]:
+  - generic [ref=f140e2]:
+    - banner [ref=f140e3]:
+      - button "Back" [ref=f140e4]
+      - generic [ref=f140e7]: AsBuiltIQ
+      - navigation [ref=f140e11]:
+        - generic [ref=f140e13]:
+          - generic [ref=f140e14]: ✓
+          - generic [ref=f140e15]: Load Plan
+        - generic [ref=f140e18]:
+          - generic [ref=f140e19]: ✓
+          - generic [ref=f140e20]: Reading
+        - generic [ref=f140e23]:
+          - generic [ref=f140e24]: "3"
+          - generic [ref=f140e25]: Review
+      - button "Export" [ref=f140e27]
+    - generic [ref=f140e33]:
+      - generic [ref=f140e34]:
+        - generic [ref=f140e35]:
+          - button "🔍 OCR Review" [ref=f140e36]:
+            - generic [ref=f140e37]: 🔍
+            - text: OCR Review
+          - button "🗺️ DXF Viewer" [ref=f140e38]:
+            - generic [ref=f140e39]: 🗺️
+            - text: DXF Viewer
+          - button "⚙️ Equipment" [ref=f140e40]:
+            - generic [ref=f140e41]: ⚙️
+            - text: Equipment
+          - button "🔵 Pole IDs" [ref=f140e42]:
+            - generic [ref=f140e43]: 🔵
+            - text: Pole IDs
+        - generic [ref=f140e44]: ✓ Saved
+      - generic [ref=f140e48]:
+        - generic [ref=f140e50]:
+          - button "Layers 20/20" [ref=f140e51]:
+            - text: Layers
+            - generic [ref=f140e56]: 20/20
+          - button "Poles 32" [ref=f140e57]:
+            - text: Poles
+            - generic [ref=f140e61]: "32"
+          - generic [ref=f140e62]:
+            - button "⊡" [ref=f140e63]
+            - button "+" [ref=f140e64]
+            - button "−" [ref=f140e65]
+          - button "Sync status" [ref=f140e66]
+          - button "Export PDF" [ref=f140e70]
+        - generic [ref=f140e74]:
+          - paragraph [ref=f140e216]: 6 stretch(es) of cable run alongside another — those spans upload with more than one run rather than as duplicate spans.
+          - paragraph [ref=f140e217]: 2 pole(s) sit further than 23.739 from any cable and were left out.
+          - paragraph [ref=f140e218]: 2 pole(s) could not be paired — each has a span with its FROM filled and the TO left for you to pick.
+          - paragraph [ref=f140e219]: 37.4 drawing units of cable sit too far from every span to belong to one — check for a missed pole in those stretches.
+          - paragraph [ref=f140e220]: 8 span(s) had no strand length nearby — their length is measured off the drawing instead.
+          - paragraph [ref=f140e221]: 28 strand length(s) could not be matched to any span.
+        - generic [ref=f140e81]:
+          - generic [ref=f140e82]:
+            - generic [ref=f140e83]:
+              - heading "Layers" [level=3] [ref=f140e84]
+              - paragraph [ref=f140e85]: 20 of 20 visible
+            - generic [ref=f140e86]:
+              - button "All on" [ref=f140e87]
+              - button "All off" [ref=f140e88]
+          - generic [ref=f140e89]:
+            - generic [ref=f140e91] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f140e94]: ⚙
+              - generic [ref=f140e95]: Equipment
+              - generic [ref=f140e96]: 5/5
+              - generic [ref=f140e97]:
+                - button "Show all in group" [disabled] [ref=f140e98]
+                - button "Hide all in group" [ref=f140e102]
+            - generic [ref=f140e107]:
+              - generic [ref=f140e108] [cursor=pointer]:
+                - generic [aria-hidden] [ref=f140e111]: 📡
+                - generic [ref=f140e112]: Cable Strand
+                - generic [ref=f140e113]: 3/3
+                - generic [ref=f140e114]:
+                  - button "Show all in group" [disabled] [ref=f140e115]
+                  - button "Hide all in group" [ref=f140e119]
+              - generic [ref=f140e124]:
+                - generic [ref=f140e125] [cursor=pointer]:
+                  - generic "PDF_RICKLEE_COAXCABLE" [ref=f140e128]
+                  - generic [ref=f140e129]: "339"
+                - generic [ref=f140e133] [cursor=pointer]:
+                  - generic "PDF_SKY-Lipa$0$RICKLEE_STRAND" [ref=f140e136]
+                  - generic [ref=f140e137]: "33"
+                - generic [ref=f140e141] [cursor=pointer]:
+                  - generic "PDF_SKY-Lipa$0$RICKLEE_STRANDDISTANCE" [ref=f140e144]
+                  - generic [ref=f140e145]: 1,243
+            - generic [ref=f140e150] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f140e153]: 🔀
+              - generic [ref=f140e154]: Tapoffs / Splitters
+              - generic [ref=f140e155]: 1/1
+              - generic [ref=f140e156]:
+                - button "Show all in group" [disabled] [ref=f140e157]
+                - button "Hide all in group" [ref=f140e161]
+            - generic [ref=f140e167] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f140e170]: ♾️
+              - generic [ref=f140e171]: Other Layers
+              - generic [ref=f140e172]: 11/11
+              - generic [ref=f140e173]:
+                - button "Show all in group" [disabled] [ref=f140e174]
+                - button "Hide all in group" [ref=f140e178]
+          - paragraph [ref=f140e184]: Click a layer to toggle · Use group buttons to show/hide all
+        - generic [ref=f140e185]:
+          - button "➕ Add Pole" [ref=f140e186]
+          - button "🗑️ Delete Pole" [ref=f140e187]
+          - button "✏️ Rename Pole" [ref=f140e188]
+          - button "🌍 Insert Coordinates" [ref=f140e189]
+          - button "⚡ Re-derive Spans" [ref=f140e190]
+          - button "✂ Cut Here" [ref=f140e191]
+          - button "✂️ Auto Cut Spans" [active] [ref=f140e224]
+          - button "📍 Hide Poles" [ref=f140e193]
+          - button "🔌 Show Actives" [ref=f140e194]
+        - generic [ref=f140e196]:
+          - generic [ref=f140e197]: Cable interaction
+          - generic [ref=f140e198]: "Recovered: 0.00 m"
+          - generic [ref=f140e199]: "Unrecovered/Partial: 0.00 m"
+          - generic [ref=f140e200]: "Missing: 0.00 m"
+          - generic [ref=f140e201]: "Total Strand length: 1075.00 m"
+          - generic [ref=f140e202]: "Total Cables: 1651.00 m"
+          - generic [ref=f140e203] [cursor=pointer]:
+            - checkbox "Show Status Labels" [checked] [ref=f140e204]
+            - generic [ref=f140e205]: Show Status Labels
+  - button "Open Next.js Dev Tools" [ref=f140e211] [cursor=pointer]
+  - alert [ref=f140e215]

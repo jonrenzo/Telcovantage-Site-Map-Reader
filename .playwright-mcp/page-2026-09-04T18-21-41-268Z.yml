@@ -1,0 +1,108 @@
+- generic [active] [ref=f7e1]:
+  - generic [ref=f7e2]:
+    - banner [ref=f7e3]:
+      - generic [ref=f7e4]: AsBuiltIQ
+      - navigation [ref=f7e8]:
+        - generic [ref=f7e10]:
+          - generic [ref=f7e11]: "1"
+          - generic [ref=f7e12]: Load Plan
+        - generic [ref=f7e15]:
+          - generic [ref=f7e16]: "2"
+          - generic [ref=f7e17]: Reading
+        - generic [ref=f7e20]:
+          - generic [ref=f7e21]: "3"
+          - generic [ref=f7e22]: Review
+    - main [ref=f7e23]:
+      - complementary [ref=f7e24]:
+        - paragraph [ref=f7e26]: Workspace
+        - button "🗂️ My Drawings" [ref=f7e27]:
+          - generic [ref=f7e28]: 🗂️
+          - text: My Drawings
+        - paragraph [ref=f7e30]: Folders
+        - button "New Folder" [ref=f7e32]
+      - generic [ref=f7e35]:
+        - generic [ref=f7e36]:
+          - navigation [ref=f7e37]:
+            - button "My Drawings" [ref=f7e39]
+          - textbox "Search drawings…" [ref=f7e44]
+          - combobox [ref=f7e45] [cursor=pointer]:
+            - option "Last opened" [selected]
+            - option "Name"
+            - option "Size"
+          - generic [ref=f7e46]:
+            - button [ref=f7e47]
+            - button [ref=f7e53]
+          - button "Upload" [ref=f7e58]
+        - generic [ref=f7e63]:
+          - generic [ref=f7e75] [cursor=pointer]:
+            - img [ref=f7e76]:
+              - generic [ref=f7e80]: DXF
+            - paragraph [ref=f7e81]: LPA115
+            - paragraph [ref=f7e82]: 658.4 KB
+          - generic [ref=f7e83] [cursor=pointer]:
+            - img [ref=f7e84]:
+              - generic [ref=f7e88]: DXF
+            - paragraph [ref=f7e89]: LPA120
+            - paragraph [ref=f7e90]: 821.6 KB
+          - generic [ref=f7e91] [cursor=pointer]:
+            - img [ref=f7e92]:
+              - generic [ref=f7e96]: DXF
+            - paragraph [ref=f7e97]: QC9075
+            - paragraph [ref=f7e98]: 7.2 MB
+          - generic [ref=f7e99] [cursor=pointer]:
+            - img [ref=f7e100]:
+              - generic [ref=f7e104]: DXF
+            - paragraph [ref=f7e105]: MR1038
+            - paragraph [ref=f7e106]: 4.9 MB
+          - generic [ref=f7e107] [cursor=pointer]:
+            - img [ref=f7e108]:
+              - generic [ref=f7e112]: DXF
+            - paragraph [ref=f7e113]: MR1034
+            - paragraph [ref=f7e114]: 2.8 MB
+          - generic [ref=f7e115] [cursor=pointer]:
+            - img [ref=f7e116]:
+              - generic [ref=f7e120]: DXF
+            - paragraph [ref=f7e121]: MR1004
+            - paragraph [ref=f7e122]: 4.3 MB
+          - generic [ref=f7e123] [cursor=pointer]:
+            - img [ref=f7e124]:
+              - generic [ref=f7e128]: DXF
+            - paragraph [ref=f7e129]: LP1709
+            - paragraph [ref=f7e130]: 4.2 MB
+      - complementary [ref=f7e132]:
+        - generic [ref=f7e133]:
+          - heading "File Details" [level=3] [ref=f7e134]
+          - button "✕" [ref=f7e135]
+        - generic [ref=f7e136]:
+          - img [ref=f7e137]:
+            - generic [ref=f7e141]: DXF
+          - paragraph [ref=f7e142]: LPA120.dxf
+        - generic [ref=f7e143]:
+          - generic [ref=f7e144]:
+            - generic [ref=f7e145]: Size
+            - generic [ref=f7e146]: 821.6 KB
+          - generic [ref=f7e147]:
+            - generic [ref=f7e148]: Last modified
+            - generic [ref=f7e149]: Today
+          - generic [ref=f7e150]:
+            - generic [ref=f7e151]: Location
+            - generic [ref=f7e152]: My Drawings
+        - generic [ref=f7e153]:
+          - generic [ref=f7e157]:
+            - generic [ref=f7e158]: Select Strand Layers for OCR
+            - generic [ref=f7e159]:
+              - generic [ref=f7e160] [cursor=pointer]:
+                - checkbox "PDF_SKY-Lipa$0$RICKLEE_STRAND" [checked] [ref=f7e161]
+                - generic "PDF_SKY-Lipa$0$RICKLEE_STRAND" [ref=f7e162]
+              - generic [ref=f7e163] [cursor=pointer]:
+                - checkbox "PDF_SKY-Lipa$0$RICKLEE_STRANDDISTANCE" [checked] [ref=f7e164]
+                - generic "PDF_SKY-Lipa$0$RICKLEE_STRANDDISTANCE" [ref=f7e165]
+              - generic [ref=f7e166] [cursor=pointer]:
+                - checkbox "PDF_Text" [checked] [ref=f7e167]
+                - generic "PDF_Text" [ref=f7e168]
+            - paragraph [ref=f7e169]: Cable layers are hidden here to prevent OCR errors, but will load automatically in the viewer.
+          - generic [ref=f7e170]: ✓ TrOCR ready
+          - button "Read Drawing" [ref=f7e172]
+          - button "← Back" [ref=f7e175]
+  - button "Open Next.js Dev Tools" [ref=f7e71] [cursor=pointer]
+  - alert [ref=f7e131]

@@ -1,0 +1,77 @@
+- generic [ref=f63e1]:
+  - generic [ref=f63e2]:
+    - banner [ref=f63e3]:
+      - button "Back" [ref=f63e210]
+      - generic [ref=f63e4]: AsBuiltIQ
+      - navigation [ref=f63e8]:
+        - generic [ref=f63e10]:
+          - generic [ref=f63e11]: ✓
+          - generic [ref=f63e12]: Load Plan
+        - generic [ref=f63e15]:
+          - generic [ref=f63e16]: ✓
+          - generic [ref=f63e17]: Reading
+        - generic [ref=f63e20]:
+          - generic [ref=f63e21]: "3"
+          - generic [ref=f63e22]: Review
+      - button "Export" [ref=f63e214]
+    - generic [ref=f63e220]:
+      - generic [ref=f63e221]:
+        - generic [ref=f63e222]:
+          - button "🔍 OCR Review" [active] [ref=f63e223]:
+            - generic [ref=f63e224]: 🔍
+            - text: OCR Review
+          - button "🗺️ DXF Viewer" [ref=f63e225]:
+            - generic [ref=f63e226]: 🗺️
+            - text: DXF Viewer
+          - button "⚙️ Equipment" [ref=f63e227]:
+            - generic [ref=f63e228]: ⚙️
+            - text: Equipment
+          - button "🔵 Pole IDs" [ref=f63e229]:
+            - generic [ref=f63e230]: 🔵
+            - text: Pole IDs
+        - generic [ref=f63e479]:
+          - generic [ref=f63e480]: "Boundary Mask:"
+          - button [ref=f63e481]
+          - generic [ref=f63e483]: "ON"
+      - generic [ref=f63e233]:
+        - complementary [ref=f63e236]:
+          - generic [ref=f63e237]:
+            - heading "Drawing Results" [level=2] [ref=f63e238]
+            - paragraph [ref=f63e239]: Review and correct OCR results
+          - generic [ref=f63e240]:
+            - generic [ref=f63e241]:
+              - generic [ref=f63e242]: "0"
+              - generic [ref=f63e243]: Total
+            - generic [ref=f63e244]:
+              - generic [ref=f63e245]: "0"
+              - generic [ref=f63e246]: To Check
+            - generic [ref=f63e247]:
+              - generic [ref=f63e248]: —
+              - generic [ref=f63e249]: Sum
+          - button "✓ All confident" [disabled] [ref=f63e613]
+          - button "🗑 Delete 32 Outside Boundary" [ref=f63e615]
+          - button "Add Manually" [ref=f63e253]
+          - generic [ref=f63e256]:
+            - button "All" [ref=f63e257]
+            - button "⚠ Uncertain" [ref=f63e258]
+            - button "✏ Fixed" [ref=f63e259]
+          - generic [ref=f63e260]: No digits match this filter
+        - generic [ref=f63e389]:
+          - generic [ref=f63e391]:
+            - button "⊡" [ref=f63e392]
+            - button "+" [ref=f63e393]
+            - button "−" [ref=f63e394]
+          - button "Collapse sidebar" [ref=f63e395]
+          - generic [ref=f63e398]:
+            - generic [ref=f63e399]: Read correctly
+            - generic [ref=f63e401]: Needs checking
+            - generic [ref=f63e403]: Manually corrected
+            - generic [ref=f63e405]: Added manually
+            - generic [ref=f63e617]: Outside boundary — likely wrong
+            - generic [ref=f63e407]:
+              - generic [ref=f63e408]:
+                - generic [ref=f63e409]: Marker size
+                - generic [ref=f63e410]: 1.0×
+              - slider "Adjust marker size" [ref=f63e411] [cursor=pointer]: "1"
+  - button "Open Next.js Dev Tools" [ref=f63e150] [cursor=pointer]
+  - alert [ref=f63e154]

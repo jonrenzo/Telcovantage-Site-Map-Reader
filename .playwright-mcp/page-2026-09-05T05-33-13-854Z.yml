@@ -1,0 +1,117 @@
+- generic [active] [ref=f135e1]:
+  - generic [ref=f135e2]:
+    - banner [ref=f135e3]:
+      - button "Back" [ref=f135e4]
+      - generic [ref=f135e7]: AsBuiltIQ
+      - navigation [ref=f135e11]:
+        - generic [ref=f135e13]:
+          - generic [ref=f135e14]: ✓
+          - generic [ref=f135e15]: Load Plan
+        - generic [ref=f135e18]:
+          - generic [ref=f135e19]: ✓
+          - generic [ref=f135e20]: Reading
+        - generic [ref=f135e23]:
+          - generic [ref=f135e24]: "3"
+          - generic [ref=f135e25]: Review
+      - button "Export" [ref=f135e27]
+    - generic [ref=f135e33]:
+      - generic [ref=f135e34]:
+        - generic [ref=f135e35]:
+          - button "🔍 OCR Review" [ref=f135e36]:
+            - generic [ref=f135e37]: 🔍
+            - text: OCR Review
+          - button "🗺️ DXF Viewer" [ref=f135e38]:
+            - generic [ref=f135e39]: 🗺️
+            - text: DXF Viewer
+          - button "⚙️ Equipment" [ref=f135e40]:
+            - generic [ref=f135e41]: ⚙️
+            - text: Equipment
+          - button "🔵 Pole IDs" [ref=f135e42]:
+            - generic [ref=f135e43]: 🔵
+            - text: Pole IDs
+        - generic [ref=f135e44]: ✓ Saved
+      - generic [ref=f135e318]:
+        - generic [ref=f135e320]:
+          - button "Layers 20/20" [ref=f135e321]:
+            - text: Layers
+            - generic [ref=f135e326]: 20/20
+          - button "Poles 32" [ref=f135e327]:
+            - text: Poles
+            - generic [ref=f135e331]: "32"
+          - generic [ref=f135e332]:
+            - button "⊡" [ref=f135e333]
+            - button "+" [ref=f135e334]
+            - button "−" [ref=f135e335]
+          - button "Sync status" [ref=f135e336]
+          - button "Export PDF" [ref=f135e340]
+        - generic [ref=f135e344]:
+          - generic [ref=f135e345]:
+            - generic [ref=f135e346]:
+              - heading "Layers" [level=3] [ref=f135e347]
+              - paragraph [ref=f135e348]: 20 of 20 visible
+            - generic [ref=f135e349]:
+              - button "All on" [ref=f135e350]
+              - button "All off" [ref=f135e351]
+          - generic [ref=f135e352]:
+            - generic [ref=f135e354] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f135e357]: ⚙
+              - generic [ref=f135e358]: Equipment
+              - generic [ref=f135e359]: 5/5
+              - generic [ref=f135e360]:
+                - button "Show all in group" [disabled] [ref=f135e361]
+                - button "Hide all in group" [ref=f135e365]
+            - generic [ref=f135e370]:
+              - generic [ref=f135e371] [cursor=pointer]:
+                - generic [aria-hidden] [ref=f135e374]: 📡
+                - generic [ref=f135e375]: Cable Strand
+                - generic [ref=f135e376]: 3/3
+                - generic [ref=f135e377]:
+                  - button "Show all in group" [disabled] [ref=f135e378]
+                  - button "Hide all in group" [ref=f135e382]
+              - generic [ref=f135e387]:
+                - generic [ref=f135e388] [cursor=pointer]:
+                  - generic "PDF_RICKLEE_COAXCABLE" [ref=f135e391]
+                  - generic [ref=f135e392]: "339"
+                - generic [ref=f135e396] [cursor=pointer]:
+                  - generic "PDF_SKY-Lipa$0$RICKLEE_STRAND" [ref=f135e399]
+                  - generic [ref=f135e400]: "33"
+                - generic [ref=f135e404] [cursor=pointer]:
+                  - generic "PDF_SKY-Lipa$0$RICKLEE_STRANDDISTANCE" [ref=f135e407]
+                  - generic [ref=f135e408]: 1,243
+            - generic [ref=f135e413] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f135e416]: 🔀
+              - generic [ref=f135e417]: Tapoffs / Splitters
+              - generic [ref=f135e418]: 1/1
+              - generic [ref=f135e419]:
+                - button "Show all in group" [disabled] [ref=f135e420]
+                - button "Hide all in group" [ref=f135e424]
+            - generic [ref=f135e430] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f135e433]: ♾️
+              - generic [ref=f135e434]: Other Layers
+              - generic [ref=f135e435]: 11/11
+              - generic [ref=f135e436]:
+                - button "Show all in group" [disabled] [ref=f135e437]
+                - button "Hide all in group" [ref=f135e441]
+          - paragraph [ref=f135e447]: Click a layer to toggle · Use group buttons to show/hide all
+        - generic [ref=f135e448]:
+          - button "➕ Add Pole" [ref=f135e449]
+          - button "🗑️ Delete Pole" [ref=f135e450]
+          - button "✏️ Rename Pole" [ref=f135e451]
+          - button "🌍 Insert Coordinates" [ref=f135e452]
+          - button "⚡ Re-derive Spans" [ref=f135e453]
+          - button "✂ Cut Here" [ref=f135e454]
+          - button "✂️ Auto Cut Spans" [ref=f135e455]
+          - button "📍 Display Poles" [ref=f135e456]
+          - button "🔌 Show Actives" [ref=f135e457]
+        - generic [ref=f135e459]:
+          - generic [ref=f135e460]: Cable interaction
+          - generic [ref=f135e461]: "Recovered: 0.00 m"
+          - generic [ref=f135e462]: "Unrecovered/Partial: 0.00 m"
+          - generic [ref=f135e463]: "Missing: 0.00 m"
+          - generic [ref=f135e464]: "Total Strand length: 3.00 m"
+          - generic [ref=f135e465]: "Total Cables: 3.00 m"
+          - generic [ref=f135e466] [cursor=pointer]:
+            - checkbox "Show Status Labels" [checked] [ref=f135e467]
+            - generic [ref=f135e468]: Show Status Labels
+  - button "Open Next.js Dev Tools" [ref=f135e312] [cursor=pointer]
+  - alert [ref=f135e316]

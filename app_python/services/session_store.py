@@ -90,6 +90,69 @@ def get_or_create_project_session(
     return project_id, session_id, True
 
 
+# ── raw DXF file storage (so a file never has to be carried between PCs) ──────
+
+_STORAGE_BUCKET = "dxf-files"
+
+
+def upload_dxf_to_storage(dxf_path: str, checksum: str) -> None:
+    """Upload the raw DXF bytes to Supabase Storage, keyed by checksum.
+
+    Idempotent (upsert): re-uploading the same checksum just overwrites with
+    identical bytes. No-op if Supabase is unavailable.
+    """
+    sb = get_client()
+    if not sb:
+        return
+    storage_key = f"{checksum}.dxf"
+    try:
+        with open(dxf_path, "rb") as f:
+            sb.storage.from_(_STORAGE_BUCKET).upload(
+                storage_key,
+                f.read(),
+                {"content-type": "application/dxf", "upsert": "true"},
+            )
+    except Exception as e:
+        print(f"[storage] upload failed for {storage_key}: {e}")
+
+
+def download_dxf_from_storage(checksum: str, dest_path: str) -> bool:
+    """Download a previously-stored DXF from Supabase Storage to dest_path.
+
+    Returns True on success, False if unavailable/not found.
+    """
+    sb = get_client()
+    if not sb:
+        return False
+    storage_key = f"{checksum}.dxf"
+    try:
+        data = sb.storage.from_(_STORAGE_BUCKET).download(storage_key)
+        with open(dest_path, "wb") as f:
+            f.write(data)
+        return True
+    except Exception as e:
+        print(f"[storage] download failed for {storage_key}: {e}")
+        return False
+
+
+def list_cloud_projects() -> list:
+    """All projects known to Supabase — used to surface files precomputed on
+    a different PC in this machine's file list. Empty if unavailable."""
+    sb = get_client()
+    if not sb:
+        return []
+    try:
+        res = (
+            sb.table("projects")
+            .select("id,dxf_file_name,dxf_checksum,dxf_file_path,asbuilt_node_id,updated_at")
+            .execute()
+        )
+        return res.data or []
+    except Exception as e:
+        print(f"[storage] list_cloud_projects failed: {e}")
+        return []
+
+
 # ── edit-safety guard ─────────────────────────────────────────────────────────
 
 def session_has_user_edits(session_id: str) -> bool:

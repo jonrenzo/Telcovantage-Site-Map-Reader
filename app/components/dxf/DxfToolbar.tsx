@@ -11,12 +11,17 @@ interface Props {
     onSyncStatus?: () => void;
     syncState?: "idle" | "loading" | "error";
     syncLabel?: string;
+    /** Absent until poles have been scanned — nothing to list before that. */
+    poleListOpen?: boolean;
+    onTogglePoleList?: () => void;
+    poleCount?: number;
 }
 
 export default function DxfToolbar({
                                        layerPanelOpen, onToggleLayerPanel, onFit, onZoomIn, onZoomOut,
                                        visibleCount, totalCount, onExportPdf,
                                        onSyncStatus, syncState = "idle", syncLabel,
+                                       poleListOpen, onTogglePoleList, poleCount,
                                    }: Props) {
     return (
         <div className="absolute top-4 left-4 z-10 flex items-center gap-2">
@@ -40,6 +45,29 @@ export default function DxfToolbar({
           {visibleCount}/{totalCount}
         </span>
             </button>
+
+            {/* Pole list toggle — browse/edit/delete poles from a list instead of
+                clicking each one on the map */}
+            {onTogglePoleList && (
+                <button
+                    onClick={onTogglePoleList}
+                    title="Toggle pole list"
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-semibold shadow-sm transition-colors
+          ${poleListOpen
+                        ? "bg-accent text-white border-accent"
+                        : "bg-surface text-muted border-border hover:bg-surface-2"}`}
+                >
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="12" cy="12" r="9"/>
+                        <path d="M12 8v4l3 3"/>
+                    </svg>
+                    Poles
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono
+          ${poleListOpen ? "bg-white/20 text-white" : "bg-surface-2 text-muted"}`}>
+          {poleCount ?? 0}
+        </span>
+                </button>
+            )}
 
             {/* Zoom controls */}
             <div className="flex items-center gap-1 bg-surface border border-border rounded-lg shadow-sm overflow-hidden">

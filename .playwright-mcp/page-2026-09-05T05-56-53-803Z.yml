@@ -1,0 +1,128 @@
+- generic [ref=f4e2]:
+  - generic [ref=f4e4]:
+    - region "scrollable content" [ref=f4e9]:
+      - list [ref=f4e12]:
+        - listitem [ref=f4e13]: Main
+        - listitem [ref=f4e14]:
+          - link "Dashboard" [ref=f4e15] [cursor=pointer]:
+            - /url: /dashboard
+        - listitem [ref=f4e19]: Operations
+        - listitem [ref=f4e20]:
+          - link "Live Onsite Map" [ref=f4e21] [cursor=pointer]:
+            - /url: /field/live
+        - listitem [ref=f4e25]:
+          - link "Node List" [ref=f4e26] [cursor=pointer]:
+            - /url: /sites
+        - listitem [ref=f4e29]:
+          - link "Span List" [ref=f4e30] [cursor=pointer]:
+            - /url: /spans
+        - listitem [ref=f4e35]:
+          - link "Pole Master 󰅂" [ref=f4e36] [cursor=pointer]:
+            - /url: "javascript:throw new Error('React has blocked a javascript: URL as a security precaution.')"
+        - listitem [ref=f4e40]:
+          - link "NAP Inventory 󰅂" [ref=f4e41] [cursor=pointer]:
+            - /url: "javascript:throw new Error('React has blocked a javascript: URL as a security precaution.')"
+        - listitem [ref=f4e45]: Warehouse
+        - listitem [ref=f4e46]:
+          - link "Warehouses" [ref=f4e47] [cursor=pointer]:
+            - /url: /warehouses
+        - listitem [ref=f4e51]:
+          - link "Material Inventory" [ref=f4e52] [cursor=pointer]:
+            - /url: /warehouse/inventory
+        - listitem [ref=f4e57]:
+          - link "Delivery Tracker" [ref=f4e58] [cursor=pointer]:
+            - /url: /warehouse/inventory?tab=deliveries
+        - listitem [ref=f4e64]:
+          - link "Transfer Deliveries" [ref=f4e65] [cursor=pointer]:
+            - /url: /warehouses/deliveries
+        - listitem [ref=f4e68]: Reports
+        - listitem [ref=f4e69]:
+          - link "Teardown Logs 󰅂" [ref=f4e70] [cursor=pointer]:
+            - /url: /reports/teardown-logs
+        - listitem [ref=f4e74]:
+          - link "Teardown Monitoring" [ref=f4e75] [cursor=pointer]:
+            - /url: /reports/teardown-monitoring
+        - listitem [ref=f4e78]:
+          - link "Audit Reports 󰅂" [expanded] [ref=f4e79] [cursor=pointer]:
+            - /url: "javascript:throw new Error('React has blocked a javascript: URL as a security precaution.')"
+          - list [ref=f4e81]:
+            - listitem [ref=f4e82]:
+              - link "Daily Reports" [ref=f4e83] [cursor=pointer]:
+                - /url: /dailyreports
+            - listitem [ref=f4e84]:
+              - link "RTD Reports" [ref=f4e85] [cursor=pointer]:
+                - /url: /reports/rtd
+            - listitem [ref=f4e86]:
+              - link "Vicinity Maps" [ref=f4e87] [cursor=pointer]:
+                - /url: /reports/vicinity
+            - listitem [ref=f4e88]:
+              - link "Pole Reports" [ref=f4e89] [cursor=pointer]:
+                - /url: /reports/pole-reports
+            - listitem [ref=f4e90]:
+              - link "Red Line Reports" [ref=f4e91] [cursor=pointer]:
+                - /url: /reports/redline
+        - listitem [ref=f4e92]: Teams
+        - listitem [ref=f4e93]:
+          - link "Subcontractors" [ref=f4e94] [cursor=pointer]:
+            - /url: /subcontractors
+        - listitem [ref=f4e98]:
+          - link "Subcon Approval" [ref=f4e99] [cursor=pointer]:
+            - /url: /users?status=on_hold&provider=google
+        - listitem [ref=f4e105]:
+          - link "Support Tickets" [ref=f4e106] [cursor=pointer]:
+            - /url: /support/tickets
+        - listitem [ref=f4e109]: System
+        - listitem [ref=f4e110]:
+          - link "User Management 󰅂" [ref=f4e111] [cursor=pointer]:
+            - /url: "javascript:throw new Error('React has blocked a javascript: URL as a security precaution.')"
+        - listitem [ref=f4e117]:
+          - link "Maintenance Mode" [ref=f4e118] [cursor=pointer]:
+            - /url: /maintenance
+        - listitem [ref=f4e121]:
+          - link "Recycle Bin" [ref=f4e122] [cursor=pointer]:
+            - /url: /recycle-bin
+    - button "A admin@telcovantage.com admin" [ref=f4e126] [cursor=pointer]:
+      - generic [ref=f4e127]: A
+      - generic [ref=f4e128]:
+        - paragraph [ref=f4e129]: admin@telcovantage.com
+        - paragraph [ref=f4e130]: admin
+  - navigation [ref=f4e133]:
+    - generic [ref=f4e134]:
+      - generic [ref=f4e135]:
+        - link [ref=f4e136] [cursor=pointer]:
+          - /url: "#"
+          - img "Logo" [ref=f4e137]
+        - button "Toggle menu" [ref=f4e138] [cursor=pointer]:
+          - generic [ref=f4e139]: 
+      - generic [ref=f4e140]:
+        - generic [ref=f4e142]:
+          - textbox "Search..." [ref=f4e143]
+          - button "" [ref=f4e144] [cursor=pointer]
+        - generic [ref=f4e146]:
+          - button "" [ref=f4e147] [cursor=pointer]
+          - button [ref=f4e150] [cursor=pointer]
+          - button [ref=f4e158] [cursor=pointer]
+          - button "TS Telcovantage S. 󰅀" [ref=f4e163] [cursor=pointer]:
+            - generic [ref=f4e164]: TS
+            - generic [ref=f4e165]: Telcovantage S.
+            - generic [ref=f4e166]: 󰅀
+  - generic [ref=f4e167]:
+    - generic [ref=f4e170]:
+      - generic [ref=f4e171]:
+        - generic [ref=f4e172]:
+          - heading "Teardown Logs" [level=4] [ref=f4e173]
+          - paragraph [ref=f4e174]: Live feed of all field teardown submissions
+        - generic [ref=f4e175]:
+          - generic [ref=f4e176]: Live Feed
+          - generic [ref=f4e178]: 0 records
+          - generic [ref=f4e179]: 0 spans
+          - generic [ref=f4e180]: 0 pole reports
+      - paragraph [ref=f4e184]: Loading teardown logs…
+    - contentinfo [ref=f4e185]:
+      - generic [ref=f4e186]:
+        - generic [ref=f4e187]: © 2026 Telcovantage Philippines
+        - generic [ref=f4e188]:
+          - text: Design & Develop by
+          - link "Telcovantage Developers" [ref=f4e189] [cursor=pointer]:
+            - /url: "#"
+  - button [ref=f4e192] [cursor=pointer]

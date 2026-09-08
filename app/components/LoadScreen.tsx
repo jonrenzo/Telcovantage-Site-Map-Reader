@@ -579,9 +579,18 @@ export default function LoadScreen({ onStartProcessing }: Props) {
 
       setOcrLayers(displayLayers);
       setSelectedLayers(displayLayers); // Auto-check all of them by default
-
       setModelOk(mData.ok);
-      setShowLayerPicker(true);
+
+      // Open Drawing now goes straight through the same restore-check as
+      // Read Drawing — page.tsx's onStartProcessing checks Supabase for an
+      // existing session before ever touching layers, so a previously
+      // scanned file pops the "Previous Scan Found" dialog immediately
+      // instead of forcing a detour through manual layer selection first.
+      onStartProcessing({
+        dxfPath: file.path,
+        layers: displayLayers,
+        allLayers,
+      });
     } catch (e) {
       alert("Error opening file: " + (e as Error).message);
     }

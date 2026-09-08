@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
+import { useParams, useRouter } from "next/navigation";
 import type { CableSpanExport, DigitResult, EquipmentShape, PoleTag, Segment, Step } from "./types";
 import { usePipeline } from "./hooks/usePipeline";
 import { useSessionCache } from "./hooks/useSessionCache";
@@ -44,10 +45,63 @@ export function isPointInPolygon(
   return isInside;
 }
 
+/** Shortest distance from (px, py) to the nearest of a list of line segments. */
+export function distanceToNearestSegment(
+  px: number,
+  py: number,
+  segments: { x1: number; y1: number; x2: number; y2: number }[],
+): number {
+  let best = Infinity;
+  for (const s of segments) {
+    const dx = s.x2 - s.x1;
+    const dy = s.y2 - s.y1;
+    const lenSq = dx * dx + dy * dy;
+    let t = lenSq > 0 ? ((px - s.x1) * dx + (py - s.y1) * dy) / lenSq : 0;
+    t = Math.max(0, Math.min(1, t));
+    const cx = s.x1 + t * dx;
+    const cy = s.y1 + t * dy;
+    const d = Math.hypot(px - cx, py - cy);
+    if (d < best) best = d;
+  }
+  return best;
+}
+
+/** IDs (by index into `items`) whose nearest-segment distance is an outlier
+ * relative to the rest — a robust, scale-independent way to flag "no wire
+ * nearby" without a fixed-unit threshold (DXF files vary wildly in scale). */
+export function findNoWireNearbyIndices<T>(
+  items: T[],
+  getXY: (item: T) => { x: number; y: number },
+  segments: { x1: number; y1: number; x2: number; y2: number }[],
+  outlierFactor = 6,
+): Set<number> {
+  const flagged = new Set<number>();
+  if (!segments.length || items.length < 3) return flagged;
+
+  const distances = items.map((item) => {
+    const { x, y } = getXY(item);
+    return distanceToNearestSegment(x, y, segments);
+  });
+
+  const sorted = [...distances].sort((a, b) => a - b);
+  const median = sorted[Math.floor(sorted.length / 2)];
+  if (!(median > 0)) return flagged;
+
+  const threshold = median * outlierFactor;
+  distances.forEach((d, i) => {
+    if (d > threshold) flagged.add(i);
+  });
+  return flagged;
+}
+
 type MapTab = "review" | "dxf" | "equipment" | "pole";
 export type ExportType = "all" | "ocr" | "equipment" | "poles" | "pdf" | "polemaster" | "asbuilt" | "verification";
 
 export default function Home() {
+  const routeParams = useParams<{ site?: string }>();
+  const router = useRouter();
+  const autoLoadAttemptedRef = useRef(false);
+
   const [step, setStep] = useState<Step>(1);
   const [dxfPath, setDxfPath] = useState<string>("");
   const [layers, setLayers] = useState<string[]>([]);
@@ -79,8 +133,7 @@ export default function Home() {
   const sessionIdRef = useRef<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [saveError, setSaveError] = useState<string | null>(null);
-  // keep useAutoSave wired for the interval-based fallback only
-  useAutoSave({ sessionId });
+  const autoSave = useAutoSave({ sessionId });
 
   // Restore-from-Supabase dialog state
   const [restoreSummary, setRestoreSummary] = useState<SessionSummary | null>(null);
@@ -97,13 +150,29 @@ export default function Home() {
   const resolveSessionId = useCallback(async (path: string) => {
     if (!db) return;
     try {
-      const existing = await db.checkForExistingSession(path);
+      // Real content checksum, not the path — without this, lookups fall
+      // back to path-matching alone, and once any duplicate project row
+      // exists for that path, `.single()` errors on every future lookup and
+      // silently creates yet another duplicate. Checksum-first breaks that
+      // loop since it's the actually-unique key.
+      let checksum: string | undefined;
+      try {
+        const csRes = await fetch(
+          `/api/precompute/status?dxf_path=${encodeURIComponent(path)}`,
+        );
+        const csData = await csRes.json();
+        checksum = csData?.checksum || undefined;
+      } catch {
+        // fall through to path-only matching below
+      }
+
+      const existing = await db.checkForExistingSession(path, checksum);
       if (existing) {
         console.log("[session] reusing existing session:", existing.session.id);
         sessionIdRef.current = existing.session.id;
         setSessionId(existing.session.id);
       } else {
-        const { session } = await db.getOrCreateSessionForFile(path);
+        const { session } = await db.getOrCreateSessionForFile(path, checksum);
         console.log("[session] created new session:", session.id);
         sessionIdRef.current = session.id;
         setSessionId(session.id);
@@ -133,22 +202,34 @@ export default function Home() {
 
       const saves: Promise<unknown>[] = [];
 
-      if (data.poleTags && data.poleTags.length > 0) {
-        const dbPoles: DbPole[] = (data.poleTags as PoleTag[]).map((p) => ({
-          id: "",
-          session_id: sid,
-          pole_id: p.pole_id,
-          name: p.name,
-          corrected_name: null,
-          cx: p.cx,
-          cy: p.cy,
-          bbox: p.bbox,
-          layer: p.layer,
-          source: p.source,
-          ocr_conf: p.ocr_conf ?? null,
-          needs_review: p.needs_review ?? false,
-        }));
-        saves.push(db.savePoles(sid, dbPoles));
+      if (data.poleTags !== undefined) {
+        const currentPoleTags = data.poleTags as PoleTag[];
+        // Reconcile deletes too — savePoles only upserts, so a pole removed
+        // locally (via DXF Viewer or the Pole IDs list) used to linger in
+        // Supabase forever. This removes anything no longer present.
+        saves.push(
+          db.deletePolesNotIn(
+            sid,
+            currentPoleTags.map((p) => p.pole_id),
+          ),
+        );
+        if (currentPoleTags.length > 0) {
+          const dbPoles: DbPole[] = currentPoleTags.map((p) => ({
+            id: "",
+            session_id: sid,
+            pole_id: p.pole_id,
+            name: p.name,
+            corrected_name: null,
+            cx: p.cx,
+            cy: p.cy,
+            bbox: p.bbox,
+            layer: p.layer,
+            source: p.source,
+            ocr_conf: p.ocr_conf ?? null,
+            needs_review: p.needs_review ?? false,
+          }));
+          saves.push(db.savePoles(sid, dbPoles));
+        }
       }
 
       if (data.shapes && data.shapes.length > 0) {
@@ -195,6 +276,33 @@ export default function Home() {
       setDxfPath(opts.dxfPath);
       setLayers(opts.allLayers);
 
+      // Reflect the open file in the URL (e.g. /LPA115) so the address bar
+      // itself shows which site is loaded — bookmarkable/shareable, and
+      // typing that URL directly re-opens the same file (see the auto-load
+      // effect below).
+      const fileBaseName = (opts.dxfPath.split(/[\\/]/).pop() || "").replace(
+        /\.dxf$/i,
+        "",
+      );
+      if (fileBaseName) {
+        router.replace(`/${encodeURIComponent(fileBaseName)}`);
+      }
+
+      // Reset before hydrating — otherwise a previously opened file's node
+      // link (and its teardown/redline statuses) would keep painting over
+      // whatever file is opened next.
+      setAsbuiltNodeId(null);
+      fetch("/api/files/list")
+        .then((r) => r.json())
+        .then((data) => {
+          const entry = (data.files ?? []).find(
+            (f: { path: string; asbuilt_node_id?: number | null }) =>
+              f.path === opts.dxfPath,
+          );
+          if (entry?.asbuilt_node_id) setAsbuiltNodeId(entry.asbuilt_node_id);
+        })
+        .catch(() => {});
+
       // 1. Fast path: local session cache
       if (cached && cached.results.length > 0) {
         setResults(cached.results);
@@ -205,10 +313,25 @@ export default function Home() {
         return;
       }
 
+      // The backend keys everything by content checksum (SHA-256), not local
+      // path — the same file re-uploaded from a different PC has a different
+      // path but the same checksum, so this is what actually makes restore
+      // work across machines.
+      let checksum: string | undefined;
+      try {
+        const csRes = await fetch(
+          `/api/precompute/status?dxf_path=${encodeURIComponent(opts.dxfPath)}`,
+        );
+        const csData = await csRes.json();
+        checksum = csData?.checksum || undefined;
+      } catch {
+        // Backend unreachable for this — fall back to path-based lookup below
+      }
+
       // 2. Durable path: check Supabase for a saved session
       if (supabase && db) {
         try {
-          const summary = await db.getSessionSummary(opts.dxfPath);
+          const summary = await db.getSessionSummary(opts.dxfPath, checksum);
           const hasSavedData = summary && (
             summary.counts.digit_results > 0 ||
             summary.counts.poles > 0 ||
@@ -218,6 +341,9 @@ export default function Home() {
           if (hasSavedData) {
             sessionIdRef.current = summary!.session.id;
             setSessionId(summary!.session.id);
+            if (summary!.project.asbuilt_node_id) {
+              setAsbuiltNodeId(summary!.project.asbuilt_node_id);
+            }
             setPendingOpts(opts);
             setRestoreSummary(summary!);
             return;
@@ -231,8 +357,52 @@ export default function Home() {
       setStep(2);
       await pipeline.run(opts);
     },
-    [pipeline, getCache, db, resolveSessionId],
+    [pipeline, getCache, db, resolveSessionId, router],
   );
+
+  // Deep-link: opening /LPA115 directly resolves that name against the local
+  // file list and opens it the same way picking it from LoadScreen would —
+  // same restore-from-cache/Supabase path, no special-casing needed.
+  useEffect(() => {
+    const siteSlug = routeParams?.site;
+    if (!siteSlug || autoLoadAttemptedRef.current) return;
+    autoLoadAttemptedRef.current = true;
+
+    (async () => {
+      try {
+        const decoded = decodeURIComponent(siteSlug).toLowerCase();
+        const listRes = await fetch("/api/files/list");
+        const listData = await listRes.json();
+        const match = (listData.files ?? []).find((f: { name: string }) => {
+          const base = f.name.replace(/\.dxf$/i, "").toLowerCase();
+          return base === decoded;
+        });
+        if (!match) {
+          console.warn(`[deep-link] no local file matches "${siteSlug}"`);
+          return;
+        }
+
+        const layersRes = await fetch("/api/layers", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ dxf_path: match.path }),
+        });
+        const layersData = await layersRes.json();
+        if (layersData.error) {
+          console.warn("[deep-link] could not read layers:", layersData.error);
+          return;
+        }
+
+        await handleStartProcessing({
+          dxfPath: match.path,
+          layers: layersData.layers as string[],
+          allLayers: layersData.layers as string[],
+        });
+      } catch (err) {
+        console.warn("[deep-link] auto-load failed:", err);
+      }
+    })();
+  }, [routeParams, handleStartProcessing]);
 
   const handleRestoreLoad = useCallback(async () => {
     if (!restoreSummary || !pendingOpts || !db) return;
@@ -398,8 +568,15 @@ export default function Home() {
   useEffect(() => {
     if (step === 3 && dxfPath && results.length > 0) {
       setCache(dxfPath, { results });
+      // Corrections/deletes/manual adds used to live only in this in-memory
+      // cache — lost on reload, and never reached Supabase at all. Queue a
+      // debounced save so edits actually persist (and survive opening the
+      // same file on a different PC).
+      if (sessionIdRef.current) {
+        autoSave.queueSave({ results });
+      }
     }
-  }, [results, step, dxfPath, setCache]);
+  }, [results, step, dxfPath, setCache, autoSave]);
 
   const handleExport = useCallback(
     async (type: ExportType) => {
@@ -559,7 +736,13 @@ export default function Home() {
     setRestoredCableSpans(null);
     sessionIdRef.current = null;
     setSessionId(null);
-  }, [pipeline]);
+    setAsbuiltNodeId(null);
+    // Clear the deep-link URL too — otherwise a refresh from the file list
+    // would re-trigger the auto-load effect and jump straight back into
+    // whichever file was last open instead of staying on "My Drawings".
+    autoLoadAttemptedRef.current = false;
+    router.replace("/");
+  }, [pipeline, router]);
 
   const TABS = [
     { key: "review", label: "OCR Review", icon: "🔍" },
@@ -729,6 +912,7 @@ export default function Home() {
                 isActive={mapTab === "pole"}
                 boundary={globalBoundary}
                 isMaskEnabled={isMaskEnabled}
+                onViewReport={() => setMapTab("dxf")}
               />
             </div>
 

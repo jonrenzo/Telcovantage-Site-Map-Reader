@@ -4,7 +4,7 @@ import { useRef, useEffect, useCallback, useState, useMemo } from "react";
 import type { EquipmentShape, BoundaryPoint, Segment } from "../../types";
 
 // --- Import the math utility ---
-import { isPointInPolygon } from "../../page";
+import { isPointInPolygon, findNoWireNearbyIndices } from "../../page";
 
 interface Props {
   segments: Segment[];
@@ -90,19 +90,31 @@ export default function EquipmentCanvas({
 
   // --- FIX 1: Replaced state-syncing refs with a single useMemo ---
   // This calculates exactly once per render and prevents the "one step behind" bug
+  //
+  // Out-of-boundary shapes used to be filtered out entirely, which hid
+  // spurious detections instead of making them easy to spot and delete.
+  // They now stay in this list (still selectable) and get dimmed in the
+  // draw loop below via isOutOfBounds/noWireShapeIds instead.
   const visibleShapes = useMemo(() => {
     return shapes.filter((s) => {
       const dk = getDisplayKind(s.kind, s.layer);
-      const isVisibleLayer = visibleKinds.has(dk) && visibleLayers.has(s.layer);
-      if (!isVisibleLayer) return false;
-
-      // Apply boundary mask if enabled
-      if (isMaskEnabled && boundary && boundary.length > 2) {
-        return isPointInPolygon(s.cx ?? s.bbox[0], s.cy ?? s.bbox[1], boundary);
-      }
-      return true;
+      return visibleKinds.has(dk) && visibleLayers.has(s.layer);
     });
-  }, [shapes, visibleKinds, visibleLayers, isMaskEnabled, boundary]);
+  }, [shapes, visibleKinds, visibleLayers]);
+
+  // Shapes with no cable/strand segment anywhere near them — a count with
+  // no wire behind it. Adaptive/outlier-based so it works across DXFs of
+  // very different scales without a hardcoded distance.
+  const noWireShapeIds = useMemo(() => {
+    const flaggedIdxs = findNoWireNearbyIndices(
+      visibleShapes,
+      (s) => ({ x: s.cx ?? s.bbox[0], y: s.cy ?? s.bbox[1] }),
+      segments,
+    );
+    const ids = new Set<number>();
+    flaggedIdxs.forEach((idx) => ids.add(visibleShapes[idx].shape_id));
+    return ids;
+  }, [visibleShapes, segments]);
 
   // --- FIX 2: Redraw now depends directly on the memoized visibleShapes and props ---
   const redraw = useCallback(() => {
@@ -151,7 +163,13 @@ export default function EquipmentCanvas({
     for (const shape of visibleShapes) {
       const isSel = shape.shape_id === selectedId;
       const dk = getDisplayKind(shape.kind, shape.layer);
-      const color = KIND_COLOR[dk] ?? "#64748b";
+      const isOutOfBounds =
+        isMaskEnabled &&
+        !!boundary &&
+        boundary.length > 2 &&
+        !isPointInPolygon(shape.cx ?? shape.bbox[0], shape.cy ?? shape.bbox[1], boundary);
+      const isFlagged = isOutOfBounds || noWireShapeIds.has(shape.shape_id);
+      const color = isFlagged ? "#94a3b8" : (KIND_COLOR[dk] ?? "#64748b");
       const [x0, y0, x1, y1] = shape.bbox;
       const w = x1 - x0,
         h = y1 - y0;
@@ -193,7 +211,9 @@ export default function EquipmentCanvas({
       ctx.fill();
       ctx.strokeStyle = color;
       ctx.lineWidth = (isSel ? 2.5 : 1.5) / vp.scale;
+      if (isFlagged) ctx.setLineDash([4 / vp.scale, 3 / vp.scale]);
       ctx.stroke();
+      ctx.setLineDash([]);
 
       if (shape.kind === "rectangle") {
         ctx.strokeStyle = isSel ? "#fff" : color;
@@ -226,7 +246,7 @@ export default function EquipmentCanvas({
     }
 
     ctx.restore();
-  }, [segments, visibleShapes, boundary, isMaskEnabled, selectedId]);
+  }, [segments, visibleShapes, boundary, isMaskEnabled, noWireShapeIds, selectedId]);
 
   const fitView = useCallback(() => {
     const canvas = canvasRef.current;
@@ -502,6 +522,12 @@ export default function EquipmentCanvas({
           <div className="w-3 border-t-[2.5px] border-dashed border-[#10b981]" />
           Boundary
         </div>
+        {(noWireShapeIds.size > 0 || (isMaskEnabled && boundary)) && (
+          <div className="flex items-center gap-2 text-xs">
+            <div className="w-2.5 h-2.5 rounded-full border-[1.5px] border-dashed border-[#94a3b8] bg-[#94a3b833]" />
+            Outside boundary / no wire nearby
+          </div>
+        )}
       </div>
     </>
   );

@@ -1,0 +1,38 @@
+- generic [active] [ref=f60e1]:
+  - generic [ref=f60e2]:
+    - banner [ref=f60e3]:
+      - generic [ref=f60e4]: AsBuiltIQ
+      - navigation [ref=f60e8]:
+        - generic [ref=f60e10]:
+          - generic [ref=f60e11]: "1"
+          - generic [ref=f60e12]: Load Plan
+        - generic [ref=f60e15]:
+          - generic [ref=f60e16]: "2"
+          - generic [ref=f60e17]: Reading
+        - generic [ref=f60e20]:
+          - generic [ref=f60e21]: "3"
+          - generic [ref=f60e22]: Review
+    - main [ref=f60e23]:
+      - complementary [ref=f60e24]:
+        - paragraph [ref=f60e26]: Workspace
+        - button "🗂️ My Drawings" [ref=f60e27]:
+          - generic [ref=f60e28]: 🗂️
+          - text: My Drawings
+        - paragraph [ref=f60e30]: Folders
+        - button "New Folder" [ref=f60e32]
+      - generic [ref=f60e35]:
+        - generic [ref=f60e36]:
+          - navigation [ref=f60e37]:
+            - button "My Drawings" [ref=f60e39]
+          - textbox "Search drawings…" [ref=f60e44]
+          - combobox [ref=f60e45] [cursor=pointer]:
+            - option "Last opened" [selected]
+            - option "Name"
+            - option "Size"
+          - generic [ref=f60e46]:
+            - button [ref=f60e47]
+            - button [ref=f60e53]
+          - button "Upload" [ref=f60e58]
+        - paragraph [ref=f60e65]: Loading drawings…
+  - button "Open Next.js Dev Tools" [ref=f60e71] [cursor=pointer]
+  - alert [ref=f60e75]

@@ -2,11 +2,26 @@
   "folders": [],
   "files": [
     {
+      "name": "LPA115.dxf",
+      "path": "C:\\zander\\Telcovantage-Site-Map-Reader\\uploads\\LPA115.dxf",
+      "size": 674204,
+      "modified": 1788550875,
+      "folder": ""
+    },
+    {
       "name": "LP1709.dxf",
-      "path": "uploads\\LP1709.dxf",
+      "path": "C:\\zander\\Telcovantage-Site-Map-Reader\\uploads\\LP1709.dxf",
       "size": 4408081,
       "modified": 1785825254,
       "folder": ""
+    },
+    {
+      "name": "LPA120.dxf",
+      "path": "C:\\zander\\Telcovantage-Site-Map-Reader\\uploads\\LPA120.dxf",
+      "size": 841330,
+      "modified": 1788512147,
+      "folder": "",
+      "asbuilt_node_id": 5
     },
     {
       "name": "MR1004.dxf",
@@ -34,13 +49,6 @@
       "path": "C:\\zander\\Telcovantage-Site-Map-Reader\\uploads\\QC9075.dxf",
       "size": 7529939,
       "modified": 1786093722,
-      "folder": ""
-    },
-    {
-      "name": "LPA120.dxf",
-      "path": "C:\\zander\\Telcovantage-Site-Map-Reader\\uploads\\LPA120.dxf",
-      "size": 841330,
-      "modified": 1788512147,
       "folder": ""
     }
   ]

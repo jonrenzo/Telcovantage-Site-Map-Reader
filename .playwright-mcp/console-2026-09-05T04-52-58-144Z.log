@@ -1,0 +1,4 @@
+[   15014ms] [WARNING] The powerPreference option is currently ignored when calling requestAdapter() on Windows. See https://crbug.com/369219127 @ :0
+[   17795ms] [WARNING] A speculation rule set was inserted into the document but will be ignored. This might happen, for example, if it was previously inserted into another document, or if it was created using the innerHTML setter. @ https://www.google.com/search?q=sa+kamay+ko+nag+lolobo+ng+parang+may+nana+tapos+masakit+ano+kaya+ito&oq=sa+kamay+ko+nag+lolobo+ng+parang+may+nana+tapos+masakit+ano+kaya+ito&gs_lcrp=EgZjaHJvbWUyBggAEEUYOdIBCTEwODY4ajBqN6gCALACAA&sourceid=chrome&source=chrome.ob&ie=UTF-8:38
+[   56929ms] [WARNING] The powerPreference option is currently ignored when calling requestAdapter() on Windows. See https://crbug.com/369219127 @ :0
+[   67168ms] [WARNING] The powerPreference option is currently ignored when calling requestAdapter() on Windows. See https://crbug.com/369219127 @ :0

@@ -53,6 +53,9 @@ from app_python.services.session_store import (
     get_or_create_project_session,
     save_full_results,
     session_has_user_edits,
+    upload_dxf_to_storage,
+    download_dxf_from_storage,
+    list_cloud_projects,
 )
 
 app = Flask(__name__, static_folder="frontend/dist", static_url_path="")
@@ -3599,12 +3602,13 @@ POLE_CONFIG = _poleid.PoleIdConfig(
     require_circle_match=False,
     # Now measured to the label's nearest bbox edge rather than its centroid
     # (see match_poleids_to_circles), so this no longer needs to cover a wide
-    # multi-character word's full centroid offset — but real labels still
-    # measured ~9.4 units from a ~1.3-radius/~2.4-height marker's edge, just
-    # over the old 4x gate. Exclusive matching (each circle taken by its one
-    # true nearest label) is what keeps a larger gate from cross-matching
-    # neighbouring poles, not this factor, so raising it is safe.
-    max_dist_factor=5.0,
+    # multi-character word's full centroid offset — but real labels in this
+    # drafter's style still measure up to ~14 units from a ~1.3-radius/
+    # ~2.4-height marker's edge, over the previous 5x gate. Exclusive
+    # matching (each circle taken by its one true nearest label) is what
+    # keeps a larger gate from cross-matching neighbouring poles, not this
+    # factor, so raising it is safe.
+    max_dist_factor=6.0,
     default_text_height=0.25,
     stroke_connect_tol=0.20,
     stroke_min_total_length=0.30,
@@ -4745,9 +4749,29 @@ def _run_precompute(checksum: str, dxf_path: str):
         l for l in layers
         if any(p in l.lower() for p in strand_patterns)
     ]
-    # Fallback: pick a layer that has the most digit-like clusters
+    # Fallback: pick the layer that actually looks like it has strand-digit
+    # clusters, instead of blindly grabbing layers[0] — an arbitrary layer
+    # (site/pole reference text, sheet notes, etc.) produced false digit
+    # reads pulled straight out of unrelated labels on that layer.
     if not strand_layers:
-        strand_layers = [layers[0]] if layers else []
+        best_layer = None
+        best_count = 0
+        for lyr in layers:
+            try:
+                segs = extract_stroke_segments(doc, lyr, include_circles=False)
+                if not segs:
+                    continue
+                sc = estimate_scale(segs)
+                cable = cable_segment_indices(segs, scale=sc)
+                clusters = cluster_segments(segs, tol=CONNECT_TOL * sc, ignore=cable)
+                infos = analyze_clusters(segs, clusters, scale=sc)
+                count = sum(1 for i in infos if i.kind == "digit_candidate")
+            except Exception:
+                continue
+            if count > best_count:
+                best_count = count
+                best_layer = lyr
+        strand_layers = [best_layer] if best_layer else []
 
     digit_results: list = []
     if strand_layers:
@@ -5062,6 +5086,94 @@ def api_files_delete():
     return jsonify({"ok": True})
 
 
+@app.route("/api/files/link-asbuilt", methods=["POST"])
+def api_files_link_asbuilt():
+    """Remember which AsBuilt IQ node a DXF file was pushed to, so the
+    teardown-status/redline sync can resume automatically on the next load
+    instead of only working for the browser tab that did the export."""
+    body = request.get_json() or {}
+    path = (body.get("path") or "").strip()
+    node_id = body.get("node_id")
+    if not path:
+        return jsonify({"error": "path is required"}), 400
+    data = _read_index()
+    found = False
+    for f in data["files"]:
+        if _index_key(f["path"]) == _index_key(path):
+            f["asbuilt_node_id"] = node_id
+            found = True
+    if not found:
+        return jsonify({"error": "file not found in index"}), 404
+    _write_index(data)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/files/cloud-list", methods=["GET"])
+def api_files_cloud_list():
+    """Projects known to Supabase that this PC hasn't downloaded yet — lets a
+    file precomputed on a different machine show up here without the user
+    having to carry the .dxf file over themselves."""
+    local = _read_index().get("files", [])
+    local_checksums = set()
+    for f in local:
+        try:
+            local_checksums.add(compute_checksum(f["path"]))
+        except Exception:
+            pass
+
+    cloud_only = []
+    for p in list_cloud_projects():
+        checksum = p.get("dxf_checksum")
+        if not checksum or checksum in local_checksums:
+            continue
+        cloud_only.append({
+            "name": p.get("dxf_file_name") or "unknown.dxf",
+            "checksum": checksum,
+            "asbuilt_node_id": p.get("asbuilt_node_id"),
+            "updated_at": p.get("updated_at"),
+            "local": False,
+        })
+    return jsonify({"files": cloud_only})
+
+
+@app.route("/api/files/cloud-fetch", methods=["POST"])
+def api_files_cloud_fetch():
+    """Download a cloud-only file (by checksum) into this PC's local uploads
+    folder, so it can be opened here — the checksum then matches its existing
+    Supabase session, so nothing gets rescanned."""
+    body = request.get_json() or {}
+    checksum = (body.get("checksum") or "").strip()
+    name = (body.get("name") or f"{checksum}.dxf").strip()
+    if not checksum:
+        return jsonify({"error": "checksum is required"}), 400
+
+    UPLOADS_DIR.mkdir(exist_ok=True)
+    fname = Path(name).name or f"{checksum}.dxf"
+    dest_path = UPLOADS_DIR / fname
+    # Avoid clobbering an unrelated local file that happens to share the name
+    if dest_path.exists() and compute_checksum(str(dest_path)) != checksum:
+        stem, suffix = Path(fname).stem, Path(fname).suffix or ".dxf"
+        dest_path = UPLOADS_DIR / f"{stem}_{checksum[:8]}{suffix}"
+
+    ok = download_dxf_from_storage(checksum, str(dest_path))
+    if not ok:
+        return jsonify({"error": "File not found in cloud storage"}), 404
+
+    data = _read_index()
+    data["files"] = [
+        f for f in data["files"] if _index_key(f["path"]) != _index_key(str(dest_path))
+    ]
+    data["files"].append({
+        "name": dest_path.name,
+        "path": str(dest_path),
+        "size": dest_path.stat().st_size,
+        "modified": int(dest_path.stat().st_mtime),
+        "folder": "",
+    })
+    _write_index(data)
+    return jsonify({"ok": True, "path": str(dest_path)})
+
+
 @app.route("/api/files/rename", methods=["POST"])
 def api_files_rename():
     body = request.get_json() or {}
@@ -5156,6 +5268,15 @@ def api_upload():
                 _PRECOMPUTE_JOBS[checksum] = {"status": "queued", "dxf_path": save_path}
                 _PRECOMPUTE_QUEUE.put(checksum)
                 print(f"[upload] precompute queued for {fname} ({checksum[:8]})")
+
+            # Mirror the raw file into Supabase Storage too, so it can be
+            # fetched from a different PC without carrying it over — off the
+            # request thread since it's a full file upload, not just a status flag.
+            threading.Thread(
+                target=upload_dxf_to_storage,
+                args=(save_path, checksum),
+                daemon=True,
+            ).start()
         except Exception as _pc_err:
             print(f"[upload] precompute enqueue failed (non-fatal): {_pc_err}")
 
@@ -5755,6 +5876,38 @@ def api_geocode():
             )
         else:
             return jsonify({"status": "not_found"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)})
+
+
+@app.route("/api/reverse_geocode")
+def api_reverse_geocode():
+    """Address components for a lat/lon — feeds the PSGC auto-fill on the
+    AsBuilt IQ export modal so the operator isn't hand-picking region/
+    province/city/barangay for every push when the plan is already
+    georeferenced via Insert Coordinates.
+    """
+    lat = request.args.get("lat", "")
+    lon = request.args.get("lon", "")
+    if not lat or not lon:
+        return jsonify({"status": "error", "message": "lat and lon parameters required"}), 400
+    try:
+        lat_f = float(lat)
+        lon_f = float(lon)
+    except ValueError:
+        return jsonify({"status": "error", "message": "lat and lon must be numbers"}), 400
+
+    try:
+        from geopy.geocoders import Nominatim
+
+        geolocator = Nominatim(user_agent="telco_mapper_app")
+        location = geolocator.reverse(
+            (lat_f, lon_f), exactly_one=True, addressdetails=True, zoom=18
+        )
+        if location and isinstance(location.raw, dict):
+            address = location.raw.get("address", {}) or {}
+            return jsonify({"status": "success", "address": address})
+        return jsonify({"status": "not_found"})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)})
 

@@ -111,21 +111,36 @@ export function useDatabase() {
     return data as Session | null
   }, [getSb])
 
-  const getOrCreateSessionForFile = useCallback(async (dxfPath: string): Promise<{ project: Project; session: Session; isNewSession: boolean }> => {
+  const getOrCreateSessionForFile = useCallback(async (dxfPath: string, checksum?: string): Promise<{ project: Project; session: Session; isNewSession: boolean }> => {
     const sb = getSb()
     const fileName = dxfPath.split(/[\\\/]/).pop() || 'unknown'
-    console.log("[DB] getOrCreateSessionForFile called with:", dxfPath)
+    console.log("[DB] getOrCreateSessionForFile called with:", dxfPath, "checksum:", checksum)
 
-    // Check if project exists by file path
-    const { data: existingProject, error: projectSelectError } = await sb
-      .from('projects')
-      .select('*')
-      .eq('dxf_file_path', dxfPath)
-      .single()
+    // Checksum-first (survives the file being re-uploaded from a different
+    // PC/path with identical content), falling back to path match for
+    // callers that don't have a checksum yet.
+    // .limit(1) instead of .single() — .single() throws when a path/checksum
+    // matches more than one row, which (if duplicates ever exist) turns
+    // every future lookup into another accidental duplicate-creation. An
+    // array read degrades gracefully: just pick the first match.
+    let existingProject: Project | null = null
+    if (checksum) {
+      const { data } = await sb.from('projects').select('*').eq('dxf_checksum', checksum).order('created_at').limit(1)
+      existingProject = (data?.[0] as Project | undefined) ?? null
+    }
+    if (!existingProject) {
+      const { data: byPath, error: projectSelectError } = await sb
+        .from('projects')
+        .select('*')
+        .eq('dxf_file_path', dxfPath)
+        .order('created_at')
+        .limit(1)
 
-    if (projectSelectError && projectSelectError.code !== 'PGRST116') {
-      console.error("[DB] Error checking project:", projectSelectError)
-      throw projectSelectError
+      if (projectSelectError) {
+        console.error("[DB] Error checking project:", projectSelectError)
+        throw projectSelectError
+      }
+      existingProject = (byPath?.[0] as Project | undefined) ?? null
     }
 
     let project: Project
@@ -139,7 +154,7 @@ export function useDatabase() {
         .from('projects')
         .insert({
           dxf_file_name: fileName,
-          dxf_checksum: fileName,
+          dxf_checksum: checksum ?? fileName,
           dxf_file_path: dxfPath,
         })
         .select()
@@ -196,22 +211,34 @@ export function useDatabase() {
     return { project, session: session as Session, isNewSession: true }
   }, [getSb])
 
-  const checkForExistingSession = useCallback(async (dxfPath: string): Promise<{ project: Project; session: Session } | null> => {
+  const checkForExistingSession = useCallback(async (dxfPath: string, checksum?: string): Promise<{ project: Project; session: Session } | null> => {
     const sb = getSb()
-    const { data: project } = await sb
-      .from('projects')
-      .select('*')
-      .eq('dxf_file_path', dxfPath)
-      .single()
+    // .limit(1) instead of .single() — see getOrCreateSessionForFile for why.
+    let project: Project | null = null
+    if (checksum) {
+      const { data } = await sb.from('projects').select('*').eq('dxf_checksum', checksum).order('created_at').limit(1)
+      project = (data?.[0] as Project | undefined) ?? null
+    }
+    if (!project) {
+      const { data } = await sb
+        .from('projects')
+        .select('*')
+        .eq('dxf_file_path', dxfPath)
+        .order('created_at')
+        .limit(1)
+      project = (data?.[0] as Project | undefined) ?? null
+    }
 
     if (!project) return null
 
-    const { data: session } = await sb
+    const { data: sessionRows } = await sb
       .from('sessions')
       .select('*')
       .eq('project_id', project.id)
       .eq('is_active', true)
-      .single()
+      .order('created_at', { ascending: false })
+      .limit(1)
+    const session = sessionRows?.[0] as Session | undefined
 
     if (!session) return null
     return { project: project as Project, session: session as Session }
@@ -627,7 +654,10 @@ export function useDatabase() {
     if (data.digit_results.length > 0) {
       console.log("[DB] Upserting digit_results...")
       const resultsToSave = data.digit_results.map(r => {
-        const { id, ...rest } = r
+        // crop_b64 stays local only — it's a per-machine OCR debug image,
+        // not something that belongs in the shared cloud DB (and the
+        // digit_results table has no column for it anyway).
+        const { id, crop_b64, ...rest } = r as typeof r & { crop_b64?: unknown }
         return { ...rest, session_id: sessionId }
       })
       console.log("[DB] First result:", JSON.stringify(resultsToSave[0]))
@@ -655,7 +685,8 @@ export function useDatabase() {
         .from('poles')
         .upsert(
           data.poles.map(p => {
-            const { id, ...rest } = p
+            // Same as digit_results — crop_b64 is a local-only debug image.
+            const { id, crop_b64, ...rest } = p as typeof p & { crop_b64?: unknown }
             return { ...rest, session_id: sessionId }
           }),
           { onConflict: 'session_id,pole_id' }
@@ -717,25 +748,38 @@ export function useDatabase() {
   // NEW: Session Summary for restore dialog
   // =====================================================
   
-  const getSessionSummary = useCallback(async (dxfPath: string): Promise<SessionSummary | null> => {
+  const getSessionSummary = useCallback(async (dxfPath: string, checksum?: string): Promise<SessionSummary | null> => {
     const sb = getSb()
-    
-    // Find project by file path
-    const { data: project } = await sb
-      .from('projects')
-      .select('*')
-      .eq('dxf_file_path', dxfPath)
-      .single()
+
+    // Checksum-first so the same file, re-uploaded from a different PC under
+    // a different local path, still resolves to its existing session.
+    // .limit(1) instead of .single() — see getOrCreateSessionForFile for why.
+    let project: Project | null = null
+    if (checksum) {
+      const { data } = await sb.from('projects').select('*').eq('dxf_checksum', checksum).order('created_at').limit(1)
+      project = (data?.[0] as Project | undefined) ?? null
+    }
+    if (!project) {
+      const { data } = await sb
+        .from('projects')
+        .select('*')
+        .eq('dxf_file_path', dxfPath)
+        .order('created_at')
+        .limit(1)
+      project = (data?.[0] as Project | undefined) ?? null
+    }
 
     if (!project) return null
 
     // Find active session
-    const { data: session } = await sb
+    const { data: sessionRows } = await sb
       .from('sessions')
       .select('*')
       .eq('project_id', project.id)
       .eq('is_active', true)
-      .single()
+      .order('created_at', { ascending: false })
+      .limit(1)
+    const session = sessionRows?.[0] as Session | undefined
 
     if (!session) return null
 
@@ -772,7 +816,8 @@ export function useDatabase() {
     const sb = getSb()
     
     const resultsToSave = results.map(r => {
-      const { id, ...rest } = r
+      // crop_b64 stays local only — see saveSession for why.
+      const { id, crop_b64, ...rest } = r as typeof r & { crop_b64?: unknown }
       return { ...rest, session_id: sessionId }
     })
 
@@ -816,7 +861,8 @@ export function useDatabase() {
     const sb = getSb()
 
     const polesToSave = poles.map(p => {
-      const { id, ...rest } = p
+      // crop_b64 stays local only — see saveSession for why.
+      const { id, crop_b64, ...rest } = p as typeof p & { crop_b64?: unknown }
       return { ...rest, session_id: sessionId }
     })
 
@@ -831,6 +877,43 @@ export function useDatabase() {
 
     await sb.from('sessions').update({ updated_at: new Date().toISOString() }).eq('id', sessionId)
     console.log("[DB] Saved", poles.length, "poles")
+  }, [getSb])
+
+  // Pole deletes (from the DXF Viewer or the Pole IDs list) only ever pass the
+  // remaining poles to savePoles' upsert — which inserts/updates but never
+  // removes a row, so a deleted pole stayed in Supabase forever. This reads
+  // what's already stored and removes whatever isn't in the current local
+  // list, so a delete actually deletes.
+  const deletePolesNotIn = useCallback(async (sessionId: string, keepPoleIds: number[]) => {
+    const sb = getSb()
+    const { data: existing, error: fetchError } = await sb
+      .from('poles')
+      .select('pole_id')
+      .eq('session_id', sessionId)
+
+    if (fetchError) {
+      console.error("[DB] Error checking poles for delete:", fetchError)
+      return
+    }
+
+    const keepSet = new Set(keepPoleIds)
+    const staleIds = (existing ?? [])
+      .map(r => r.pole_id as number)
+      .filter(id => !keepSet.has(id))
+
+    if (staleIds.length === 0) return
+
+    const { error } = await sb
+      .from('poles')
+      .delete()
+      .eq('session_id', sessionId)
+      .in('pole_id', staleIds)
+
+    if (error) {
+      console.error("[DB] Error deleting stale poles:", error)
+      return
+    }
+    console.log("[DB] Deleted", staleIds.length, "stale pole(s):", staleIds)
   }, [getSb])
 
   const saveBoundary = useCallback(async (sessionId: string, polygon: BoundaryPoint[]) => {
@@ -924,6 +1007,21 @@ export function useDatabase() {
     console.log("[DB] Bulk saved DXF segments for", rows.length, "layers")
   }, [getSb])
 
+  // Links a project (by content checksum) to its AsBuilt IQ node, so the
+  // teardown/redline sync can resume on any PC that re-opens this same file —
+  // not just the machine that did the export.
+  const saveAsbuiltNodeIdByChecksum = useCallback(async (checksum: string, nodeId: number) => {
+    const sb = getSb()
+    const { error } = await sb
+      .from('projects')
+      .update({ asbuilt_node_id: nodeId, updated_at: new Date().toISOString() })
+      .eq('dxf_checksum', checksum)
+
+    if (error) {
+      console.error("[DB] Error saving asbuilt_node_id:", error)
+    }
+  }, [getSb])
+
   // =====================================================
   // NEW: Clear session data (for re-scan)
   // =====================================================
@@ -984,5 +1082,7 @@ export function useDatabase() {
     saveDxfSegments,
     saveDxfSegmentsBulk,
     clearSessionData,
+    saveAsbuiltNodeIdByChecksum,
+    deletePolesNotIn,
   }
 }

@@ -1,0 +1,80 @@
+- generic [active] [ref=f114e1]:
+  - generic [ref=f114e2]:
+    - banner [ref=f114e3]:
+      - button "Back" [ref=f114e113]
+      - generic [ref=f114e4]: AsBuiltIQ
+      - navigation [ref=f114e8]:
+        - generic [ref=f114e10]:
+          - generic [ref=f114e11]: ✓
+          - generic [ref=f114e12]: Load Plan
+        - generic [ref=f114e15]:
+          - generic [ref=f114e16]: ✓
+          - generic [ref=f114e17]: Reading
+        - generic [ref=f114e20]:
+          - generic [ref=f114e21]: "3"
+          - generic [ref=f114e22]: Review
+      - button "Export" [ref=f114e117]
+    - generic [ref=f114e123]:
+      - generic [ref=f114e125]:
+        - button "🔍 OCR Review" [ref=f114e126]:
+          - generic [ref=f114e127]: 🔍
+          - text: OCR Review
+        - button "🗺️ DXF Viewer" [ref=f114e128]:
+          - generic [ref=f114e129]: 🗺️
+          - text: DXF Viewer
+        - button "⚙️ Equipment" [ref=f114e130]:
+          - generic [ref=f114e131]: ⚙️
+          - text: Equipment
+        - button "🔵 Pole IDs" [ref=f114e132]:
+          - generic [ref=f114e133]: 🔵
+          - text: Pole IDs
+      - generic [ref=f114e394]:
+        - generic [ref=f114e395]:
+          - generic [ref=f114e396]:
+            - generic [ref=f114e397]:
+              - generic [ref=f114e398]: Pole IDs
+              - button "Visible" [ref=f114e404]
+            - generic [ref=f114e408]:
+              - button "2 layers selected" [disabled] [ref=f114e410]
+              - button [disabled] [ref=f114e435]
+            - generic [ref=f114e439]:
+              - generic [ref=f114e440]:
+                - text: Reading pole IDs…
+                - generic [ref=f114e441]: 1/24
+              - generic [ref=f114e442]: 4%
+          - generic [ref=f114e444]:
+            - textbox "Search pole name…" [ref=f114e445]
+            - generic [ref=f114e446]:
+              - button "A-Z" [ref=f114e447]
+              - button "↕" [ref=f114e448]
+          - generic [ref=f114e450] [cursor=pointer]:
+            - generic [ref=f114e452]:
+              - paragraph [ref=f114e453]: 180PL
+              - paragraph [ref=f114e454]: (791.71, 725.64)
+            - generic [ref=f114e455]:
+              - generic [ref=f114e456]: 98%
+              - generic [ref=f114e457]: STR
+              - button "✏" [ref=f114e458]
+          - generic [ref=f114e459]:
+            - generic [ref=f114e460]: 1 / 1 poles
+            - button "Add Pole" [ref=f114e462]
+        - generic [ref=f114e420]:
+          - button "Fit to view" [ref=f114e422]
+          - generic [ref=f114e425]:
+            - generic [ref=f114e426]: Pole label
+            - generic [ref=f114e429]:
+              - generic [ref=f114e430]: TXT
+              - generic [ref=f114e431]: Text entity
+            - generic [ref=f114e432]:
+              - generic [ref=f114e433]: STR
+              - generic [ref=f114e434]: Stroked polylines
+  - generic [ref=f114e70] [cursor=pointer]:
+    - button "Open Next.js Dev Tools" [ref=f114e71]
+    - generic [ref=f114e465]:
+      - button "Open issues overlay" [ref=f114e466]:
+        - generic [ref=f114e467]:
+          - generic [aria-hidden] [ref=f114e468]: "0"
+          - generic [ref=f114e469]: "1"
+        - generic [ref=f114e470]: Issue
+      - button "Collapse issues badge" [ref=f114e471]
+  - alert [ref=f114e75]

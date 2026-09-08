@@ -9,7 +9,7 @@ import DetailPanel from "./DetailPanel";
 import ReviewModal from "./ReviewModal";
 
 // --- NEW: Import the math utility from page.tsx ---
-import { isPointInPolygon } from "../page";
+import { isPointInPolygon, findNoWireNearbyIndices } from "../page";
 
 interface BoundaryPoint {
   x: number;
@@ -102,6 +102,49 @@ export default function ReviewLayout({
     },
     [setResults],
   );
+
+  const outOfBoundsResults = useMemo(() => {
+    if (!isMaskEnabled || !boundary || boundary.length <= 2) return [];
+    return results.filter(
+      (r) => !isPointInPolygon(r.center_x, r.center_y, boundary),
+    );
+  }, [results, isMaskEnabled, boundary]);
+
+  // Readings inside the boundary but with no strand/cable anywhere near
+  // them — a count with no wire behind it, same "probably wrong" bucket.
+  const noWireResults = useMemo(() => {
+    const flaggedIdxs = findNoWireNearbyIndices(
+      results,
+      (r) => ({ x: r.center_x, y: r.center_y }),
+      segments,
+    );
+    return results.filter((_, idx) => flaggedIdxs.has(idx));
+  }, [results, segments]);
+
+  const flaggedResults = useMemo(() => {
+    const ids = new Set<number>();
+    const combined: DigitResult[] = [];
+    for (const r of [...outOfBoundsResults, ...noWireResults]) {
+      if (!ids.has(r.digit_id)) {
+        ids.add(r.digit_id);
+        combined.push(r);
+      }
+    }
+    return combined;
+  }, [outOfBoundsResults, noWireResults]);
+
+  const handleDeleteFlagged = useCallback(() => {
+    if (flaggedResults.length === 0) return;
+    if (
+      !window.confirm(
+        `Delete ${flaggedResults.length} flagged OCR result(s) (outside the boundary or with no nearby wire)? This can't be undone.`,
+      )
+    )
+      return;
+    const idsToRemove = new Set(flaggedResults.map((r) => r.digit_id));
+    setResults((prev) => prev.filter((r) => !idsToRemove.has(r.digit_id)));
+    setSelectedId(null);
+  }, [flaggedResults, setResults]);
 
   const handleManualPlace = useCallback((cx: number, cy: number) => {
     setManualPending({ cx, cy });
@@ -203,13 +246,9 @@ export default function ReviewLayout({
 
   // --- NEW: Calculate visible results for the sidebar/modal ---
   const visibleResults = useMemo(() => {
-    if (isMaskEnabled && boundary && boundary.length > 2) {
-      return results.filter((r) =>
-        isPointInPolygon(r.center_x, r.center_y, boundary),
-      );
-    }
-    return results;
-  }, [results, isMaskEnabled, boundary]);
+    const flaggedIds = new Set(flaggedResults.map((r) => r.digit_id));
+    return results.filter((r) => !flaggedIds.has(r.digit_id));
+  }, [results, flaggedResults]);
 
   return (
     <div className="flex-1 flex overflow-hidden">
@@ -235,6 +274,8 @@ export default function ReviewLayout({
               setManualValue("");
               setSelectedId(null);
             }}
+            outOfBoundsCount={flaggedResults.length}
+            onDeleteOutOfBounds={handleDeleteFlagged}
           />
         </div>
       </div>
@@ -345,6 +386,14 @@ export default function ReviewLayout({
                 { color: THEMES[theme].review, label: "Needs checking" },
                 { color: THEMES[theme].corrected, label: "Manually corrected" },
                 { color: "#8b5cf6", label: "Added manually" },
+                ...(flaggedResults.length > 0
+                  ? [
+                      {
+                        color: "#94a3b8",
+                        label: "Outside boundary / no wire nearby — likely wrong",
+                      },
+                    ]
+                  : []),
               ].map(({ color, label }) => (
                 <div key={label} className="flex items-center gap-2 text-xs">
                   <div

@@ -90,8 +90,12 @@ class PoleIdConfig:
 # applied to app_python/services/pole_ocr.py's _POLEID_RE — including the
 # optional hyphen between the letter prefix and the number, without which
 # "IML-115"/"CUB-508" still wouldn't match (the letters run straight into
-# "-", not into a digit).
-_POLEID_RE = re.compile(r"^(?:NPT|[A-Z]{0,5}-?\d+(?:-\d+)?)$", re.IGNORECASE)
+# "-", not into a digit). The suffix after the number isn't always letters-
+# only either — "IML-180M2"/"180M3" interleave a letter back into digits —
+# so it's a general alphanumeric tail, not letters-then-done. Without it, a
+# correct OCR read fails validation just for having this shape, and the pole
+# silently keeps its POLE_xxx placeholder name instead.
+_POLEID_RE = re.compile(r"^(?:NPT|PT|[A-Z]{0,5}-?\d+(?:-\d+)?[A-Z0-9]{0,4})$", re.IGNORECASE)
 
 
 def clean_label(s: str) -> str:
@@ -215,6 +219,76 @@ def _approx_circle_from_closed_poly(
     return (cx, cy, mean_r)
 
 
+def _entity_bbox(e: Any) -> Optional[Tuple[float, float, float, float]]:
+    """Rough (minx, miny, maxx, maxy) for stroke-like entities — cheap, no
+    arc/spline tessellation, just enough to test spatial adjacency."""
+    t = e.dxftype()
+    try:
+        if t == "LINE":
+            xs = [float(e.dxf.start.x), float(e.dxf.end.x)]
+            ys = [float(e.dxf.start.y), float(e.dxf.end.y)]
+        elif t in ("LWPOLYLINE",):
+            pts = [(float(x), float(y)) for x, y, *_ in e.get_points("xy")]
+            xs = [p[0] for p in pts]
+            ys = [p[1] for p in pts]
+        elif t == "POLYLINE":
+            pts = [(float(v.dxf.location.x), float(v.dxf.location.y)) for v in e.vertices]
+            xs = [p[0] for p in pts]
+            ys = [p[1] for p in pts]
+        elif t == "ARC":
+            c = e.dxf.center
+            r = float(e.dxf.radius)
+            xs = [float(c.x) - r, float(c.x) + r]
+            ys = [float(c.y) - r, float(c.y) + r]
+        else:
+            return None
+    except Exception:
+        return None
+    if not xs or not ys:
+        return None
+    return (min(xs), min(ys), max(xs), max(ys))
+
+
+def _polygon_circle_is_text_glyph(
+    cx: float,
+    cy: float,
+    r: float,
+    self_entity: Any,
+    entities: List[Any],
+) -> bool:
+    """True if a circle-approximated closed polygon is actually a round
+    character (a stroke-font "0", "8", "9", "6"...) sitting inside a run of
+    text, not a deliberate pole-marker symbol.
+
+    A digit glyph has other glyphs immediately flanking it on the same
+    baseline on BOTH sides ("GT-0351"'s "0" sits between "-" and "3"); a
+    real marker circle beside a label is offset from the text, not wedged
+    inline between two more characters. Checking for that flanking is what
+    tells the two apart — matching one of these to a pole put the pole's
+    dot rendering directly on top of the "0" in the middle of "GT-0351"
+    instead of on the marker actually meant for it.
+    """
+    left = False
+    right = False
+    for e in entities:
+        if e is self_entity or e.dxftype() in ("TEXT", "MTEXT", "CIRCLE"):
+            continue
+        bbox = _entity_bbox(e)
+        if bbox is None:
+            continue
+        bx0, by0, bx1, by1 = bbox
+        bcy = 0.5 * (by0 + by1)
+        if abs(bcy - cy) > r * 1.2:
+            continue
+        if bx1 < cx - r * 0.3 and (cx - r) - bx1 <= r * 2.5:
+            left = True
+        elif bx0 > cx + r * 0.3 and bx0 - (cx + r) <= r * 2.5:
+            right = True
+        if left and right:
+            return True
+    return False
+
+
 def extract_circle_markers_from_entities(entities: List[Any]) -> List[CircleMarker]:
     circles: List[CircleMarker] = []
     for e in entities:
@@ -235,17 +309,19 @@ def extract_circle_markers_from_entities(entities: List[Any]) -> List[CircleMark
             approx = _approx_circle_from_closed_poly(pts)
             if approx:
                 cx, cy, r = approx
-                circles.append(
-                    CircleMarker(cx, cy, r, layer=str(getattr(e.dxf, "layer", "") or ""))
-                )
+                if not _polygon_circle_is_text_glyph(cx, cy, r, e, entities):
+                    circles.append(
+                        CircleMarker(cx, cy, r, layer=str(getattr(e.dxf, "layer", "") or ""))
+                    )
         elif t == "POLYLINE" and bool(e.is_closed):
             pts = [(float(v.dxf.location.x), float(v.dxf.location.y)) for v in e.vertices]
             approx = _approx_circle_from_closed_poly(pts)
             if approx:
                 cx, cy, r = approx
-                circles.append(
-                    CircleMarker(cx, cy, r, layer=str(getattr(e.dxf, "layer", "") or ""))
-                )
+                if not _polygon_circle_is_text_glyph(cx, cy, r, e, entities):
+                    circles.append(
+                        CircleMarker(cx, cy, r, layer=str(getattr(e.dxf, "layer", "") or ""))
+                    )
     return circles
 
 
@@ -906,6 +982,38 @@ def _build_stroke_pole_labels_from_entities(
     return out
 
 
+def _drop_marker_decoration_labels(
+    labels: List[TextLabel],
+    circles: List[CircleMarker],
+    centered_factor: float = 1.5,
+) -> List[TextLabel]:
+    """Drop stroke-source labels sitting almost exactly on a circle's own
+    center — leftover marker decoration (tick marks, partial rings, X-mark
+    fragments the earlier per-entity exclusion didn't catch, since a marker
+    can be drawn with more than a clean 2-line X), not a real pole ID.
+
+    A real label is always drawn beside its circle, never centered on top of
+    it, so this is a safe, general test. Left alone, one of these near-zero-
+    distance artifacts is always the closest candidate to its circle and
+    wins the exclusive match ahead of the real label sitting a normal
+    distance away — leaving that real label unmatched and the circle
+    "claimed" by noise, which then renders with no name of its own.
+    """
+    out: List[TextLabel] = []
+    for lab in labels:
+        if lab.source != "stroke":
+            out.append(lab)
+            continue
+        decoration = False
+        for c in circles:
+            if _dist2((lab.x, lab.y), (c.x, c.y)) <= (c.r * centered_factor) ** 2:
+                decoration = True
+                break
+        if not decoration:
+            out.append(lab)
+    return out
+
+
 def find_pole_labels(
     doc,
     layer_name,
@@ -953,6 +1061,9 @@ def find_pole_labels(
 
     if not config.use_circle_markers:
         return [(lab, None) for lab in labels]
+
+    if circles:
+        labels = _drop_marker_decoration_labels(labels, circles)
 
     matches = match_poleids_to_circles(
         labels=labels,

@@ -1,0 +1,155 @@
+- generic [ref=f5e2]:
+  - generic [ref=f5e4]:
+    - region "scrollable content" [ref=f5e9]:
+      - list [ref=f5e12]:
+        - listitem [ref=f5e13]: Main
+        - listitem [ref=f5e14]:
+          - link "Dashboard" [ref=f5e15] [cursor=pointer]:
+            - /url: /dashboard
+        - listitem [ref=f5e19]: Operations
+        - listitem [ref=f5e20]:
+          - link "Live Onsite Map" [ref=f5e21] [cursor=pointer]:
+            - /url: /field/live
+        - listitem [ref=f5e25]:
+          - link "Node List" [ref=f5e26] [cursor=pointer]:
+            - /url: /sites
+        - listitem [ref=f5e29]:
+          - link "Span List" [ref=f5e30] [cursor=pointer]:
+            - /url: /spans
+        - listitem [ref=f5e35]:
+          - link "Pole Master 󰅂" [ref=f5e36] [cursor=pointer]:
+            - /url: "javascript:throw new Error('React has blocked a javascript: URL as a security precaution.')"
+        - listitem [ref=f5e40]:
+          - link "NAP Inventory 󰅂" [ref=f5e41] [cursor=pointer]:
+            - /url: "javascript:throw new Error('React has blocked a javascript: URL as a security precaution.')"
+        - listitem [ref=f5e45]: Warehouse
+        - listitem [ref=f5e46]:
+          - link "Warehouses" [ref=f5e47] [cursor=pointer]:
+            - /url: /warehouses
+        - listitem [ref=f5e51]:
+          - link "Material Inventory" [ref=f5e52] [cursor=pointer]:
+            - /url: /warehouse/inventory
+        - listitem [ref=f5e57]:
+          - link "Delivery Tracker" [ref=f5e58] [cursor=pointer]:
+            - /url: /warehouse/inventory?tab=deliveries
+        - listitem [ref=f5e64]:
+          - link "Transfer Deliveries" [ref=f5e65] [cursor=pointer]:
+            - /url: /warehouses/deliveries
+        - listitem [ref=f5e68]: Reports
+        - listitem [ref=f5e69]:
+          - link "Teardown Logs" [ref=f5e70] [cursor=pointer]:
+            - /url: /reports/teardown-logs
+        - listitem [ref=f5e74]:
+          - link "Teardown Monitoring" [ref=f5e75] [cursor=pointer]:
+            - /url: /reports/teardown-monitoring
+        - listitem [ref=f5e78]:
+          - link "Audit Reports 󰅂" [ref=f5e79] [cursor=pointer]:
+            - /url: "javascript:throw new Error('React has blocked a javascript: URL as a security precaution.')"
+        - listitem [ref=f5e81]: Teams
+        - listitem [ref=f5e82]:
+          - link "Subcontractors" [ref=f5e83] [cursor=pointer]:
+            - /url: /subcontractors
+        - listitem [ref=f5e87]:
+          - link "Subcon Approval" [ref=f5e88] [cursor=pointer]:
+            - /url: /users?status=on_hold&provider=google
+        - listitem [ref=f5e94]:
+          - link "Support Tickets" [ref=f5e95] [cursor=pointer]:
+            - /url: /support/tickets
+        - listitem [ref=f5e98]: System
+        - listitem [ref=f5e99]:
+          - link "User Management 󰅂" [ref=f5e100] [cursor=pointer]:
+            - /url: "javascript:throw new Error('React has blocked a javascript: URL as a security precaution.')"
+        - listitem [ref=f5e106]:
+          - link "Maintenance Mode" [ref=f5e107] [cursor=pointer]:
+            - /url: /maintenance
+        - listitem [ref=f5e110]:
+          - link "Recycle Bin" [ref=f5e111] [cursor=pointer]:
+            - /url: /recycle-bin
+    - button "A admin@telcovantage.com admin" [ref=f5e115] [cursor=pointer]:
+      - generic [ref=f5e116]: A
+      - generic [ref=f5e117]:
+        - paragraph [ref=f5e118]: admin@telcovantage.com
+        - paragraph [ref=f5e119]: admin
+  - navigation [ref=f5e122]:
+    - generic [ref=f5e123]:
+      - generic [ref=f5e124]:
+        - link [ref=f5e125] [cursor=pointer]:
+          - /url: "#"
+          - img "Logo" [ref=f5e126]
+        - button "Toggle menu" [ref=f5e127] [cursor=pointer]:
+          - generic [ref=f5e128]: 
+      - generic [ref=f5e129]:
+        - generic [ref=f5e131]:
+          - textbox "Search..." [ref=f5e132]
+          - button "" [ref=f5e133] [cursor=pointer]
+        - generic [ref=f5e135]:
+          - button "" [ref=f5e136] [cursor=pointer]
+          - button [ref=f5e139] [cursor=pointer]
+          - button [ref=f5e147] [cursor=pointer]
+          - button "TS Telcovantage S. 󰅀" [ref=f5e152] [cursor=pointer]:
+            - generic [ref=f5e153]: TS
+            - generic [ref=f5e154]: Telcovantage S.
+            - generic [ref=f5e155]: 󰅀
+  - generic [ref=f5e156]:
+    - generic [ref=f5e159]:
+      - generic [ref=f5e161]:
+        - navigation [ref=f5e162]:
+          - generic [ref=f5e163]: Span Management
+        - generic [ref=f5e165]:
+          - generic [ref=f5e166]:
+            - generic [ref=f5e167]: Network Control
+            - heading "All Sites" [level=2] [ref=f5e169]
+            - paragraph [ref=f5e170]: Select a site to open nodes, pole mapping, span status, runs, and expected cable details.
+          - generic [ref=f5e172]:
+            - generic [ref=f5e173]: Online
+            - generic [ref=f5e178]:
+              - generic [ref=f5e179]: 
+              - generic [ref=f5e180]: "Synced:"
+              - generic [ref=f5e181]: Never
+            - generic [ref=f5e182]:
+              - button "" [ref=f5e183] [cursor=pointer]
+              - button "" [ref=f5e185] [cursor=pointer]
+      - generic [ref=f5e187]:
+        - article [ref=f5e188]:
+          - generic [ref=f5e190]:
+            - generic [ref=f5e191]:
+              - paragraph [ref=f5e192]: Total Sites
+              - heading "0" [level=3] [ref=f5e193]
+              - paragraph [ref=f5e194]: available sites
+            - generic [ref=f5e195]: 
+        - article [ref=f5e197]:
+          - generic [ref=f5e199]:
+            - generic [ref=f5e200]:
+              - paragraph [ref=f5e201]: Total Nodes
+              - heading "0" [level=3] [ref=f5e202]
+              - paragraph [ref=f5e203]: site coverage
+            - generic [ref=f5e204]: 
+        - article [ref=f5e206]:
+          - generic [ref=f5e208]:
+            - generic [ref=f5e209]:
+              - paragraph [ref=f5e210]: Total Spans
+              - heading "..." [level=3] [ref=f5e211]
+              - paragraph [ref=f5e212]: all span records
+            - generic [ref=f5e213]: 
+        - article [ref=f5e215]:
+          - generic [ref=f5e217]:
+            - generic [ref=f5e218]:
+              - paragraph [ref=f5e219]: Finished Span
+              - heading "..." [level=3] [ref=f5e220]
+              - paragraph [ref=f5e221]: completed
+            - generic [ref=f5e222]: 
+        - article [ref=f5e224]:
+          - generic [ref=f5e226]:
+            - generic [ref=f5e227]:
+              - paragraph [ref=f5e228]: Pending Span
+              - heading "..." [level=3] [ref=f5e229]
+              - paragraph [ref=f5e230]: waiting
+            - generic [ref=f5e231]: 
+    - contentinfo [ref=f5e274]:
+      - generic [ref=f5e275]:
+        - generic [ref=f5e276]: © 2026 Telcovantage Philippines
+        - generic [ref=f5e277]:
+          - text: Design & Develop by
+          - link "Telcovantage Developers" [ref=f5e278] [cursor=pointer]:
+            - /url: "#"
+  - button [ref=f5e281] [cursor=pointer]

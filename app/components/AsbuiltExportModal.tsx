@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import PsgcCascader, { type PsgcValue } from "./PsgcCascader";
+import PsgcCascader, { type PsgcValue, type PsgcGeocodedHint } from "./PsgcCascader";
+import { useDatabase } from "../hooks/useDatabase";
 import type {
   PoleTag,
   AsbuiltSite,
@@ -257,6 +258,7 @@ export default function AsbuiltExportModal({
   equipmentShapes = [],
   dxfPath,
 }: Props) {
+  const db = useDatabase();
   const [step, setStep] = useState<Step>("gps_check");
   const [poles, setPoles] = useState<PoleTag[]>([]);
   const [sites, setSites] = useState<AsbuiltSite[]>([]);
@@ -298,6 +300,53 @@ export default function AsbuiltExportModal({
     barangay_name: "",
   };
   const [psgcArea, setPsgcArea] = useState<PsgcValue>(EMPTY_PSGC);
+
+  // The node is already georeferenced (Insert Coordinates) by the time this
+  // modal opens, so PSGC location can be a starting guess instead of a
+  // dropdown the operator fills from scratch every export. Reverse-geocodes
+  // once per set of georeferenced poles; PsgcCascader still lets the
+  // operator correct any level (barangay especially — free geocoding isn't
+  // reliably accurate at that level) before pushing.
+  const [geocodedHint, setGeocodedHint] = useState<PsgcGeocodedHint | null>(null);
+  useEffect(() => {
+    const georeferenced = poles.filter(
+      (p) => p.map_latitude != null && p.map_longitude != null,
+    );
+    if (georeferenced.length === 0) return;
+    const lat =
+      georeferenced.reduce((sum, p) => sum + (p.map_latitude as number), 0) /
+      georeferenced.length;
+    const lon =
+      georeferenced.reduce((sum, p) => sum + (p.map_longitude as number), 0) /
+      georeferenced.length;
+
+    let alive = true;
+    fetch(`/api/reverse_geocode?lat=${lat}&lon=${lon}`)
+      .then((res) => res.json())
+      .then((json) => {
+        if (!alive || json?.status !== "success" || !json.address) return;
+        const a = json.address as Record<string, string>;
+        setGeocodedHint({
+          region: [a.state, a.region].filter(Boolean),
+          province: [a.state_district, a.county].filter(Boolean),
+          city: [a.city, a.town, a.municipality].filter(Boolean),
+          barangay: [
+            a.suburb,
+            a.village,
+            a.neighbourhood,
+            a.quarter,
+            a.city_district,
+          ].filter(Boolean),
+        });
+      })
+      .catch(() => {
+        /* best-effort only — PSGC stays a manual dropdown if this fails */
+      });
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [poles]);
 
   const derivedNodeId = (() => {
     if (!dxfPath) return "";
@@ -576,14 +625,17 @@ export default function AsbuiltExportModal({
       cy: number;
     }> = [];
 
-    let sequenceCounter = 0;
     for (const p of poles) {
       if (p.map_latitude == null || p.map_longitude == null) continue;
       const baseName = (p.name || "").trim().toUpperCase();
       if (!baseName) continue;
 
-      sequenceCounter += 1;
-      const sequenceIndex = `POLE-${String(sequenceCounter).padStart(4, "0")}`;
+      // Derived from the pole's own stable pole_id, not from array position —
+      // renaming/adding poles never shifts anyone else's index, and deleting
+      // one just drops it from the next push instead of silently relabeling
+      // every pole after it (which used to corrupt already-pushed poles'
+      // identity in AsBuilt IQ on re-export).
+      const sequenceIndex = `POLE-${String(p.pole_id).padStart(4, "0")}`;
       nameToCode[baseName] = baseName;
       idToSequenceIndex[p.pole_id] = sequenceIndex;
       if (!nameToSequenceIndexes[baseName]) {
@@ -1179,6 +1231,29 @@ export default function AsbuiltExportModal({
           // The map needs this to pull teardown status back later — without it
           // there is nothing to tie a lineman's report to a line on screen.
           onNodeImported?.(nodeDbId);
+          // Persist the link server-side so the redline sync resumes on the
+          // next page load / file re-open, not just for this browser tab.
+          if (dxfPath) {
+            fetch("/api/files/link-asbuilt", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ path: dxfPath, node_id: nodeDbId }),
+            }).catch(() => {});
+
+            // Also save it in Supabase, keyed by content checksum — this is
+            // the copy that survives opening the same file on a different PC
+            // (the local link-asbuilt call above only helps this machine).
+            if (db.isConfigured()) {
+              fetch(`/api/precompute/status?dxf_path=${encodeURIComponent(dxfPath)}`)
+                .then((r) => r.json())
+                .then((data) => {
+                  if (data?.checksum) {
+                    return db.saveAsbuiltNodeIdByChecksum(data.checksum, nodeDbId);
+                  }
+                })
+                .catch(() => {});
+            }
+          }
           try {
             const verifyRes = await fetch(
               `/api/v1/asbuilt/node/${nodeDbId}`,
@@ -1682,7 +1757,7 @@ export default function AsbuiltExportModal({
                                 </span>
                                 <span className="h-px flex-1 bg-border" />
                               </div>
-                              <PsgcCascader value={psgcArea} onChange={setPsgcArea} />
+                              <PsgcCascader value={psgcArea} onChange={setPsgcArea} geocodedHint={geocodedHint} />
                             </div>
                           </div>
                         </div>
@@ -1818,7 +1893,7 @@ export default function AsbuiltExportModal({
                             <p className="text-xs font-semibold text-muted uppercase tracking-wider">
                               Area / Location (PSGC)
                             </p>
-                            <PsgcCascader value={psgcArea} onChange={setPsgcArea} />
+                            <PsgcCascader value={psgcArea} onChange={setPsgcArea} geocodedHint={geocodedHint} />
                           </div>
                         )}
 

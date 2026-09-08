@@ -1,0 +1,3431 @@
+[     156ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[     179ms] [LOG] [HMR] connected @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[     303ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[     310ms] [LOG] [Fast Refresh] done in 107ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   11463ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   11464ms] [LOG] [Fast Refresh] done in 105ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   17324ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   17385ms] [LOG] [Fast Refresh] done in 166ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   22040ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   22205ms] [LOG] [Fast Refresh] done in 272ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   28032ms] [WARNING] [session] could not resolve session: Error: Supabase not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env
+    at throwNotConfigured (http://localhost:3000/_next/static/chunks/app_72cdfce5._.js:189:11)
+    at useDatabase.useCallback[getSb] (http://localhost:3000/_next/static/chunks/app_72cdfce5._.js:195:153)
+    at useDatabase.useCallback[checkForExistingSession] [as checkForExistingSession] (http://localhost:3000/_next/static/chunks/app_72cdfce5._.js:350:24)
+    at Home.useCallback[resolveSessionId] (http://localhost:3000/_next/static/chunks/app_72cdfce5._.js:1495:43)
+    at Home.useCallback[handleStartProcessing] (http://localhost:3000/_next/static/chunks/app_72cdfce5._.js:1615:13)
+    at onClick (http://localhost:3000/_next/static/chunks/app_components_LoadScreen_tsx_13da77f7._.js:2153:46)
+    at executeDispatch (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:10314:13)
+    at runWithFiberInDEV (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:965:74)
+    at processDispatchQueue (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:10340:41)
+    at http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:10615:13
+    at batchedUpdates$1 (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2253:44)
+    at dispatchEventForPluginEventSystem (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:10416:9)
+    at dispatchEvent (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:12935:37)
+    at dispatchDiscreteEvent (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:12917:64) @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   29172ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   29188ms] [LOG] [Fast Refresh] done in 123ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   34744ms] [LOG] [PoleLayout mount] cachedData: poleDone=false tags=0 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   34754ms] [LOG] [PoleLayout mount] cachedData: poleDone=false tags=0 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   37066ms] [LOG] [cache-update] sid= null poleTags= 39 shapes= 0 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   37066ms] [WARNING] [cache-update] skipping save — no sessionId or db @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   63246ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   63308ms] [LOG] [Fast Refresh] done in 172ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   68513ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   68514ms] [LOG] [Fast Refresh] done in 105ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   88020ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   88021ms] [LOG] [Fast Refresh] done in 109ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   93833ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   93849ms] [LOG] [Fast Refresh] done in 124ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   99526ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   99527ms] [LOG] [Fast Refresh] done in 108ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  104454ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  104519ms] [LOG] [Fast Refresh] done in 171ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  114138ms] [LOG] [cache-update] sid= null poleTags= 38 shapes= 0 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  114138ms] [WARNING] [cache-update] skipping save — no sessionId or db @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  115736ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  115752ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  115769ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  115785ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  115966ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  116002ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  116008ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  116036ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  116244ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  116285ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  116302ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  116546ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  116569ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  116586ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  116619ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  118933ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  118949ms] [LOG] [Fast Refresh] done in 122ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  120538ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  120555ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  120571ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  120588ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  120604ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  120659ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  120660ms] [LOG] [Fast Refresh] done in 103ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  120803ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  120821ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  120838ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  120854ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  121289ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  121321ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  121591ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  121621ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  121638ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  134227ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  134229ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  134244ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  134260ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  134277ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  134455ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  134477ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  134494ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  134511ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  134527ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  134561ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  134612ms] [LOG] [Fast Refresh] done in 152ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  134719ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  134744ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  134761ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  134811ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  134961ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  134994ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  135011ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  135083ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  135201ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  135228ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  135245ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  135530ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  135535ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  135561ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  135579ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  135630ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  135794ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  135811ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  135828ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  135861ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  136033ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  136061ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  136078ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  136095ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  136295ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  136311ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  136328ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  136361ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  136714ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  136747ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  136762ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  136797ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  136834ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  136850ms] [LOG] [Fast Refresh] done in 123ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  139182ms] [LOG] [cache-update] sid= null poleTags= 0 shapes= 0 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  139182ms] [WARNING] [cache-update] skipping save — no sessionId or db @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  139615ms] [LOG] [cache-update] sid= null poleTags= 0 shapes= 0 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  139616ms] [WARNING] [cache-update] skipping save — no sessionId or db @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  144461ms] [LOG] [cache-update] sid= null poleTags= 9 shapes= 0 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  144461ms] [WARNING] [cache-update] skipping save — no sessionId or db @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  146856ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  146873ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  146900ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  147608ms] [LOG] [cache-update] sid= null poleTags= 13 shapes= 0 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  147608ms] [WARNING] [cache-update] skipping save — no sessionId or db @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  148457ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  148468ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  148502ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  148523ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  148574ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  148659ms] [LOG] [Fast Refresh] done in 187ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  148705ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  148717ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  148734ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  148750ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  148768ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  148826ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  148827ms] [LOG] [Fast Refresh] done in 106ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  148948ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  148979ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  151034ms] [LOG] [cache-update] sid= null poleTags= 17 shapes= 0 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  151034ms] [WARNING] [cache-update] skipping save — no sessionId or db @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  154730ms] [LOG] [cache-update] sid= null poleTags= 22 shapes= 0 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  154730ms] [WARNING] [cache-update] skipping save — no sessionId or db @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  157944ms] [LOG] [cache-update] sid= null poleTags= 27 shapes= 0 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  157944ms] [WARNING] [cache-update] skipping save — no sessionId or db @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  161454ms] [LOG] [cache-update] sid= null poleTags= 33 shapes= 0 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  161454ms] [WARNING] [cache-update] skipping save — no sessionId or db @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  163836ms] [LOG] [cache-update] sid= null poleTags= 39 shapes= 0 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  163836ms] [WARNING] [cache-update] skipping save — no sessionId or db @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  164848ms] [LOG] [cache-update] sid= null poleTags= 39 shapes= 0 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  164849ms] [WARNING] [cache-update] skipping save — no sessionId or db @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  172897ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  172916ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  172931ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  172947ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  172976ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  173013ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  173030ms] [LOG] [Fast Refresh] done in 124ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  173134ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  173162ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  173178ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  173214ms] [ERROR] Unable to preventDefault inside passive event listener invocation. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:2325
+[  275682ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  275860ms] [LOG] [Fast Refresh] done in 223ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  284657ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  284904ms] [LOG] [Fast Refresh] done in 225ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  307596ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  307860ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  307958ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  308037ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  308118ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  308211ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  308300ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  308411ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  308483ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  308599ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  309588ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  309694ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  309743ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  309847ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  310929ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/pole_tags:0
+[  310955ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  310982ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  311085ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  311086ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  311127ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  311151ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  311177ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  311200ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  311222ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  311239ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/pole_tags:0
+[  311312ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  311389ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  311466ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  311542ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  311619ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  311696ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  311776ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  311850ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  311930ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  312006ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  312083ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  312159ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  312235ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  312314ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  312387ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  312404ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/pole_tags:0
+[  312479ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  312487ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  312572ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  312653ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  312734ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  312818ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  312916ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  312991ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  313066ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  313146ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  313224ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  313301ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  313377ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  313463ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  313568ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  313640ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  313717ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  313796ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  313873ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  313948ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  314033ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  314119ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  314194ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  314272ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  314334ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  314399ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/pole_tags:0
+[  314450ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  314474ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  314562ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  314640ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  314717ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  314793ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  314870ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  314946ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  315023ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  315099ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  315176ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  315257ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  315333ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  315408ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  315485ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  315560ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  315639ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  315719ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  315796ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  315878ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  315953ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  316028ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  316105ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  316183ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  316259ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  316331ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  316416ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  316439ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  316458ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/pole_tags:0
+[  316534ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  316542ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  316625ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  316701ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  316778ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  316855ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  316938ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  317009ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  317087ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  317166ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  317241ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  317319ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  317397ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  317475ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  317553ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  317634ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  317709ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  317786ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  317862ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  317939ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  318016ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  318095ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  318171ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  318251ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  318327ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  318394ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/pole_tags:0
+[  318443ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  318467ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  318574ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  318574ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  318663ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  318740ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  318817ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  318896ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  318971ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  319048ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  319123ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  319189ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  319267ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  319343ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  319421ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  319501ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  319581ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  319657ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  319734ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  319812ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  319874ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  319955ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  320036ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  320123ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  320201ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  320276ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  320373ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  320392ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/pole_tags:0
+[  320465ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  320542ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  320621ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  320697ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  320776ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  320854ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  320932ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  321010ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  321088ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  321167ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  321242ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  321320ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  321399ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  321462ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  321556ms] [ERROR] ./app/components/dxf/DxfViewer.tsx:5852:13
+Parsing ecmascript source code failed
+  5850 |             </div>
+  5851 |           );
+> 5852 |         })()}
+       |             ^
+  5853 |
+  5854 |       {!loading && !error && (
+  5855 |         <div
+
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/components/dxf/DxfViewer.tsx [Client Component Browser]
+    ./app/page.tsx [Client Component Browser]
+    ./app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/components/dxf/DxfViewer.tsx [Client Component SSR]
+    ./app/page.tsx [Client Component SSR]
+    ./app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  321666ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  321816ms] [LOG] [Fast Refresh] done in 225ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297

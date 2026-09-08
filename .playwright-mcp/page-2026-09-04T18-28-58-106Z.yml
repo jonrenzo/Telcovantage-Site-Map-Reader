@@ -1,0 +1,30 @@
+- generic [active] [ref=f9e1]:
+  - generic [ref=f9e2]:
+    - banner [ref=f9e3]:
+      - generic [ref=f9e4]: AsBuiltIQ
+      - navigation [ref=f9e8]:
+        - generic [ref=f9e10]:
+          - generic [ref=f9e11]: ✓
+          - generic [ref=f9e12]: Load Plan
+        - generic [ref=f9e15]:
+          - generic [ref=f9e16]: "2"
+          - generic [ref=f9e17]: Reading
+        - generic [ref=f9e20]:
+          - generic [ref=f9e21]: "3"
+          - generic [ref=f9e22]: Review
+    - main [ref=f9e176]:
+      - generic [ref=f9e177]:
+        - heading "Reading your drawing" [level=2] [ref=f9e183]
+        - paragraph [ref=f9e184]: Reading digit 1 of 32 — ~6s remaining
+        - generic [ref=f9e186]:
+          - generic [ref=f9e187]: 1 / 32 digits
+          - generic [ref=f9e188]: 3%
+        - generic [ref=f9e191]:
+          - generic [ref=f9e192]: Finding strand segments
+          - generic [ref=f9e197]: Grouping into digit clusters
+          - generic [ref=f9e202]: Identifying candidates
+          - generic [ref=f9e207]:
+            - generic [ref=f9e211]: Reading the numbers
+            - generic [ref=f9e212]: In progress
+  - button "Open Next.js Dev Tools" [ref=f9e71] [cursor=pointer]
+  - alert [ref=f9e75]

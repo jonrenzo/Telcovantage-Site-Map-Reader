@@ -1,0 +1,85 @@
+- generic [ref=f61e1]:
+  - generic [ref=f61e2]:
+    - banner [ref=f61e3]:
+      - button "Back" [ref=f61e211]
+      - generic [ref=f61e4]: AsBuiltIQ
+      - navigation [ref=f61e8]:
+        - generic [ref=f61e10]:
+          - generic [ref=f61e11]: ✓
+          - generic [ref=f61e12]: Load Plan
+        - generic [ref=f61e15]:
+          - generic [ref=f61e16]: ✓
+          - generic [ref=f61e17]: Reading
+        - generic [ref=f61e20]:
+          - generic [ref=f61e21]: "3"
+          - generic [ref=f61e22]: Review
+      - button "Export" [ref=f61e215]
+    - generic [ref=f61e221]:
+      - generic [ref=f61e223]:
+        - button "🔍 OCR Review" [ref=f61e224]:
+          - generic [ref=f61e225]: 🔍
+          - text: OCR Review
+        - button "🗺️ DXF Viewer" [ref=f61e226]:
+          - generic [ref=f61e227]: 🗺️
+          - text: DXF Viewer
+        - button "⚙️ Equipment" [active] [ref=f61e228]:
+          - generic [ref=f61e229]: ⚙️
+          - text: Equipment
+        - button "🔵 Pole IDs" [ref=f61e230]:
+          - generic [ref=f61e231]: 🔵
+          - text: Pole IDs
+      - generic [ref=f61e414]:
+        - complementary [ref=f61e415]:
+          - generic [ref=f61e416]:
+            - heading "Equipment Detection" [level=2] [ref=f61e417]
+            - paragraph [ref=f61e418]: Auto-scans when tab opens
+          - generic [ref=f61e419]:
+            - generic [ref=f61e420]: Boundary Layer(optional)
+            - combobox [ref=f61e421] [cursor=pointer]:
+              - option "— None —" [selected]
+              - option "0"
+              - option "Defpoints"
+              - option "PDF_Level 1"
+              - option "PDF_Level 21"
+              - option "PDF_Level 22"
+              - option "PDF_Level 35"
+              - option "PDF_RICKLEE_AMPBLOCK"
+              - option "PDF_RICKLEE_COAXCABLE"
+              - option "PDF_RICKLEE_ENDOFTAPOFFBLOCK"
+              - option "PDF_RICKLEE_NODEBOUNDARY"
+              - option "PDF_RICKLEE_NODEDETAILS"
+              - option "PDF_RICKLEE_POWERSUPPLY"
+              - option "PDF_SKY-Lipa$0$LANDMARK"
+              - option "PDF_SKY-Lipa$0$POLE NUMBER"
+              - option "PDF_SKY-Lipa$0$RICKLEE_HOUSECOUNT"
+              - option "PDF_SKY-Lipa$0$RICKLEE_POLEPED"
+              - option "PDF_SKY-Lipa$0$RICKLEE_ROAD"
+              - option "PDF_SKY-Lipa$0$RICKLEE_STRAND"
+              - option "PDF_SKY-Lipa$0$RICKLEE_STRANDDISTANCE"
+              - option "PDF_Text"
+            - button "↺ Re-scan" [ref=f61e422]
+          - generic [ref=f61e424]:
+            - generic [ref=f61e425]: ⬡◻△
+            - paragraph [ref=f61e426]: Opening this tab starts the scan automatically.
+        - generic [ref=f61e427]:
+          - generic:
+            - generic: ⬡◻△
+            - paragraph:
+              - text: Click
+              - strong: Re-scan
+              - text: in the panel to detect equipment shapes.
+          - generic [ref=f61e428]:
+            - button "⊡" [ref=f61e429]
+            - button "+" [ref=f61e430]
+            - button "−" [ref=f61e431]
+          - generic [ref=f61e432]:
+            - generic [ref=f61e433]: 2 Way Tap
+            - generic [ref=f61e437]: Splitter
+            - generic [ref=f61e441]: 4 Way Tap
+            - generic [ref=f61e445]: 8 Way Tap
+            - generic [ref=f61e449]: Node
+            - generic [ref=f61e453]: Amplifier
+            - generic [ref=f61e457]: Line Extender
+            - generic [ref=f61e461]: Boundary
+  - button "Open Next.js Dev Tools" [ref=f61e150] [cursor=pointer]
+  - alert [ref=f61e154]
