@@ -1,0 +1,21 @@
+[startup] Pre-warming strand recognizer (EasyOCR)...
+
+==================================================
+  CAD OCR – Flask Backend  (EasyOCR engine)
+  http://localhost:5050
+==================================================
+
+  GeoTool server -> http://localhost:8000
+ * Serving Flask app 'server'
+ * Debug mode: off
+
+  GeoTool server -> http://localhost:8000
+
+[strand_recognizer] Loading EasyOCR (gpu=True)...
+[strand_recognizer] EasyOCR ready.
+[ocr] Loading EasyOCR reader (first-time download may take ~30s)...
+[ocr] EasyOCR device: cuda
+[ocr] EasyOCR ready.
+[startup] Strand recognizer ready.
+[startup] Pre-warming pole TrOCR model...
+[pole_ocr] Loading TrOCR (microsoft/trocr-base-printed) on cuda ...

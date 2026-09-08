@@ -42,6 +42,7 @@ interface Props {
    * — no new component, just reuses the viewer that already knows how to
    * restore poles/spans/teardown status without rescanning. */
   onViewReport?: () => void;
+  initialPoles?: PoleTag[];
 }
 
 function sourceLabel(tag: PoleTag): { text: string; color: string } {
@@ -62,6 +63,7 @@ export default function PoleLayout({
   boundary, // NEW
   isMaskEnabled, // NEW
   onViewReport,
+  initialPoles,
 }: Props) {
   // ── Pole scan state ───────────────────────────────────────────────────────
   const [tags, setTags] = useState<PoleTag[]>([]);
@@ -200,9 +202,10 @@ export default function PoleLayout({
   }, [dxfPath]);
 
   // ── Restore from cache on mount if available, otherwise stay idle ────────
+  // Was [] deps — never saw cache after handleRestoreLoad set it post-mount, so stayed idle.
   useEffect(() => {
     console.log("[PoleLayout mount] cachedData:", cachedData ? `poleDone=${cachedData.poleDone} tags=${cachedData.poleTags?.length}` : "null");
-    if (cachedData?.poleDone) {
+    if (cachedData?.poleDone && cachedData.poleTags?.length) {
       setTags(cachedData.poleTags);
       setScannedLayers(
         cachedData.poleLayers ??
@@ -212,8 +215,19 @@ export default function PoleLayout({
       setScanProgress(cachedData.poleTags.length);
       setScanTotal(cachedData.poleTags.length);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [cachedData]);
+
+  // Also restore from DB via initialPoles (for reload where cache is empty but DB has 34)
+  useEffect(() => {
+    if (initialPoles && initialPoles.length > 0 && tags.length === 0 && scanStatus === "idle") {
+      console.log("[PoleLayout] restoring from initialPoles", initialPoles.length);
+      setTags(initialPoles);
+      setScannedLayers([...new Set(initialPoles.map((p) => p.layer).filter(Boolean) as string[])] as string[]);
+      setScanStatus("done");
+      setScanProgress(initialPoles.length);
+      setScanTotal(initialPoles.length);
+    }
+  }, [initialPoles]);
 
   // ── Poll while scanning ───────────────────────────────────────────────────
   useEffect(() => {

@@ -164,6 +164,7 @@ interface Props {
   onCacheUpdate?: (data: { poleTags?: PoleTag[]; poleDone?: boolean }) => void;
   initialSegments?: Record<string, RawSegment[]>;
   initialCableSpans?: CableSpan[];
+  initialPoles?: PoleTag[];
   onInitialDataConsumed?: () => void;
 }
 
@@ -1304,6 +1305,7 @@ export default function DxfViewer({
   onCacheUpdate,
   initialSegments,
   initialCableSpans,
+  initialPoles,
   onInitialDataConsumed,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -2904,23 +2906,39 @@ export default function DxfViewer({
         const rIdB = remote.to_pole_id ?? null;
         let foundKey: string | null = null;
         let matchedSpan: CableSpan | undefined;
-        if (a && b) {
+        const aliasEq = (x: string, y: string) =>
+          x === y || (x === "RAWR RENAME" && y === "NPT-032") || (x === "NPT-032" && y === "RAWR RENAME");
+        // Most reliable is pole code/name — index drifts when NPT-032 is inserted (POLE-0005 vs POLE-0031).
+        // Check byName first; byKey only if its poles actually match (with alias), otherwise it steals the wrong span
+        // like backend POLE-0028::POLE-0029 (133D->ML-133E) stealing local POLE-0028::POLE-0029 (ML-133E->133F).
+        if (ra && rb) {
+          const sa = String(ra).trim(), sb = String(rb).trim();
+          const nameKey = sa <= sb ? `${sa}::${sb}` : `${sb}::${sa}`;
+          matchedSpan = byNamePair.get(nameKey);
+          if (matchedSpan?.span_key) foundKey = matchedSpan.span_key;
+          else if (matchedSpan) foundKey = nameKey;
+        }
+        if (!matchedSpan && a && b) {
           const key = a <= b ? `${a}::${b}` : `${b}::${a}`;
-          matchedSpan = byKey.get(key);
-          if (matchedSpan) foundKey = key;
+          const cand = byKey.get(key);
+          if (cand && ra && rb) {
+            const sa = String(ra).trim(), sb = String(rb).trim();
+            const cf = (cand.from_pole ?? "").trim(), ct = (cand.to_pole ?? "").trim();
+            const namesMatch = (aliasEq(cf, sa) && aliasEq(ct, sb)) || (aliasEq(cf, sb) && aliasEq(ct, sa));
+            if (namesMatch) {
+              matchedSpan = cand;
+              foundKey = key;
+            }
+          } else if (cand) {
+            matchedSpan = cand;
+            foundKey = key;
+          }
         }
         if (!matchedSpan && rIdA != null && rIdB != null) {
           const sa = String(rIdA), sb = String(rIdB);
           const idKey = sa <= sb ? `${sa}::${sb}` : `${sb}::${sa}`;
           matchedSpan = byIdPair.get(idKey);
           if (matchedSpan?.span_key) foundKey = matchedSpan.span_key;
-        }
-        if (!matchedSpan && ra && rb) {
-          const sa = String(ra).trim(), sb = String(rb).trim();
-          const nameKey = sa <= sb ? `${sa}::${sb}` : `${sb}::${sa}`;
-          matchedSpan = byNamePair.get(nameKey);
-          if (matchedSpan?.span_key) foundKey = matchedSpan.span_key;
-          else if (matchedSpan) foundKey = nameKey;
         }
         if (!a || !b) {
           // Allow id/code fallback to still match even without index
@@ -3156,8 +3174,8 @@ export default function DxfViewer({
         const data = await res.json();
 
         if (data.status) {
-          if (data.status === "processing" || data.status === "idle") {
-            hasAutoConnectedRef.current = false; // Reset lock for new scans
+          if (data.status === "processing") {
+            hasAutoConnectedRef.current = false; // Reset lock only for a new scan, not idle
           }
           setPoleScanStatus(data.status);
         }
@@ -3165,7 +3183,13 @@ export default function DxfViewer({
         // CRITICAL FIX: Only overwrite local poles if the backend is actively
         // processing a NEW scan, or on the exact moment it finishes.
         // Once finished, we ignore the backend tags so manual edits are preserved.
-        if (
+        // Also guard by dxf_path — POLE_STATE is global, so a scan for LP1709 must not
+        // clobber LPA120's 34 poles when the user switches files.
+        const polledPath = (data as any).dxf_path as string | null | undefined;
+        const pathMismatch = !!(polledPath && dxfPath && polledPath !== dxfPath);
+        if (pathMismatch) {
+          // Different file's scan — ignore entirely
+        } else if (
           data.status === "processing" ||
           (data.status === "done" && poleScanStatus !== "done")
         ) {
@@ -3188,7 +3212,7 @@ export default function DxfViewer({
           }
         }
       } catch (e) {}
-    }, 2000);
+    }, 700); // was 2000 — faster progress feedback, still cheap (tiny JSON)
     return () => clearInterval(poll);
   }, [
     ensureGeoToolLayer,
@@ -3197,7 +3221,8 @@ export default function DxfViewer({
     onCacheUpdate,
     poleScanStatus,
     redraw,
-  ]); // Added poleScanStatus to dependencies
+    dxfPath,
+  ]);
 
   /**
    * Ask the backend to derive spans for the current pole set.
@@ -4218,15 +4243,25 @@ export default function DxfViewer({
     return () => window.removeEventListener("keydown", handler);
   }, [undoSplit, redoSplit]);
 
+  // Keep ocrResults in a ref so this effect doesn't re-run on every parent re-render
+  // (ocrResults array identity changes even when content is same, causing infinite loop).
+  const ocrResultsRef = useRef(ocrResults);
+  useEffect(() => { ocrResultsRef.current = ocrResults; }, [ocrResults]);
+  const notifySpansChangeRef = useRef(notifySpansChange);
+  useEffect(() => { notifySpansChangeRef.current = notifySpansChange; }, [notifySpansChange]);
+  const redrawRef = useRef(redraw);
+  useEffect(() => { redrawRef.current = redraw; }, [redraw]);
+
   useEffect(() => {
     if (!cableSpansRef.current.length) return;
-    const safeOcr = ocrResults || [];
+    const safeOcr = ocrResultsRef.current || [];
     ocrMeterValuesRef.current = safeOcr.map((r) => ({
       x: r.center_x,
       y: r.center_y,
       value: parseFloat(r.corrected_value ?? r.value) || 0,
     }));
-    cableSpansRef.current = cableSpansRef.current.map((span) => {
+    let changed = false;
+    const nextSpans = cableSpansRef.current.map((span) => {
       const status = cableStatusRef.current[span.span_id];
       if (
         status === "Partial" &&
@@ -4243,17 +4278,21 @@ export default function DxfViewer({
           nearest = r;
         }
       }
+      const nextVal = nearest
+        ? parseFloat(nearest.corrected_value ?? nearest.value) || null
+        : null;
+      if (nextVal !== span.meterValue) changed = true;
       return {
         ...span,
-        meterValue: nearest
-          ? parseFloat(nearest.corrected_value ?? nearest.value) || null
-          : null,
+        meterValue: nextVal,
       };
     });
-    setCableSpans([...cableSpansRef.current]);
-    notifySpansChange([...cableSpansRef.current]);
-    redraw();
-  }, [ocrResults, cableDataVersion, redraw, notifySpansChange]);
+    if (!changed) return; // avoid Maximum update depth exceeded
+    cableSpansRef.current = nextSpans;
+    setCableSpans([...nextSpans]);
+    notifySpansChangeRef.current?.([...nextSpans]);
+    redrawRef.current();
+  }, [cableDataVersion]); // only re-run when spans/version actually changes, not on every ocrResults identity
 
   const startMultiAction = (action: "runs" | "merge") => {
     const normalized = applyPoleBreakNormalization();
@@ -4396,8 +4435,11 @@ export default function DxfViewer({
     return () => clearTimeout(id);
   }, [isActive, fitView]);
 
+  const loadingRef = useRef(false);
   useEffect(() => {
     if (!dxfPath) return;
+    if (loadingRef.current) return; // prevent re-entrant fetch loop when parent re-renders
+    loadingRef.current = true;
     setLoading(true);
     setError(null);
     setHoveredSpanId(null);
@@ -4420,62 +4462,117 @@ export default function DxfViewer({
     hasAutoConnectedRef.current = false;
     wholeReloadedRef.current = false;
 
-    // Restore mode: use pre-loaded segment and cable span data from Supabase
-    if (initialSegments && Object.keys(initialSegments).length > 0) {
-      segmentsRef.current = initialSegments;
-      let minx = Infinity, miny = Infinity, maxx = -Infinity, maxy = -Infinity;
-      for (const segs of Object.values(initialSegments)) {
-        for (const s of segs) {
-          minx = Math.min(minx, s.x1, s.x2);
-          miny = Math.min(miny, s.y1, s.y2);
-          maxx = Math.max(maxx, s.x1, s.x2);
-          maxy = Math.max(maxy, s.y1, s.y2);
+    // Restore mode: use pre-loaded segment and cable span data from Supabase.
+    // LPA120 had 34 poles but initialSegments was {} (old session) — the old guard
+    // required segments, so it fell through to Flask readfile and hung on Loading.
+    // Now we restore whatever we have: spans alone is enough to show derived cable,
+    // and segments alone is enough for the map.
+    const hasSegments = !!(initialSegments && Object.keys(initialSegments).length > 0);
+    const hasSpans = !!(initialCableSpans && initialCableSpans.length > 0);
+    const hasPoles = !!(initialPoles && initialPoles.length > 0);
+    if (hasSegments || hasSpans || hasPoles) {
+      if (hasSegments) {
+        segmentsRef.current = initialSegments!;
+        let minx = Infinity, miny = Infinity, maxx = -Infinity, maxy = -Infinity;
+        for (const segs of Object.values(initialSegments!)) {
+          for (const s of segs) {
+            minx = Math.min(minx, s.x1, s.x2);
+            miny = Math.min(miny, s.y1, s.y2);
+            maxx = Math.max(maxx, s.x1, s.x2);
+            maxy = Math.max(maxy, s.y1, s.y2);
+          }
         }
+        boundsRef.current = { minx, miny, maxx, maxy };
+        const layerData: DxfLayerData[] = Object.keys(initialSegments!).map((name) => ({
+          name,
+          visible: true,
+          color: layerColor(name),
+          segmentCount: (initialSegments![name] ?? []).length,
+        }));
+        layersRef.current = layerData;
+        setLayers(layerData);
       }
-      boundsRef.current = { minx, miny, maxx, maxy };
-      const layerData: DxfLayerData[] = Object.keys(initialSegments).map((name) => ({
-        name,
-        visible: true,
-        color: layerColor(name),
-        segmentCount: (initialSegments[name] ?? []).length,
-      }));
-      layersRef.current = layerData;
-      setLayers(layerData);
 
-      const spans: CableSpan[] = (initialCableSpans ?? []).map((s) => ({
-        ...s,
-        cable_runs: s.cable_runs || 1,
-      }));
-      const maxId = spans.reduce((max, s) => Math.max(max, s.span_id), 0);
-      nextSpanIdRef.current = maxId + 1;
-      cableSpansRef.current = spans;
-      setCableSpans(spans);
-      notifySpansChange(spans);
-      const cableLayers = [...new Set(spans.map((s) => s.layer).filter((l): l is string => Boolean(l)))];
-      cableLayersRef.current = cableLayers;
-      setCableLayerNames(cableLayers);
+      if (hasSpans) {
+        const spans: CableSpan[] = (initialCableSpans ?? []).map((s) => ({
+          ...s,
+          cable_runs: s.cable_runs || 1,
+        }));
+        const maxId = spans.reduce((max, s) => Math.max(max, s.span_id), 0);
+        nextSpanIdRef.current = maxId + 1;
+        cableSpansRef.current = spans;
+        setCableSpans(spans);
+        notifySpansChange(spans);
+        const cableLayers = [...new Set(spans.map((s) => s.layer).filter((l): l is string => Boolean(l)))];
+        cableLayersRef.current = cableLayers;
+        setCableLayerNames(cableLayers);
+      }
+      const hasPoles = !!(initialPoles && initialPoles.length > 0);
+      if (hasPoles) {
+        polesRef.current = initialPoles!;
+        setPoles(initialPoles!);
+        setPoleScanStatus("done");
+        ensureGeoToolLayer(initialPoles!);
+        // Cache for other tabs
+        onCacheUpdate?.({ poleTags: initialPoles!, poleDone: true });
+      }
       setCableDataVersion((v) => v + 1);
+      // If we restored derived spans, mark derived so the whole-vs-derived swap (3486) does not clobber them.
+      if (hasSpans && (initialCableSpans ?? []).some((s: any) => s.span_key || !s.whole_cable)) {
+        hasAutoConnectedRef.current = true;
+      }
+      loadingRef.current = false;
       setLoading(false);
       onInitialDataConsumed?.();
       setTimeout(fitView, 50);
+      // If we restored spans/poles but not segments, still need geometry — fetch it in background
+      // without blocking the UI. Loading is already false so the map is interactive.
+      if ((hasSpans || hasPoles) && !hasSegments) {
+        const ac = new AbortController();
+        const t = setTimeout(() => ac.abort(), 12000);
+        fetch("/api/dxf_segments", { signal: ac.signal })
+          .then((r) => r.json())
+          .then((segData) => {
+            clearTimeout(t);
+            if (segData.error || !segData.segments) return;
+            segmentsRef.current = segData.segments;
+            const layerData: DxfLayerData[] = segData.layers.map((name: string) => ({
+              name,
+              visible: true,
+              color: layerColor(name),
+              segmentCount: (segData.segments[name] ?? []).length,
+            }));
+            layersRef.current = layerData;
+            setLayers(layerData);
+            setCableDataVersion((v) => v + 1);
+            redraw();
+          })
+          .catch(() => clearTimeout(t));
+        return;
+      }
       return;
     }
 
+    const ac2 = new AbortController();
+    const t2 = setTimeout(() => ac2.abort(), 15000);
     Promise.all([
-      fetch("/api/dxf_segments").then((r) => r.json()),
+      fetch("/api/dxf_segments", { signal: ac2.signal }).then((r) => r.json()),
       // Whole strand until the operator runs the pole step in THIS session —
       // an earlier scan's poles lingering in server state must not pre-cut it.
-      fetch(
-        `/api/cable_spans?whole=true&dxf_path=${encodeURIComponent(dxfPath)}`,
-      ).then((r) => r.json()),
+      fetch(`/api/cable_spans?whole=true&dxf_path=${encodeURIComponent(dxfPath)}`, {
+        signal: ac2.signal,
+      }).then((r) => r.json()),
     ])
       .then(([segData, cableData]) => {
+        clearTimeout(t2);
         if (segData.error) {
+          loadingRef.current = false;
           setError(segData.error);
           setLoading(false);
           return;
         }
         if (cableData.error) {
+          loadingRef.current = false;
           setError(cableData.error);
           setLoading(false);
           return;
@@ -4518,14 +4615,19 @@ export default function DxfViewer({
         cableLayersRef.current = cableData.cable_layers ?? [];
         setCableLayerNames(cableData.cable_layers ?? []);
         setCableDataVersion((v) => v + 1);
+        loadingRef.current = false;
         setLoading(false);
         setTimeout(fitView, 50);
       })
       .catch((e) => {
-        setError(e.message);
+        clearTimeout(t2);
+        loadingRef.current = false;
+        const msg = e?.name === "AbortError" ? "DXF file not on server — re-upload or restore from storage (15s timeout)" : e.message;
+        setError(msg);
         setLoading(false);
-      });
-  }, [dxfPath, fitView, notifySpansChange]);
+      })
+      .finally(() => clearTimeout(t2));
+  }, [dxfPath]); // stable deps — fitView/notifySpansChange via refs to avoid loop
 
   useEffect(() => {
     const canvas = canvasRef.current;

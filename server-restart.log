@@ -1,0 +1,226 @@
+[startup] Pre-warming strand recognizer (EasyOCR)...
+
+==================================================
+  CAD OCR – Flask Backend  (EasyOCR engine)
+  http://localhost:5050
+==================================================
+
+  GeoTool server -> http://localhost:8000
+ * Serving Flask app 'server'
+ * Debug mode: off
+
+  GeoTool server -> http://localhost:8000
+
+[strand_recognizer] Loading EasyOCR (gpu=True)...
+[strand_recognizer] EasyOCR ready.
+[ocr] Loading EasyOCR reader (first-time download may take ~30s)...
+[ocr] EasyOCR device: cuda
+[ocr] EasyOCR ready.
+[startup] Strand recognizer ready.
+[startup] Pre-warming pole TrOCR model...
+[pole_ocr] Loading TrOCR (microsoft/trocr-base-printed) on cuda ...
+[pole_ocr] TrOCR ready.
+[startup] Pole TrOCR ready.
+[pole_ocr] pass1  rot=0  raw='ML-115'  cleaned='ML-115'  conf=0.937  valid=True
+[pole_ocr] pass1 not confident (conf=0.937, valid=True) - running rotation sweep
+[pole_ocr] pass1  rot=0  raw='GT-120'  cleaned='GT-120'  conf=0.924  valid=True
+[pole_ocr] pass1 not confident (conf=0.924, valid=True) - running rotation sweep
+[pole_ocr] pass1  rot=0  raw='ML118'  cleaned='ML118'  conf=0.931  valid=True
+[pole_ocr] pass1 not confident (conf=0.931, valid=True) - running rotation sweep
+[pole_ocr] pass1  rot=0  raw='ML-119X'  cleaned='ML-119X'  conf=0.859  valid=True
+[pole_ocr] pass1 not confident (conf=0.859, valid=True) - running rotation sweep
+[pole_ocr]  rot=    0  raw=      'ML-115'  cleaned=  'ML-115'  conf=0.937  valid=True
+[pole_ocr]  rot=   45  raw=          'IT'  cleaned=      'IT'  conf=0.545  valid=False
+[pole_ocr]  rot=   90  raw=      'ML-115'  cleaned=  'ML-115'  conf=0.840  valid=True
+[pole_ocr]  rot=  135  raw=         'SR:'  cleaned=      'SR'  conf=0.170  valid=False
+[pole_ocr]  rot=  180  raw=       'ML-ML'  cleaned=   'ML-ML'  conf=0.800  valid=False
+[pole_ocr]  rot=  225  raw=           ':'  cleaned=        ''  conf=0.126  valid=False
+[pole_ocr]  rot=  270  raw=      'ML-115'  cleaned=  'ML-115'  conf=0.962  valid=True
+[pole_ocr]  rot=  315  raw=          'IT'  cleaned=      'IT'  conf=0.482  valid=False
+[pole_ocr] -> best text='ML-115'  conf=0.962  valid=True
+[pole_ocr]  rot=    0  raw=      'GT-120'  cleaned=  'GT-120'  conf=0.924  valid=True
+[pole_ocr]  rot=   45  raw=          'IT'  cleaned=      'IT'  conf=0.168  valid=False
+[pole_ocr]  rot=   90  raw=      'GT-120'  cleaned=  'GT-120'  conf=0.724  valid=True
+[pole_ocr]  rot=  135  raw=         '!!!'  cleaned=        ''  conf=0.207  valid=False
+[pole_ocr]  rot=  180  raw=      'GST-19'  cleaned=  'GST-19'  conf=0.510  valid=True
+[pole_ocr]  rot=  225  raw=           '4'  cleaned=       '4'  conf=0.098  valid=True
+[pole_ocr]  rot=  270  raw=      'GT-120'  cleaned=  'GT-120'  conf=0.977  valid=True
+[pole_ocr]  rot=  315  raw=           '%'  cleaned=        ''  conf=0.097  valid=False
+[pole_ocr] -> best text='GT-120'  conf=0.977  valid=True
+[pole_ocr]  rot=    0  raw=       'ML118'  cleaned=   'ML118'  conf=0.931  valid=True
+[pole_ocr]  rot=   45  raw=          'WP'  cleaned=      'WP'  conf=0.439  valid=False
+[pole_ocr]  rot=   90  raw=       'ML118'  cleaned=   'ML118'  conf=0.676  valid=True
+[pole_ocr]  rot=  135  raw=          'WW'  cleaned=      'WW'  conf=0.208  valid=False
+[pole_ocr]  rot=  180  raw=      '8117ML'  cleaned=  '8117ML'  conf=0.437  valid=True
+[pole_ocr] mid-fix pos 1: 'LIP' -> 'L1P'
+[pole_ocr]  rot=  225  raw=         'LIP'  cleaned=     'L1P'  conf=0.141  valid=True
+[pole_ocr]  rot=  270  raw=       'ML118'  cleaned=   'ML118'  conf=0.964  valid=True
+[pole_ocr]  rot=  315  raw=         'WWW'  cleaned=     'WWW'  conf=0.333  valid=False
+[pole_ocr] -> best text='ML118'  conf=0.964  valid=True
+[pole_ocr]  rot=    0  raw=     'ML-119X'  cleaned= 'ML-119X'  conf=0.859  valid=True
+[pole_ocr] mid-fix pos 2: 'CASHIER' -> 'CA5HIER'
+[pole_ocr]  rot=   45  raw=     'CASHIER'  cleaned= 'CA5HIER'  conf=0.109  valid=True
+[pole_ocr]  rot=   90  raw=     'ML-119X'  cleaned= 'ML-119X'  conf=0.721  valid=True
+[pole_ocr]  rot=  135  raw=         'SR:'  cleaned=      'SR'  conf=0.367  valid=False
+[pole_ocr]  rot=  180  raw=     'ML-119X'  cleaned= 'ML-119X'  conf=0.871  valid=True
+[pole_ocr]  rot=  225  raw=        'ITEM'  cleaned=    'ITEM'  conf=0.155  valid=False
+[pole_ocr]  rot=  270  raw=     'ML-119X'  cleaned= 'ML-119X'  conf=0.946  valid=True
+[pole_ocr]  rot=  315  raw=        'ITEM'  cleaned=    'ITEM'  conf=0.195  valid=False
+[pole_ocr] -> best text='ML-119X'  conf=0.946  valid=True
+[pole_ocr] pass1  rot=0  raw='ML-122'  cleaned='ML-122'  conf=0.824  valid=True
+[pole_ocr] pass1 not confident (conf=0.824, valid=True) - running rotation sweep
+[pole_ocr] pass1  rot=0  raw='510667'  cleaned='510667'  conf=0.988  valid=True
+[pole_ocr] -> fast-accept  text='510667'  conf=0.988
+[pole_ocr] -> best text='510667'  conf=0.988  valid=True
+[pole_ocr] pass1  rot=0  raw='ML-123'  cleaned='ML-123'  conf=0.973  valid=True
+[pole_ocr] -> fast-accept  text='ML-123'  conf=0.973
+[pole_ocr] -> best text='ML-123'  conf=0.973  valid=True
+[pole_ocr] pass1  rot=0  raw='ML-124'  cleaned='ML-124'  conf=0.788  valid=True
+[pole_ocr] pass1 not confident (conf=0.788, valid=True) - running rotation sweep
+[pole_ocr]  rot=    0  raw=      'ML-122'  cleaned=  'ML-122'  conf=0.824  valid=True
+[pole_ocr] mid-fix pos 2: 'CASHIER' -> 'CA5HIER'
+[pole_ocr]  rot=   45  raw=     'CASHIER'  cleaned= 'CA5HIER'  conf=0.104  valid=True
+[pole_ocr]  rot=   90  raw=      'ML-122'  cleaned=  'ML-122'  conf=0.901  valid=True
+[pole_ocr]  rot=  135  raw=        'ITEM'  cleaned=    'ITEM'  conf=0.117  valid=False
+[pole_ocr]  rot=  180  raw=      'ML-122'  cleaned=  'ML-122'  conf=0.879  valid=True
+[pole_ocr] mid-fix pos 2: 'CASHIER' -> 'CA5HIER'
+[pole_ocr]  rot=  225  raw=     'CASHIER'  cleaned= 'CA5HIER'  conf=0.072  valid=True
+[pole_ocr]  rot=  270  raw=      'ML-122'  cleaned=  'ML-122'  conf=0.972  valid=True
+[pole_ocr]  rot=  315  raw=           'L'  cleaned=       'L'  conf=0.276  valid=False
+[pole_ocr] -> best text='ML-122'  conf=0.972  valid=True
+[pole_ocr] pass1  rot=0  raw='ML-1215'  cleaned='ML-1215'  conf=0.985  valid=True
+[pole_ocr] -> fast-accept  text='ML-1215'  conf=0.985
+[pole_ocr] -> best text='ML-1215'  conf=0.985  valid=True
+[pole_ocr] pass1  rot=0  raw='ML-1216'  cleaned='ML-1216'  conf=0.860  valid=True
+[pole_ocr] pass1 not confident (conf=0.860, valid=True) - running rotation sweep
+[pole_ocr]  rot=    0  raw=      'ML-124'  cleaned=  'ML-124'  conf=0.788  valid=True
+[pole_ocr]  rot=   45  raw=         'SR:'  cleaned=      'SR'  conf=0.168  valid=False
+[pole_ocr]  rot=   90  raw=      'IM-124'  cleaned=  'IM-124'  conf=0.582  valid=True
+[pole_ocr]  rot=  135  raw=        'ITEM'  cleaned=    'ITEM'  conf=0.286  valid=False
+[pole_ocr]  rot=  180  raw=      'ML-124'  cleaned=  'ML-124'  conf=0.968  valid=True
+[pole_ocr]  rot=  225  raw=          'SR'  cleaned=      'SR'  conf=0.106  valid=False
+[pole_ocr]  rot=  270  raw=      'ML-124'  cleaned=  'ML-124'  conf=0.948  valid=True
+[pole_ocr]  rot=  315  raw=        'ITEM'  cleaned=    'ITEM'  conf=0.387  valid=False
+[pole_ocr] -> best text='ML-124'  conf=0.968  valid=True
+[pole_ocr] pass1  rot=0  raw='ML-127'  cleaned='ML-127'  conf=0.892  valid=True
+[pole_ocr] pass1 not confident (conf=0.892, valid=True) - running rotation sweep
+[pole_ocr] pass1  rot=0  raw='ML-128'  cleaned='ML-128'  conf=0.936  valid=True
+[pole_ocr] pass1 not confident (conf=0.936, valid=True) - running rotation sweep
+[pole_ocr]  rot=    0  raw=     'ML-1216'  cleaned= 'ML-1216'  conf=0.860  valid=True
+[pole_ocr]  rot=   45  raw=        'ITEM'  cleaned=    'ITEM'  conf=0.071  valid=False
+[pole_ocr]  rot=   90  raw=     'ML-1216'  cleaned= 'ML-1216'  conf=0.767  valid=True
+[pole_ocr]  rot=  135  raw=         'SR:'  cleaned=      'SR'  conf=0.339  valid=False
+[pole_ocr]  rot=  180  raw=     'ML-1216'  cleaned= 'ML-1216'  conf=0.739  valid=True
+[pole_ocr]  rot=  225  raw=          '$6'  cleaned=       '6'  conf=0.251  valid=True
+[pole_ocr]  rot=  270  raw=     'ML-1216'  cleaned= 'ML-1216'  conf=0.925  valid=True
+[pole_ocr]  rot=  315  raw=        'ITEM'  cleaned=    'ITEM'  conf=0.192  valid=False
+[pole_ocr] -> best text='ML-1216'  conf=0.925  valid=True
+[pole_ocr] pass1  rot=0  raw='ML-129'  cleaned='ML-129'  conf=0.928  valid=True
+[pole_ocr] pass1 not confident (conf=0.928, valid=True) - running rotation sweep
+[pole_ocr]  rot=    0  raw=      'ML-127'  cleaned=  'ML-127'  conf=0.892  valid=True
+[pole_ocr] mid-fix pos 2: 'CASHIER' -> 'CA5HIER'
+[pole_ocr]  rot=   45  raw=     'CASHIER'  cleaned= 'CA5HIER'  conf=0.102  valid=True
+[pole_ocr]  rot=   90  raw=      'ML-127'  cleaned=  'ML-127'  conf=0.950  valid=True
+[pole_ocr]  rot=  135  raw=          'AM'  cleaned=      'AM'  conf=0.351  valid=False
+[pole_ocr]  rot=  180  raw=      'ML-127'  cleaned=  'ML-127'  conf=0.911  valid=True
+[pole_ocr]  rot=  225  raw=          'AM'  cleaned=      'AM'  conf=0.244  valid=False
+[pole_ocr]  rot=  270  raw=      'ML-127'  cleaned=  'ML-127'  conf=0.971  valid=True
+[pole_ocr]  rot=  315  raw=           'S'  cleaned=       'S'  conf=0.585  valid=False
+[pole_ocr] -> best text='ML-127'  conf=0.971  valid=True
+[pole_ocr]  rot=    0  raw=      'ML-128'  cleaned=  'ML-128'  conf=0.936  valid=True
+[pole_ocr]  rot=   45  raw=          'SR'  cleaned=      'SR'  conf=0.297  valid=False
+[pole_ocr]  rot=   90  raw=      'ML-128'  cleaned=  'ML-128'  conf=0.982  valid=True
+[pole_ocr]  rot=  135  raw=          'SR'  cleaned=      'SR'  conf=0.459  valid=False
+[pole_ocr]  rot=  180  raw=      'ML-128'  cleaned=  'ML-128'  conf=0.851  valid=True
+[pole_ocr]  rot=  225  raw=           '$'  cleaned=        ''  conf=0.305  valid=False
+[pole_ocr]  rot=  270  raw=      'ML-128'  cleaned=  'ML-128'  conf=0.983  valid=True
+[pole_ocr]  rot=  315  raw=           'L'  cleaned=       'L'  conf=0.107  valid=False
+[pole_ocr] -> best text='ML-128'  conf=0.983  valid=True
+[pole_ocr] pass1  rot=0  raw='GT-351'  cleaned='GT-351'  conf=0.809  valid=True
+[pole_ocr] pass1 not confident (conf=0.809, valid=True) - running rotation sweep
+[pole_ocr]  rot=    0  raw=      'ML-129'  cleaned=  'ML-129'  conf=0.928  valid=True
+[pole_ocr]  rot=   45  raw=          'SR'  cleaned=      'SR'  conf=0.393  valid=False
+[pole_ocr]  rot=   90  raw=      'ML-129'  cleaned=  'ML-129'  conf=0.848  valid=True
+[pole_ocr]  rot=  135  raw=          'AM'  cleaned=      'AM'  conf=0.422  valid=False
+[pole_ocr]  rot=  180  raw=      'ML-129'  cleaned=  'ML-129'  conf=0.472  valid=True
+[pole_ocr]  rot=  225  raw=           '4'  cleaned=       '4'  conf=0.169  valid=True
+[pole_ocr]  rot=  270  raw=      'ML-129'  cleaned=  'ML-129'  conf=0.974  valid=True
+[pole_ocr]  rot=  315  raw=           'S'  cleaned=       'S'  conf=0.203  valid=False
+[pole_ocr] -> best text='ML-129'  conf=0.974  valid=True
+[pole_ocr] pass1  rot=0  raw='ML-13'  cleaned='ML-13'  conf=0.900  valid=True
+[pole_ocr] pass1 not confident (conf=0.900, valid=True) - running rotation sweep
+[pole_ocr] pass1  rot=0  raw='GI-35'  cleaned='GI-35'  conf=0.613  valid=True
+[pole_ocr] pass1 not confident (conf=0.613, valid=True) - running rotation sweep
+[pole_ocr]  rot=    0  raw=      'GT-351'  cleaned=  'GT-351'  conf=0.809  valid=True
+[pole_ocr]  rot=   45  raw=          'IT'  cleaned=      'IT'  conf=0.400  valid=False
+[pole_ocr]  rot=   90  raw=      'G1-GST'  cleaned=  'G1-GST'  conf=0.389  valid=False
+[pole_ocr]  rot=  135  raw=           '1'  cleaned=       '1'  conf=0.212  valid=True
+[pole_ocr]  rot=  180  raw=     'ISS -19'  cleaned=  'ISS-19'  conf=0.125  valid=True
+[pole_ocr]  rot=  225  raw=           '4'  cleaned=       '4'  conf=0.323  valid=True
+[pole_ocr]  rot=  270  raw=      'GT-351'  cleaned=  'GT-351'  conf=0.777  valid=True
+[pole_ocr]  rot=  315  raw=           'L'  cleaned=       'L'  conf=0.153  valid=False
+[pole_ocr] -> best text='GT-351'  conf=0.809  valid=True
+[pole_ocr] pass1  rot=0  raw='ML-131'  cleaned='ML-131'  conf=0.848  valid=True
+[pole_ocr] pass1 not confident (conf=0.848, valid=True) - running rotation sweep
+[pole_ocr]  rot=    0  raw=       'ML-13'  cleaned=   'ML-13'  conf=0.900  valid=True
+[pole_ocr]  rot=   45  raw=          'SR'  cleaned=      'SR'  conf=0.160  valid=False
+[pole_ocr]  rot=   90  raw=       'ML-13'  cleaned=   'ML-13'  conf=0.922  valid=True
+[pole_ocr]  rot=  135  raw=          'AM'  cleaned=      'AM'  conf=0.162  valid=False
+[pole_ocr]  rot=  180  raw=       'ML-TM'  cleaned=   'ML-TM'  conf=0.302  valid=False
+[pole_ocr]  rot=  225  raw=          'SR'  cleaned=      'SR'  conf=0.160  valid=False
+[pole_ocr]  rot=  270  raw=       'ML-13'  cleaned=   'ML-13'  conf=0.965  valid=True
+[pole_ocr]  rot=  315  raw=           'S'  cleaned=       'S'  conf=0.320  valid=False
+[pole_ocr] -> best text='ML-13'  conf=0.965  valid=True
+[pole_ocr]  rot=    0  raw=       'GI-35'  cleaned=   'GI-35'  conf=0.613  valid=True
+[pole_ocr]  rot=   45  raw=          'ST'  cleaned=      'ST'  conf=0.332  valid=False
+[pole_ocr]  rot=   90  raw=        'G-15'  cleaned=    'G-15'  conf=0.252  valid=True
+[pole_ocr]  rot=  135  raw=           '%'  cleaned=        ''  conf=0.213  valid=False
+[pole_ocr] mid-fix pos 1: 'GST' -> 'G5T'
+[pole_ocr]  rot=  180  raw=         'GST'  cleaned=     'G5T'  conf=0.131  valid=True
+[pole_ocr]  rot=  225  raw=           ':'  cleaned=        ''  conf=0.183  valid=False
+[pole_ocr]  rot=  270  raw=       'GT-35'  cleaned=   'GT-35'  conf=0.737  valid=True
+[pole_ocr]  rot=  315  raw=          'AA'  cleaned=      'AA'  conf=0.102  valid=False
+[pole_ocr] -> best text='GT-35'  conf=0.737  valid=True
+[pole_ocr] pass1  rot=0  raw='133H'  cleaned='133H'  conf=0.998  valid=True
+[pole_ocr] -> fast-accept  text='133H'  conf=0.998
+[pole_ocr] -> best text='133H'  conf=0.998  valid=True
+[pole_ocr]  rot=    0  raw=      'ML-131'  cleaned=  'ML-131'  conf=0.848  valid=True
+[pole_ocr]  rot=   45  raw=          'IT'  cleaned=      'IT'  conf=0.275  valid=False
+[pole_ocr]  rot=   90  raw=      'ML-131'  cleaned=  'ML-131'  conf=0.921  valid=True
+[pole_ocr]  rot=  135  raw=          'SR'  cleaned=      'SR'  conf=0.183  valid=False
+[pole_ocr]  rot=  180  raw=      'LST-TM'  cleaned=  'LST-TM'  conf=0.380  valid=False
+[pole_ocr]  rot=  225  raw=           ':'  cleaned=        ''  conf=0.129  valid=False
+[pole_ocr]  rot=  270  raw=      'ML-131'  cleaned=  'ML-131'  conf=0.956  valid=True
+[pole_ocr]  rot=  315  raw=           'L'  cleaned=       'L'  conf=0.173  valid=False
+[pole_ocr] -> best text='ML-131'  conf=0.956  valid=True
+[pole_ocr] pass1  rot=0  raw='ML-133G'  cleaned='ML-133G'  conf=0.889  valid=True
+[pole_ocr] pass1 not confident (conf=0.889, valid=True) - running rotation sweep
+[pole_ocr] pass1  rot=0  raw='ML-133'  cleaned='ML-133'  conf=0.996  valid=True
+[pole_ocr] -> fast-accept  text='ML-133'  conf=0.996
+[pole_ocr] -> best text='ML-133'  conf=0.996  valid=True
+[pole_ocr] pass1  rot=0  raw='ML-133'  cleaned='ML-133'  conf=0.982  valid=True
+[pole_ocr] -> fast-accept  text='ML-133'  conf=0.982
+[pole_ocr] -> best text='ML-133'  conf=0.982  valid=True
+[pole_ocr] pass1  rot=0  raw='ML-13313'  cleaned='ML-13313'  conf=0.773  valid=True
+[pole_ocr] pass1 not confident (conf=0.773, valid=True) - running rotation sweep
+[pole_ocr]  rot=    0  raw=     'ML-133G'  cleaned= 'ML-133G'  conf=0.889  valid=True
+[pole_ocr]  rot=   45  raw=          'SR'  cleaned=      'SR'  conf=0.350  valid=False
+[pole_ocr]  rot=   90  raw=     'ML-133G'  cleaned= 'ML-133G'  conf=0.850  valid=True
+[pole_ocr]  rot=  135  raw=         'SR:'  cleaned=      'SR'  conf=0.409  valid=False
+[pole_ocr]  rot=  180  raw=     'ML-1336'  cleaned= 'ML-1336'  conf=0.480  valid=True
+[pole_ocr]  rot=  225  raw=          'IT'  cleaned=      'IT'  conf=0.317  valid=False
+[pole_ocr]  rot=  270  raw=     'ML-1336'  cleaned= 'ML-1336'  conf=0.835  valid=True
+[pole_ocr]  rot=  315  raw=        'ITEM'  cleaned=    'ITEM'  conf=0.236  valid=False
+[pole_ocr] -> best text='ML-133G'  conf=0.889  valid=True
+[pole_ocr] pass1  rot=0  raw='ML-133CL'  cleaned='ML-133CL'  conf=0.873  valid=True
+[pole_ocr] pass1 not confident (conf=0.873, valid=True) - running rotation sweep
+[pole_ocr] pass1  rot=0  raw='33C'  cleaned='33C'  conf=0.826  valid=True
+[pole_ocr] pass1 not confident (conf=0.826, valid=True) - running rotation sweep
+[pole_ocr]  rot=    0  raw=    'ML-13313'  cleaned='ML-13313'  conf=0.773  valid=True
+[pole_ocr]  rot=   45  raw=          'SR'  cleaned=      'SR'  conf=0.102  valid=False
+[pole_ocr]  rot=   90  raw=    'ML-13313'  cleaned='ML-13313'  conf=0.573  valid=True
+[pole_ocr]  rot=  135  raw=         'SR:'  cleaned=      'SR'  conf=0.178  valid=False
+[pole_ocr]  rot=  180  raw=    'ML-13933'  cleaned='ML-13933'  conf=0.274  valid=True
+[pole_ocr]  rot=  225  raw=          'AM'  cleaned=      'AM'  conf=0.358  valid=False
+[pole_ocr]  rot=  270  raw=    'ML-13313'  cleaned='ML-13313'  conf=0.628  valid=True
+[pole_ocr]  rot=  315  raw=        'ITEM'  cleaned=    'ITEM'  conf=0.204  valid=False

@@ -121,6 +121,7 @@ export default function Home() {
   const [cableSpans, setCableSpans] = useState<CableSpanExport[]>([]);
   const [restoredDxfSegments, setRestoredDxfSegments] = useState<Record<string, { x1: number; y1: number; x2: number; y2: number }[]> | null>(null);
   const [restoredCableSpans, setRestoredCableSpans] = useState<any[] | null>(null);
+  const [restoredPoles, setRestoredPoles] = useState<any[] | null>(null);
 
   const pdfExportRef = useRef<(() => void) | null>(null);
   const verificationExportRef = useRef<(() => void) | null>(null);
@@ -508,6 +509,7 @@ export default function Home() {
       console.log("[restore] cache written — poleDone:", full.poles.length > 0, "path:", pendingOpts.dxfPath, "dxfPath state:", dxfPath);
       setRestoredDxfSegments(full.dxf_segments);
       setRestoredCableSpans(restoredSpans);
+      setRestoredPoles(poleTags);
       setResults(results);
       setSegments(segments);
       setStep(3);
@@ -718,7 +720,24 @@ export default function Home() {
 
   const handleSpansChange = useCallback((spans: CableSpanExport[]) => {
     setCableSpans(spans);
-  }, []);
+    const sid = sessionIdRef.current;
+    if (sid && db) {
+      const dbSpans = spans.map((s) => ({
+        span_id: s.span_id,
+        layer: s.layer ?? "",
+        bbox: (s.bbox ?? [0, 0, 0, 0]) as number[],
+        cx: s.cx ?? 0,
+        cy: s.cy ?? 0,
+        total_length: s.total_length ?? 0,
+        meter_value: s.meter_value ?? null,
+        cable_runs: s.cable_runs ?? 1,
+        from_pole: s.from_pole ?? null,
+        to_pole: s.to_pole ?? null,
+        segments: (s as any).segments ?? (s as any).display_segments ?? [],
+      }));
+      db.saveCableSpans(sid, dbSpans).catch((e) => console.warn("[DB] saveCableSpans failed", e));
+    }
+  }, [db]);
 
   const handleStartOver = useCallback(() => {
     pipeline.reset();
@@ -734,6 +753,7 @@ export default function Home() {
     setCableSpans([]);
     setRestoredDxfSegments(null);
     setRestoredCableSpans(null);
+    setRestoredPoles(null);
     sessionIdRef.current = null;
     setSessionId(null);
     setAsbuiltNodeId(null);
@@ -878,9 +898,11 @@ export default function Home() {
                 onCacheUpdate={(data) => handleCacheUpdate(dxfPath, data)}
                 initialSegments={restoredDxfSegments ?? undefined}
                 initialCableSpans={restoredCableSpans ?? undefined}
+                initialPoles={restoredPoles ?? undefined}
                 onInitialDataConsumed={() => {
                   setRestoredDxfSegments(null);
                   setRestoredCableSpans(null);
+                  setRestoredPoles(null);
                 }}
               />
             </div>
@@ -913,6 +935,7 @@ export default function Home() {
                 boundary={globalBoundary}
                 isMaskEnabled={isMaskEnabled}
                 onViewReport={() => setMapTab("dxf")}
+                initialPoles={restoredPoles ?? undefined}
               />
             </div>
 

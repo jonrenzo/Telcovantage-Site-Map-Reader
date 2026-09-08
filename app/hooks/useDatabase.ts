@@ -784,13 +784,14 @@ export function useDatabase() {
     if (!session) return null
 
     // Get counts and config in parallel
-    const [configRes, digitCountRes, equipCountRes, poleCountRes, spanCountRes, boundaryRes] = await Promise.all([
+    const [configRes, digitCountRes, equipCountRes, poleCountRes, spanCountRes, boundaryRes, dxfSegCountRes] = await Promise.all([
       sb.from('session_config').select('*').eq('session_id', session.id).single(),
       sb.from('digit_results').select('id', { count: 'exact', head: true }).eq('session_id', session.id),
       sb.from('equipment_shapes').select('id', { count: 'exact', head: true }).eq('session_id', session.id),
       sb.from('poles').select('id', { count: 'exact', head: true }).eq('session_id', session.id),
       sb.from('cable_spans').select('id', { count: 'exact', head: true }).eq('session_id', session.id).eq('is_deleted', false),
       sb.from('boundaries').select('id').eq('session_id', session.id).single(),
+      sb.from('dxf_segments').select('id', { count: 'exact', head: true }).eq('session_id', session.id),
     ])
 
     return {
@@ -803,6 +804,7 @@ export function useDatabase() {
         poles: poleCountRes.count ?? 0,
         cable_spans: spanCountRes.count ?? 0,
         has_boundary: !!boundaryRes.data,
+        dxf_segments: dxfSegCountRes.count ?? 0,
       },
     }
   }, [getSb])

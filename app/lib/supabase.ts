@@ -181,6 +181,7 @@ export interface SessionSummary {
     poles: number;
     cable_spans: number;
     has_boundary: boolean;
+    dxf_segments?: number;
   };
 }
 

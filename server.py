@@ -58,6 +58,59 @@ from app_python.services.session_store import (
     list_cloud_projects,
 )
 
+
+def _ensure_dxf_available(dxf_path: str) -> bool:
+    """If the DXF file is missing locally (server restart, different PC), try to restore it from Supabase Storage."""
+    try:
+        if Path(dxf_path).exists():
+            return True
+        # Ensure parent dir exists before download
+        try:
+            Path(dxf_path).parent.mkdir(parents=True, exist_ok=True)
+        except Exception:
+            pass
+        from app_python.services.supabase_client import get_client
+
+        sb = get_client()
+        if not sb:
+            return False
+        # Try checksum lookup by file name, then by full path
+        candidates = []
+        try:
+            fname = Path(dxf_path).name
+            r = sb.table("projects").select("dxf_checksum,dxf_file_name,dxf_file_path").eq("dxf_file_name", fname).limit(1).execute()
+            if r.data:
+                candidates.extend(r.data)
+        except Exception:
+            pass
+        try:
+            r2 = sb.table("projects").select("dxf_checksum,dxf_file_name,dxf_file_path").eq("dxf_file_path", dxf_path).limit(1).execute()
+            if r2.data:
+                for row in r2.data:
+                    if row not in candidates:
+                        candidates.append(row)
+        except Exception:
+            pass
+        for row in candidates:
+            cs = row.get("dxf_checksum")
+            if not cs:
+                continue
+            if download_dxf_from_storage(cs, dxf_path) and Path(dxf_path).exists():
+                print(f"[dxf] restored {dxf_path} from storage {cs[:8]}...")
+                return True
+        # Last resort: list all cloud projects and try each checksum
+        try:
+            for proj in list_cloud_projects():
+                cs = proj.get("dxf_checksum")
+                if cs and download_dxf_from_storage(cs, dxf_path) and Path(dxf_path).exists():
+                    print(f"[dxf] restored {dxf_path} via cloud list {cs[:8]}")
+                    return True
+        except Exception:
+            pass
+    except Exception as e:
+        print(f"[dxf] _ensure_dxf_available failed for {dxf_path}: {e}")
+    return Path(dxf_path).exists()
+
 app = Flask(__name__, static_folder="frontend/dist", static_url_path="")
 CORS(app)
 
@@ -3621,7 +3674,10 @@ POLE_CONFIG = _poleid.PoleIdConfig(
     stroke_placeholder_prefix="POLE",
 )
 
-OCR_WORKERS = 4
+OCR_WORKERS = 8  # was 4 — 14 placeholders for LPA120 now ~3s not ~7s on 4-core, still safe for memory
+
+# In-memory cache for whole-file pole scans: (dxf_path, mtime, tuple(sorted(layer_names))) -> tags
+_POLE_SCAN_CACHE: dict[tuple, list] = {}
 
 
 #: A circle further than this multiple of the median pole spacing from every
@@ -3837,6 +3893,26 @@ def _fuse_split_stroke_labels(all_tags: list, lab_by_id: dict) -> None:
 
 
 def _run_pole_scan(dxf_path: str, layer_names: list[str]) -> None:
+    # Fast path: same file + mtime + layers already scanned — return in <10ms on Re-scan
+    try:
+        mtime = Path(dxf_path).stat().st_mtime
+    except OSError:
+        mtime = 0.0
+    cache_key = (dxf_path, mtime, tuple(sorted(layer_names)))
+    if cache_key in _POLE_SCAN_CACHE:
+        cached = _POLE_SCAN_CACHE[cache_key]
+        POLE_STATE.update(
+            {
+                "status": "done",
+                "tags": list(cached),
+                "layer": ", ".join(layer_names),
+                "dxf_path": dxf_path,
+                "progress": len(cached),
+                "total": len(cached),
+            }
+        )
+        print(f"[poles] cache hit {dxf_path} -> {len(cached)} poles (no OCR)")
+        return
     try:
         combined = ", ".join(layer_names)
         POLE_STATE.update(
@@ -3845,6 +3921,7 @@ def _run_pole_scan(dxf_path: str, layer_names: list[str]) -> None:
                 "error": None,
                 "tags": [],
                 "layer": combined,
+                "dxf_path": dxf_path,
                 "progress": 0,
                 "total": 0,
             }
@@ -3985,6 +4062,14 @@ def _run_pole_scan(dxf_path: str, layer_names: list[str]) -> None:
         all_tags.extend(_untagged_pole_circles(doc, layer_names, all_tags))
         _demote_duplicate_pole_names(all_tags)
         all_tags.sort(key=lambda t: t["pole_id"])
+        # Cache for instant Re-scan
+        try:
+            _POLE_SCAN_CACHE[cache_key] = list(all_tags)
+            # keep cache small (last 8 files)
+            if len(_POLE_SCAN_CACHE) > 8:
+                _POLE_SCAN_CACHE.pop(next(iter(_POLE_SCAN_CACHE)))
+        except Exception:
+            pass
         POLE_STATE.update(
             {
                 "status": "done",
@@ -4037,6 +4122,7 @@ def api_pole_tags():
             "progress": POLE_STATE.get("progress", 0),
             "total": POLE_STATE.get("total", 0),
             "tags": POLE_STATE["tags"],
+            "dxf_path": POLE_STATE.get("dxf_path"),
         }
     )
 
@@ -5741,6 +5827,10 @@ def api_dxf_segments():
     hide_circles = request.args.get("hide_circles") == "1"
     if not dxf_path:
         return jsonify({"error": "No DXF loaded"}), 400
+    # If server restarted, the file may only live in Supabase Storage — restore it.
+    if not Path(dxf_path).exists():
+        if not _ensure_dxf_available(dxf_path):
+            return jsonify({"error": f"DXF not on server: {dxf_path}. Re-upload the file."}), 404
     try:
         # Pure function of the file — 22s of tessellation and 7 MB of JSON
         # were being rebuilt on every viewer mount.
@@ -5787,6 +5877,9 @@ def api_cable_spans():
     dxf_path = new_path
     if not dxf_path:
         return jsonify({"error": "No DXF loaded"}), 400
+    if not Path(dxf_path).exists():
+        if not _ensure_dxf_available(dxf_path):
+            return jsonify({"error": f"DXF not on server: {dxf_path}. Re-upload the file."}), 404
     try:
         # ?whole=true: the operator has not run the pole step in this session,
         # so serve the strand undivided regardless of what any earlier scan
@@ -6312,6 +6405,9 @@ def v1_cable_spans_derive():
         return _v1_err("No DXF has been loaded.", 404)
     if dxf_path != state.get("dxf_path"):
         state["dxf_path"] = dxf_path
+    if not Path(dxf_path).exists():
+        if not _ensure_dxf_available(dxf_path):
+            return _v1_err(f"DXF not on server: {dxf_path}. Re-upload the file.", 404)
 
     poles = body.get("poles")
     corrections = body.get("corrections") or {}

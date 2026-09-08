@@ -1,0 +1,21 @@
+WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5050
+ * Running on http://192.168.254.119:5050
+Press CTRL+C to quit
+INFO:     Started server process [2832]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+ERROR:    [Errno 10048] error while attempting to bind on address ('::1', 8000, 0, 0): [winerror 10048] only one usage of each socket address (protocol/network address/port) is normally permitted
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights:   0%|          | 0/478 [00:00<?, ?it/s]Loading weights:  40%|\u2588\u2588\u2588\u2589      | 189/478 [00:00<00:00, 1889.75it/s]Loading weights: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 478/478 [00:00<00:00, 4420.13it/s]
+[transformers] [1mVisionEncoderDecoderModel LOAD REPORT[0m from: microsoft/trocr-base-printed
+Key                         | Status  | 
+----------------------------+---------+-
+encoder.pooler.dense.bias   | MISSING | 
+encoder.pooler.dense.weight | MISSING | 
+
+Notes:
+- MISSING:	those params were newly initialized because missing from the checkpoint. Consider training on your downstream task.
