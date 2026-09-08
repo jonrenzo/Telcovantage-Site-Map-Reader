@@ -456,7 +456,8 @@ export default function PolePanel({
           return (
             <div
               key={tag.pole_id}
-              className={`border-b border-border/50 transition-colors
+              title={`${tag.name} — (${tag.cx.toFixed(1)}, ${tag.cy.toFixed(1)})`}
+              className={`group relative border-b border-border/50 transition-colors
                                 ${
                                   isSelected
                                     ? "bg-[#fef3c7] border-l-2 border-l-[#f59e0b]"
@@ -467,9 +468,14 @@ export default function PolePanel({
             >
               {/* ── Row summary ── */}
               <div
-                className="flex items-center gap-2.5 px-3 py-2 cursor-pointer"
+                className="flex items-center gap-2.5 px-3 py-2 cursor-pointer relative"
                 onClick={() => onSelectTag(isSelected ? null : tag.pole_id)}
               >
+                {/* Hover popup tip beside pole — shows name without clicking pencil */}
+                <div className="pointer-events-none absolute left-full top-1/2 z-20 hidden -translate-y-1/2 translate-x-2 whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1 text-xs font-semibold text-white shadow-lg group-hover:block">
+                  {tag.name} <span className="font-normal opacity-70">({tag.cx.toFixed(0)},{tag.cy.toFixed(0)})</span>
+                  <span className="absolute right-full top-1/2 h-2 w-2 -translate-y-1/2 translate-x-1 rotate-45 bg-slate-900" />
+                </div>
                 {/* Dot */}
                 <div
                   className={`w-2.5 h-2.5 rounded-full flex-shrink-0

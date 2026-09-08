@@ -1,0 +1,2 @@
+[     375ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1b62b738:14337
+[  135183ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://api.telcovantage.com/api/skycable/areas:0

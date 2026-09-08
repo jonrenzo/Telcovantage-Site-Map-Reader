@@ -6,7 +6,7 @@ import type { FileCache } from "../../hooks/useSessionCache";
 import PolePanel from "./Polepanel";
 
 // --- NEW 1: Import the Math Utility ---
-import { isPointInPolygon } from "../../page";
+import { isPointInPolygon } from "../../lib/geo";
 
 interface BoundaryPoint {
   x: number;
@@ -83,6 +83,8 @@ export default function PoleLayout({
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [showOnMap, setShowOnMap] = useState(true);
   const [rotations, setRotations] = useState<Record<number, number>>({});
+  const [hoverTip, setHoverTip] = useState<{ id: number; name: string; x: number; y: number } | null>(null);
+  const [listHoverTip, setListHoverTip] = useState<{ id: number; name: string } | null>(null);
 
   const cropRotation = selectedId !== null ? (rotations[selectedId] ?? 0) : 0;
 
@@ -769,21 +771,50 @@ export default function PoleLayout({
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
-      if (!panRef.current.active) return;
-      const dx = e.clientX - panRef.current.start.x;
-      const dy = e.clientY - panRef.current.start.y;
-      vpRef.current = {
-        ...panRef.current.vpStart,
-        x: panRef.current.vpStart.x + dx,
-        y: panRef.current.vpStart.y + dy,
-      };
-      redraw();
+      if (panRef.current.active) {
+        const dx = e.clientX - panRef.current.start.x;
+        const dy = e.clientY - panRef.current.start.y;
+        vpRef.current = {
+          ...panRef.current.vpStart,
+          x: panRef.current.vpStart.x + dx,
+          y: panRef.current.vpStart.y + dy,
+        };
+        redraw();
+        return;
+      }
+      // Hover tooltip for poles on map (no click needed)
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const rect = canvas.getBoundingClientRect();
+      const vp = vpRef.current;
+      const wx = (e.clientX - rect.left - vp.x) / vp.scale;
+      const wy = -(e.clientY - rect.top - vp.y) / vp.scale;
+      const r = Math.max(1.5, 9 / vp.scale);
+      let closest: PoleTag | null = null;
+      let bestD = Infinity;
+      for (const tag of visibleTagsRef.current) {
+        const d = Math.hypot(tag.cx - wx, tag.cy - wy);
+        if (d < r + 2 / vp.scale && d < bestD) {
+          bestD = d;
+          closest = tag;
+        }
+      }
+      if (closest) {
+        setHoverTip({ id: closest.pole_id, name: closest.name || `POLE_${closest.pole_id}`, x: e.clientX - rect.left, y: e.clientY - rect.top });
+      } else {
+        setHoverTip(null);
+      }
     },
     [redraw],
   );
 
   const handleMouseUp = useCallback(() => {
     panRef.current.active = false;
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    panRef.current.active = false;
+    setHoverTip(null);
   }, []);
 
   const handleCanvasClick = useCallback(
@@ -865,9 +896,19 @@ export default function PoleLayout({
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
+          onMouseLeave={handleMouseLeave}
           onClick={handleCanvasClick}
         />
+        {/* Hover popup tip beside pole on map — shows name without clicking pencil */}
+        {hoverTip && (
+          <div
+            className="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-full rounded-lg bg-slate-900 px-2.5 py-1 text-xs font-semibold text-white shadow-lg"
+            style={{ left: hoverTip.x, top: hoverTip.y - 12 }}
+          >
+            {hoverTip.name}
+            <span className="absolute left-1/2 top-full h-2 w-2 -translate-x-1/2 -translate-y-1 rotate-45 bg-slate-900" />
+          </div>
+        )}
 
         <button
           onClick={fitView}

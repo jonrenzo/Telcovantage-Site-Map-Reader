@@ -4,7 +4,7 @@ import { useRef, useEffect, useCallback, useState } from "react";
 import type { DxfLayerData, EquipmentShape } from "../../types";
 import DxfToolbar from "./DxfToolbar";
 import DxfLayerPanel from "./DxfLayerPanel";
-import { isPointInPolygon } from "../../page";
+import { isPointInPolygon } from "../../lib/geo";
 
 interface BoundaryPoint {
   x: number;

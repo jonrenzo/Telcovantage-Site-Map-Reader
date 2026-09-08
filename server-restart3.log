@@ -934,3 +934,522 @@
 [asbuilt] Connection failed for https://asbuilt.telcovantage.com/api/v1/asbuilt/node/6: HTTPSConnectionPool(host='asbuilt.telcovantage.com', port=443): Max retries exceeded with url: /api/v1/asbuilt/node/6 (Caused by ConnectTimeoutError(<HTTPSConnection(host='asbuilt.telcovantage.com', port=443) at 0x226940387d0>, 'Connection to asbuilt.telcovantage.com timed out. (connect timeout=30)'))
 [asbuilt] Connection failed for https://saddlebrown-wolf-799636.hostingersite.com/api/v1/asbuilt/node/6: ('Connection aborted.', ConnectionResetError(10054, 'An existing connection was forcibly closed by the remote host', None, 10054, None))
 [asbuilt] Connection failed for https://asbuilt.telcovantage.com/api/v1/asbuilt/node/6: HTTPSConnectionPool(host='asbuilt.telcovantage.com', port=443): Max retries exceeded with url: /api/v1/asbuilt/node/6 (Caused by ConnectTimeoutError(<HTTPSConnection(host='asbuilt.telcovantage.com', port=443) at 0x22694039e50>, 'Connection to asbuilt.telcovantage.com timed out. (connect timeout=30)'))
+[asbuilt] Connection failed for https://saddlebrown-wolf-799636.hostingersite.com/api/v1/asbuilt/node/6: HTTPSConnectionPool(host='saddlebrown-wolf-799636.hostingersite.com', port=443): Max retries exceeded with url: /api/v1/asbuilt/node/6 (Caused by NameResolutionError("HTTPSConnection(host='saddlebrown-wolf-799636.hostingersite.com', port=443): Failed to resolve 'saddlebrown-wolf-799636.hostingersite.com' ([Errno 11001] getaddrinfo failed)"))
+[strand] supplement: 4 street-length route(s) and 0 dash fragment(s) kept, 0 lone/glyph-adjacent dropped, 101 glyph fragment(s) fenced off
+[strand] 53 segment(s) taken from ['PDF_SKY-Lipa$0$RICKLEE_STRAND', 'PDF_SKY-Lipa$0$RICKLEE_STRANDDISTANCE'] where the Cable layers have no linework
+[strand] supplement: 0 street-length route(s) and 0 dash fragment(s) kept, 0 lone/glyph-adjacent dropped, 101 glyph fragment(s) fenced off
+[whole-cable] 1 stray symbol stroke(s)/curl(s)/island(s) dropped from the preview
+[strand] supplement: 2 street-length route(s) and 0 dash fragment(s) kept, 0 lone/glyph-adjacent dropped, 146 glyph fragment(s) fenced off
+[strand] 26 segment(s) taken from ['PDF_Batangas$Geomap$STRAND'] where the Cable layers have no linework
+[spans] bypass dropped: NPT-070-1332 passes 102765
+[spans] bypass dropped: POLE_037-UP-141 passes NPT-077
+[spans] bypass dropped: 2773-2775 passes 2774
+[spans] bypass dropped: 2-3889 passes NPT-064
+[spans] bypass dropped: 2-NPT-063 passes NPT-064
+[spans] bypass dropped: NPT-077-NPT-062 passes UP-141
+[strand] supplement: 2 street-length route(s) and 0 dash fragment(s) kept, 0 lone/glyph-adjacent dropped, 146 glyph fragment(s) fenced off
+[strand] 26 segment(s) taken from ['PDF_Batangas$Geomap$STRAND'] where the Cable layers have no linework
+[spans] bypass dropped: NPT-070-1332 passes 102765
+[spans] bypass dropped: POLE_037-UP-141 passes NPT-077
+[spans] bypass dropped: 2773-2775 passes 2774
+[spans] bypass dropped: 2-3889 passes NPT-064
+[spans] bypass dropped: 2-NPT-063 passes NPT-064
+[spans] bypass dropped: NPT-077-NPT-062 passes UP-141
+[strand] supplement: 2 street-length route(s) and 0 dash fragment(s) kept, 0 lone/glyph-adjacent dropped, 146 glyph fragment(s) fenced off
+[strand] 26 segment(s) taken from ['PDF_Batangas$Geomap$STRAND'] where the Cable layers have no linework
+[spans] bypass dropped: NPT-070-1332 passes 102765
+[spans] bypass dropped: POLE_037-UP-141 passes NPT-077
+[spans] bypass dropped: 2773-2775 passes 2774
+[spans] bypass dropped: 2-3889 passes NPT-064
+[spans] bypass dropped: 2-NPT-063 passes NPT-064
+[spans] bypass dropped: NPT-077-NPT-062 passes UP-141
+[strand] supplement: 2 street-length route(s) and 0 dash fragment(s) kept, 0 lone/glyph-adjacent dropped, 146 glyph fragment(s) fenced off
+[strand] 26 segment(s) taken from ['PDF_Batangas$Geomap$STRAND'] where the Cable layers have no linework
+[spans] bypass dropped: NPT-070-1332 passes 102765
+[spans] bypass dropped: POLE_037-UP-141 passes NPT-077
+[spans] bypass dropped: 2773-2775 passes 2774
+[spans] bypass dropped: 2-3889 passes NPT-064
+[spans] bypass dropped: 2-NPT-063 passes NPT-064
+[spans] bypass dropped: NPT-077-NPT-062 passes UP-141
+[strand] supplement: 4 street-length route(s) and 0 dash fragment(s) kept, 0 lone/glyph-adjacent dropped, 101 glyph fragment(s) fenced off
+[strand] 53 segment(s) taken from ['PDF_SKY-Lipa$0$RICKLEE_STRAND', 'PDF_SKY-Lipa$0$RICKLEE_STRANDDISTANCE'] where the Cable layers have no linework
+[strand] supplement: 2 street-length route(s) and 0 dash fragment(s) kept, 0 lone/glyph-adjacent dropped, 125 glyph fragment(s) fenced off
+[strand] 28 segment(s) taken from ['PDF_SKY-Lipa$0$RICKLEE_STRAND', 'PDF_SKY-Lipa$0$RICKLEE_STRANDDISTANCE'] where the Cable layers have no linework
+[convert] Starting PDF conversion for job 9b99baed-1b82-456f-8d6b-33c9619e2baf: uploads\LPA039.pdf
+[upload] PDF conversion job started: 9b99baed-1b82-456f-8d6b-33c9619e2baf
+[convert] Job 9b99baed-1b82-456f-8d6b-33c9619e2baf completed: C:\zander\Telcovantage-Site-Map-Reader\uploads\LPA039.dxf
+[run_pipeline] adaptive scale=1.001  connect_tol=0.2002  cable_segs=48  (ref=0.0125)
+[run_pipeline] adaptive scale=0.472  connect_tol=0.0944  cable_segs=739  (ref=0.0125)
+[strand] supplement: 0 street-length route(s) and 0 dash fragment(s) kept, 0 lone/glyph-adjacent dropped, 101 glyph fragment(s) fenced off
+[whole-cable] 13 stray symbol stroke(s)/curl(s)/island(s) dropped from the preview
+[whole-cable] 103 stray symbol stroke(s)/curl(s)/island(s) dropped from the preview
+[strand_recognizer] flip-fix: '81'@180(1.00) -> '18'@0(1.00)  density 3 -> 38
+[pole_ocr] pass1  rot=0  raw='LPN'  cleaned='LPN'  conf=0.175  valid=False
+[pole_ocr] pass1 not confident (conf=0.175, valid=False) - running rotation sweep
+[pole_ocr] pass1  rot=0  raw='LPN'  cleaned='LPN'  conf=0.197  valid=False
+[pole_ocr] pass1 not confident (conf=0.197, valid=False) - running rotation sweep
+[pole_ocr] pass1  rot=0  raw='NPT'  cleaned='NPT'  conf=0.645  valid=True
+[pole_ocr] pass1 not confident (conf=0.645, valid=True) - running rotation sweep
+[pole_ocr] pass1  rot=0  raw='6'  cleaned='6'  conf=0.360  valid=True
+[pole_ocr] pass1 not confident (conf=0.360, valid=True) - running rotation sweep
+[pole_ocr] mid-fix pos 1: 'LON' -> 'L0N'
+[pole_ocr] pass1  rot=0  raw='LON'  cleaned='L0N'  conf=0.169  valid=True
+[pole_ocr] pass1 not confident (conf=0.169, valid=True) - running rotation sweep
+[pole_ocr] pass1  rot=0  raw='S'  cleaned='S'  conf=0.658  valid=False
+[pole_ocr] pass1 not confident (conf=0.658, valid=False) - running rotation sweep
+[pole_ocr] pass1  rot=0  raw='NPT'  cleaned='NPT'  conf=0.492  valid=True
+[pole_ocr] pass1 not confident (conf=0.492, valid=True) - running rotation sweep
+[pole_ocr] pass1  rot=0  raw='LPN'  cleaned='LPN'  conf=0.227  valid=False
+[pole_ocr] pass1 not confident (conf=0.227, valid=False) - running rotation sweep
+[pole_ocr]  rot=    0  raw=         'LPN'  cleaned=     'LPN'  conf=0.175  valid=False
+[pole_ocr] mid-fix pos 1: 'LOV' -> 'L0V'
+[pole_ocr]  rot=   45  raw=         'LOV'  cleaned=     'L0V'  conf=0.176  valid=True
+[pole_ocr] mid-fix pos 1: 'LBN' -> 'L8N'
+[pole_ocr]  rot=   90  raw=         'LBN'  cleaned=     'L8N'  conf=0.809  valid=True
+[pole_ocr]  rot=  135  raw=         'LPN'  cleaned=     'LPN'  conf=0.238  valid=False
+[pole_ocr]  rot=  180  raw=         'NPT'  cleaned=     'NPT'  conf=0.849  valid=True
+[pole_ocr]  rot=  225  raw=         'NPT'  cleaned=     'NPT'  conf=0.966  valid=True
+[pole_ocr]  rot=  270  raw=         'NPT'  cleaned=     'NPT'  conf=0.986  valid=True
+[pole_ocr]  rot=  315  raw=         'NPT'  cleaned=     'NPT'  conf=0.949  valid=True
+[pole_ocr] -> best text='NPT'  conf=0.986  valid=True
+[pole_ocr]  rot=    0  raw=         'LPN'  cleaned=     'LPN'  conf=0.197  valid=False
+[pole_ocr] mid-fix pos 1: 'LOV' -> 'L0V'
+[pole_ocr]  rot=   45  raw=         'LOV'  cleaned=     'L0V'  conf=0.223  valid=True
+[pole_ocr] mid-fix pos 1: 'LBN' -> 'L8N'
+[pole_ocr]  rot=   90  raw=         'LBN'  cleaned=     'L8N'  conf=0.729  valid=True
+[pole_ocr]  rot=  135  raw=         'LPN'  cleaned=     'LPN'  conf=0.319  valid=False
+[pole_ocr]  rot=  180  raw=         'NPT'  cleaned=     'NPT'  conf=0.928  valid=True
+[pole_ocr]  rot=  225  raw=         'NPT'  cleaned=     'NPT'  conf=0.960  valid=True
+[pole_ocr]  rot=  270  raw=         'NPT'  cleaned=     'NPT'  conf=0.987  valid=True
+[pole_ocr]  rot=  315  raw=         'NPT'  cleaned=     'NPT'  conf=0.952  valid=True
+[pole_ocr] -> best text='NPT'  conf=0.987  valid=True
+[pole_ocr]  rot=    0  raw=         'NPT'  cleaned=     'NPT'  conf=0.645  valid=True
+[pole_ocr]  rot=   45  raw=         'NPT'  cleaned=     'NPT'  conf=0.983  valid=True
+[pole_ocr] mid-fix pos 1: 'VOL' -> 'V0L'
+[pole_ocr]  rot=   90  raw=         'VOL'  cleaned=     'V0L'  conf=0.501  valid=True
+[pole_ocr]  rot=  135  raw=         'LDN'  cleaned=     'LDN'  conf=0.341  valid=False
+[pole_ocr] mid-fix pos 1: 'YON' -> 'Y0N'
+[pole_ocr]  rot=  180  raw=         'YON'  cleaned=     'Y0N'  conf=0.290  valid=True
+[pole_ocr]  rot=  225  raw=         'LPN'  cleaned=     'LPN'  conf=0.380  valid=False
+[pole_ocr]  rot=  270  raw=           '2'  cleaned=       '2'  conf=0.315  valid=True
+[pole_ocr]  rot=  315  raw=         'NPT'  cleaned=     'NPT'  conf=0.968  valid=True
+[pole_ocr] -> best text='NPT'  conf=0.983  valid=True
+[pole_ocr]  rot=    0  raw=           '6'  cleaned=       '6'  conf=0.360  valid=True
+[pole_ocr]  rot=   45  raw=          '52'  cleaned=      '52'  conf=0.995  valid=True
+[pole_ocr]  rot=   90  raw=           '5'  cleaned=       '5'  conf=0.721  valid=True
+[pole_ocr]  rot=  135  raw=          '52'  cleaned=      '52'  conf=0.518  valid=True
+[pole_ocr]  rot=  180  raw=          '19'  cleaned=      '19'  conf=0.179  valid=True
+[pole_ocr]  rot=  225  raw=          '52'  cleaned=      '52'  conf=0.584  valid=True
+[pole_ocr]  rot=  270  raw=           'S'  cleaned=       'S'  conf=0.349  valid=False
+[pole_ocr]  rot=  315  raw=          '52'  cleaned=      '52'  conf=0.983  valid=True
+[pole_ocr] -> best text='52'  conf=0.995  valid=True
+[pole_ocr] mid-fix pos 1: 'LON' -> 'L0N'
+[pole_ocr]  rot=    0  raw=         'LON'  cleaned=     'L0N'  conf=0.169  valid=True
+[pole_ocr] mid-fix pos 1: 'LOV' -> 'L0V'
+[pole_ocr]  rot=   45  raw=         'LOV'  cleaned=     'L0V'  conf=0.141  valid=True
+[pole_ocr] mid-fix pos 1: 'LBN' -> 'L8N'
+[pole_ocr]  rot=   90  raw=         'LBN'  cleaned=     'L8N'  conf=0.552  valid=True
+[pole_ocr]  rot=  135  raw=         'LPN'  cleaned=     'LPN'  conf=0.549  valid=False
+[pole_ocr]  rot=  180  raw=         'NPT'  cleaned=     'NPT'  conf=0.889  valid=True
+[pole_ocr]  rot=  225  raw=         'NPT'  cleaned=     'NPT'  conf=0.966  valid=True
+[pole_ocr]  rot=  270  raw=         'NPT'  cleaned=     'NPT'  conf=0.989  valid=True
+[pole_ocr]  rot=  315  raw=         'NPT'  cleaned=     'NPT'  conf=0.886  valid=True
+[pole_ocr] -> best text='NPT'  conf=0.989  valid=True
+[pole_ocr]  rot=    0  raw=           'S'  cleaned=       'S'  conf=0.658  valid=False
+[pole_ocr]  rot=   45  raw=          '50'  cleaned=      '50'  conf=0.998  valid=True
+[pole_ocr]  rot=   90  raw=          '50'  cleaned=      '50'  conf=0.996  valid=True
+[pole_ocr]  rot=  135  raw=           'S'  cleaned=       'S'  conf=0.479  valid=False
+[pole_ocr]  rot=  180  raw=           'S'  cleaned=       'S'  conf=0.571  valid=False
+[pole_ocr]  rot=  225  raw=          '09'  cleaned=      '09'  conf=0.613  valid=True
+[pole_ocr]  rot=  270  raw=          '09'  cleaned=      '09'  conf=0.872  valid=True
+[pole_ocr]  rot=  315  raw=          '50'  cleaned=      '50'  conf=0.957  valid=True
+[pole_ocr] -> best text='50'  conf=0.998  valid=True
+[pole_ocr]  rot=    0  raw=         'NPT'  cleaned=     'NPT'  conf=0.492  valid=True
+[pole_ocr]  rot=   45  raw=         'NPT'  cleaned=     'NPT'  conf=0.992  valid=True
+[pole_ocr] mid-fix pos 1: 'VOL' -> 'V0L'
+[pole_ocr]  rot=   90  raw=         'VOL'  cleaned=     'V0L'  conf=0.692  valid=True
+[pole_ocr]  rot=  135  raw=         'LPN'  cleaned=     'LPN'  conf=0.312  valid=False
+[pole_ocr] mid-fix pos 1: 'LON' -> 'L0N'
+[pole_ocr]  rot=  180  raw=         'LON'  cleaned=     'L0N'  conf=0.300  valid=True
+[pole_ocr]  rot=  225  raw=         'LPN'  cleaned=     'LPN'  conf=0.384  valid=False
+[pole_ocr]  rot=  270  raw=           '2'  cleaned=       '2'  conf=0.243  valid=True
+[pole_ocr]  rot=  315  raw=         'NPT'  cleaned=     'NPT'  conf=0.985  valid=True
+[pole_ocr] -> best text='NPT'  conf=0.992  valid=True
+[pole_ocr]  rot=    0  raw=         'LPN'  cleaned=     'LPN'  conf=0.227  valid=False
+[pole_ocr] mid-fix pos 1: 'LOV' -> 'L0V'
+[pole_ocr]  rot=   45  raw=         'LOV'  cleaned=     'L0V'  conf=0.118  valid=True
+[pole_ocr] mid-fix pos 1: 'LBN' -> 'L8N'
+[pole_ocr]  rot=   90  raw=         'LBN'  cleaned=     'L8N'  conf=0.790  valid=True
+[pole_ocr]  rot=  135  raw=         'LPN'  cleaned=     'LPN'  conf=0.405  valid=False
+[pole_ocr]  rot=  180  raw=         'NPT'  cleaned=     'NPT'  conf=0.854  valid=True
+[pole_ocr]  rot=  225  raw=         'NPT'  cleaned=     'NPT'  conf=0.971  valid=True
+[pole_ocr]  rot=  270  raw=         'NPT'  cleaned=     'NPT'  conf=0.987  valid=True
+[pole_ocr]  rot=  315  raw=         'NPT'  cleaned=     'NPT'  conf=0.950  valid=True
+[pole_ocr] -> best text='NPT'  conf=0.987  valid=True
+[pole_ocr] pass1  rot=0  raw='NPT'  cleaned='NPT'  conf=0.503  valid=True
+[pole_ocr] pass1 not confident (conf=0.503, valid=True) - running rotation sweep
+[pole_ocr] pass1  rot=0  raw='NPT'  cleaned='NPT'  conf=0.307  valid=True
+[pole_ocr] pass1 not confident (conf=0.307, valid=True) - running rotation sweep
+[pole_ocr] pass1  rot=0  raw='NPT'  cleaned='NPT'  conf=0.521  valid=True
+[pole_ocr] pass1 not confident (conf=0.521, valid=True) - running rotation sweep
+[pole_ocr] pass1  rot=0  raw='LPN'  cleaned='LPN'  conf=0.362  valid=False
+[pole_ocr] pass1 not confident (conf=0.362, valid=False) - running rotation sweep
+[pole_ocr] pass1  rot=0  raw='%'  cleaned=''  conf=0.206  valid=False
+[pole_ocr] pass1 not confident (conf=0.206, valid=False) - running rotation sweep
+[pole_ocr] mid-fix pos 1: 'LON' -> 'L0N'
+[pole_ocr] pass1  rot=0  raw='LON'  cleaned='L0N'  conf=0.162  valid=True
+[pole_ocr] pass1 not confident (conf=0.162, valid=True) - running rotation sweep
+[pole_ocr] pass1  rot=0  raw='NPT'  cleaned='NPT'  conf=0.261  valid=True
+[pole_ocr] pass1 not confident (conf=0.261, valid=True) - running rotation sweep
+[pole_ocr] pass1  rot=0  raw='LPN'  cleaned='LPN'  conf=0.261  valid=False
+[pole_ocr] pass1 not confident (conf=0.261, valid=False) - running rotation sweep
+[pole_ocr]  rot=    0  raw=         'NPT'  cleaned=     'NPT'  conf=0.503  valid=True
+[pole_ocr]  rot=   45  raw=         'NPT'  cleaned=     'NPT'  conf=0.990  valid=True
+[pole_ocr] mid-fix pos 1: 'VOL' -> 'V0L'
+[pole_ocr]  rot=   90  raw=         'VOL'  cleaned=     'V0L'  conf=0.625  valid=True
+[pole_ocr]  rot=  135  raw=         'LPN'  cleaned=     'LPN'  conf=0.329  valid=False
+[pole_ocr]  rot=  180  raw=         'L&N'  cleaned=     'L&N'  conf=0.230  valid=False
+[pole_ocr]  rot=  225  raw=         'LPN'  cleaned=     'LPN'  conf=0.523  valid=False
+[pole_ocr]  rot=  270  raw=           '2'  cleaned=       '2'  conf=0.233  valid=True
+[pole_ocr]  rot=  315  raw=         'NPT'  cleaned=     'NPT'  conf=0.986  valid=True
+[pole_ocr] -> best text='NPT'  conf=0.990  valid=True
+[pole_ocr]  rot=    0  raw=         'NPT'  cleaned=     'NPT'  conf=0.307  valid=True
+[pole_ocr]  rot=   45  raw=         'NPT'  cleaned=     'NPT'  conf=0.987  valid=True
+[pole_ocr]  rot=   90  raw=         'NPT'  cleaned=     'NPT'  conf=0.691  valid=True
+[pole_ocr]  rot=  135  raw=         'LPN'  cleaned=     'LPN'  conf=0.192  valid=False
+[pole_ocr] mid-fix pos 1: 'LOV' -> 'L0V'
+[pole_ocr]  rot=  180  raw=         'LOV'  cleaned=     'L0V'  conf=0.633  valid=True
+[pole_ocr] mid-fix pos 1: 'LBN' -> 'L8N'
+[pole_ocr]  rot=  225  raw=         'LBN'  cleaned=     'L8N'  conf=0.253  valid=True
+[pole_ocr]  rot=  270  raw=         'LPN'  cleaned=     'LPN'  conf=0.235  valid=False
+[pole_ocr]  rot=  315  raw=         'NET'  cleaned=     'NET'  conf=0.604  valid=False
+[pole_ocr] -> best text='NPT'  conf=0.987  valid=True
+[pole_ocr]  rot=    0  raw=         'NPT'  cleaned=     'NPT'  conf=0.521  valid=True
+[pole_ocr]  rot=   45  raw=         'NPT'  cleaned=     'NPT'  conf=0.988  valid=True
+[pole_ocr]  rot=   90  raw=         'NPT'  cleaned=     'NPT'  conf=0.685  valid=True
+[pole_ocr]  rot=  135  raw=          'LN'  cleaned=      'LN'  conf=0.387  valid=False
+[pole_ocr] mid-fix pos 1: 'LOV' -> 'L0V'
+[pole_ocr]  rot=  180  raw=         'LOV'  cleaned=     'L0V'  conf=0.590  valid=True
+[pole_ocr]  rot=  225  raw=         'LPN'  cleaned=     'LPN'  conf=0.290  valid=False
+[pole_ocr]  rot=  270  raw=         'LPN'  cleaned=     'LPN'  conf=0.254  valid=False
+[pole_ocr]  rot=  315  raw=         'NPT'  cleaned=     'NPT'  conf=0.438  valid=True
+[pole_ocr] -> best text='NPT'  conf=0.988  valid=True
+[pole_ocr]  rot=    0  raw=         'LPN'  cleaned=     'LPN'  conf=0.362  valid=False
+[pole_ocr] mid-fix pos 1: 'LOV' -> 'L0V'
+[pole_ocr]  rot=   45  raw=         'LOV'  cleaned=     'L0V'  conf=0.141  valid=True
+[pole_ocr] mid-fix pos 1: 'LBN' -> 'L8N'
+[pole_ocr]  rot=   90  raw=         'LBN'  cleaned=     'L8N'  conf=0.658  valid=True
+[pole_ocr]  rot=  135  raw=         'LPN'  cleaned=     'LPN'  conf=0.399  valid=False
+[pole_ocr]  rot=  180  raw=         'NPT'  cleaned=     'NPT'  conf=0.915  valid=True
+[pole_ocr]  rot=  225  raw=         'NPT'  cleaned=     'NPT'  conf=0.951  valid=True
+[pole_ocr]  rot=  270  raw=         'NPT'  cleaned=     'NPT'  conf=0.988  valid=True
+[pole_ocr]  rot=  315  raw=         'NPT'  cleaned=     'NPT'  conf=0.914  valid=True
+[pole_ocr] -> best text='NPT'  conf=0.988  valid=True
+[pole_ocr]  rot=    0  raw=           '%'  cleaned=        ''  conf=0.206  valid=False
+[pole_ocr]  rot=   45  raw=          '48'  cleaned=      '48'  conf=0.999  valid=True
+[pole_ocr]  rot=   90  raw=          '*8'  cleaned=       '8'  conf=0.433  valid=True
+[pole_ocr]  rot=  135  raw=          '84'  cleaned=      '84'  conf=0.586  valid=True
+[pole_ocr]  rot=  180  raw=          '8%'  cleaned=       '8'  conf=0.441  valid=True
+[pole_ocr]  rot=  225  raw=          '84'  cleaned=      '84'  conf=0.533  valid=True
+[pole_ocr]  rot=  270  raw=          '8%'  cleaned=       '8'  conf=0.847  valid=True
+[pole_ocr]  rot=  315  raw=          '48'  cleaned=      '48'  conf=0.991  valid=True
+[pole_ocr] -> best text='48'  conf=0.999  valid=True
+[pole_ocr] mid-fix pos 1: 'LON' -> 'L0N'
+[pole_ocr]  rot=    0  raw=         'LON'  cleaned=     'L0N'  conf=0.162  valid=True
+[pole_ocr] mid-fix pos 1: 'LOV' -> 'L0V'
+[pole_ocr]  rot=   45  raw=         'LOV'  cleaned=     'L0V'  conf=0.194  valid=True
+[pole_ocr] mid-fix pos 1: 'LBN' -> 'L8N'
+[pole_ocr]  rot=   90  raw=         'LBN'  cleaned=     'L8N'  conf=0.578  valid=True
+[pole_ocr]  rot=  135  raw=         'LPN'  cleaned=     'LPN'  conf=0.473  valid=False
+[pole_ocr]  rot=  180  raw=         'NPT'  cleaned=     'NPT'  conf=0.896  valid=True
+[pole_ocr]  rot=  225  raw=         'NPT'  cleaned=     'NPT'  conf=0.925  valid=True
+[pole_ocr]  rot=  270  raw=         'NPT'  cleaned=     'NPT'  conf=0.987  valid=True
+[pole_ocr]  rot=  315  raw=         'NPT'  cleaned=     'NPT'  conf=0.900  valid=True
+[pole_ocr] -> best text='NPT'  conf=0.987  valid=True
+[pole_ocr]  rot=    0  raw=         'NPT'  cleaned=     'NPT'  conf=0.261  valid=True
+[pole_ocr]  rot=   45  raw=         'NPT'  cleaned=     'NPT'  conf=0.987  valid=True
+[pole_ocr]  rot=   90  raw=         'NPT'  cleaned=     'NPT'  conf=0.451  valid=True
+[pole_ocr]  rot=  135  raw=          'LN'  cleaned=      'LN'  conf=0.165  valid=False
+[pole_ocr] mid-fix pos 1: 'LOV' -> 'L0V'
+[pole_ocr]  rot=  180  raw=         'LOV'  cleaned=     'L0V'  conf=0.584  valid=True
+[pole_ocr]  rot=  225  raw=         'LAN'  cleaned=     'LAN'  conf=0.269  valid=False
+[pole_ocr]  rot=  270  raw=         '<SN'  cleaned=      'SN'  conf=0.221  valid=False
+[pole_ocr]  rot=  315  raw=         'NET'  cleaned=     'NET'  conf=0.725  valid=False
+[pole_ocr] -> best text='NPT'  conf=0.987  valid=True
+[pole_ocr]  rot=    0  raw=         'LPN'  cleaned=     'LPN'  conf=0.261  valid=False
+[pole_ocr] mid-fix pos 1: 'LOV' -> 'L0V'
+[pole_ocr]  rot=   45  raw=         'LOV'  cleaned=     'L0V'  conf=0.138  valid=True
+[pole_ocr] mid-fix pos 1: 'LBN' -> 'L8N'
+[pole_ocr]  rot=   90  raw=         'LBN'  cleaned=     'L8N'  conf=0.693  valid=True
+[pole_ocr]  rot=  135  raw=         'LPN'  cleaned=     'LPN'  conf=0.364  valid=False
+[pole_ocr]  rot=  180  raw=         'NPT'  cleaned=     'NPT'  conf=0.919  valid=True
+[pole_ocr]  rot=  225  raw=         'NPT'  cleaned=     'NPT'  conf=0.920  valid=True
+[pole_ocr]  rot=  270  raw=         'NPT'  cleaned=     'NPT'  conf=0.990  valid=True
+[pole_ocr]  rot=  315  raw=         'NPT'  cleaned=     'NPT'  conf=0.930  valid=True
+[pole_ocr] -> best text='NPT'  conf=0.990  valid=True
+[pole_ocr] pass1  rot=0  raw='6'  cleaned='6'  conf=0.229  valid=True
+[pole_ocr] pass1 not confident (conf=0.229, valid=True) - running rotation sweep
+[pole_ocr] pass1  rot=0  raw='NPT'  cleaned='NPT'  conf=0.331  valid=True
+[pole_ocr] pass1 not confident (conf=0.331, valid=True) - running rotation sweep
+[pole_ocr] pass1  rot=0  raw='NPT'  cleaned='NPT'  conf=0.328  valid=True
+[pole_ocr] pass1 not confident (conf=0.328, valid=True) - running rotation sweep
+[pole_ocr] pass1  rot=0  raw='LPN'  cleaned='LPN'  conf=0.340  valid=False
+[pole_ocr] pass1 not confident (conf=0.340, valid=False) - running rotation sweep
+[pole_ocr] pass1  rot=0  raw='1517'  cleaned='1517'  conf=0.990  valid=True
+[pole_ocr] -> fast-accept  text='1517'  conf=0.990
+[pole_ocr] -> best text='1517'  conf=0.990  valid=True
+[pole_ocr] mid-fix pos 1: 'DISPLA' -> 'D1SPLA'
+[pole_ocr] pass1  rot=0  raw='DISPLA'  cleaned='D1SPLA'  conf=0.097  valid=True
+[pole_ocr] pass1 not confident (conf=0.097, valid=True) - running rotation sweep
+[pole_ocr] pass1  rot=0  raw='LPN'  cleaned='LPN'  conf=0.325  valid=False
+[pole_ocr] pass1 not confident (conf=0.325, valid=False) - running rotation sweep
+[pole_ocr] pass1  rot=0  raw='288'  cleaned='288'  conf=0.248  valid=True
+[pole_ocr] pass1 not confident (conf=0.248, valid=True) - running rotation sweep
+[pole_ocr]  rot=    0  raw=           '6'  cleaned=       '6'  conf=0.229  valid=True
+[pole_ocr]  rot=   45  raw=          '46'  cleaned=      '46'  conf=0.987  valid=True
+[pole_ocr]  rot=   90  raw=          '*6'  cleaned=       '6'  conf=0.445  valid=True
+[pole_ocr]  rot=  135  raw=          '94'  cleaned=      '94'  conf=0.583  valid=True
+[pole_ocr]  rot=  180  raw=           '%'  cleaned=        ''  conf=0.381  valid=False
+[pole_ocr]  rot=  225  raw=          '9V'  cleaned=      '9V'  conf=0.360  valid=True
+[pole_ocr]  rot=  270  raw=          '9%'  cleaned=       '9'  conf=0.859  valid=True
+[pole_ocr]  rot=  315  raw=          '46'  cleaned=      '46'  conf=0.989  valid=True
+[pole_ocr] -> best text='46'  conf=0.989  valid=True
+[pole_ocr]  rot=    0  raw=         'NPT'  cleaned=     'NPT'  conf=0.331  valid=True
+[pole_ocr]  rot=   45  raw=         'NPT'  cleaned=     'NPT'  conf=0.981  valid=True
+[pole_ocr]  rot=   90  raw=         'NPT'  cleaned=     'NPT'  conf=0.734  valid=True
+[pole_ocr]  rot=  135  raw=          'LN'  cleaned=      'LN'  conf=0.324  valid=False
+[pole_ocr] mid-fix pos 1: 'LOV' -> 'L0V'
+[pole_ocr]  rot=  180  raw=         'LOV'  cleaned=     'L0V'  conf=0.576  valid=True
+[pole_ocr] mid-fix pos 1: 'LBN' -> 'L8N'
+[pole_ocr]  rot=  225  raw=         'LBN'  cleaned=     'L8N'  conf=0.388  valid=True
+[pole_ocr] mid-fix pos 1: 'LOV' -> 'L0V'
+[pole_ocr]  rot=  270  raw=         'LOV'  cleaned=     'L0V'  conf=0.208  valid=True
+[pole_ocr]  rot=  315  raw=         'NPT'  cleaned=     'NPT'  conf=0.631  valid=True
+[pole_ocr] -> best text='NPT'  conf=0.981  valid=True
+[pole_ocr]  rot=    0  raw=         'NPT'  cleaned=     'NPT'  conf=0.328  valid=True
+[pole_ocr]  rot=   45  raw=         'NPT'  cleaned=     'NPT'  conf=0.985  valid=True
+[pole_ocr]  rot=   90  raw=         'NPT'  cleaned=     'NPT'  conf=0.769  valid=True
+[pole_ocr]  rot=  135  raw=         'LPN'  cleaned=     'LPN'  conf=0.422  valid=False
+[pole_ocr] mid-fix pos 1: 'LOV' -> 'L0V'
+[pole_ocr]  rot=  180  raw=         'LOV'  cleaned=     'L0V'  conf=0.519  valid=True
+[pole_ocr] mid-fix pos 1: 'LBN' -> 'L8N'
+[pole_ocr]  rot=  225  raw=         'LBN'  cleaned=     'L8N'  conf=0.265  valid=True
+[pole_ocr]  rot=  270  raw=         'LPN'  cleaned=     'LPN'  conf=0.199  valid=False
+[pole_ocr]  rot=  315  raw=         'NPT'  cleaned=     'NPT'  conf=0.603  valid=True
+[pole_ocr] -> best text='NPT'  conf=0.985  valid=True
+[pole_ocr]  rot=    0  raw=         'LPN'  cleaned=     'LPN'  conf=0.340  valid=False
+[pole_ocr] mid-fix pos 1: 'LOV' -> 'L0V'
+[pole_ocr]  rot=   45  raw=         'LOV'  cleaned=     'L0V'  conf=0.239  valid=True
+[pole_ocr] mid-fix pos 1: 'LBN' -> 'L8N'
+[pole_ocr]  rot=   90  raw=         'LBN'  cleaned=     'L8N'  conf=0.698  valid=True
+[pole_ocr]  rot=  135  raw=         'LPN'  cleaned=     'LPN'  conf=0.378  valid=False
+[pole_ocr]  rot=  180  raw=         'NPT'  cleaned=     'NPT'  conf=0.900  valid=True
+[pole_ocr]  rot=  225  raw=         'NPT'  cleaned=     'NPT'  conf=0.957  valid=True
+[pole_ocr]  rot=  270  raw=         'NPT'  cleaned=     'NPT'  conf=0.989  valid=True
+[pole_ocr]  rot=  315  raw=         'NPT'  cleaned=     'NPT'  conf=0.950  valid=True
+[pole_ocr] -> best text='NPT'  conf=0.989  valid=True
+[pole_ocr] pass1  rot=0  raw='1518'  cleaned='1518'  conf=0.998  valid=True
+[pole_ocr] -> fast-accept  text='1518'  conf=0.998
+[pole_ocr] -> best text='1518'  conf=0.998  valid=True
+[pole_ocr] mid-fix pos 1: 'DISPLA' -> 'D1SPLA'
+[pole_ocr]  rot=    0  raw=      'DISPLA'  cleaned=  'D1SPLA'  conf=0.097  valid=True
+[pole_ocr]  rot=   45  raw=        'IT 1'  cleaned=     'IT1'  conf=0.139  valid=True
+[pole_ocr]  rot=   90  raw=      'SALE %'  cleaned=    'SALE'  conf=0.175  valid=False
+[pole_ocr]  rot=  135  raw=           ':'  cleaned=        ''  conf=0.049  valid=False
+[pole_ocr]  rot=  180  raw=           '%'  cleaned=        ''  conf=0.507  valid=False
+[pole_ocr]  rot=  225  raw=          'RM'  cleaned=      'RM'  conf=0.105  valid=False
+[pole_ocr]  rot=  270  raw=       '% SR2'  cleaned=     'SR2'  conf=0.362  valid=True
+[pole_ocr]  rot=  315  raw=        '6.37'  cleaned=    '6.37'  conf=0.241  valid=False
+[pole_ocr] -> best text='SR2'  conf=0.362  valid=True
+[pole_ocr]  rot=    0  raw=         'LPN'  cleaned=     'LPN'  conf=0.325  valid=False
+[pole_ocr] mid-fix pos 1: 'LOV' -> 'L0V'
+[pole_ocr]  rot=   45  raw=         'LOV'  cleaned=     'L0V'  conf=0.455  valid=True
+[pole_ocr] mid-fix pos 1: 'LBN' -> 'L8N'
+[pole_ocr]  rot=   90  raw=         'LBN'  cleaned=     'L8N'  conf=0.701  valid=True
+[pole_ocr]  rot=  135  raw=         'LPN'  cleaned=     'LPN'  conf=0.290  valid=False
+[pole_ocr]  rot=  180  raw=         'NPT'  cleaned=     'NPT'  conf=0.966  valid=True
+[pole_ocr]  rot=  225  raw=         'NPT'  cleaned=     'NPT'  conf=0.874  valid=True
+[pole_ocr]  rot=  270  raw=         'NPT'  cleaned=     'NPT'  conf=0.990  valid=True
+[pole_ocr]  rot=  315  raw=         'NPT'  cleaned=     'NPT'  conf=0.897  valid=True
+[pole_ocr] -> best text='NPT'  conf=0.990  valid=True
+[pole_ocr]  rot=    0  raw=         '288'  cleaned=     '288'  conf=0.248  valid=True
+[pole_ocr]  rot=   45  raw=        '2898'  cleaned=    '2898'  conf=0.999  valid=True
+[pole_ocr]  rot=   90  raw=        '2898'  cleaned=    '2898'  conf=0.613  valid=True
+[pole_ocr]  rot=  135  raw=        '2898'  cleaned=    '2898'  conf=0.888  valid=True
+[pole_ocr]  rot=  180  raw=         '@6%'  cleaned=       '6'  conf=0.107  valid=True
+[pole_ocr]  rot=  225  raw=       '2868Z'  cleaned=   '2868Z'  conf=0.405  valid=True
+[pole_ocr]  rot=  270  raw=         '869'  cleaned=     '869'  conf=0.496  valid=True
+[pole_ocr]  rot=  315  raw=        '2898'  cleaned=    '2898'  conf=0.956  valid=True
+[pole_ocr] -> best text='2898'  conf=0.999  valid=True
+[pole_ocr] pass1  rot=0  raw='LPN'  cleaned='LPN'  conf=0.141  valid=False
+[pole_ocr] pass1 not confident (conf=0.141, valid=False) - running rotation sweep
+[pole_ocr] pass1  rot=0  raw='1481'  cleaned='1481'  conf=0.990  valid=True
+[pole_ocr] -> fast-accept  text='1481'  conf=0.990
+[pole_ocr] -> best text='1481'  conf=0.990  valid=True
+[pole_ocr] pass1  rot=0  raw='GST-LOP'  cleaned='GST-LOP'  conf=0.252  valid=False
+[pole_ocr] pass1 not confident (conf=0.252, valid=False) - running rotation sweep
+[pole_ocr] pass1  rot=0  raw='PT-34'  cleaned='PT-34'  conf=0.931  valid=True
+[pole_ocr] pass1 not confident (conf=0.931, valid=True) - running rotation sweep
+[pole_ocr] pass1  rot=0  raw='LPN'  cleaned='LPN'  conf=0.399  valid=False
+[pole_ocr] pass1 not confident (conf=0.399, valid=False) - running rotation sweep
+[pole_ocr] pass1  rot=0  raw='SR'  cleaned='SR'  conf=0.564  valid=False
+[pole_ocr] pass1 not confident (conf=0.564, valid=False) - running rotation sweep
+[pole_ocr] pass1  rot=0  raw='1480'  cleaned='1480'  conf=0.988  valid=True
+[pole_ocr] -> fast-accept  text='1480'  conf=0.988
+[pole_ocr] -> best text='1480'  conf=0.988  valid=True
+[pole_ocr] pass1  rot=0  raw='LPN'  cleaned='LPN'  conf=0.383  valid=False
+[pole_ocr] pass1 not confident (conf=0.383, valid=False) - running rotation sweep
+[pole_ocr]  rot=    0  raw=         'LPN'  cleaned=     'LPN'  conf=0.141  valid=False
+[pole_ocr] mid-fix pos 1: 'LOV' -> 'L0V'
+[pole_ocr]  rot=   45  raw=         'LOV'  cleaned=     'L0V'  conf=0.216  valid=True
+[pole_ocr] mid-fix pos 1: 'LBN' -> 'L8N'
+[pole_ocr]  rot=   90  raw=         'LBN'  cleaned=     'L8N'  conf=0.561  valid=True
+[pole_ocr]  rot=  135  raw=         'LPN'  cleaned=     'LPN'  conf=0.581  valid=False
+[pole_ocr]  rot=  180  raw=         'NPT'  cleaned=     'NPT'  conf=0.906  valid=True
+[pole_ocr]  rot=  225  raw=         'NPT'  cleaned=     'NPT'  conf=0.926  valid=True
+[pole_ocr]  rot=  270  raw=         'NPT'  cleaned=     'NPT'  conf=0.987  valid=True
+[pole_ocr]  rot=  315  raw=         'NPT'  cleaned=     'NPT'  conf=0.846  valid=True
+[pole_ocr] -> best text='NPT'  conf=0.987  valid=True
+[pole_ocr] pass1  rot=0  raw='SR-19 CVS'  cleaned='SR-19CVS'  conf=0.274  valid=True
+[pole_ocr] pass1 not confident (conf=0.274, valid=True) - running rotation sweep
+[pole_ocr]  rot=    0  raw=     'GST-LOP'  cleaned= 'GST-LOP'  conf=0.252  valid=False
+[pole_ocr]  rot=   45  raw=      'GST-10'  cleaned=  'GST-10'  conf=0.078  valid=True
+[pole_ocr]  rot=   90  raw=      'GST-1D'  cleaned=  'GST-1D'  conf=0.333  valid=True
+[pole_ocr]  rot=  135  raw=      'ASI-Ld'  cleaned=  'ASI-LD'  conf=0.298  valid=False
+[pole_ocr]  rot=  180  raw=      'PT-153'  cleaned=  'PT-153'  conf=0.361  valid=True
+[pole_ocr] mid-fix pos 3: 'PERIPT' -> 'PER1PT'
+[pole_ocr]  rot=  225  raw=      'PERIPT'  cleaned=  'PER1PT'  conf=0.271  valid=True
+[pole_ocr]  rot=  270  raw=     'PT-153F'  cleaned= 'PT-153F'  conf=0.727  valid=True
+[pole_ocr]  rot=  315  raw=      'PT-153'  cleaned=  'PT-153'  conf=0.813  valid=True
+[pole_ocr] -> best text='PT-153'  conf=0.813  valid=True
+[pole_ocr]  rot=    0  raw=       'PT-34'  cleaned=   'PT-34'  conf=0.931  valid=True
+[pole_ocr]  rot=   45  raw=       'PT-34'  cleaned=   'PT-34'  conf=0.971  valid=True
+[pole_ocr]  rot=   90  raw=       'PT-34'  cleaned=   'PT-34'  conf=0.703  valid=True
+[pole_ocr] mid-fix pos 2: 'PLIP' -> 'PL1P'
+[pole_ocr]  rot=  135  raw=        'PLIP'  cleaned=    'PL1P'  conf=0.070  valid=True
+[pole_ocr]  rot=  180  raw=       'PL-Ld'  cleaned=   'PL-LD'  conf=0.204  valid=False
+[pole_ocr]  rot=  225  raw=       '#S-LD'  cleaned=    'S-LD'  conf=0.357  valid=False
+[pole_ocr]  rot=  270  raw=       'PL-34'  cleaned=   'PL-34'  conf=0.579  valid=True
+[pole_ocr]  rot=  315  raw=       'PT-34'  cleaned=   'PT-34'  conf=0.445  valid=True
+[pole_ocr] -> best text='PT-34'  conf=0.971  valid=True
+[pole_ocr]  rot=    0  raw=         'LPN'  cleaned=     'LPN'  conf=0.399  valid=False
+[pole_ocr] mid-fix pos 1: 'LOV' -> 'L0V'
+[pole_ocr]  rot=   45  raw=         'LOV'  cleaned=     'L0V'  conf=0.563  valid=True
+[pole_ocr] mid-fix pos 1: 'LBN' -> 'L8N'
+[pole_ocr]  rot=   90  raw=         'LBN'  cleaned=     'L8N'  conf=0.675  valid=True
+[pole_ocr]  rot=  135  raw=         'LPN'  cleaned=     'LPN'  conf=0.311  valid=False
+[pole_ocr]  rot=  180  raw=         'NPT'  cleaned=     'NPT'  conf=0.948  valid=True
+[pole_ocr]  rot=  225  raw=         'NPT'  cleaned=     'NPT'  conf=0.878  valid=True
+[pole_ocr]  rot=  270  raw=         'NPT'  cleaned=     'NPT'  conf=0.989  valid=True
+[pole_ocr]  rot=  315  raw=         'NPT'  cleaned=     'NPT'  conf=0.934  valid=True
+[pole_ocr] -> best text='NPT'  conf=0.989  valid=True
+[pole_ocr]  rot=    0  raw=          'SR'  cleaned=      'SR'  conf=0.564  valid=False
+[pole_ocr]  rot=   45  raw=        'ATTL'  cleaned=    'ATTL'  conf=0.682  valid=False
+[pole_ocr]  rot=   90  raw=         '***'  cleaned=        ''  conf=0.153  valid=False
+[pole_ocr]  rot=  135  raw=           ':'  cleaned=        ''  conf=0.152  valid=False
+[pole_ocr]  rot=  180  raw=          'VA'  cleaned=      'VA'  conf=0.109  valid=False
+[pole_ocr]  rot=  225  raw=        'ALLY'  cleaned=    'ALLY'  conf=0.361  valid=False
+[pole_ocr]  rot=  270  raw=           '<'  cleaned=        ''  conf=0.557  valid=False
+[pole_ocr]  rot=  315  raw=         'AFR'  cleaned=     'AFR'  conf=0.272  valid=False
+[pole_ocr] -> best text='ATTL'  conf=0.682  valid=False
+[pole_ocr] pass1  rot=0  raw='NPT'  cleaned='NPT'  conf=0.203  valid=True
+[pole_ocr] pass1 not confident (conf=0.203, valid=True) - running rotation sweep
+[pole_ocr]  rot=    0  raw=         'LPN'  cleaned=     'LPN'  conf=0.383  valid=False
+[pole_ocr] mid-fix pos 1: 'LOV' -> 'L0V'
+[pole_ocr]  rot=   45  raw=         'LOV'  cleaned=     'L0V'  conf=0.515  valid=True
+[pole_ocr] mid-fix pos 1: 'LBN' -> 'L8N'
+[pole_ocr]  rot=   90  raw=         'LBN'  cleaned=     'L8N'  conf=0.684  valid=True
+[pole_ocr]  rot=  135  raw=         'LPN'  cleaned=     'LPN'  conf=0.325  valid=False
+[pole_ocr]  rot=  180  raw=         'NPT'  cleaned=     'NPT'  conf=0.948  valid=True
+[pole_ocr]  rot=  225  raw=         'NPT'  cleaned=     'NPT'  conf=0.874  valid=True
+[pole_ocr]  rot=  270  raw=         'NPT'  cleaned=     'NPT'  conf=0.989  valid=True
+[pole_ocr]  rot=  315  raw=         'NPT'  cleaned=     'NPT'  conf=0.928  valid=True
+[pole_ocr] -> best text='NPT'  conf=0.989  valid=True
+[pole_ocr] pass1  rot=0  raw='?'  cleaned=''  conf=0.171  valid=False
+[pole_ocr] pass1 not confident (conf=0.171, valid=False) - running rotation sweep
+[pole_ocr]  rot=    0  raw=   'SR-19 CVS'  cleaned='SR-19CVS'  conf=0.274  valid=True
+[pole_ocr] mid-fix pos 2: 'AMOUNT' -> 'AM0UNT'
+[pole_ocr]  rot=   45  raw=      'AMOUNT'  cleaned=  'AM0UNT'  conf=0.101  valid=True
+[pole_ocr]  rot=   90  raw=  'SR-19 SALE'  cleaned='SR-19SALE'  conf=0.226  valid=True
+[pole_ocr]  rot=  135  raw=      '8-0 CC'  cleaned=   '8-0CC'  conf=0.184  valid=True
+[pole_ocr]  rot=  180  raw=   'SRG G1-81'  cleaned='SRGG1-81'  conf=0.303  valid=True
+[pole_ocr] mid-fix pos 2: 'AMOUNT' -> 'AM0UNT'
+[pole_ocr]  rot=  225  raw=      'AMOUNT'  cleaned=  'AM0UNT'  conf=0.298  valid=True
+[pole_ocr]  rot=  270  raw=   '373 GL-81'  cleaned='373GL-81'  conf=0.331  valid=False
+[pole_ocr]  rot=  315  raw=    'SRU GTAX'  cleaned= 'SRUGTAX'  conf=0.201  valid=False
+[pole_ocr] -> best text='SRGG1-81'  conf=0.303  valid=True
+[pole_ocr] mid-fix pos 1: 'LOS' -> 'L0S'
+[pole_ocr] pass1  rot=0  raw='LOS'  cleaned='L0S'  conf=0.110  valid=True
+[pole_ocr] pass1 not confident (conf=0.110, valid=True) - running rotation sweep
+[pole_ocr] mid-fix pos 1: 'SO' -> 'S0'
+[pole_ocr] pass1  rot=0  raw='SO*'  cleaned='S0'  conf=0.250  valid=True
+[pole_ocr] pass1 not confident (conf=0.250, valid=True) - running rotation sweep
+[pole_ocr] pass1  rot=0  raw='2305'  cleaned='2305'  conf=0.831  valid=True
+[pole_ocr] pass1 not confident (conf=0.831, valid=True) - running rotation sweep
+[pole_ocr] pass1  rot=0  raw='NPT'  cleaned='NPT'  conf=0.988  valid=True
+[pole_ocr] -> fast-accept  text='NPT'  conf=0.988
+[pole_ocr] -> best text='NPT'  conf=0.988  valid=True
+[pole_ocr]  rot=    0  raw=         'NPT'  cleaned=     'NPT'  conf=0.203  valid=True
+[pole_ocr]  rot=   45  raw=         'NPT'  cleaned=     'NPT'  conf=0.985  valid=True
+[pole_ocr]  rot=   90  raw=         'NPT'  cleaned=     'NPT'  conf=0.845  valid=True
+[pole_ocr]  rot=  135  raw=          'LN'  cleaned=      'LN'  conf=0.435  valid=False
+[pole_ocr] mid-fix pos 1: 'LOV' -> 'L0V'
+[pole_ocr]  rot=  180  raw=         'LOV'  cleaned=     'L0V'  conf=0.622  valid=True
+[pole_ocr]  rot=  225  raw=         'LPN'  cleaned=     'LPN'  conf=0.288  valid=False
+[pole_ocr]  rot=  270  raw=         'LPN'  cleaned=     'LPN'  conf=0.213  valid=False
+[pole_ocr]  rot=  315  raw=         'NET'  cleaned=     'NET'  conf=0.467  valid=False
+[pole_ocr] -> best text='NPT'  conf=0.985  valid=True
+[pole_ocr]  rot=    0  raw=           '?'  cleaned=        ''  conf=0.171  valid=False
+[pole_ocr]  rot=   45  raw=        '2302'  cleaned=    '2302'  conf=0.899  valid=True
+[pole_ocr] mid-fix pos 1: 'ROP' -> 'R0P'
+[pole_ocr]  rot=   90  raw=         'ROP'  cleaned=     'R0P'  conf=0.481  valid=True
+[pole_ocr]  rot=  135  raw=        '2062'  cleaned=    '2062'  conf=0.236  valid=True
+[pole_ocr] mid-fix pos 1: 'LOS' -> 'L0S'
+[pole_ocr]  rot=  180  raw=         'LOS'  cleaned=     'L0S'  conf=0.327  valid=True
+[pole_ocr] mid-fix pos 1: 'ZOKZ' -> 'Z0KZ'
+[pole_ocr]  rot=  225  raw=        'ZOKZ'  cleaned=    'Z0KZ'  conf=0.199  valid=True
+[pole_ocr] mid-fix pos 1: 'COODS' -> 'C0ODS'
+[pole_ocr]  rot=  270  raw=       'COODS'  cleaned=   'C0ODS'  conf=0.168  valid=True
+[pole_ocr]  rot=  315  raw=        '2.02'  cleaned=    '2.02'  conf=0.783  valid=False
+[pole_ocr] -> best text='2302'  conf=0.899  valid=True
+[pole_ocr] mid-fix pos 1: 'LOS' -> 'L0S'
+[pole_ocr]  rot=    0  raw=         'LOS'  cleaned=     'L0S'  conf=0.110  valid=True
+[pole_ocr]  rot=   45  raw=        '2303'  cleaned=    '2303'  conf=0.819  valid=True
+[pole_ocr]  rot=   90  raw=           '2'  cleaned=       '2'  conf=0.170  valid=True
+[pole_ocr]  rot=  135  raw=         '203'  cleaned=     '203'  conf=0.328  valid=True
+[pole_ocr]  rot=  180  raw=          '$6'  cleaned=       '6'  conf=0.271  valid=True
+[pole_ocr]  rot=  225  raw=        '2062'  cleaned=    '2062'  conf=0.165  valid=True
+[pole_ocr]  rot=  270  raw=           '$'  cleaned=        ''  conf=0.257  valid=False
+[pole_ocr]  rot=  315  raw=         '203'  cleaned=     '203'  conf=0.684  valid=True
+[pole_ocr] -> best text='2303'  conf=0.819  valid=True
+[pole_ocr] mid-fix pos 1: 'SO' -> 'S0'
+[pole_ocr]  rot=    0  raw=         'SO*'  cleaned=      'S0'  conf=0.250  valid=True
+[pole_ocr]  rot=   45  raw=        '2304'  cleaned=    '2304'  conf=0.806  valid=True
+[pole_ocr] mid-fix pos 1: 'POX' -> 'P0X'
+[pole_ocr]  rot=   90  raw=         'POX'  cleaned=     'P0X'  conf=0.195  valid=True
+[pole_ocr]  rot=  135  raw=        '2.04'  cleaned=    '2.04'  conf=0.134  valid=False
+[pole_ocr]  rot=  180  raw=         '405'  cleaned=     '405'  conf=0.209  valid=True
+[pole_ocr]  rot=  225  raw=       '4.00Z'  cleaned=   '4.00Z'  conf=0.142  valid=False
+[pole_ocr]  rot=  270  raw=           '*'  cleaned=        ''  conf=0.651  valid=False
+[pole_ocr]  rot=  315  raw=        '2304'  cleaned=    '2304'  conf=0.653  valid=True
+[pole_ocr] -> best text='2304'  conf=0.806  valid=True
+[pole_ocr]  rot=    0  raw=        '2305'  cleaned=    '2305'  conf=0.831  valid=True
+[pole_ocr]  rot=   45  raw=         '205'  cleaned=     '205'  conf=0.963  valid=True
+[pole_ocr]  rot=   90  raw=        '2.05'  cleaned=    '2.05'  conf=0.770  valid=False
+[pole_ocr]  rot=  135  raw=         'SAL'  cleaned=     'SAL'  conf=0.152  valid=False
+[pole_ocr]  rot=  180  raw=        '9ORZ'  cleaned=    '9ORZ'  conf=0.175  valid=True
+[pole_ocr]  rot=  225  raw=         '907'  cleaned=     '907'  conf=0.233  valid=True
+[pole_ocr]  rot=  270  raw=        '2305'  cleaned=    '2305'  conf=0.568  valid=True
+[pole_ocr]  rot=  315  raw=         '205'  cleaned=     '205'  conf=0.577  valid=True
+[pole_ocr] -> best text='205'  conf=0.963  valid=True
+[poles] 3 untagged pole circle(s) added from the pole layer
+[poles] 21 pole(s) demoted to NPT placeholders — duplicate name of another circle
+[strand] supplement: 4 street-length route(s) and 0 dash fragment(s) kept, 0 lone/glyph-adjacent dropped, 96 glyph fragment(s) fenced off
+[strand] 55 segment(s) taken from ['PDF_Batangas$Geomap$STRAND'] where the Cable layers have no linework
+[spans] bypass dropped: NPT-047-1481 passes PT-34
+[poles] cache hit C:\zander\Telcovantage-Site-Map-Reader\uploads\LPA039.dxf -> 43 poles (no OCR)
+[poles] cache hit C:\zander\Telcovantage-Site-Map-Reader\uploads\LPA039.dxf -> 43 poles (no OCR)
+[strand] supplement: 4 street-length route(s) and 0 dash fragment(s) kept, 0 lone/glyph-adjacent dropped, 96 glyph fragment(s) fenced off
+[strand] 55 segment(s) taken from ['PDF_Batangas$Geomap$STRAND'] where the Cable layers have no linework
+[strand] supplement: 4 street-length route(s) and 0 dash fragment(s) kept, 0 lone/glyph-adjacent dropped, 96 glyph fragment(s) fenced off
+[strand] 55 segment(s) taken from ['PDF_Batangas$Geomap$STRAND'] where the Cable layers have no linework

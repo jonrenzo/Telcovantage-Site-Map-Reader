@@ -2,8 +2,7 @@
 
 import { useRef, useEffect, useCallback } from "react";
 import type { DigitResult, Segment, FilterMode } from "../types";
-// --- NEW: Import the math utility from page.tsx (adjust path if necessary) ---
-import { isPointInPolygon, findNoWireNearbyIndices } from "../page";
+import { isPointInPolygon, findNoWireNearbyIndices } from "../lib/geo";
 
 interface BoundaryPoint {
   x: number;

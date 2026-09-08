@@ -4,7 +4,7 @@ import { useRef, useEffect, useCallback, useState, useMemo } from "react";
 import type { EquipmentShape, BoundaryPoint, Segment } from "../../types";
 
 // --- Import the math utility ---
-import { isPointInPolygon, findNoWireNearbyIndices } from "../../page";
+import { isPointInPolygon, findNoWireNearbyIndices } from "../../lib/geo";
 
 interface Props {
   segments: Segment[];

@@ -9,7 +9,7 @@ import DetailPanel from "./DetailPanel";
 import ReviewModal from "./ReviewModal";
 
 // --- NEW: Import the math utility from page.tsx ---
-import { isPointInPolygon, findNoWireNearbyIndices } from "../page";
+import { isPointInPolygon, findNoWireNearbyIndices } from "../lib/geo";
 
 interface BoundaryPoint {
   x: number;

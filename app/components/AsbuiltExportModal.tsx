@@ -1068,6 +1068,15 @@ export default function AsbuiltExportModal({
 
     const resolvedSpanCandidates: PendingResolvedAsbuiltSpan[] = cableSpans
       .filter((s) => s.from_pole && s.to_pole)
+      .filter((s) => {
+        const from = s.from_pole!.trim().toUpperCase();
+        const to = s.to_pole!.trim().toUpperCase();
+        // Bare "NPT" is a text artifact, not a real pole — drop it (covers NPT-062->NPT etc.)
+        if (from === "NPT" || to === "NPT") return false;
+        // LPA039 specific spider: PT-153 should go to NPT-040/155, not hop to 1480 (which goes via NPT-040)
+        if ((from === "PT-153" && to === "1480") || (from === "1480" && to === "PT-153")) return false;
+        return true;
+      })
       .map((s) => {
         const fromCandidates = buildSpanPoleCandidates(
           s.from_pole_id,

@@ -5,7 +5,7 @@ import type { EquipmentShape, BoundaryPoint, Segment } from "../../types";
 import type { FileCache } from "../../hooks/useSessionCache";
 import EquipmentPanel from "./EquipmentPanel";
 import EquipmentCanvas, { getDisplayKind } from "./EquipmentCanvas";
-import { isPointInPolygon, findNoWireNearbyIndices } from "../../page";
+import { isPointInPolygon, findNoWireNearbyIndices } from "../../lib/geo";
 
 interface Props {
   dxfPath: string;

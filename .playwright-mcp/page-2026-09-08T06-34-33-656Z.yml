@@ -1,0 +1,80 @@
+- generic [ref=e2]:
+  - text: 󰅂 󰅂 󰅂 󰅂
+  - navigation [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - link [ref=e6] [cursor=pointer]:
+          - /url: "#"
+          - img "Logo" [ref=e7]
+        - button "Toggle menu" [ref=e8] [cursor=pointer]:
+          - generic [ref=e9]: 
+      - generic [ref=e10]:
+        - text: 
+        - generic [ref=e11]:
+          - button "" [ref=e12] [cursor=pointer]
+          - button [ref=e15] [cursor=pointer]
+          - button [ref=e23] [cursor=pointer]
+          - button "TS" [ref=e28] [cursor=pointer]: 󰅀
+  - generic [ref=e30]:
+    - generic [ref=e33]:
+      - generic [ref=e35]:
+        - navigation [ref=e36]:
+          - generic [ref=e37]: Span Management
+        - generic [ref=e39]:
+          - generic [ref=e40]:
+            - generic [ref=e41]: Network Control
+            - heading "All Sites" [level=2] [ref=e43]
+            - paragraph [ref=e44]: Select a site to open nodes, pole mapping, span status, runs, and expected cable details.
+          - generic [ref=e46]:
+            - generic [ref=e47]: Online
+            - generic [ref=e52]:
+              - generic [ref=e53]: 
+              - generic [ref=e54]: "Synced:"
+              - generic [ref=e55]: Never
+            - generic [ref=e56]:
+              - button "" [ref=e57] [cursor=pointer]
+              - button "" [ref=e59] [cursor=pointer]
+      - generic [ref=e61]:
+        - article [ref=e62]:
+          - generic [ref=e64]:
+            - generic [ref=e65]:
+              - paragraph [ref=e66]: Total Sites
+              - heading "0" [level=3] [ref=e67]
+              - paragraph [ref=e68]: available sites
+            - generic [ref=e69]: 
+        - article [ref=e71]:
+          - generic [ref=e73]:
+            - generic [ref=e74]:
+              - paragraph [ref=e75]: Total Nodes
+              - heading "0" [level=3] [ref=e76]
+              - paragraph [ref=e77]: site coverage
+            - generic [ref=e78]: 
+        - article [ref=e80]:
+          - generic [ref=e82]:
+            - generic [ref=e83]:
+              - paragraph [ref=e84]: Total Spans
+              - heading "..." [level=3] [ref=e85]
+              - paragraph [ref=e86]: all span records
+            - generic [ref=e87]: 
+        - article [ref=e89]:
+          - generic [ref=e91]:
+            - generic [ref=e92]:
+              - paragraph [ref=e93]: Finished Span
+              - heading "..." [level=3] [ref=e94]
+              - paragraph [ref=e95]: completed
+            - generic [ref=e96]: 
+        - article [ref=e98]:
+          - generic [ref=e100]:
+            - generic [ref=e101]:
+              - paragraph [ref=e102]: Pending Span
+              - heading "..." [level=3] [ref=e103]
+              - paragraph [ref=e104]: waiting
+            - generic [ref=e105]: 
+    - contentinfo [ref=e148]:
+      - generic [ref=e149]:
+        - generic [ref=e150]: © 2026 Telcovantage Philippines
+        - generic [ref=e151]:
+          - text: Design & Develop by
+          - link "Telcovantage Developers" [ref=e152] [cursor=pointer]:
+            - /url: "#"
+  - button [ref=e155] [cursor=pointer]
